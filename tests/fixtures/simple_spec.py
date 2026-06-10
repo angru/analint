@@ -1,5 +1,5 @@
 from enum import Enum
-from analint import Entity, BusinessRule, UseCase, Scenario, Spec, Expect
+from analint import Entity, Action, Scenario, Spec, Expect
 
 
 class ItemStatus(Enum):
@@ -17,29 +17,19 @@ class Budget(Entity):
     amount: float
 
 
-rule_price = BusinessRule(
-    id="price-positive",
-    name="Item price must be positive",
-    expression=Item.price > 0,
-)
-
-rule_budget = BusinessRule(
-    id="budget-covers",
-    name="Budget must cover item price",
-    expression=Budget.amount >= Item.price,
-)
-
-uc_buy = UseCase(
+buy = Action(
     id="buy",
     name="Buy item",
-    entities=[Item, Budget],
-    rules=[rule_price, rule_budget],
+    pre=[
+        Item.price > 0,
+        Budget.amount >= Item.price,
+    ],
 )
 
 sc_ok = Scenario(
     id="buy/ok",
     name="Successful purchase",
-    use_case=uc_buy,
+    action=buy,
     given=[
         Item(price=10.0, stock=5),
         Budget(amount=20.0),
@@ -51,7 +41,6 @@ spec = Spec(
     id="simple",
     name="Simple Spec",
     entities=[Item, Budget],
-    rules=[rule_price, rule_budget],
-    use_cases=[uc_buy],
+    actions=[buy],
     scenarios=[sc_ok],
 )

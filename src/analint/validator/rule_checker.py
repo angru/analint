@@ -2,7 +2,7 @@ from __future__ import annotations
 from analint.models.entity import Entity, FieldDescriptor
 from analint.models.predicate import (
     _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
-    _And, _Or, _Not,
+    _And, _Or, _Not, _Implies,
     _In, _IsNull, _IsNotNull,
 )
 
@@ -37,6 +37,8 @@ def evaluate(pred: object, context: Context) -> bool:
         return any(evaluate(e, context) for e in pred.exprs)
     if isinstance(pred, _Not):
         return not evaluate(pred.expr, context)
+    if isinstance(pred, _Implies):
+        return (not evaluate(pred.left, context)) or evaluate(pred.right, context)
     if isinstance(pred, _In):
         return resolve(pred.operand, context) in pred.values
     if isinstance(pred, _IsNull):

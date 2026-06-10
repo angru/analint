@@ -1,14 +1,14 @@
 from analint import Assert, Emitted, Expect, Scenario
-from examples.taskboard.entities import (
+from .entities import (
     Board, BoardStatus, Card, CardStatus, Column, Comment,
     MemberRole, Membership, Notification, NotificationStatus, User,
 )
-from examples.taskboard.events import (
+from .events import (
     CardAssigned, CardCreated, CardMoved, CommentAdded, NotificationDelivered,
 )
-from examples.taskboard.use_cases import (
-    uc_add_comment, uc_archive_card, uc_assign_card,
-    uc_create_card, uc_invite_member, uc_move_card, uc_send_notification,
+from .actions import (
+    add_comment, archive_card, assign_card,
+    create_card, invite_member, move_card, send_notification,
 )
 
 # helpers
@@ -37,7 +37,7 @@ def _column(id="col-inprogress", board_id="b1"):
 sc_invite_ok = Scenario(
     id="invite-member/happy",
     name="Owner successfully invites a new member",
-    use_case=uc_invite_member,
+    action=invite_member,
     given=[_active_user("u1"), _active_board(), _owner_membership("u1", "b1")],
     expected=Expect.PASS,
 )
@@ -45,7 +45,7 @@ sc_invite_ok = Scenario(
 sc_invite_not_owner = Scenario(
     id="invite-member/not-owner",
     name="Non-owner cannot invite members",
-    use_case=uc_invite_member,
+    action=invite_member,
     given=[_active_user("u2"), _active_board(), _member_membership("u2", "b1")],
     expected=Expect.FAIL,
 )
@@ -53,7 +53,7 @@ sc_invite_not_owner = Scenario(
 sc_invite_inactive_user = Scenario(
     id="invite-member/inactive-user",
     name="Inactive user cannot perform any action",
-    use_case=uc_invite_member,
+    action=invite_member,
     given=[
         User(id="u99", email="u99@example.com", is_active=False),
         _active_board(),
@@ -67,7 +67,7 @@ sc_invite_inactive_user = Scenario(
 sc_create_card_ok = Scenario(
     id="create-card/happy",
     name="Member creates a card in a column",
-    use_case=uc_create_card,
+    action=create_card,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -82,7 +82,7 @@ sc_create_card_ok = Scenario(
 sc_create_card_archived_board = Scenario(
     id="create-card/archived-board",
     name="Cannot create card on archived board",
-    use_case=uc_create_card,
+    action=create_card,
     given=[
         _active_user("u2"),
         Board(id="b1", owner_id="u1", status=BoardStatus.ARCHIVED, card_count=0),
@@ -96,7 +96,7 @@ sc_create_card_archived_board = Scenario(
 sc_create_card_wrong_board = Scenario(
     id="create-card/column-wrong-board",
     name="Column belongs to a different board — blocked",
-    use_case=uc_create_card,
+    action=create_card,
     given=[
         _active_user("u2"),
         _active_board("b1"),
@@ -112,7 +112,7 @@ sc_create_card_wrong_board = Scenario(
 sc_move_card_ok = Scenario(
     id="move-card/happy",
     name="Member moves a card from TODO to IN_PROGRESS",
-    use_case=uc_move_card,
+    action=move_card,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -131,7 +131,7 @@ sc_move_card_ok = Scenario(
 sc_move_archived_card = Scenario(
     id="move-card/already-archived",
     name="Archived cards cannot be moved",
-    use_case=uc_move_card,
+    action=move_card,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -147,7 +147,7 @@ sc_move_archived_card = Scenario(
 sc_assign_ok = Scenario(
     id="assign-card/happy",
     name="Assign card to a board member",
-    use_case=uc_assign_card,
+    action=assign_card,
     given=[
         _active_user("u1"),
         _active_board(),
@@ -162,7 +162,7 @@ sc_assign_ok = Scenario(
 sc_assign_nonmember = Scenario(
     id="assign-card/not-a-member",
     name="Cannot assign card to someone not on the board",
-    use_case=uc_assign_card,
+    action=assign_card,
     given=[
         _active_user("u1"),
         _active_board(),
@@ -178,7 +178,7 @@ sc_assign_nonmember = Scenario(
 sc_comment_ok = Scenario(
     id="add-comment/happy",
     name="Member adds a comment to a card",
-    use_case=uc_add_comment,
+    action=add_comment,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -193,7 +193,7 @@ sc_comment_ok = Scenario(
 sc_comment_archived_card = Scenario(
     id="add-comment/archived-card",
     name="Cannot comment on archived card",
-    use_case=uc_add_comment,
+    action=add_comment,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -209,7 +209,7 @@ sc_comment_archived_card = Scenario(
 sc_archive_ok = Scenario(
     id="archive-card/happy",
     name="Member archives a card; board counter decrements",
-    use_case=uc_archive_card,
+    action=archive_card,
     given=[
         _active_user("u2"),
         Board(id="b1", owner_id="u1", status=BoardStatus.ACTIVE, card_count=3),
@@ -223,7 +223,7 @@ sc_archive_ok = Scenario(
 sc_archive_already_archived = Scenario(
     id="archive-card/already-archived",
     name="Archiving an already-archived card is blocked",
-    use_case=uc_archive_card,
+    action=archive_card,
     given=[
         _active_user("u2"),
         _active_board(),
@@ -238,7 +238,7 @@ sc_archive_already_archived = Scenario(
 sc_notification_delivered = Scenario(
     id="send-notification/happy",
     name="System delivers an unread notification",
-    use_case=uc_send_notification,
+    action=send_notification,
     given=[Notification(id="n1", recipient_id="u2", status=NotificationStatus.UNREAD)],
     then=[Assert(Notification.status == NotificationStatus.READ), Emitted(NotificationDelivered)],
     expected=Expect.PASS,
@@ -247,7 +247,7 @@ sc_notification_delivered = Scenario(
 sc_notification_already_read = Scenario(
     id="send-notification/already-read",
     name="System skips already-read notifications",
-    use_case=uc_send_notification,
+    action=send_notification,
     given=[Notification(id="n1", recipient_id="u2", status=NotificationStatus.READ)],
     expected=Expect.FAIL,
 )

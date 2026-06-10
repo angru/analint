@@ -1,60 +1,60 @@
 from __future__ import annotations
 import copy
-from analint.models.business import RuleType
+
 from analint.models.effect import Set, Subtract, Add
 from analint.models.flow import Assert, Emitted
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.reporter.base import Finding, ScenarioResult, Severity
 from analint.validator.rule_checker import evaluate, resolve
-from analint.validator.structural import _describe
+from analint.validator.structural import _collect_field_refs, _describe
 
 
 def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     findings: list[Finding] = []
     context = {type(inst): inst for inst in scenario.given}
+    action = scenario.action
 
-    uc = scenario.use_case
+    relevant_invariants = [
+        inv for inv in spec.invariants
+        if _referenced_types(inv.expression) <= set(context)
+    ]
+    checks_count = len(relevant_invariants) + len(action.pre) + len(action.post)
 
-    # Phase 1: Invariants and Preconditions
-    for rule in uc.rules:
-        if rule.expression is None:
-            continue
-        if rule.rule_type == RuleType.POSTCONDITION:
-            continue
-        label = "INVARIANT" if rule.rule_type == RuleType.INVARIANT else "PRECONDITION"
-        try:
-            if not evaluate(rule.expression, context):
-                findings.append(Finding(
-                    Severity.ERROR,
-                    f"rule:{rule.id}",
-                    f"{label} '{rule.name}' failed: {_describe(rule.expression)}",
-                ))
-        except Exception as exc:
-            findings.append(Finding(Severity.ERROR, f"rule:{rule.id}", f"evaluation error: {exc}"))
+    # Phase 1: world invariants and preconditions against the pre-state
+    for inv in relevant_invariants:
+        _check(findings, inv.expression, context,
+               "INVARIANT", inv.label or _describe(inv.expression), f"invariant:{inv.id}")
+    for pred in action.pre:
+        _check(findings, pred, context, "PRE", _describe(pred), f"action:{action.id}")
 
-    # Phase 2: Apply effects (only when no precondition errors)
+    _check_terminal_states(findings, scenario, spec, context)
+
+    # Phase 2: effects — simultaneous facts about the next state
     pre_errors = any(f.severity == Severity.ERROR for f in findings)
-    post_context = _apply_effects(uc.effects, context) if not pre_errors else context
-
-    # Phase 3: Postconditions (against post-state)
     if not pre_errors:
-        for rule in uc.rules:
-            if rule.expression is None or rule.rule_type != RuleType.POSTCONDITION:
-                continue
-            try:
-                if not evaluate(rule.expression, post_context):
-                    findings.append(Finding(
-                        Severity.ERROR,
-                        f"rule:{rule.id}",
-                        f"POSTCONDITION '{rule.name}' failed: {_describe(rule.expression)}",
-                    ))
-            except Exception as exc:
-                findings.append(Finding(Severity.ERROR, f"rule:{rule.id}", f"evaluation error: {exc}"))
+        try:
+            post_context = _apply_effects(action.effect, context)
+        except Exception as exc:
+            findings.append(Finding(Severity.ERROR, f"action:{action.id}",
+                                    f"effect evaluation error: {exc}"))
+            pre_errors = True
+            post_context = context
+    else:
+        post_context = context
 
-    # Phase 4: Then assertions (Assert / Emitted)
     if not pre_errors:
-        emitted_names = {e.__name__ for e in uc.emits}
+        # Phase 3: postconditions and invariants against the post-state
+        for pred in action.post:
+            _check(findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}")
+        for inv in relevant_invariants:
+            _check(findings, inv.expression, post_context,
+                   "INVARIANT (post)", inv.label or _describe(inv.expression), f"invariant:{inv.id}")
+
+        # Phase 4: then assertions (Assert / Emitted)
+        emitted_names = {
+            (e if isinstance(e, type) else type(e)).__name__ for e in action.emits
+        }
         for assertion in scenario.then:
             if isinstance(assertion, Assert):
                 try:
@@ -75,7 +75,7 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
                     findings.append(Finding(
                         Severity.ERROR,
                         f"scenario:{scenario.id}",
-                        f"then: event '{assertion.event_cls.__name__}' not in use_case.emits",
+                        f"then: event '{assertion.event_cls.__name__}' not in action.emits",
                     ))
 
     has_errors = any(f.severity == Severity.ERROR for f in findings)
@@ -95,26 +95,71 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         scenario_name=scenario.name,
         passed=passed,
         findings=findings,
-        rules_count=len(uc.rules),
+        rules_count=checks_count,
     )
 
 
+def _check(findings: list, pred: object, context: dict, label: str, text: str, loc: str) -> None:
+    try:
+        if not evaluate(pred, context):
+            findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
+    except Exception as exc:
+        findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
+
+
+def _referenced_types(pred: object) -> set:
+    return {ref.entity_cls for ref in _collect_field_refs(pred)}
+
+
+def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, context: dict) -> None:
+    """An entity whose lifecycle field is in a terminal state cannot be modified."""
+    touched = {
+        e.field.entity_cls
+        for e in scenario.action.effect
+        if isinstance(e, (Set, Subtract, Add)) and hasattr(e.field, "entity_cls")
+    }
+    for lc in spec.lifecycles:
+        if not lc.terminal or lc.entity_cls not in touched:
+            continue
+        inst = context.get(lc.entity_cls)
+        if inst is None:
+            continue
+        value = getattr(inst, lc.field_name, None)
+        if value in lc.terminal:
+            findings.append(Finding(
+                Severity.ERROR,
+                f"lifecycle:{lc.id}",
+                f"{lc.entity_cls.__name__}.{lc.field_name}={value!r} is terminal — "
+                f"the entity cannot be modified",
+            ))
+
+
 def _apply_effects(effects: list, context: dict) -> dict:
-    """Return a new context with entity copies modified by effects."""
-    post = {cls: copy.copy(inst) for cls, inst in context.items()}
+    """Return a new context with entity copies modified by effects.
+
+    Effects are simultaneous facts about the next state: every right-hand side
+    is resolved against the pre-state, so the order of the list carries no
+    meaning and effects never observe each other.
+    """
+    updates: list[tuple[type, str, object]] = []
     for effect in effects:
+        if isinstance(effect, (Set, Subtract, Add)) and effect.field.entity_cls not in context:
+            continue  # target entity absent from given — structural validation warns about this
         if isinstance(effect, Set):
-            entity = post.get(effect.field.entity_cls)
-            if entity is not None:
-                entity.__dict__[effect.field.field_name] = resolve(effect.value, post)
+            updates.append((effect.field.entity_cls, effect.field.field_name,
+                            resolve(effect.value, context)))
         elif isinstance(effect, Subtract):
-            entity = post.get(effect.field.entity_cls)
-            if entity is not None:
-                amount = resolve(effect.amount, post)
-                entity.__dict__[effect.field.field_name] -= amount
+            current = resolve(effect.field, context)
+            updates.append((effect.field.entity_cls, effect.field.field_name,
+                            current - resolve(effect.amount, context)))
         elif isinstance(effect, Add):
-            entity = post.get(effect.field.entity_cls)
-            if entity is not None:
-                amount = resolve(effect.amount, post)
-                entity.__dict__[effect.field.field_name] += amount
+            current = resolve(effect.field, context)
+            updates.append((effect.field.entity_cls, effect.field.field_name,
+                            current + resolve(effect.amount, context)))
+
+    post = {cls: copy.copy(inst) for cls, inst in context.items()}
+    for entity_cls, field_name, value in updates:
+        entity = post.get(entity_cls)
+        if entity is not None:
+            entity.__dict__[field_name] = value
     return post

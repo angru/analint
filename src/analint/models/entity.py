@@ -76,6 +76,10 @@ def _init_fields(instance: object, kwargs: dict) -> None:
     all_fields: dict[str, FieldDescriptor] = {}
     for klass in reversed(type(instance).__mro__):
         all_fields.update(getattr(klass, "_own_fields", {}))
+    unknown = set(kwargs) - set(all_fields)
+    if unknown:
+        raise TypeError(
+            f"{type(instance).__name__}() got unknown field(s): {', '.join(sorted(unknown))}")
     for field_name, desc in all_fields.items():
         if field_name in kwargs:
             instance.__dict__[field_name] = kwargs[field_name]

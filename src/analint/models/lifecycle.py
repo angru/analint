@@ -6,9 +6,6 @@ from dataclasses import dataclass, field
 class Transition:
     """One allowed state transition for an entity field.
 
-    from_state  — source state (enum value).
-    to_states   — single target or list of targets.
-
     Examples::
 
         Transition(PENDING, PAID)
@@ -23,17 +20,19 @@ class Transition:
 
 
 @dataclass
-class StateMachine:
-    """Describes the lifecycle of one entity field.
+class Lifecycle:
+    """The lifecycle of one entity field: valid states and allowed transitions.
 
-    field   — FieldDescriptor, e.g. Order.status
-    initial — initial value when entity is created
-    transitions — allowed transitions
+    field    — FieldDescriptor, e.g. Order.status
+    initial  — value when the entity is created
+    terminal — states with no way out; an entity in a terminal state
+               cannot be modified by any action
     """
-    id: str
     field: object          # FieldDescriptor
-    initial: object        # enum value
+    initial: object
     transitions: list[Transition] = field(default_factory=list)
+    terminal: list = field(default_factory=list)
+    id: str = ""           # filled from the variable name by the loader when empty
     description: str = ""
 
     @property

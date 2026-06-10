@@ -1,24 +1,28 @@
 # analint
 
-**A Python DSL for declaring and verifying business analytics.**
+**A Python DSL for declaring and verifying how a system behaves.**
 
-Business requirements live in Word, Confluence, and Miro — readable by humans, but impossible to check for contradictions, diff, or pass to an agent. Code is the other extreme: too low-level, too technical. analint sits in the middle: **Python code that reads like requirements and validates like a specification.**
+Requirements live in Word, Confluence, and Miro — readable by humans, but impossible to check for contradictions, diff, or hand to an AI agent. Code is the other extreme: too low-level. analint sits in the middle: **Python that reads like a specification and checks like one.**
 
 ```python
-rule_funds = BusinessRule(
-    id="sufficient-funds",
-    name="Wallet balance must cover order total",
-    rule_type=RuleType.PRECONDITION,
-    expression=Wallet.balance >= Order.total,
+checkout = Action(
+    by=Customer,
+    pre=[
+        Wallet.balance >= Order.total,
+        Order.status == OrderStatus.PENDING,
+    ],
+    effect=[
+        Set(Order.status, OrderStatus.PAID),
+        Subtract(Wallet.balance, Order.total),
+    ],
 )
 
 sc_broke = Scenario(
-    id="checkout/no-funds",
     name="Insufficient balance",
-    use_case=uc_checkout,
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
-        Wallet(balance=10.0, customer_id="c1"),  # 10 < 50 → rule fails
+        Order(id="o1", total=50.0, customer_id="c1"),
+        Wallet(balance=10.0, customer_id="c1"),  # 10 < 50 → blocked
     ],
     expected=Expect.FAIL,
 )
@@ -28,12 +32,13 @@ sc_broke = Scenario(
 analint examples/ecommerce/
 
 SCENARIOS
-  PASS  checkout/happy           (5 rules)
-  PASS  checkout/no-funds        (5 rules)
-         ↳  PRECONDITION 'Wallet balance must cover order total' failed:
-            Wallet.balance >= Order.total
+  PASS  checkout/happy           (6 rules)
+  PASS  checkout/no-funds        (6 rules)
+         ↳  PRE failed: Wallet.balance >= Order.total
          ↳  correctly blocked — rules rejected this data as expected
 ```
+
+It is not limited to business analytics: the same primitives describe game rules and narrative consistency — see [`examples/cloak/`](examples/cloak/spec.py), the classic *Cloak of Darkness* IF benchmark expressed as a verifiable spec.
 
 ---
 
@@ -49,10 +54,10 @@ uv add analint
 
 ## Quick start
 
-Create a file (e.g. `spec.py`) and run `analint .` in the same directory.
+Create `spec.py` and run `analint .` in the same directory.
 
 ```python
-from analint import Entity, BusinessRule, UseCase, Scenario, Spec, Expect
+from analint import Entity, Action, Scenario, Spec, Expect
 
 class Item(Entity):
     price: float
@@ -61,28 +66,33 @@ class Item(Entity):
 class Budget(Entity):
     amount: float
 
-rule_price  = BusinessRule(id="price-positive", name="Item price must be positive",
-                           expression=Item.price > 0)
-rule_budget = BusinessRule(id="budget-covers",  name="Budget covers item price",
-                           expression=Budget.amount >= Item.price)
+buy = Action(
+    pre=[
+        Item.price > 0,
+        Budget.amount >= Item.price,
+    ],
+)
 
-uc_buy = UseCase(id="buy", name="Buy item",
-                 entities=[Item, Budget], rules=[rule_price, rule_budget])
+sc_ok = Scenario(
+    name="Happy path",
+    action=buy,
+    given=[Item(price=10.0, stock=5), Budget(amount=20.0)],
+)
 
-sc_ok = Scenario(id="buy/ok", name="Happy path", use_case=uc_buy,
-                 given=[Item(price=10.0, stock=5), Budget(amount=20.0)],
-                 expected=Expect.PASS)
-
-spec = Spec(id="shop", name="Shop")  # loader discovers entities, rules, use cases, scenarios automatically
+spec = Spec(id="shop", name="Shop")   # everything above is discovered automatically
 ```
+
+ids are derived from variable names (`buy`, `sc_ok`) — set `id=` explicitly only when you want a different one.
 
 ---
 
 ## DSL reference
 
+The DSL has three layers: **state** (Entity, Actor, Event), **constraints** (Invariant, predicates), and **transitions** (Action, Lifecycle). Scenarios and Flows tie them together with concrete examples.
+
 ### Entity
 
-Domain objects. Annotate fields normally; class-level access returns a `FieldDescriptor` that can be used in predicate expressions.
+Domain objects. Annotate fields normally; class-level access returns a `FieldDescriptor` usable in predicate expressions.
 
 ```python
 from analint import Entity
@@ -98,21 +108,87 @@ class Order(Entity):
     total: float                               # required field
     customer_id: str
 
-class Wallet(Entity):
-    balance: float
-    customer_id: str
-
-# Class-level → FieldDescriptor (used in rules)
-Order.total          # FieldDescriptor
-
-# Instance-level → value
-order = Order(total=50.0, customer_id="c1")
-order.total          # 50.0
+Order.total                           # class level → FieldDescriptor (for predicates)
+Order(total=50.0, customer_id="c1").total   # instance level → 50.0
 ```
+
+### Predicates
+
+Comparison operators on fields build predicate objects; combinators are plain functions:
+
+```python
+Order.total > 0
+Order.status == OrderStatus.PENDING
+Wallet.balance >= Order.total          # field-to-field comparison
+
+from analint import And, Or, Not, Implies, In, IsNull, IsNotNull
+
+And(Order.total > 0, Wallet.balance >= Order.total)
+Implies(Hook.holds_cloak == True, Player.has_cloak == False)   # if A then B
+In(Order.status, [OrderStatus.PAID, OrderStatus.CANCELLED])
+```
+
+Predicates are values — name them and reuse them:
+
+```python
+board_is_active = Board.status == BoardStatus.ACTIVE
+
+create_card  = Action(pre=[board_is_active, ...])
+archive_card = Action(pre=[board_is_active, ...])
+```
+
+### Invariant
+
+A constraint on the world that must hold in **every** state — checked before an action and re-checked after its effects.
+
+```python
+from analint import Invariant
+
+no_overdraft = Invariant(
+    Wallet.balance >= 0,
+    label="Wallet balance can never go below zero",
+)
+```
+
+An invariant is skipped in scenarios whose `given` does not include the entities it references.
+
+### Action
+
+A state transition: who performs it, what must hold before (`pre`), what changes (`effect`), what must hold after (`post`), what it emits.
+
+```python
+from analint import Action, Set, Subtract
+
+checkout = Action(
+    name="Customer Checkout",
+    by=Customer,                                   # Actor subclass
+    pre=[
+        Wallet.balance >= Order.total,
+        Product.stock > 0,
+        Order.status == OrderStatus.PENDING,
+    ],
+    effect=[                                       # facts about the next state
+        Set(Order.status, OrderStatus.PAID),
+        Subtract(Wallet.balance, Order.total),
+        Subtract(Product.stock, 1),
+    ],
+    post=[Order.status == OrderStatus.PAID],       # optional double-entry check
+    emits=[OrderPlaced(order_id=Order.id, total=Order.total, customer_id=Order.customer_id)],
+    requires=[login],                              # actions that must precede this one
+)
+```
+
+**Effects are simultaneous facts, not a program.** Every right-hand side is evaluated against the *pre*-state; the order of the list carries no meaning; two effects on the same field are a structural error.
+
+| Effect | Next-state fact |
+|---|---|
+| `Set(field, value)` | field becomes the value (literal, enum, or another field's pre-state value) |
+| `Subtract(field, amount)` | field becomes field − amount |
+| `Add(field, amount)` | field becomes field + amount |
 
 ### Actor
 
-Marks who can trigger a use case. Subclass `Actor` to define a role.
+Who can trigger an action. Subclass `Actor` to define a role:
 
 ```python
 from analint import Actor
@@ -123,7 +199,7 @@ class Admin(Actor): pass
 
 ### Event
 
-Domain events emitted by use cases. Fields work the same as Entity.
+A signal between actions, with a typed payload. Emitting binds payload fields to expressions over the state; `on=` subscribes an action to an event, and its `pre` may constrain the payload:
 
 ```python
 from analint import Event
@@ -131,196 +207,127 @@ from analint import Event
 class OrderPlaced(Event):
     order_id: str
     total: float
-    customer_id: str
-```
 
-### BusinessRule
+checkout = Action(..., emits=[OrderPlaced(order_id=Order.id, total=Order.total)])
 
-A verifiable rule with three lifecycle types:
-
-| Type | When checked | Example |
-|---|---|---|
-| `INVARIANT` | Always, in every scenario | `Product.price > 0` |
-| `PRECONDITION` | Before use case executes | `Wallet.balance >= Order.total` |
-| `POSTCONDITION` | After effects are applied | `Order.status == OrderStatus.PAID` |
-
-```python
-from analint import BusinessRule, RuleType
-
-rule_funds = BusinessRule(
-    id="sufficient-funds",
-    name="Wallet balance must cover order total",
-    rule_type=RuleType.PRECONDITION,
-    expression=Wallet.balance >= Order.total,
-)
-
-rule_paid = BusinessRule(
-    id="order-paid",
-    name="Order must be paid after checkout",
-    rule_type=RuleType.POSTCONDITION,
-    expression=Order.status == OrderStatus.PAID,
+notify_vip = Action(
+    on=OrderPlaced,
+    pre=[OrderPlaced.total > 100],     # payload condition
+    effect=[Add(Manager.alerts, 1)],
 )
 ```
 
-#### Predicate operators
+The linter validates payload bindings (fields exist, types match) and warns when an emitted event never triggers any action — an unfired Chekhov's gun.
 
-All comparison operators on `FieldDescriptor` return predicate objects:
+### Lifecycle
 
-```python
-Order.total > 0          # _Gt
-Order.total >= 0         # _Gte
-Order.total < 1000       # _Lt
-Order.total <= 1000      # _Lte
-Order.status == OrderStatus.PENDING  # _Eq
-Order.status != OrderStatus.CANCELLED  # _Ne
-
-# Logical combinators (keywords can't be overloaded in Python)
-from analint import And, Or, Not, In, IsNull, IsNotNull
-
-And(Order.total > 0, Wallet.balance >= Order.total)
-Or(Order.status == OrderStatus.PAID, Order.status == OrderStatus.CANCELLED)
-Not(Order.status == OrderStatus.PENDING)
-In(Order.status, [OrderStatus.PAID, OrderStatus.CANCELLED])
-IsNull(Order.customer_id)
-IsNotNull(Order.customer_id)
-```
-
-### UseCase
-
-Describes a business operation: who does it, what data it touches, what rules apply, what it changes, and what it emits.
+Valid states of an entity field and the allowed transitions between them.
 
 ```python
-from analint import UseCase, Set, Subtract
+from analint import Lifecycle, Transition
 
-uc_checkout = UseCase(
-    id="checkout",
-    name="Customer Checkout",
-    description="Customer places an order; all preconditions must hold",
-
-    actor=Customer,                                    # who triggers this UC
-    entities=[Order, Wallet, Product],                 # entity types involved
-
-    rules=[rule_funds, rule_stock, rule_pending, rule_paid],
-
-    requires=[uc_login],                               # must execute before this UC
-    emits=[OrderPlaced],                               # events published on success
-    triggered_by=[CartFinalized],                      # events that trigger this UC
-
-    effects=[                                          # state changes applied after preconditions pass
-        Set(Order.status, OrderStatus.PAID),
-        Subtract(Wallet.balance, Order.total),         # amount can be a FieldDescriptor
-        Subtract(Product.stock, 1),
-    ],
-)
-```
-
-**Effects** are applied in order after all preconditions pass. Available effect types:
-
-| Effect | Description |
-|---|---|
-| `Set(field, value)` | Set field to a fixed value or enum |
-| `Subtract(field, amount)` | Subtract amount (literal or FieldDescriptor) from field |
-| `Add(field, amount)` | Add amount (literal or FieldDescriptor) to field |
-
-### StateMachine
-
-Describes the lifecycle of an entity field — valid states and which transitions are allowed.
-
-```python
-from analint import StateMachine, Transition
-
-order_lifecycle = StateMachine(
-    id="order-lifecycle",
+order_lifecycle = Lifecycle(
     field=Order.status,
     initial=OrderStatus.PENDING,
     transitions=[
         Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-        Transition(OrderStatus.PAID,     OrderStatus.CANCELLED),
+        Transition(OrderStatus.PAID,    OrderStatus.CANCELLED),
     ],
+    terminal=[OrderStatus.CANCELLED],
 )
-
-order_lifecycle.reachable_states()
-# {OrderStatus.PENDING, OrderStatus.PAID, OrderStatus.CANCELLED}
 ```
 
-`Transition(from_state, to_states)` — the second argument can be a single value or a list.
+`terminal` states have teeth: an entity whose lifecycle field is in a terminal state cannot be modified by any action, and a transition out of a terminal state is a structural error.
 
 ### Scenario
 
-A concrete test case: initial data and expected post-conditions.
+A concrete example: initial state, one action, expected outcome.
 
 ```python
 from analint import Scenario, Expect, Assert, Emitted
 
 sc_happy = Scenario(
-    id="checkout/happy",
     name="Successful purchase",
-    use_case=uc_checkout,
-
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
+        Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
         Wallet(balance=100.0, customer_id="c1"),
         Product(stock=5, price=50.0, name="Widget"),
     ],
-
-    then=[                          # assertions checked after effects are applied
+    then=[
         Assert(Order.status == OrderStatus.PAID),
         Assert(Wallet.balance == 50.0),
-        Emitted(OrderPlaced),       # verify event is declared in use_case.emits
+        Emitted(OrderPlaced),
     ],
-
-    expected=Expect.PASS,           # or Expect.FAIL — inverts the pass/fail logic
+    expected=Expect.PASS,
 )
 ```
 
-`expected=Expect.FAIL` means the scenario is **correct** when at least one rule fails — useful for documenting blocked paths and rejected data.
+`expected=Expect.FAIL` documents a blocked path: the scenario is **correct** when at least one rule rejects the data.
+
+For actions triggered by events, put the event instance in `given` — its payload is then visible to `pre`:
+
+```python
+Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Manager(alerts=0)])
+```
 
 ### Flow
 
-Describes a linear user journey as an ordered list of use cases. The linter verifies that `requires` constraints are satisfied by the step order.
+An ordered user journey. The linter verifies the step order satisfies every `requires`.
 
 ```python
 from analint import Flow
 
-flow_purchase = Flow(
-    id="purchase-flow",
-    steps=[uc_login, uc_browse, uc_checkout],  # uc_checkout requires uc_login → must come after
+purchase_flow = Flow(
+    steps=[login, browse, checkout],
     description="Full customer purchase journey",
 )
 ```
 
 ### Spec
 
-The root aggregate that the linter reads. For single-directory projects the loader discovers everything automatically — just provide the metadata:
+The root aggregate — usually just metadata:
 
 ```python
 from analint import Spec
 
-# minimal — loader discovers entities, rules, use cases, scenarios, etc. from all .py files
 spec = Spec(id="ecommerce", name="E-commerce Platform")
 ```
 
-Explicit lists are supported when you need precision (e.g. multiple specs in one directory, or when you want to exclude some items):
+Everything else is discovered from the modules your entry point imports. Explicit lists (`entities=[...]`, `actions=[...]`) are supported when precision matters; a non-empty list is used as-is.
 
-```python
-spec = Spec(
-    id="ecommerce",
-    name="E-commerce Platform",
-    version="0.8.0",
+---
 
-    entities=[Order, Wallet, Product],
-    actors=[Customer, Admin],
-    events=[OrderPlaced],
-    state_machines=[order_lifecycle],
-    flows=[flow_purchase],
+## Project layout
 
-    rules=[rule_funds, rule_stock, rule_pending, rule_paid],
-    use_cases=[uc_checkout],
-    scenarios=[sc_happy, sc_no_funds, sc_no_stock, sc_already_paid],
-)
+The spec is loaded through a **single entry point** — `spec.py` — and its import graph defines what is in the spec:
+
+```
+spec.py             ← single file is enough for small projects
+
+# or, multi-file (use relative imports):
+myproject/
+  __init__.py
+  entities.py       ← Entity subclasses + enums
+  actors.py         ← Actor subclasses
+  events.py         ← Event subclasses
+  invariants.py     ← Invariant instances + reusable predicates
+  actions.py        ← Action instances
+  lifecycles.py     ← Lifecycle instances
+  flows.py          ← Flow instances
+  scenarios.py      ← Scenario instances
+  spec.py           ← imports the tops of the graph + Spec(id=..., name=...)
 ```
 
-Rule: if a list is non-empty in `Spec(...)`, it is used as-is. If a list is empty (the default), it is auto-populated from all discovered modules.
+```python
+# myproject/spec.py
+from analint import Spec
+from . import flows, lifecycles, scenarios  # noqa: F401
+
+spec = Spec(id="myproject", name="My Project")
+```
+
+A `.py` file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model.
 
 ---
 
@@ -330,7 +337,7 @@ Rule: if a list is non-empty in `Spec(...)`, it is used as-is. If a list is empt
 analint [PATH] [OPTIONS]
 
 Arguments:
-  PATH    Directory to discover spec files in (default: .)
+  PATH    Directory with spec.py, or a single spec file (default: .)
 
 Options:
   -f, --format TEXT     Output format: terminal (default) or json
@@ -340,94 +347,39 @@ Options:
   --fail-fast           Stop after first failure
 ```
 
-```bash
-analint examples/ecommerce/            # run all scenarios
-analint . --format json                # machine-readable output
-analint . --scenario checkout/happy    # single scenario
-analint . --strict                     # warnings become errors
-```
-
 ---
 
 ## What the linter checks
 
 ### Structural
 
-- Duplicate ids in rules, use cases, scenarios, state machines, flows
-- `FieldDescriptor` references point to registered entities with existing fields
-- `UseCase.entities` and `UseCase.rules` are registered in `Spec`
-- `UseCase.actor` subclasses `Actor` and is registered in `Spec.actors`
-- `UseCase.requires` — all referenced use cases registered; no circular dependencies
-- `UseCase.emits` / `triggered_by` — events registered in `Spec.events`
-- Emitted events are handled by at least one `triggered_by` (warning if not)
-- `StateMachine.entity` registered in `Spec.entities`
-- Scenario `given` covers all entity types referenced by rules (warning if not)
-- Scenario `given` state is reachable from state machine initial (warning if not)
-- `Flow` steps are registered use cases; `requires` order is respected
-- `UseCase.effects` target registered entities
+- Missing/duplicate ids; duplicate class names from double imports
+- Predicates reference registered entities/events and existing fields
+- `by` actors registered; `requires` graphs acyclic; flow order satisfies `requires`
+- Event payload bindings: fields exist, annotation types match
+- Emitted events are handled by at least one `on=` (warning if not)
+- Two effects on the same field (simultaneity violation)
+- Transitions out of `terminal` states
+- Scenario `given` covers the entities the action references (warning)
+- Scenario `given` states reachable from the lifecycle initial state (warning)
+- Actions without scenarios (warning); files not imported by the entry point (warning)
 
 ### Scenario execution
 
-For each scenario:
+1. **Invariants** and **pre** — checked against `given`
+2. **Terminal guard** — an entity in a terminal lifecycle state must not be modified
+3. **Effects** applied simultaneously → post-state
+4. **post** and invariants — re-checked against the post-state
+5. **then** (`Assert`, `Emitted`) — checked against the post-state
 
-1. **Invariants** — checked against `given` state
-2. **Preconditions** — checked against `given` state
-3. **Effects** applied — produces post-state
-4. **Postconditions** — checked against post-state
-5. **Then assertions** (`Assert`, `Emitted`) — checked against post-state
-
-If `expected=Expect.FAIL`: the scenario passes when any rule in steps 1–2 fails.
+If `expected=Expect.FAIL`: the scenario passes when steps 1–2 block the action.
 
 ---
 
-## Example output
+## Examples
 
-```
-analint v0.8.0  spec: E-commerce Platform
-
-STRUCTURAL
-  WARN    event 'OrderPlaced' is emitted but never triggers a use_case
-
-SCENARIOS
-  PASS  checkout/happy                           (5 rules)
-  PASS  checkout/no-funds                        (5 rules)
-         ↳  PRECONDITION 'Wallet balance must cover order total' failed:
-            Wallet.balance >= Order.total
-         ↳  correctly blocked — rules rejected this data as expected
-  PASS  checkout/out-of-stock                    (5 rules)
-         ↳  PRECONDITION 'Product must have stock' failed: Product.stock > 0
-         ↳  correctly blocked — rules rejected this data as expected
-  PASS  checkout/already-paid                    (5 rules)
-         ↳  PRECONDITION 'Order must be in pending status to check out' failed:
-            Order.status == OrderStatus.PENDING
-         ↳  correctly blocked — rules rejected this data as expected
-
-Results: 4 passed, 1 warnings
-```
-
----
-
-## Project layout
-
-For small projects a single file is enough:
-
-```
-spec.py             ← all entities, rules, use cases, scenarios, and Spec(id=..., name=...)
-```
-
-For larger projects, split by concern — the loader discovers and assembles everything automatically:
-
-```
-myproject/
-  entities.py       ← Entity subclasses + enums
-  actors.py         ← Actor subclasses
-  events.py         ← Event subclasses
-  rules.py          ← BusinessRule instances
-  use_cases.py      ← UseCase instances
-  state_machines.py ← StateMachine instances
-  flows.py          ← Flow instances
-  scenarios.py      ← Scenario instances
-  spec.py           ← Spec(id="myproject", name="My Project") — metadata only
-```
-
-analint discovers all Python files in the given directory, imports them, and auto-populates the `Spec` from everything it finds. If you set a list explicitly in `Spec(...)`, that list is used as-is (opt-in override for precision or multiple-spec directories).
+| Example | What it shows |
+|---|---|
+| [`examples/ecommerce/`](examples/ecommerce/spec.py) | Single file: invariants, pre/post, effects, payload-bound events |
+| [`examples/taskboard/`](examples/taskboard/) | Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions |
+| [`examples/cloak/`](examples/cloak/spec.py) | A text-adventure game as a verifiable spec: Implies, terminal endings, derived "darkness" predicate |

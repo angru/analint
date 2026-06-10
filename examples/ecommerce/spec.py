@@ -1,9 +1,8 @@
 from enum import Enum
 
 from analint import (
-    Actor, Add, And, Assert, BusinessRule, Emitted, Entity, Event, Expect,
-    Flow, Not, Or, RuleType, Scenario, Set, Spec, StateMachine,
-    Subtract, Transition, UseCase,
+    Action, Actor, Assert, Emitted, Entity, Event, Expect,
+    Invariant, Lifecycle, Scenario, Set, Spec, Subtract, Transition,
 )
 
 # ── Actors ─────────────────────────────────────────────────────────────────────
@@ -26,15 +25,11 @@ class OrderStatus(Enum):
     CANCELLED = "cancelled"
 
 
-class PaymentMethod(Enum):
-    CARD   = "card"
-    WALLET = "wallet"
-
-
 # ── Domain entities ────────────────────────────────────────────────────────────
 
 
 class Order(Entity):
+    id: str
     status: OrderStatus = OrderStatus.PENDING
     total: float
     customer_id: str
@@ -60,57 +55,39 @@ class OrderPlaced(Event):
     customer_id: str
 
 
-# ── Business rules ─────────────────────────────────────────────────────────────
+# ── Invariants (hold in every state) ───────────────────────────────────────────
 
-rule_price_positive = BusinessRule(
-    id="price-positive",
-    name="Product price must be positive",
-    rule_type=RuleType.INVARIANT,
-    expression=Product.price > 0,
+price_is_positive = Invariant(
+    Product.price > 0,
+    label="Product price must be positive",
 )
 
-rule_funds = BusinessRule(
-    id="sufficient-funds",
-    name="Wallet balance must cover order total",
-    rule_type=RuleType.PRECONDITION,
-    expression=Wallet.balance >= Order.total,
+balance_not_negative = Invariant(
+    Wallet.balance >= 0,
+    label="Wallet balance can never go below zero",
 )
 
-rule_stock = BusinessRule(
-    id="stock-available",
-    name="Product must have stock",
-    rule_type=RuleType.PRECONDITION,
-    expression=Product.stock > 0,
-)
+# ── Actions ────────────────────────────────────────────────────────────────────
 
-rule_order_pending = BusinessRule(
-    id="order-pending",
-    name="Order must be in pending status to check out",
-    rule_type=RuleType.PRECONDITION,
-    expression=Order.status == OrderStatus.PENDING,
-)
-
-rule_order_paid = BusinessRule(
-    id="order-paid",
-    name="Order must be paid after checkout",
-    rule_type=RuleType.POSTCONDITION,
-    expression=Order.status == OrderStatus.PAID,
-)
-
-# ── Use cases ──────────────────────────────────────────────────────────────────
-
-uc_checkout = UseCase(
-    id="checkout",
+checkout = Action(
     name="Customer Checkout",
     description="Customer places an order; all preconditions must hold",
-    actor=Customer,
-    entities=[Order, Wallet, Product],
-    rules=[rule_funds, rule_stock, rule_price_positive, rule_order_pending, rule_order_paid],
-    emits=[OrderPlaced],
-    effects=[
+    by=Customer,
+    pre=[
+        Wallet.balance >= Order.total,
+        Product.stock > 0,
+        Order.status == OrderStatus.PENDING,
+    ],
+    effect=[
         Set(Order.status, OrderStatus.PAID),
         Subtract(Wallet.balance, Order.total),
         Subtract(Product.stock, 1),
+    ],
+    post=[
+        Order.status == OrderStatus.PAID,
+    ],
+    emits=[
+        OrderPlaced(order_id=Order.id, total=Order.total, customer_id=Order.customer_id),
     ],
 )
 
@@ -119,9 +96,9 @@ uc_checkout = UseCase(
 sc_happy = Scenario(
     id="checkout/happy",
     name="Successful purchase",
-    use_case=uc_checkout,
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
+        Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
         Wallet(balance=100.0, customer_id="c1"),
         Product(stock=5, price=50.0, name="Widget"),
     ],
@@ -136,10 +113,10 @@ sc_happy = Scenario(
 sc_no_funds = Scenario(
     id="checkout/no-funds",
     name="Insufficient wallet balance",
-    use_case=uc_checkout,
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
-        Wallet(balance=10.0, customer_id="c1"),          # 10 < 50 → rule_funds fails
+        Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
+        Wallet(balance=10.0, customer_id="c1"),          # 10 < 50 → blocked
         Product(stock=5, price=50.0, name="Widget"),
     ],
     expected=Expect.FAIL,
@@ -148,11 +125,11 @@ sc_no_funds = Scenario(
 sc_no_stock = Scenario(
     id="checkout/out-of-stock",
     name="Product out of stock",
-    use_case=uc_checkout,
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
+        Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
         Wallet(balance=100.0, customer_id="c1"),
-        Product(stock=0, price=50.0, name="Widget"),     # stock=0 → rule_stock fails
+        Product(stock=0, price=50.0, name="Widget"),     # stock=0 → blocked
     ],
     expected=Expect.FAIL,
 )
@@ -160,40 +137,33 @@ sc_no_stock = Scenario(
 sc_already_paid = Scenario(
     id="checkout/already-paid",
     name="Order already paid — cannot check out again",
-    use_case=uc_checkout,
+    action=checkout,
     given=[
-        Order(total=50.0, status=OrderStatus.PAID, customer_id="c1"),  # wrong status
+        Order(id="o1", total=50.0, status=OrderStatus.PAID, customer_id="c1"),  # wrong status
         Wallet(balance=100.0, customer_id="c1"),
         Product(stock=5, price=50.0, name="Widget"),
     ],
     expected=Expect.FAIL,
 )
 
-# ── State machines ─────────────────────────────────────────────────────────────
+# ── Lifecycles ─────────────────────────────────────────────────────────────────
 
-order_lifecycle = StateMachine(
-    id="order-lifecycle",
+order_lifecycle = Lifecycle(
     field=Order.status,
     initial=OrderStatus.PENDING,
     transitions=[
         Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
         Transition(OrderStatus.PAID,    OrderStatus.CANCELLED),
     ],
+    terminal=[OrderStatus.CANCELLED],
     description="Order moves from PENDING to PAID on checkout, can be cancelled at any point",
 )
 
-# ── Spec ───────────────────────────────────────────────────────────────────────
+# ── Spec — everything above is discovered automatically ───────────────────────
 
 spec = Spec(
     id="ecommerce",
     name="E-commerce Platform",
-    version="0.5.0",
-    description="Online store — business analytics spec",
-    entities=[Order, Wallet, Product],
-    actors=[Customer, Admin],
-    events=[OrderPlaced],
-    state_machines=[order_lifecycle],
-    rules=[rule_funds, rule_stock, rule_price_positive, rule_order_pending, rule_order_paid],
-    use_cases=[uc_checkout],
-    scenarios=[sc_happy, sc_no_funds, sc_no_stock, sc_already_paid],
+    version="0.9.0",
+    description="Online store — business behaviour spec",
 )

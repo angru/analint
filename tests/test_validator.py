@@ -41,8 +41,7 @@ def test_ecommerce_has_four_scenarios():
 
 
 def test_rule_failure_reported_in_scenario():
-    from analint import Entity, BusinessRule, UseCase, Scenario, Spec, Expect
-    from analint.validator.engine import validate as _validate
+    from analint import Entity, Action, Scenario, Spec, Expect
     from analint.validator.scenario_runner import run_scenario
 
     class Wallet(Entity):
@@ -51,38 +50,36 @@ def test_rule_failure_reported_in_scenario():
     class Order(Entity):
         total: float
 
-    rule = BusinessRule(id="funds", name="Sufficient funds", expression=Wallet.balance >= Order.total)
-    uc = UseCase(id="uc", name="UC", entities=[Wallet, Order], rules=[rule])
+    action = Action(id="pay", pre=[Wallet.balance >= Order.total])
     sc = Scenario(
         id="sc/fail",
         name="Not enough",
-        use_case=uc,
+        action=action,
         given=[Wallet(balance=5.0), Order(total=50.0)],
         expected=Expect.FAIL,   # we expect it to fail → scenario should PASS
     )
-    spec = Spec(id="s", name="S", entities=[Wallet, Order], rules=[rule], use_cases=[uc], scenarios=[sc])
+    spec = Spec(id="s", name="S", entities=[Wallet, Order], actions=[action], scenarios=[sc])
 
     result = run_scenario(sc, spec)
     assert result.passed is True   # correctly predicted failure
 
 
 def test_rule_success_with_expect_fail_makes_scenario_fail():
-    from analint import Entity, BusinessRule, UseCase, Scenario, Spec, Expect
+    from analint import Entity, Action, Scenario, Spec, Expect
     from analint.validator.scenario_runner import run_scenario
 
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", entities=[Item], rules=[rule])
+    action = Action(id="act", pre=[Item.price > 0])
     sc = Scenario(
         id="sc/bad-expectation",
         name="Should fail but passes",
-        use_case=uc,
+        action=action,
         given=[Item(price=10.0)],
         expected=Expect.FAIL,  # rule passes, but we expected failure → scenario FAILS
     )
-    spec = Spec(id="s", name="S", entities=[Item], rules=[rule], use_cases=[uc], scenarios=[sc])
+    spec = Spec(id="s", name="S", entities=[Item], actions=[action], scenarios=[sc])
 
     result = run_scenario(sc, spec)
     assert result.passed is False

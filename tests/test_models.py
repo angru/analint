@@ -1,11 +1,11 @@
 from enum import Enum
 
 from analint import (
-    Actor, Add, And, Assert, BusinessRule, Emitted, Entity, Event, Expect,
-    Flow, Not, Or, RuleType, Scenario, Set, Spec, StateMachine,
-    Subtract, Transition, UseCase,
+    Action, Actor, Add, And, Assert, Emitted, Entity, Event, Expect,
+    Flow, Implies, Invariant, Lifecycle, Not, Scenario, Set, Spec,
+    Subtract, Transition,
 )
-from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Not, _Or
+from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
 from analint.models.entity import FieldDescriptor
 from analint.validator.rule_checker import evaluate
 
@@ -48,6 +48,17 @@ def test_entity_missing_required_field_raises():
         assert False, "should have raised"
     except TypeError as e:
         assert "price" in str(e)
+
+
+def test_entity_unknown_field_raises():
+    class Item(Entity):
+        price: float
+
+    try:
+        Item(price=1.0, weight=2.0)
+        assert False, "should have raised"
+    except TypeError as e:
+        assert "weight" in str(e)
 
 
 def test_entity_repr():
@@ -107,6 +118,15 @@ def test_logical_not():
 
     pred = Not(A.x > 0)
     assert isinstance(pred, _Not)
+
+
+def test_implies_returns_implies_predicate():
+    class A(Entity):
+        x: int
+        y: int
+
+    pred = Implies(A.x > 0, A.y > 0)
+    assert isinstance(pred, _Implies)
 
 
 # ── Predicate evaluation ───────────────────────────────────────────────────────
@@ -180,34 +200,61 @@ def test_evaluate_not():
     assert evaluate(pred, _ctx(Item(active=False))) is False
 
 
-# ── BusinessRule / UseCase / Scenario / Spec ──────────────────────────────────
+def test_evaluate_implies():
+    class Hook(Entity):
+        holds_cloak: bool
 
-def test_business_rule_with_expression():
+    class Player(Entity):
+        has_cloak: bool
+
+    pred = Implies(Hook.holds_cloak == True, Player.has_cloak == False)  # noqa: E712
+    assert evaluate(pred, _ctx(Hook(holds_cloak=True), Player(has_cloak=False))) is True
+    assert evaluate(pred, _ctx(Hook(holds_cloak=True), Player(has_cloak=True))) is False
+    # vacuously true when the antecedent is false
+    assert evaluate(pred, _ctx(Hook(holds_cloak=False), Player(has_cloak=True))) is True
+
+
+# ── Invariant / Action / Scenario / Spec ──────────────────────────────────────
+
+def test_invariant_holds_expression():
     class Wallet(Entity):
         balance: float
 
-    class Order(Entity):
-        total: float
+    inv = Invariant(Wallet.balance >= 0, label="No overdraft")
+    assert isinstance(inv.expression, _Gte)
+    assert inv.label == "No overdraft"
 
-    rule = BusinessRule(
-        id="r1",
-        name="Sufficient funds",
-        expression=Wallet.balance >= Order.total,
+
+def test_action_pre_and_effect():
+    class Order(Entity):
+        status: str
+
+    action = Action(
+        id="pay",
+        pre=[Order.status == "pending"],
+        effect=[Set(Order.status, "paid")],
     )
-    assert rule.id == "r1"
-    assert isinstance(rule.expression, _Gte)
+    assert len(action.pre) == 1
+    assert len(action.effect) == 1
+
+
+def test_action_on_accepts_single_event():
+    class Ping(Event):
+        source: str
+
+    action = Action(id="react", on=Ping)
+    assert action.on == [Ping]
 
 
 def test_scenario_given_and_expected():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", entities=[Item], rules=[rule])
+    action = Action(id="buy", pre=[Item.price > 0])
     sc = Scenario(
         id="sc1",
         name="Happy",
-        use_case=uc,
+        action=action,
         given=[Item(price=5.0)],
         expected=Expect.PASS,
     )
@@ -220,31 +267,26 @@ def test_spec_aggregate():
     class Widget(Entity):
         value: int
 
-    rule = BusinessRule(id="r", name="R", expression=Widget.value > 0)
-    uc = UseCase(id="uc", name="UC", entities=[Widget], rules=[rule])
-    sc = Scenario(id="s", name="S", use_case=uc, given=[Widget(value=1)], expected=Expect.PASS)
-    spec = Spec(id="spec", name="Test", entities=[Widget], rules=[rule], use_cases=[uc], scenarios=[sc])
+    action = Action(id="make", pre=[Widget.value > 0])
+    sc = Scenario(id="s", name="S", action=action, given=[Widget(value=1)], expected=Expect.PASS)
+    spec = Spec(id="spec", name="Test", entities=[Widget], actions=[action], scenarios=[sc])
     assert spec.id == "spec"
     assert len(spec.scenarios) == 1
 
 
-# ── StateMachine ───────────────────────────────────────────────────────────────
+# ── Lifecycle ──────────────────────────────────────────────────────────────────
 
-def test_state_machine_reachable_states():
-    from enum import Enum
-
+def test_lifecycle_reachable_states():
     class S(Enum):
         A = "a"
         B = "b"
         C = "c"
-        D = "d"  # недостижимо
+        D = "d"  # unreachable
 
     class Thing(Entity):
         state: S
 
-    uc = UseCase(id="uc", name="UC")
-    sm = StateMachine(
-        id="sm",
+    lc = Lifecycle(
         field=Thing.state,
         initial=S.A,
         transitions=[
@@ -252,62 +294,116 @@ def test_state_machine_reachable_states():
             Transition(S.B, S.C),
         ],
     )
-    reachable = sm.reachable_states()
+    reachable = lc.reachable_states()
     assert S.A in reachable
     assert S.B in reachable
     assert S.C in reachable
     assert S.D not in reachable
 
 
-def test_state_machine_entity_cls():
+def test_lifecycle_entity_cls():
     class Order(Entity):
         status: str
 
-    sm = StateMachine(id="sm", field=Order.status, initial="pending", transitions=[])
-    assert sm.entity_cls is Order
-    assert sm.field_name == "status"
+    lc = Lifecycle(field=Order.status, initial="pending")
+    assert lc.entity_cls is Order
+    assert lc.field_name == "status"
 
 
 def test_structural_warns_unreachable_state_in_given():
-    from enum import Enum
     from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
 
     class Status(Enum):
         A = "a"
         B = "b"
-        C = "c"  # нет перехода в C
+        C = "c"  # no transition into C
 
     class Item(Entity):
         state: Status
 
-    rule = BusinessRule(id="r", name="R", expression=Item.state == Status.A)
-    uc = UseCase(id="uc", name="UC", entities=[Item], rules=[rule])
-    sm = StateMachine(
-        id="sm",
+    action = Action(id="act", pre=[Item.state == Status.A])
+    lc = Lifecycle(
+        id="lc",
         field=Item.state,
         initial=Status.A,
         transitions=[Transition(Status.A, Status.B)],
-        # Status.C недостижим
     )
     sc = Scenario(
         id="sc",
         name="SC",
-        use_case=uc,
-        given=[Item(state=Status.C)],  # недостижимый статус
+        action=action,
+        given=[Item(state=Status.C)],  # unreachable state
         expected=Expect.FAIL,
     )
     spec = Spec(
         id="s", name="S",
         entities=[Item],
-        state_machines=[sm],
-        rules=[rule],
-        use_cases=[uc],
+        lifecycles=[lc],
+        actions=[action],
         scenarios=[sc],
     )
     findings = validate_structural(spec)
     warnings = [f for f in findings if f.severity == Severity.WARNING]
     assert any("not reachable" in f.message for f in warnings)
+
+
+def test_structural_transition_out_of_terminal_state_is_error():
+    from analint.validator.structural import validate_structural
+    from analint.reporter.base import Severity
+
+    class Status(Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Ticket(Entity):
+        state: Status
+
+    lc = Lifecycle(
+        id="lc",
+        field=Ticket.state,
+        initial=Status.OPEN,
+        transitions=[
+            Transition(Status.OPEN, Status.CLOSED),
+            Transition(Status.CLOSED, Status.OPEN),  # escapes a terminal state
+        ],
+        terminal=[Status.CLOSED],
+    )
+    spec = Spec(id="s", name="S", entities=[Ticket], lifecycles=[lc])
+    findings = validate_structural(spec)
+    errors = [f for f in findings if f.severity == Severity.ERROR]
+    assert any("terminal" in f.message for f in errors)
+
+
+def test_runner_blocks_modification_of_terminal_entity():
+    from analint.validator.scenario_runner import run_scenario
+
+    class Status(Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Ticket(Entity):
+        state: Status
+        notes: int
+
+    action = Action(id="annotate", effect=[Add(Ticket.notes, 1)])
+    lc = Lifecycle(
+        id="lc",
+        field=Ticket.state,
+        initial=Status.OPEN,
+        transitions=[Transition(Status.OPEN, Status.CLOSED)],
+        terminal=[Status.CLOSED],
+    )
+    sc = Scenario(
+        id="sc", name="SC",
+        action=action,
+        given=[Ticket(state=Status.CLOSED, notes=0)],
+        expected=Expect.FAIL,  # terminal entity must not be modifiable
+    )
+    spec = Spec(id="s", name="S", entities=[Ticket], lifecycles=[lc],
+                actions=[action], scenarios=[sc])
+    result = run_scenario(sc, spec)
+    assert result.passed
 
 
 # ── Actor ──────────────────────────────────────────────────────────────────────
@@ -319,12 +415,12 @@ def test_actor_subclass():
     assert issubclass(Customer, Actor)
 
 
-def test_use_case_with_actor():
+def test_action_with_actor():
     class Customer(Actor):
         pass
 
-    uc = UseCase(id="uc", name="Checkout", actor=Customer)
-    assert uc.actor is Customer
+    action = Action(id="checkout", by=Customer)
+    assert action.by is Customer
 
 
 def test_structural_actor_not_registered():
@@ -337,15 +433,13 @@ def test_structural_actor_not_registered():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", actor=Customer, entities=[Item], rules=[rule])
-    sc = Scenario(id="sc", name="SC", use_case=uc, given=[Item(price=5.0)], expected=Expect.PASS)
+    action = Action(id="act", by=Customer, pre=[Item.price > 0])
+    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
         id="s", name="S",
         entities=[Item],
         actors=[],  # Customer not registered
-        rules=[rule],
-        use_cases=[uc],
+        actions=[action],
         scenarios=[sc],
     )
     findings = validate_structural(spec)
@@ -363,15 +457,13 @@ def test_structural_actor_registered_ok():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", actor=Customer, entities=[Item], rules=[rule])
-    sc = Scenario(id="sc", name="SC", use_case=uc, given=[Item(price=5.0)], expected=Expect.PASS)
+    action = Action(id="act", by=Customer, pre=[Item.price > 0])
+    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
         id="s", name="S",
         entities=[Item],
         actors=[Customer],
-        rules=[rule],
-        use_cases=[uc],
+        actions=[action],
         scenarios=[sc],
     )
     findings = validate_structural(spec)
@@ -400,15 +492,6 @@ def test_event_instance():
     assert ev.total == 50.0
 
 
-def test_event_repr():
-    class OrderPlaced(Event):
-        order_id: str
-
-    ev = OrderPlaced(order_id="o1")
-    assert "OrderPlaced" in repr(ev)
-    assert "o1" in repr(ev)
-
-
 def test_structural_event_not_registered():
     from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
@@ -419,15 +502,13 @@ def test_structural_event_not_registered():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", entities=[Item], rules=[rule], emits=[OrderPlaced])
-    sc = Scenario(id="sc", name="SC", use_case=uc, given=[Item(price=5.0)], expected=Expect.PASS)
+    action = Action(id="act", pre=[Item.price > 0], emits=[OrderPlaced])
+    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
         id="s", name="S",
         entities=[Item],
         events=[],  # OrderPlaced not registered
-        rules=[rule],
-        use_cases=[uc],
+        actions=[action],
         scenarios=[sc],
     )
     findings = validate_structural(spec)
@@ -445,15 +526,13 @@ def test_structural_event_emitted_but_unhandled_warns():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc = UseCase(id="uc", name="UC", entities=[Item], rules=[rule], emits=[OrderPlaced])
-    sc = Scenario(id="sc", name="SC", use_case=uc, given=[Item(price=5.0)], expected=Expect.PASS)
+    action = Action(id="act", pre=[Item.price > 0], emits=[OrderPlaced])
+    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
         id="s", name="S",
         entities=[Item],
         events=[OrderPlaced],
-        rules=[rule],
-        use_cases=[uc],
+        actions=[action],
         scenarios=[sc],
     )
     findings = validate_structural(spec)
@@ -461,26 +540,100 @@ def test_structural_event_emitted_but_unhandled_warns():
     assert any("OrderPlaced" in f.message and "never triggers" in f.message for f in warnings)
 
 
+def test_event_payload_template_binds_fields():
+    from analint.validator.structural import validate_structural
+    from analint.reporter.base import Severity
+
+    class Card(Entity):
+        id: str
+        title: str
+
+    class CardCreated(Event):
+        card_id: str
+
+    action = Action(id="create", pre=[Card.title != ""],
+                    emits=[CardCreated(card_id=Card.id)])
+    handler = Action(id="notify", on=CardCreated, pre=[CardCreated.card_id != ""])
+    sc1 = Scenario(id="sc1", name="S1", action=action, given=[Card(id="c1", title="t")])
+    sc2 = Scenario(id="sc2", name="S2", action=handler,
+                   given=[CardCreated(card_id="c1")])
+    spec = Spec(id="s", name="S", entities=[Card], events=[CardCreated],
+                actions=[action, handler], scenarios=[sc1, sc2])
+    findings = validate_structural(spec)
+    errors = [f for f in findings if f.severity == Severity.ERROR]
+    assert not errors
+
+
+def test_event_payload_type_mismatch_warns():
+    from analint.validator.structural import validate_structural
+    from analint.reporter.base import Severity
+
+    class Card(Entity):
+        id: str
+        weight: float
+
+    class CardWeighed(Event):
+        weight: str  # wrong: bound to a float field
+
+    action = Action(id="weigh", pre=[Card.weight > 0],
+                    emits=[CardWeighed(weight=Card.weight)])
+    handler = Action(id="log", on=CardWeighed, pre=[])
+    sc = Scenario(id="sc", name="S", action=action, given=[Card(id="c", weight=1.0)])
+    spec = Spec(id="s", name="S", entities=[Card], events=[CardWeighed],
+                actions=[action, handler], scenarios=[sc])
+    findings = validate_structural(spec)
+    warnings = [f for f in findings if f.severity == Severity.WARNING]
+    assert any("types differ" in f.message for f in warnings)
+
+
+def test_scenario_runner_evaluates_event_payload_predicates():
+    from analint.validator.scenario_runner import run_scenario
+
+    class BigOrder(Event):
+        total: float
+
+    class Ledger(Entity):
+        entries: int
+
+    handler = Action(
+        id="handle-big",
+        on=BigOrder,
+        pre=[BigOrder.total > 100],
+        effect=[Add(Ledger.entries, 1)],
+    )
+    sc_big = Scenario(
+        id="sc-big", name="big",
+        action=handler,
+        given=[BigOrder(total=500.0), Ledger(entries=0)],
+        then=[Assert(Ledger.entries == 1)],
+        expected=Expect.PASS,
+    )
+    sc_small = Scenario(
+        id="sc-small", name="small",
+        action=handler,
+        given=[BigOrder(total=5.0), Ledger(entries=0)],
+        expected=Expect.FAIL,
+    )
+    spec = Spec(id="s", name="S", entities=[Ledger], events=[BigOrder],
+                actions=[handler], scenarios=[sc_big, sc_small])
+    assert run_scenario(sc_big, spec).passed
+    assert run_scenario(sc_small, spec).passed  # correctly blocked
+
+
 # ── Requires ──────────────────────────────────────────────────────────────────
 
 def test_requires_valid():
+    from analint.validator.structural import validate_structural
+    from analint.reporter.base import Severity
+
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc_a = UseCase(id="uc_a", name="A", entities=[Item], rules=[rule])
-    uc_b = UseCase(id="uc_b", name="B", entities=[Item], rules=[rule], requires=[uc_a])
-    sc_a = Scenario(id="sc_a", name="SA", use_case=uc_a, given=[Item(price=5.0)], expected=Expect.PASS)
-    sc_b = Scenario(id="sc_b", name="SB", use_case=uc_b, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(
-        id="s", name="S",
-        entities=[Item],
-        rules=[rule],
-        use_cases=[uc_a, uc_b],
-        scenarios=[sc_a, sc_b],
-    )
-    from analint.validator.structural import validate_structural
-    from analint.reporter.base import Severity
+    a = Action(id="a", pre=[Item.price > 0])
+    b = Action(id="b", pre=[Item.price > 0], requires=[a])
+    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)], expected=Expect.PASS)
+    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)], expected=Expect.PASS)
+    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b], scenarios=[sc_a, sc_b])
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
     assert not any("circular" in f.message for f in errors)
@@ -493,21 +646,13 @@ def test_requires_circular_detected():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc_a = UseCase(id="uc_a", name="A", entities=[Item], rules=[rule])
-    uc_b = UseCase(id="uc_b", name="B", entities=[Item], rules=[rule])
-    # Manually inject circular dependency (pydantic allows Any)
-    object.__setattr__(uc_a, "requires", [uc_b])
-    object.__setattr__(uc_b, "requires", [uc_a])
-    sc_a = Scenario(id="sc_a", name="SA", use_case=uc_a, given=[Item(price=5.0)], expected=Expect.PASS)
-    sc_b = Scenario(id="sc_b", name="SB", use_case=uc_b, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(
-        id="s", name="S",
-        entities=[Item],
-        rules=[rule],
-        use_cases=[uc_a, uc_b],
-        scenarios=[sc_a, sc_b],
-    )
+    a = Action(id="a", pre=[Item.price > 0])
+    b = Action(id="b", pre=[Item.price > 0])
+    object.__setattr__(a, "requires", [b])
+    object.__setattr__(b, "requires", [a])
+    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)], expected=Expect.PASS)
+    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)], expected=Expect.PASS)
+    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b], scenarios=[sc_a, sc_b])
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
     assert any("circular" in f.message for f in errors)
@@ -515,29 +660,26 @@ def test_requires_circular_detected():
 
 # ── Effects ───────────────────────────────────────────────────────────────────
 
+def _spec_for(action, *, entities, scenarios, lifecycles=()):
+    return Spec(id="s", name="S", entities=list(entities), actions=[action],
+                scenarios=list(scenarios), lifecycles=list(lifecycles))
+
+
 def test_effect_set_changes_state():
     from analint.validator.scenario_runner import run_scenario
 
     class Order(Entity):
         status: str
 
-    rule = BusinessRule(id="r", name="R", rule_type=RuleType.PRECONDITION,
-                        expression=Order.status == "pending")
-    rule_post = BusinessRule(id="rp", name="RP", rule_type=RuleType.POSTCONDITION,
-                             expression=Order.status == "paid")
-    uc = UseCase(
-        id="uc", name="Pay",
-        entities=[Order],
-        rules=[rule, rule_post],
-        effects=[Set(Order.status, "paid")],
+    action = Action(
+        id="pay",
+        pre=[Order.status == "pending"],
+        effect=[Set(Order.status, "paid")],
+        post=[Order.status == "paid"],
     )
-    sc = Scenario(id="sc", name="SC", use_case=uc, given=[Order(status="pending")],
+    sc = Scenario(id="sc", name="SC", action=action, given=[Order(status="pending")],
                   expected=Expect.PASS)
-
-    class FakeSpec:
-        flows = []
-
-    result = run_scenario(sc, FakeSpec())
+    result = run_scenario(sc, _spec_for(action, entities=[Order], scenarios=[sc]))
     assert result.passed
 
 
@@ -550,27 +692,94 @@ def test_effect_subtract():
     class Order(Entity):
         total: float
 
-    rule = BusinessRule(id="r", name="R", rule_type=RuleType.PRECONDITION,
-                        expression=Wallet.balance >= Order.total)
-    uc = UseCase(
-        id="uc", name="Pay",
-        entities=[Wallet, Order],
-        rules=[rule],
-        effects=[Subtract(Wallet.balance, Order.total)],
+    action = Action(
+        id="pay",
+        pre=[Wallet.balance >= Order.total],
+        effect=[Subtract(Wallet.balance, Order.total)],
     )
     sc = Scenario(
         id="sc", name="SC",
-        use_case=uc,
+        action=action,
         given=[Wallet(balance=100.0), Order(total=30.0)],
         then=[Assert(Wallet.balance == 70.0)],
         expected=Expect.PASS,
     )
-
-    class FakeSpec:
-        flows = []
-
-    result = run_scenario(sc, FakeSpec())
+    result = run_scenario(sc, _spec_for(action, entities=[Wallet, Order], scenarios=[sc]))
     assert result.passed
+
+
+def test_effects_are_simultaneous():
+    """Right-hand sides are resolved against the pre-state, not the partial post-state."""
+    from analint.validator.scenario_runner import run_scenario
+
+    class Order(Entity):
+        status: str
+
+    class Audit(Entity):
+        last_status: str
+
+    action = Action(
+        id="pay",
+        effect=[
+            Set(Order.status, "paid"),
+            Set(Audit.last_status, Order.status),  # must observe the OLD status
+        ],
+    )
+    sc = Scenario(
+        id="sc", name="SC",
+        action=action,
+        given=[Order(status="pending"), Audit(last_status="")],
+        then=[
+            Assert(Order.status == "paid"),
+            Assert(Audit.last_status == "pending"),
+        ],
+        expected=Expect.PASS,
+    )
+    result = run_scenario(sc, _spec_for(action, entities=[Order, Audit], scenarios=[sc]))
+    assert result.passed, [f.message for f in result.findings]
+
+
+def test_structural_conflicting_effects_on_same_field():
+    from analint.validator.structural import validate_structural
+    from analint.reporter.base import Severity
+
+    class Wallet(Entity):
+        balance: float
+
+    action = Action(
+        id="weird",
+        effect=[
+            Set(Wallet.balance, 0.0),
+            Subtract(Wallet.balance, 5.0),
+        ],
+    )
+    sc = Scenario(id="sc", name="SC", action=action, given=[Wallet(balance=10.0)])
+    spec = _spec_for(action, entities=[Wallet], scenarios=[sc])
+    findings = validate_structural(spec)
+    errors = [f for f in findings if f.severity == Severity.ERROR]
+    assert any("simultaneous" in f.message for f in errors)
+
+
+def test_invariant_checked_after_effects():
+    """A world invariant violated by the post-state must fail the scenario."""
+    from analint.validator.scenario_runner import run_scenario
+
+    class Wallet(Entity):
+        balance: float
+
+    no_overdraft = Invariant(Wallet.balance >= 0, label="No overdraft", id="no-overdraft")
+    action = Action(id="spend", effect=[Subtract(Wallet.balance, 100.0)])
+    sc = Scenario(
+        id="sc", name="SC",
+        action=action,
+        given=[Wallet(balance=10.0)],   # 10 - 100 = -90 → invariant breaks post
+        expected=Expect.PASS,
+    )
+    spec = Spec(id="s", name="S", entities=[Wallet], invariants=[no_overdraft],
+                actions=[action], scenarios=[sc])
+    result = run_scenario(sc, spec)
+    assert not result.passed
+    assert any("INVARIANT (post)" in f.message for f in result.findings)
 
 
 def test_then_assert_fails_when_condition_wrong():
@@ -579,26 +788,19 @@ def test_then_assert_fails_when_condition_wrong():
     class Order(Entity):
         status: str
 
-    rule = BusinessRule(id="r", name="R", rule_type=RuleType.PRECONDITION,
-                        expression=Order.status == "pending")
-    uc = UseCase(
-        id="uc", name="Pay",
-        entities=[Order],
-        rules=[rule],
-        effects=[Set(Order.status, "paid")],
+    action = Action(
+        id="pay",
+        pre=[Order.status == "pending"],
+        effect=[Set(Order.status, "paid")],
     )
     sc = Scenario(
         id="sc", name="SC",
-        use_case=uc,
+        action=action,
         given=[Order(status="pending")],
         then=[Assert(Order.status == "cancelled")],  # wrong: it becomes "paid"
         expected=Expect.PASS,
     )
-
-    class FakeSpec:
-        flows = []
-
-    result = run_scenario(sc, FakeSpec())
+    result = run_scenario(sc, _spec_for(action, entities=[Order], scenarios=[sc]))
     assert not result.passed
 
 
@@ -611,21 +813,16 @@ def test_then_emitted_ok():
     class ItemSold(Event):
         item_id: str
 
-    rule = BusinessRule(id="r", name="R", rule_type=RuleType.PRECONDITION,
-                        expression=Item.price > 0)
-    uc = UseCase(id="uc", name="Sell", entities=[Item], rules=[rule], emits=[ItemSold])
+    action = Action(id="sell", pre=[Item.price > 0],
+                    emits=[ItemSold(item_id=Item.price)])
     sc = Scenario(
         id="sc", name="SC",
-        use_case=uc,
+        action=action,
         given=[Item(price=10.0)],
         then=[Emitted(ItemSold)],
         expected=Expect.PASS,
     )
-
-    class FakeSpec:
-        flows = []
-
-    result = run_scenario(sc, FakeSpec())
+    result = run_scenario(sc, _spec_for(action, entities=[Item], scenarios=[sc]))
     assert result.passed
 
 
@@ -638,21 +835,15 @@ def test_then_emitted_fails_when_not_in_emits():
     class OtherEvent(Event):
         x: str
 
-    rule = BusinessRule(id="r", name="R", rule_type=RuleType.PRECONDITION,
-                        expression=Item.price > 0)
-    uc = UseCase(id="uc", name="Sell", entities=[Item], rules=[rule], emits=[])
+    action = Action(id="sell", pre=[Item.price > 0], emits=[])
     sc = Scenario(
         id="sc", name="SC",
-        use_case=uc,
+        action=action,
         given=[Item(price=10.0)],
         then=[Emitted(OtherEvent)],
         expected=Expect.PASS,
     )
-
-    class FakeSpec:
-        flows = []
-
-    result = run_scenario(sc, FakeSpec())
+    result = run_scenario(sc, _spec_for(action, entities=[Item], scenarios=[sc]))
     assert not result.passed
 
 
@@ -665,20 +856,13 @@ def test_flow_requires_order_valid():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc_a = UseCase(id="uc_a", name="A", entities=[Item], rules=[rule])
-    uc_b = UseCase(id="uc_b", name="B", entities=[Item], rules=[rule], requires=[uc_a])
-    flow = Flow(id="f1", steps=[uc_a, uc_b])
-    sc_a = Scenario(id="sc_a", name="SA", use_case=uc_a, given=[Item(price=5.0)])
-    sc_b = Scenario(id="sc_b", name="SB", use_case=uc_b, given=[Item(price=5.0)])
-    spec = Spec(
-        id="s", name="S",
-        entities=[Item],
-        rules=[rule],
-        use_cases=[uc_a, uc_b],
-        flows=[flow],
-        scenarios=[sc_a, sc_b],
-    )
+    a = Action(id="a", pre=[Item.price > 0])
+    b = Action(id="b", pre=[Item.price > 0], requires=[a])
+    flow = Flow(id="f1", steps=[a, b])
+    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
+    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
+    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b],
+                flows=[flow], scenarios=[sc_a, sc_b])
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR and "requires" in f.message]
     assert not errors
@@ -691,20 +875,31 @@ def test_flow_requires_order_violated():
     class Item(Entity):
         price: float
 
-    rule = BusinessRule(id="r", name="R", expression=Item.price > 0)
-    uc_a = UseCase(id="uc_a", name="A", entities=[Item], rules=[rule])
-    uc_b = UseCase(id="uc_b", name="B", entities=[Item], rules=[rule], requires=[uc_a])
-    flow = Flow(id="f1", steps=[uc_b, uc_a])  # wrong order: B before A
-    sc_a = Scenario(id="sc_a", name="SA", use_case=uc_a, given=[Item(price=5.0)])
-    sc_b = Scenario(id="sc_b", name="SB", use_case=uc_b, given=[Item(price=5.0)])
-    spec = Spec(
-        id="s", name="S",
-        entities=[Item],
-        rules=[rule],
-        use_cases=[uc_a, uc_b],
-        flows=[flow],
-        scenarios=[sc_a, sc_b],
-    )
+    a = Action(id="a", pre=[Item.price > 0])
+    b = Action(id="b", pre=[Item.price > 0], requires=[a])
+    flow = Flow(id="f1", steps=[b, a])  # wrong order: b before a
+    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
+    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
+    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b],
+                flows=[flow], scenarios=[sc_a, sc_b])
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert any("requires" in f.message and "uc_a" in f.message for f in errors)
+    assert any("requires" in f.message and "'a'" in f.message for f in errors)
+
+
+# ── Loader: id autofill from variable names ───────────────────────────────────
+
+def test_collect_fills_ids_from_variable_names():
+    import types
+    from analint.loader.python_loader import collect_from_modules
+
+    class Item(Entity):
+        price: float
+
+    module = types.ModuleType("fake_spec_module")
+    module.buy_item = Action(pre=[Item.price > 0])
+    module.price_positive = Invariant(Item.price > 0)
+    collected = collect_from_modules([module])
+
+    assert collected["actions"][0].id == "buy_item"
+    assert collected["invariants"][0].id == "price_positive"

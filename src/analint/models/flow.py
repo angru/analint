@@ -16,7 +16,7 @@ class Emitted:
 
 @dataclass
 class Flow:
-    """Describes a linear sequence of use cases (a user journey)."""
-    id: str
-    steps: list = dc_field(default_factory=list)  # list[UseCase]
+    """Describes a linear sequence of actions (a user journey)."""
+    steps: list = dc_field(default_factory=list)  # list[Action]
+    id: str = ""           # filled from the variable name by the loader when empty
     description: str = ""

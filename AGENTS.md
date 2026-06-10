@@ -4,13 +4,11 @@ Context for AI agents working in this repository.
 
 ## What this project is
 
-analint is a **Python DSL for declaring and verifying business analytics**. It lets you describe domain entities, business rules, use cases, and scenarios as Python code — then validates that the rules hold against concrete data.
+analint is a **Python DSL for declaring and verifying system behaviour**: domain entities, constraints, actions (state transitions), lifecycles, and scenarios — checked by a linter/validator. The domain is intentionally generic: business analytics, game rules, and narrative consistency all use the same primitives (see `examples/`).
 
-It is NOT an architecture linter, NOT a service topology tool. It is a business-logic specification framework.
+The central idea: constraints are predicate expressions over entity fields (`Wallet.balance >= Order.total`), actions declare pre/effect/post, scenarios provide concrete instances, and the validator evaluates everything against that data.
 
-The central idea: business rules are declared as predicate expressions over entity fields (`Wallet.balance >= Order.total`), scenarios provide concrete entity instances, and the linter evaluates whether rules pass or fail against that data.
-
----
+`research/` holds the design research (universal DSL, declarative semantics, reachability roadmap, AI-agent use case). `ROADMAP.md` holds the plan; current phase is v0.9 (done) → v0.10 (agent-facing CLI).
 
 ## Repository layout
 
@@ -20,177 +18,107 @@ src/analint/
   cli.py                    ← typer CLI entry point
 
   models/
-    entity.py               ← Entity base class, EntityMeta metaclass, FieldDescriptor
+    entity.py               ← Entity base, EntityMeta metaclass, FieldDescriptor, _init_fields
     actor.py                ← Actor base class (role markers)
     event.py                ← Event base class (same metaclass as Entity)
-    predicate.py            ← _Eq, _Gte, _And, _Not … dataclasses + And/Or/Not factories
-    business.py             ← BusinessRule, UseCase (with effects, emits, requires)
-    scenario.py             ← Scenario, Expect enum
-    statemachine.py         ← StateMachine, Transition dataclasses
+    predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
+    invariant.py            ← Invariant dataclass (world-level constraint)
+    action.py               ← Action (pre / effect / post / emits / on / requires / by)
     effect.py               ← Set, Subtract, Add effect dataclasses
+    lifecycle.py            ← Lifecycle (with terminal states), Transition
+    scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
     root.py                 ← Spec (top-level aggregate)
 
   validator/
-    engine.py               ← orchestration: load → structural → scenarios → result
-    structural.py           ← structural validation (refs, cycles, reachability)
-    scenario_runner.py      ← scenario execution: preconditions → effects → postconditions → then
+    engine.py               ← orchestration: load → auto-populate → structural → scenarios
+    structural.py           ← static validation (refs, cycles, payload bindings, terminal)
+    scenario_runner.py      ← invariants → pre → effects (simultaneous) → post → then
     rule_checker.py         ← evaluate(pred, context) and resolve(operand, context)
 
-  reporter/
-    base.py                 ← Finding, ScenarioResult, ValidationResult dataclasses
-    terminal.py             ← colored terminal output
-    json_reporter.py        ← JSON output
+  reporter/                 ← Finding/ScenarioResult/ValidationResult, terminal + JSON output
 
   loader/
-    discovery.py            ← discover_files: find all .py files in a directory
-    python_loader.py        ← load_module, load_all (returns 3-tuple: specs, modules, errors),
-                               collect_from_modules (inspect.getmembers → entities/rules/etc.)
+    discovery.py            ← discover_files (used only for unloaded-file warnings)
+    python_loader.py        ← entry-point import, closure cache, collect_from_modules
 
 examples/
-  ecommerce/                ← single-file example (Order, Wallet, Product, checkout UC)
-  taskboard/                ← multi-file example (9 files, 16 scenarios)
-tests/
-  test_models.py            ← DSL + predicate + structural validation tests
-  test_validator.py         ← end-to-end scenario execution tests
-  test_loader.py            ← loader tests
-  fixtures/
-    simple_spec.py          ← minimal passing spec
-    broken_spec.py          ← spec with intentional errors (phantom entity)
+  ecommerce/spec.py         ← single-file example
+  taskboard/                ← multi-file example (relative imports, 16 scenarios)
+  cloak/spec.py             ← Cloak of Darkness — game spec example
+tests/                      ← test_models, test_validator, test_loader + fixtures/
 ```
-
----
 
 ## Core concepts
 
-### Entity
+### Entity / Event
 
-Custom metaclass (`EntityMeta`) converts annotated fields to `FieldDescriptor` objects at class creation time. Class-level access returns the descriptor (for predicates); instance-level access returns the stored value.
+`EntityMeta` converts annotated fields to `FieldDescriptor` objects at class creation. Class-level access returns the descriptor (for predicates); instance-level access returns the value. `Event` reuses the same metaclass — so event payloads work in predicates exactly like entity fields. `_init_fields` raises on unknown **and** missing required fields.
 
-```python
-class Order(Entity):
-    status: OrderStatus = OrderStatus.PENDING  # default
-    total: float                               # required
+### Predicates
 
-Order.total      # → FieldDescriptor (used in predicate expressions)
-Order(total=50.0, status=OrderStatus.PENDING).total  # → 50.0
-```
-
-`Actor` and `Event` follow the same pattern. `Event` reuses `EntityMeta` via `_init_fields` from `entity.py`.
-
-### Predicate expressions
-
-`FieldDescriptor` overloads comparison operators to return `@dataclass` predicate objects:
-
-```python
-Wallet.balance >= Order.total   # → _Gte(left=FieldDescriptor, right=FieldDescriptor)
-Product.stock > 0               # → _Gt(left=FieldDescriptor, right=0)
-Order.status == OrderStatus.PAID  # → _Eq(left=FieldDescriptor, right=OrderStatus.PAID)
-```
+`FieldDescriptor` overloads comparison operators to return `@dataclass` predicate objects. Combinators: `And/Or/Not/Implies/In/IsNull/IsNotNull`. Predicates are plain values — specs name and reuse them (`board_is_active = Board.status == BoardStatus.ACTIVE`).
 
 Imports inside operator methods are deferred to avoid a circular import between `entity.py` and `predicate.py`.
-
-Logical combinators are factory functions (Python keywords can't be overloaded):
-```python
-And(pred_a, pred_b)   # → _And(exprs=[pred_a, pred_b])
-Or(pred_a, pred_b)    # → _Or(exprs=[...])
-Not(pred_a)           # → _Not(expr=pred_a)
-```
 
 ### Evaluation model
 
 ```python
-context = {type(inst): inst for inst in scenario.given}  # {Order: order_instance, ...}
-
-resolve(operand, context):
-    FieldDescriptor → context[desc.entity_cls].<field_name>
-    literal         → as-is
-
-evaluate(_Gte(a, b), context):
-    resolve(a, context) >= resolve(b, context)
+context = {type(inst): inst for inst in scenario.given}   # entities AND events
+resolve(FieldDescriptor, context) → getattr(context[desc.entity_cls], desc.field_name)
+evaluate(_Gte(a, b), context) → resolve(a) >= resolve(b)
 ```
 
-### Scenario execution order
+### Scenario execution order (scenario_runner.py)
 
-1. Build `context = {type(inst): inst for inst in given}`
-2. Evaluate **INVARIANT** and **PRECONDITION** rules against `context`
-3. If no precondition errors: apply `UseCase.effects` → `post_context` (shallow copies)
-4. Evaluate **POSTCONDITION** rules against `post_context`
-5. Evaluate `then=[Assert(pred), Emitted(EventCls)]` against `post_context`
-6. If `expected == Expect.FAIL`: invert pass/fail
+1. World invariants (skipped when `given` lacks the referenced entities) + `action.pre`
+2. Terminal guard: entity whose lifecycle field is terminal must not be touched by effects
+3. Effects applied **simultaneously**: all right-hand sides resolved against the *pre*-state
+4. `action.post` + invariants re-checked against the post-state
+5. `then` assertions; `Emitted` accepts both event classes and payload templates in `emits`
+6. `Expect.FAIL` inverts pass/fail ("correctly blocked")
 
-### Auto-populate Spec
+### Loader (python_loader.py)
 
-If `Spec(...)` is found with empty lists (the default), `engine._auto_populate()` fills them from all loaded modules via `inspect.getmembers`:
-- `Entity` / `Actor` / `Event` subclasses (excluding the base classes themselves)
-- `BusinessRule` / `UseCase` / `Scenario` / `StateMachine` / `Flow` instances
+The spec is loaded through a **single entry point** (`spec.py` or an explicit file) via the standard import system:
 
-Rule: if a list is explicitly non-empty in `Spec(...)` → used as-is. If empty (default) → auto-discover from all modules in the directory.
+- packaged specs (with `__init__.py`) are imported under their real qualified name — this prevents the duplicate-class-identity bug; multi-file specs must use **relative imports**
+- standalone files are imported under a synthetic unique name (nothing imports the entry itself)
+- the import closure is cached per entry path (`_CLOSURE_CACHE`) so repeated loads in one process reuse identities
+- `collect_from_modules` walks the loaded modules, collects instances, and **fills empty `id` fields from variable names**
+- a `.py` file in the directory not reachable from the entry point → warning (engine.`_unloaded_file_warnings`)
 
-Deduplication: classes via `set()` (identity), instances via `obj not in seen_list` (list, because pydantic instances are unhashable).
+### Auto-populate Spec (engine.py)
 
-This means a minimal `spec.py` is just:
-```python
-spec = Spec(id="myproject", name="My Project")
-```
-…and the loader discovers everything else from the other `.py` files in the same directory.
-
----
+`Spec(...)` with empty lists → `_auto_populate` fills them from collected objects. Non-empty list → used as-is. Dedup of instances is **by object identity** (`id(obj)`), never `==` — dataclass equality on predicate fields hits the overloaded operators.
 
 ## Key design decisions
 
-- **No pydantic for predicates or effects** — they are `@dataclass`, accessed only via `isinstance()` and attribute reads, never serialized. Pydantic is used only for `BusinessRule`, `UseCase`, `Scenario`, `Spec` (internal models that benefit from validation and future JSON export).
-- **No pydantic for Entity** — custom `EntityMeta` metaclass avoids metaclass conflict with pydantic and keeps Entity lightweight.
-- **Circular import solved by deferred imports** — `FieldDescriptor.__ge__` etc. import from `predicate.py` inside the method body, not at module level.
-- **`_init_fields` shared helper** — both `Entity.__init__` and `Event.__init__` delegate to `_init_fields(instance, kwargs)` in `entity.py`.
-- **Effects produce shallow copies** — `_apply_effects` uses `copy.copy(inst)` so the original `given` list is never mutated.
-- **`Expect.FAIL` means the scenario documents a blocked path** — it passes when at least one rule rejects the data. The linter prints "correctly blocked" to confirm intent.
-- **`Transition(from, to_states)` — no `via`** — StateMachine and UseCase are decoupled. `to_states` can be a single value or a list; `__post_init__` normalizes to list. Effects on UseCase (`Set(field, value)`) are the source of truth for what changes, not SM transitions.
-- **`sys.path.insert(0, cwd)`** in `load_module` — required for multi-file examples that use package imports (e.g. `from examples.taskboard.entities import ...`).
-
----
-
-## Validation rules summary
-
-### Structural (`structural.py`)
-- Duplicate ids in rules, use cases, scenarios, state machines, flows
-- `FieldDescriptor` refs → entity registered in `spec.entities`, field exists on class
-- `UseCase.actor` subclasses `Actor`, registered in `spec.actors`
-- `UseCase.requires` → registered use cases, no circular dependencies (DFS)
-- `UseCase.emits` / `triggered_by` → registered in `spec.events`
-- Emitted events handled by at least one `triggered_by` (WARNING if not)
-- `StateMachine.entity_cls` registered in `spec.entities`
-- Scenario `given` covers entity types needed by rules (WARNING if missing)
-- Scenario `given` state reachable from state machine initial (WARNING if not)
-- `Flow` steps registered; `requires` order respected by step order
-- `UseCase.effects` target registered entities
-
-### Scenario runner (`scenario_runner.py`)
-- INVARIANT / PRECONDITION evaluated against pre-state
-- Effects applied only when all preconditions pass
-- POSTCONDITION / `then` evaluated against post-state
-
----
+- **Effects are facts, not commands** — simultaneous semantics, RHS on pre-state, two effects on one field = structural error. Don't make them sequential. (research/07)
+- **No `BusinessRule`/`RuleType` wrappers** — preconditions are plain predicates in `pre=`, world constraints are `Invariant(...)`. Placement *is* the semantics.
+- **No pydantic for Entity/Event/predicates/effects/Invariant/Lifecycle** — metaclass conflict / unnecessary; pydantic only for `Action`, `Scenario`, `Spec`.
+- **ids are optional** — derived from module-level variable names by the loader. Tests constructing objects directly must pass `id=` explicitly.
+- **Terminal lifecycle states block modification** — both statically (no transition out) and at runtime (effects on a terminal entity fail).
+- **Event payload templates** — `emits=[CardCreated(card_id=Card.id)]` binds payload to state expressions; structural validation checks fields and annotation compatibility; subscriber `pre` can reference event fields because Event instances can live in `given`.
 
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests
-uv run pytest tests/test_models.py -v  # specific file
-uv run analint examples/ecommerce/    # run linter on example
-uv run analint examples/taskboard/    # run multi-file example (16 scenarios)
-uv run analint . --format json         # JSON output
+uv run pytest                          # run all tests (63)
+uv run analint examples/ecommerce/    # 4 scenarios
+uv run analint examples/taskboard/    # 16 scenarios, multi-file
+uv run analint examples/cloak/        # 11 scenarios, game spec
+uv run analint . --format json        # JSON output
 ```
-
----
 
 ## What NOT to do
 
-- Do not add pydantic to `Entity`, `Actor`, `Event` — metaclass conflict
+- Do not reintroduce `via=` on Transition, `when=`/`Run` on Scenario, or `BusinessRule`/`UseCase`/`StateMachine` — removed in v0.9; the migration map lives in `research/05-universal-dsl.md`
+- Do not make effects sequential or let one effect observe another — simultaneity is a semantic guarantee with a test (`test_effects_are_simultaneous`)
+- Do not compare collected DSL instances with `==` — use object identity (`id(obj)`)
+- Do not add pydantic to `Entity`/`Actor`/`Event` — metaclass conflict
 - Do not import `predicate.py` at the top of `entity.py` — circular import
 - Do not mutate `scenario.given` instances — effects work on copies
-- Do not add a `kind` field or discriminated union to predicates — dead code, not used anywhere
-- Do not add `via=` to `Transition` — it was removed; SM and UseCase are intentionally decoupled
-- Do not add `when=` or `Run` to `Scenario` — `when` was removed; `use_case` field is the action
+- Do not load spec files with `spec_from_file_location` per file — that resurrects the double-import bug; everything goes through the entry point
 - Do not create `.md` documentation files unless explicitly asked
-- Do not add error handling for scenarios that can't happen (e.g. validate that a literal is not None before comparing — the Python operator will raise naturally)
+- Do not add error handling for scenarios that can't happen — let Python raise naturally

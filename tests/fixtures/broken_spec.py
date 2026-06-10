@@ -1,4 +1,4 @@
-from analint import Entity, BusinessRule, UseCase, Scenario, Spec, Expect
+from analint import Entity, Action, Scenario, Spec, Expect
 
 
 class Item(Entity):
@@ -13,30 +13,22 @@ class Phantom(Entity):
     value: float
 
 
-rule_ok = BusinessRule(
-    id="price-positive",
-    name="Price must be positive",
-    expression=Item.price > 0,
-)
-
-# Rule references Phantom entity which is NOT in spec.entities
-rule_phantom = BusinessRule(
-    id="phantom-rule",
-    name="Phantom rule",
-    expression=Phantom.value > 0,
-)
-
-uc_buy = UseCase(
+# The action references Budget (omitted from given → warning)
+# and Phantom (omitted from spec.entities → error).
+buy = Action(
     id="buy",
     name="Buy",
-    entities=[Item, Budget],
-    rules=[rule_ok, rule_phantom],
+    pre=[
+        Item.price > 0,
+        Budget.amount >= Item.price,
+        Phantom.value > 0,
+    ],
 )
 
 sc_missing_entity = Scenario(
     id="buy/missing",
     name="Budget missing from given",
-    use_case=uc_buy,
+    action=buy,
     given=[
         Item(price=10.0),
         # Budget intentionally omitted → structural warning
@@ -48,7 +40,6 @@ spec = Spec(
     id="broken",
     name="Broken Spec",
     entities=[Item, Budget],   # Phantom intentionally omitted
-    rules=[rule_ok, rule_phantom],
-    use_cases=[uc_buy],
+    actions=[buy],
     scenarios=[sc_missing_entity],
 )

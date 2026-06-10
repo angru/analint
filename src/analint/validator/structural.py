@@ -3,7 +3,7 @@ from analint.models.entity import FieldDescriptor
 from analint.models.root import Spec
 from analint.models.predicate import (
     _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
-    _And, _Or, _Not,
+    _And, _Or, _Not, _Implies,
     _In, _IsNull, _IsNotNull,
 )
 from analint.reporter.base import Finding, Severity
@@ -21,192 +21,233 @@ def validate_structural(spec: Spec) -> list[Finding]:
     def warn(loc: str, msg: str) -> Finding:
         return Finding(Severity.WARNING, loc, msg)
 
-    # Duplicate id checks
-    for kind, ids in [
-        ("rule", [r.id for r in spec.rules]),
-        ("use_case", [uc.id for uc in spec.use_cases]),
-        ("scenario", [sc.id for sc in spec.scenarios]),
+    # Missing and duplicate ids
+    for kind, objs in [
+        ("invariant", spec.invariants),
+        ("action", spec.actions),
+        ("scenario", spec.scenarios),
+        ("lifecycle", spec.lifecycles),
+        ("flow", spec.flows),
     ]:
         seen: set[str] = set()
-        for id_ in ids:
-            if id_ in seen:
-                findings.append(err(f"{kind}:{id_}", f"duplicate id '{id_}'"))
-            seen.add(id_)
+        for obj in objs:
+            if not obj.id:
+                findings.append(err(f"{kind}:?",
+                                    f"{kind} has no id — assign it to a module-level "
+                                    f"variable or set id= explicitly"))
+                continue
+            if obj.id in seen:
+                findings.append(err(f"{kind}:{obj.id}", f"duplicate id '{obj.id}'"))
+            seen.add(obj.id)
 
-    # Collect registered entity names
+    # Duplicate entity class names with different identities — almost always
+    # the same file imported under two module names (use relative imports)
+    for kind, classes in [("entity", spec.entities), ("actor", spec.actors), ("event", spec.events)]:
+        by_name: dict[str, type] = {}
+        for cls in classes:
+            other = by_name.get(cls.__name__)
+            if other is not None and other is not cls:
+                findings.append(err(
+                    f"{kind}:{cls.__name__}",
+                    f"two different classes named '{cls.__name__}' are registered "
+                    f"({other.__module__} and {cls.__module__}) — the same file is "
+                    f"probably imported under two module names; use relative imports"))
+            by_name[cls.__name__] = cls
+
     spec_entity_names = {e.__name__ for e in spec.entities}
-    rule_ids = {r.id for r in spec.rules}
-    use_case_ids = {uc.id for uc in spec.use_cases}
-
-    # StateMachines
-    sm_ids: set[str] = set()
-    for sm in spec.state_machines:
-        if sm.id in sm_ids:
-            findings.append(err(f"state_machine:{sm.id}", f"duplicate id '{sm.id}'"))
-        sm_ids.add(sm.id)
-
-        if not isinstance(sm.field, FieldDescriptor):
-            findings.append(err(f"state_machine:{sm.id}", "field must be a FieldDescriptor (e.g. Order.status)"))
-            continue
-
-        if sm.entity_cls.__name__ not in spec_entity_names:
-            findings.append(err(f"state_machine:{sm.id}",
-                                f"entity '{sm.entity_cls.__name__}' not in spec.entities"))
-
-        reachable = sm.reachable_states()
-        for t in sm.transitions:
-            for to_state in t.to_states:
-                if to_state not in reachable and t.from_state == sm.initial:
-                    pass  # always reachable from initial by definition
-
-
-    # Rules: validate FieldDescriptor refs point to registered entities and known fields
-    for rule in spec.rules:
-        if rule.expression is not None:
-            for ref_err in _check_pred_refs(rule.expression, spec.entities, f"rule:{rule.id}"):
-                findings.append(ref_err)
-
     spec_actor_names = {a.__name__ for a in spec.actors}
     spec_event_names = {e.__name__ for e in spec.events}
+    action_ids = {a.id for a in spec.actions}
 
-    # Actors: all registered actors must subclass Actor
+    # Actors / Events: registered classes must subclass the right base
     for actor_cls in spec.actors:
         if not (isinstance(actor_cls, type) and issubclass(actor_cls, Actor)):
-            findings.append(err(f"actor:{actor_cls}",
-                                f"'{actor_cls}' does not subclass Actor"))
-
-    # Events: all registered events must subclass Event
+            findings.append(err(f"actor:{actor_cls}", f"'{actor_cls}' does not subclass Actor"))
     for event_cls in spec.events:
         if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
-            findings.append(err(f"event:{event_cls}",
-                                f"'{event_cls}' does not subclass Event"))
+            findings.append(err(f"event:{event_cls}", f"'{event_cls}' does not subclass Event"))
 
-    # Requires: build dependency graph, detect cycles
-    uc_by_id = {uc.id: uc for uc in spec.use_cases}
-    _check_requires_cycles(spec.use_cases, uc_by_id, findings, err)
+    # Invariants: expressions reference registered entities and existing fields
+    for inv in spec.invariants:
+        findings.extend(_check_pred_refs(inv.expression, spec.entities, spec.events,
+                                         f"invariant:{inv.id}"))
 
-    # Use cases: entities, rules, actor, emits, triggered_by must be registered in spec
-    triggered_event_names: set[str] = set()
-    for uc in spec.use_cases:
-        for event_cls in uc.triggered_by:
-            triggered_event_names.add(event_cls.__name__)
+    # Requires cycles
+    action_by_id = {a.id: a for a in spec.actions}
+    _check_requires_cycles(spec.actions, action_by_id, findings, err)
 
-    for uc in spec.use_cases:
-        for entity_cls in uc.entities:
-            if entity_cls.__name__ not in spec_entity_names:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"entity '{entity_cls.__name__}' not in spec.entities"))
-        for rule in uc.rules:
-            if rule.id not in rule_ids:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"rule '{rule.id}' not in spec.rules"))
+    handled_event_names: set[str] = set()
+    for action in spec.actions:
+        for event_cls in action.on:
+            if isinstance(event_cls, type):
+                handled_event_names.add(event_cls.__name__)
 
-        if uc.actor is not None:
-            if not (isinstance(uc.actor, type) and issubclass(uc.actor, Actor)):
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"actor '{uc.actor}' does not subclass Actor"))
-            elif uc.actor.__name__ not in spec_actor_names:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"actor '{uc.actor.__name__}' not in spec.actors"))
+    for action in spec.actions:
+        loc = f"action:{action.id}"
 
-        for req_uc in uc.requires:
-            if req_uc.id not in use_case_ids:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"required use_case '{req_uc.id}' not in spec.use_cases"))
+        for pred in list(action.pre) + list(action.post):
+            findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc))
 
-        for event_cls in uc.emits:
+        if action.by is not None:
+            if not (isinstance(action.by, type) and issubclass(action.by, Actor)):
+                findings.append(err(loc, f"by='{action.by}' does not subclass Actor"))
+            elif action.by.__name__ not in spec_actor_names:
+                findings.append(err(loc, f"actor '{action.by.__name__}' not in spec.actors"))
+
+        for req in action.requires:
+            if req.id not in action_ids:
+                findings.append(err(loc, f"required action '{req.id}' not in spec.actions"))
+
+        # emits: classes or payload templates (Event instances)
+        for emitted in action.emits:
+            event_cls = emitted if isinstance(emitted, type) else type(emitted)
+            if not issubclass(event_cls, Event):
+                findings.append(err(loc, f"emits entry '{emitted!r}' is not an Event"))
+                continue
             if event_cls.__name__ not in spec_event_names:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"emitted event '{event_cls.__name__}' not in spec.events"))
-            elif event_cls.__name__ not in triggered_event_names:
-                findings.append(warn(f"use_case:{uc.id}",
-                                     f"event '{event_cls.__name__}' is emitted but never triggers a use_case"))
+                findings.append(err(loc, f"emitted event '{event_cls.__name__}' not in spec.events"))
+            elif event_cls.__name__ not in handled_event_names:
+                findings.append(warn(loc, f"event '{event_cls.__name__}' is emitted "
+                                          f"but never triggers an action"))
+            if not isinstance(emitted, type):
+                findings.extend(_check_event_template(emitted, spec.entities, loc))
 
-        for event_cls in uc.triggered_by:
-            if event_cls.__name__ not in spec_event_names:
-                findings.append(err(f"use_case:{uc.id}",
-                                    f"triggered_by event '{event_cls.__name__}' not in spec.events"))
+        for event_cls in action.on:
+            if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
+                findings.append(err(loc, f"on entry '{event_cls!r}' must be an Event class"))
+            elif event_cls.__name__ not in spec_event_names:
+                findings.append(err(loc, f"on event '{event_cls.__name__}' not in spec.events"))
 
-        if not any(sc.use_case.id == uc.id for sc in spec.scenarios):
-            findings.append(warn(f"use_case:{uc.id}", "has no scenarios"))
+        # effects: registered targets, no two effects on the same field
+        effect_targets: set[tuple[type, str]] = set()
+        for effect in action.effect:
+            if not isinstance(effect, (Set, Subtract, Add)):
+                findings.append(err(loc, f"effect entry '{effect!r}' is not Set/Add/Subtract"))
+                continue
+            if not isinstance(effect.field, FieldDescriptor):
+                findings.append(err(loc, "effect field must be a FieldDescriptor"))
+                continue
+            cls = effect.field.entity_cls
+            if cls.__name__ not in spec_entity_names:
+                findings.append(err(loc, f"effect targets entity '{cls.__name__}' "
+                                         f"not in spec.entities"))
+            target = (cls, effect.field.field_name)
+            if target in effect_targets:
+                findings.append(err(loc, f"two effects target '{cls.__name__}."
+                                         f"{effect.field.field_name}' — effects are "
+                                         f"simultaneous, a field can change only once"))
+            effect_targets.add(target)
 
-    # Scenarios: use_case registered; given covers entity types needed by rules
+        if not any(sc.action.id == action.id for sc in spec.scenarios):
+            findings.append(warn(loc, "has no scenarios"))
+
+    # Lifecycles
+    for lc in spec.lifecycles:
+        loc = f"lifecycle:{lc.id}"
+        if not isinstance(lc.field, FieldDescriptor):
+            findings.append(err(loc, "field must be a FieldDescriptor (e.g. Order.status)"))
+            continue
+        if lc.entity_cls.__name__ not in spec_entity_names:
+            findings.append(err(loc, f"entity '{lc.entity_cls.__name__}' not in spec.entities"))
+        for t in lc.transitions:
+            if t.from_state in lc.terminal:
+                findings.append(err(loc, f"transition out of terminal state {t.from_state!r}"))
+
+    # Scenarios
     for sc in spec.scenarios:
-        if sc.use_case.id not in use_case_ids:
-            findings.append(err(f"scenario:{sc.id}",
-                                f"use_case '{sc.use_case.id}' not in spec.use_cases"))
+        loc = f"scenario:{sc.id}"
+        if sc.action.id not in action_ids:
+            findings.append(err(loc, f"action '{sc.action.id}' not in spec.actions"))
             continue
 
         given_types = {type(inst) for inst in sc.given}
-        needed_types = _collect_ref_entity_types(sc.use_case.rules)
-        for ent_cls in needed_types:
-            if ent_cls not in given_types:
-                findings.append(warn(f"scenario:{sc.id}",
-                                     f"entity '{ent_cls.__name__}' referenced by rules but not in given"))
+        needed = _needed_types(sc.action)
+        for cls in needed:
+            if cls not in given_types:
+                findings.append(warn(loc, f"'{cls.__name__}' referenced by the action "
+                                          f"but not in given"))
 
-        # StateMachine reachability: given state must be reachable from initial
-        for sm in spec.state_machines:
-            if not isinstance(sm.field, FieldDescriptor):
+        for lc in spec.lifecycles:
+            if not isinstance(lc.field, FieldDescriptor):
                 continue
             for inst in sc.given:
-                if type(inst) is not sm.entity_cls:
+                if type(inst) is not lc.entity_cls:
                     continue
-                given_state = getattr(inst, sm.field_name, None)
-                if given_state is not None and given_state not in sm.reachable_states():
+                state = getattr(inst, lc.field_name, None)
+                if state is not None and state not in lc.reachable_states():
                     findings.append(warn(
-                        f"scenario:{sc.id}",
-                        f"{sm.entity_cls.__name__}.{sm.field_name}={given_state!r} "
-                        f"is not reachable from initial state {sm.initial!r}",
-                    ))
+                        loc,
+                        f"{lc.entity_cls.__name__}.{lc.field_name}={state!r} "
+                        f"is not reachable from initial state {lc.initial!r}"))
 
-    # Flows: steps must be registered UCs; order consistent with requires
-    flow_ids: set[str] = set()
+    # Flows: steps registered; requires order respected
     for flow in spec.flows:
-        if flow.id in flow_ids:
-            findings.append(err(f"flow:{flow.id}", f"duplicate id '{flow.id}'"))
-        flow_ids.add(flow.id)
-
+        loc = f"flow:{flow.id}"
         for step in flow.steps:
-            if step.id not in use_case_ids:
-                findings.append(err(f"flow:{flow.id}",
-                                    f"step '{step.id}' not in spec.use_cases"))
-
-        # Verify requires order: if UC B requires A, A must appear before B in steps
+            if step.id not in action_ids:
+                findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
         seen_steps: set[str] = set()
         for step in flow.steps:
             for req in step.requires:
                 if req.id not in seen_steps:
-                    findings.append(err(f"flow:{flow.id}",
-                                        f"'{step.id}' requires '{req.id}' "
-                                        f"but '{req.id}' does not appear before it in steps"))
+                    findings.append(err(loc, f"'{step.id}' requires '{req.id}' but "
+                                             f"'{req.id}' does not appear before it in steps"))
             seen_steps.add(step.id)
-
-    # Effects: field descriptors must point to registered entities
-    for uc in spec.use_cases:
-        for effect in uc.effects:
-            if isinstance(effect, (Set, Subtract, Add)):
-                if not isinstance(effect.field, FieldDescriptor):
-                    findings.append(err(f"use_case:{uc.id}",
-                                        "effect field must be a FieldDescriptor"))
-                    continue
-                cls = effect.field.entity_cls
-                if cls.__name__ not in spec_entity_names:
-                    findings.append(err(f"use_case:{uc.id}",
-                                        f"effect targets entity '{cls.__name__}' not in spec.entities"))
 
     return findings
 
 
-def _check_pred_refs(pred: object, spec_entities: list, loc: str) -> list[Finding]:
+def _needed_types(action) -> set[type]:
+    """Entity/Event types an action's predicates and effects reference."""
+    types: set[type] = set()
+    for pred in list(action.pre) + list(action.post):
+        for ref in _collect_field_refs(pred):
+            types.add(ref.entity_cls)
+    for effect in action.effect:
+        if isinstance(effect, (Set, Subtract, Add)) and isinstance(effect.field, FieldDescriptor):
+            types.add(effect.field.entity_cls)
+    return types
+
+
+def _check_event_template(template, spec_entities: list, loc: str) -> list[Finding]:
+    """Validate a payload template: bound FieldDescriptors must point to
+    registered entities; annotations are compared when both sides have them."""
     findings: list[Finding] = []
     spec_entity_names = {e.__name__ for e in spec_entities}
+    event_cls = type(template)
+    event_ann = getattr(event_cls, "__annotations__", {})
+    for field_name in getattr(event_cls, "_own_fields", {}):
+        value = template.__dict__.get(field_name)
+        if not isinstance(value, FieldDescriptor):
+            continue
+        src_cls = value.entity_cls
+        if src_cls.__name__ not in spec_entity_names:
+            findings.append(Finding(
+                Severity.ERROR, loc,
+                f"payload {event_cls.__name__}.{field_name} is bound to "
+                f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
+                f"is not in spec.entities"))
+            continue
+        src_ann = getattr(src_cls, "__annotations__", {}).get(value.field_name)
+        dst_ann = event_ann.get(field_name)
+        if src_ann is not None and dst_ann is not None and str(src_ann) != str(dst_ann):
+            findings.append(Finding(
+                Severity.WARNING, loc,
+                f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
+                f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ"))
+    return findings
+
+
+def _check_pred_refs(pred: object, spec_entities: list, spec_events: list, loc: str) -> list[Finding]:
+    findings: list[Finding] = []
+    known_names = {e.__name__ for e in spec_entities} | {e.__name__ for e in spec_events}
     for ref in _collect_field_refs(pred):
         cls = ref.entity_cls
         if not hasattr(cls, "_own_fields"):
             findings.append(Finding(Severity.ERROR, loc,
                                     f"FieldDescriptor references non-Entity class '{cls.__name__}'"))
             continue
-        if cls.__name__ not in spec_entity_names:
+        if cls.__name__ not in known_names:
             findings.append(Finding(Severity.ERROR, loc,
                                     f"entity '{cls.__name__}' not in spec.entities"))
             continue
@@ -226,6 +267,9 @@ def _collect_field_refs(pred: object) -> list[FieldDescriptor]:
             refs.extend(_collect_field_refs(e))
     elif isinstance(pred, _Not):
         refs.extend(_collect_field_refs(pred.expr))
+    elif isinstance(pred, _Implies):
+        refs.extend(_collect_field_refs(pred.left))
+        refs.extend(_collect_field_refs(pred.right))
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         if isinstance(pred.left, FieldDescriptor):
             refs.append(pred.left)
@@ -237,52 +281,43 @@ def _collect_field_refs(pred: object) -> list[FieldDescriptor]:
     return refs
 
 
-def _collect_ref_entity_types(rules: list) -> set[type]:
-    types: set[type] = set()
-    for rule in rules:
-        if rule.expression is not None:
-            for ref in _collect_field_refs(rule.expression):
-                types.add(ref.entity_cls)
-    return types
-
-
 def _check_requires_cycles(
-    use_cases: list,
-    uc_by_id: dict,
+    actions: list,
+    action_by_id: dict,
     findings: list[Finding],
     err_fn,
 ) -> None:
     """DFS cycle detection on the requires graph."""
     WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {uc.id: WHITE for uc in use_cases}
+    color: dict[str, int] = {a.id: WHITE for a in actions}
 
-    def dfs(uc_id: str) -> bool:
-        color[uc_id] = GRAY
-        uc = uc_by_id.get(uc_id)
-        if uc is None:
-            color[uc_id] = BLACK
+    def dfs(action_id: str) -> bool:
+        color[action_id] = GRAY
+        action = action_by_id.get(action_id)
+        if action is None:
+            color[action_id] = BLACK
             return False
-        for req in uc.requires:
+        for req in action.requires:
             nid = req.id
             if nid not in color:
                 color[nid] = WHITE
             if color[nid] == GRAY:
                 findings.append(err_fn(
-                    f"use_case:{uc_id}",
+                    f"action:{action_id}",
                     f"circular dependency detected involving '{nid}'",
                 ))
-                color[uc_id] = BLACK
+                color[action_id] = BLACK
                 return True
             if color[nid] == WHITE:
                 if dfs(nid):
-                    color[uc_id] = BLACK
+                    color[action_id] = BLACK
                     return True
-        color[uc_id] = BLACK
+        color[action_id] = BLACK
         return False
 
-    for uc in use_cases:
-        if color[uc.id] == WHITE:
-            dfs(uc.id)
+    for action in actions:
+        if color[action.id] == WHITE:
+            dfs(action.id)
 
 
 def _describe_operand(op: object) -> str:
@@ -314,6 +349,8 @@ def _describe(pred: object) -> str:
         return f"OR({inner})"
     if isinstance(pred, _Not):
         return f"NOT({_describe(pred.expr)})"
+    if isinstance(pred, _Implies):
+        return f"IF {_describe(pred.left)} THEN {_describe(pred.right)}"
     if isinstance(pred, _In):
         return f"{_describe_operand(pred.operand)} in {pred.values!r}"
     if isinstance(pred, _IsNull):

@@ -49,6 +49,11 @@ class _Or:
 class _Not:
     expr: object
 
+@dataclass
+class _Implies:
+    left: object
+    right: object
+
 
 # ── Membership / null predicates ───────────────────────────────────────────────
 
@@ -79,6 +84,10 @@ def Or(*exprs: object) -> _Or:
 def Not(expr: object) -> _Not:
     """Negation of a predicate."""
     return _Not(expr=expr)
+
+def Implies(left: object, right: object) -> _Implies:
+    """If `left` holds, `right` must hold too (vacuously true when `left` is false)."""
+    return _Implies(left=left, right=right)
 
 def In(operand: object, values: list) -> _In:
     """Field value must be one of the given values."""

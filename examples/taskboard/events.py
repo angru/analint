@@ -1,4 +1,5 @@
 from analint import Event
+from .entities import MemberRole
 
 
 class CardCreated(Event):
@@ -22,7 +23,7 @@ class CommentAdded(Event):
 class MemberInvited(Event):
     board_id: str
     user_id: str
-    role: str
+    role: MemberRole
 
 class NotificationDelivered(Event):
     notification_id: str

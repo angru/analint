@@ -1,0 +1,228 @@
+"""Cloak of Darkness — the canonical IF benchmark (Roger Firth, 1999) as an analint spec.
+
+Three rooms: Foyer (start), Cloakroom (west), Bar (south). The player wears a
+velvet cloak. While the cloak is worn the Bar is dark, and any action in the
+dark tramples the message written in sawdust on the floor. Hang the cloak on
+the hook in the Cloakroom and the Bar lights up; read the message — if it was
+trampled at most once you win, otherwise you lose.
+"""
+from enum import Enum
+
+from analint import (
+    Action, Add, Assert, Entity, Expect, Implies, Invariant,
+    Lifecycle, Scenario, Set, Spec, Transition,
+)
+
+# ── State ──────────────────────────────────────────────────────────────────────
+
+
+class Room(Enum):
+    FOYER = "foyer"
+    CLOAKROOM = "cloakroom"
+    BAR = "bar"
+
+
+class Result(Enum):
+    PLAYING = "playing"
+    WON = "won"
+    LOST = "lost"
+
+
+class Player(Entity):
+    location: Room = Room.FOYER
+    has_cloak: bool = True          # the cloak is worn from the start
+
+
+class Hook(Entity):
+    holds_cloak: bool = False
+
+
+class Message(Entity):
+    disturbances: int = 0           # how many times it was trampled
+
+
+class Game(Entity):
+    result: Result = Result.PLAYING
+
+
+# ── Constraints ────────────────────────────────────────────────────────────────
+
+cloak_in_one_place = Invariant(
+    Implies(Hook.holds_cloak == True, Player.has_cloak == False),  # noqa: E712
+    label="The cloak cannot be on the hook and on the player at once",
+)
+
+# "the Bar is dark" is not stored state — it is a fact derived from the cloak
+bar_is_dark = Player.has_cloak == True   # noqa: E712
+bar_is_lit  = Player.has_cloak == False  # noqa: E712
+
+# ── Movement ───────────────────────────────────────────────────────────────────
+
+go_west = Action(
+    pre=[Player.location == Room.FOYER],
+    effect=[Set(Player.location, Room.CLOAKROOM)],
+)
+
+go_east = Action(
+    pre=[Player.location == Room.CLOAKROOM],
+    effect=[Set(Player.location, Room.FOYER)],
+)
+
+go_south = Action(
+    pre=[Player.location == Room.FOYER],
+    effect=[Set(Player.location, Room.BAR)],
+)
+
+go_north = Action(
+    pre=[Player.location == Room.BAR],
+    effect=[Set(Player.location, Room.FOYER)],
+)
+
+# ── The cloak ──────────────────────────────────────────────────────────────────
+
+hang_cloak = Action(
+    name="Hang the cloak on the hook",
+    pre=[Player.location == Room.CLOAKROOM, Player.has_cloak == True],  # noqa: E712
+    effect=[Set(Player.has_cloak, False), Set(Hook.holds_cloak, True)],
+)
+
+# ── Darkness: any action in the dark Bar tramples the message ─────────────────
+
+grope_in_dark = Action(
+    name="Blunder around the dark bar",
+    pre=[Player.location == Room.BAR, bar_is_dark],
+    effect=[Add(Message.disturbances, 1)],
+)
+
+# ── Two endings ────────────────────────────────────────────────────────────────
+
+read_message_win = Action(
+    name="Read the message (legible)",
+    pre=[Player.location == Room.BAR, bar_is_lit, Message.disturbances <= 1],
+    effect=[Set(Game.result, Result.WON)],
+)
+
+read_message_lose = Action(
+    name="Read the message (trampled)",
+    pre=[Player.location == Room.BAR, bar_is_lit, Message.disturbances >= 2],
+    effect=[Set(Game.result, Result.LOST)],
+)
+
+# Terminal states replace the "game is over" precondition hack: once the game
+# is WON or LOST, no action may modify it.
+game_over = Lifecycle(
+    field=Game.result,
+    initial=Result.PLAYING,
+    transitions=[Transition(Result.PLAYING, [Result.WON, Result.LOST])],
+    terminal=[Result.WON, Result.LOST],
+)
+
+# ── Scenarios ──────────────────────────────────────────────────────────────────
+
+sc_walk_west = Scenario(
+    name="Walk from the foyer to the cloakroom",
+    action=go_west,
+    given=[Player()],
+    then=[Assert(Player.location == Room.CLOAKROOM)],
+)
+
+sc_walk_back = Scenario(
+    name="Walk back east to the foyer",
+    action=go_east,
+    given=[Player(location=Room.CLOAKROOM)],
+    then=[Assert(Player.location == Room.FOYER)],
+)
+
+sc_walk_south = Scenario(
+    name="Walk south into the bar",
+    action=go_south,
+    given=[Player()],
+    then=[Assert(Player.location == Room.BAR)],
+)
+
+sc_walk_north = Scenario(
+    name="Leave the bar to the north",
+    action=go_north,
+    given=[Player(location=Room.BAR)],
+    then=[Assert(Player.location == Room.FOYER)],
+)
+
+sc_hang = Scenario(
+    name="Hang the cloak in the cloakroom",
+    action=hang_cloak,
+    given=[Player(location=Room.CLOAKROOM, has_cloak=True), Hook()],
+    then=[
+        Assert(Player.has_cloak == False),  # noqa: E712
+        Assert(Hook.holds_cloak == True),   # noqa: E712
+    ],
+)
+
+sc_hang_from_foyer = Scenario(
+    name="Cannot hang the cloak from another room",
+    action=hang_cloak,
+    given=[Player(location=Room.FOYER, has_cloak=True), Hook()],
+    expected=Expect.FAIL,
+)
+
+sc_grope = Scenario(
+    name="Blundering in the dark tramples the message",
+    action=grope_in_dark,
+    given=[Player(location=Room.BAR, has_cloak=True), Message(disturbances=0)],
+    then=[Assert(Message.disturbances == 1)],
+)
+
+sc_read_in_dark = Scenario(
+    name="The message cannot be read in the dark",
+    action=read_message_win,
+    given=[
+        Player(location=Room.BAR, has_cloak=True),
+        Message(disturbances=0),
+        Game(),
+    ],
+    expected=Expect.FAIL,
+)
+
+sc_clean_win = Scenario(
+    name="Undisturbed message — the player wins",
+    action=read_message_win,
+    given=[
+        Player(location=Room.BAR, has_cloak=False),
+        Hook(holds_cloak=True),
+        Message(disturbances=0),
+        Game(),
+    ],
+    then=[Assert(Game.result == Result.WON)],
+)
+
+sc_trampled_lose = Scenario(
+    name="Trampled message — the player loses",
+    action=read_message_lose,
+    given=[
+        Player(location=Room.BAR, has_cloak=False),
+        Hook(holds_cloak=True),
+        Message(disturbances=3),
+        Game(),
+    ],
+    then=[Assert(Game.result == Result.LOST)],
+)
+
+sc_game_already_over = Scenario(
+    name="A finished game cannot be re-finished",
+    action=read_message_win,
+    given=[
+        Player(location=Room.BAR, has_cloak=False),
+        Hook(holds_cloak=True),
+        Message(disturbances=0),
+        Game(result=Result.WON),   # terminal → blocked
+    ],
+    expected=Expect.FAIL,
+)
+
+# ── Spec — everything above is discovered automatically ───────────────────────
+
+spec = Spec(
+    id="cloak-of-darkness",
+    name="Cloak of Darkness",
+    version="0.9.0",
+    description="The classic IF benchmark expressed as verifiable game rules",
+)

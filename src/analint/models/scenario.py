@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
-from analint.models.business import UseCase
+from analint.models.action import Action
 
 
 class Expect(Enum):
@@ -12,12 +12,18 @@ class Expect(Enum):
 
 
 class Scenario(BaseModel):
+    """A concrete example: initial state, one action, expected outcome.
+
+    `given` holds Entity instances (and, for actions triggered by events,
+    Event instances carrying the payload). `then` holds Assert/Emitted checks
+    evaluated against the post-state.
+    """
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    id: str
-    name: str
+    id: str = ""             # filled from the variable name by the loader when empty
+    name: str = ""
     description: str = ""
-    use_case: UseCase
-    given: list[Any] = Field(default_factory=list)  # Entity instances
+    action: Action
+    given: list[Any] = Field(default_factory=list)   # Entity / Event instances
     then: list[Any] = Field(default_factory=list)    # [Assert(pred), Emitted(EventCls)]
     expected: Expect = Expect.PASS
     tags: list[str] = Field(default_factory=list)

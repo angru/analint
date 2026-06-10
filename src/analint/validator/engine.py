@@ -2,28 +2,52 @@ from __future__ import annotations
 from pathlib import Path
 
 from analint.loader.discovery import discover_files
-from analint.loader.python_loader import collect_from_modules, load_path
+from analint.loader.python_loader import (
+    LoadError, _import_standalone, collect_from_modules, load_path,
+)
 from analint.models.root import Spec
 from analint.reporter.base import Finding, Severity, ValidationResult
 from analint.validator.structural import validate_structural
 from analint.validator.scenario_runner import run_scenario
 
 
-def validate(path: Path, scenario_ids: list[str] | None = None, tags: list[str] | None = None) -> ValidationResult:
+def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
+    """Load and auto-populate the spec model without running any checks.
+
+    `extra` is a what-if patch: a standalone .py file whose objects (scenarios,
+    invariants, actions, …) are added to the model without touching the spec
+    files. It is imported after the spec, so it can import the spec's modules.
+    """
     specs, modules, load_errors = load_path(path)
+    if extra is not None:
+        try:
+            patch = _import_standalone(Path(extra).resolve())
+            modules = modules + [patch]
+        except Exception as exc:
+            load_errors = load_errors + [LoadError(Path(extra), exc)]
 
     if not specs:
+        return None, modules, load_errors
+    if len(specs) == 1:
+        return _auto_populate(specs[0], modules), modules, load_errors
+    return _merge_specs(specs), modules, load_errors
+
+
+def validate(
+    path: Path,
+    scenario_ids: list[str] | None = None,
+    tags: list[str] | None = None,
+    extra: Path | None = None,
+) -> ValidationResult:
+    spec, modules, load_errors = build_spec(path, extra=extra)
+
+    if spec is None:
         result = ValidationResult(
             spec_id="__empty__",
             spec_name="(no spec found)",
             load_errors=[str(e) for e in load_errors],
         )
         return result
-
-    if len(specs) == 1:
-        spec = _auto_populate(specs[0], modules)
-    else:
-        spec = _merge_specs(specs)
 
     result = ValidationResult(
         spec_id=spec.id,

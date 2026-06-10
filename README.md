@@ -334,18 +334,51 @@ A `.py` file in the directory that is not reachable from the entry point produce
 ## CLI
 
 ```
-analint [PATH] [OPTIONS]
+analint check [PATH]              # validate: structural checks + scenario runs
+  -f, --format terminal|json
+  -s, --scenario ID   -t, --tag TAG
+  --strict                        # warnings become errors
+  --what-if FILE.py               # add the file's objects to the model for this
+                                  # run only — test a hypothesis without editing the spec
 
-Arguments:
-  PATH    Directory with spec.py, or a single spec file (default: .)
+analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
+  analint show -p .                  # overview: all ids by kind
+  analint show action checkout -p .  # pre/effect/post/emits/scenarios of one action
+  analint show lifecycle order_lifecycle -p .   # transitions, terminal, unreachable states
 
-Options:
-  -f, --format TEXT     Output format: terminal (default) or json
-  -s, --scenario TEXT   Run only this scenario id (repeatable)
-  -t, --tag TEXT        Run only scenarios with this tag (repeatable)
-  --strict              Treat warnings as errors
-  --fail-fast           Stop after first failure
+analint affects TARGET -p PATH    # impact analysis before changing something (JSON)
+  analint affects Wallet.balance -p .   # who reads/writes the field, invariants, lifecycles
+  analint affects checkout -p .         # what the action touches + downstream triggers
+
+analint PATH                      # shorthand for `analint check PATH`
 ```
+
+Exit codes: `0` ok · `1` findings (errors, failed scenarios, warnings with `--strict`) · `2` usage error · `3` spec could not be loaded.
+
+### What-if: check a hypothesis without touching the spec
+
+```python
+# /tmp/hypothesis.py
+from analint import Invariant
+from myproject.entities import Board
+
+max_two = Invariant(Board.card_count <= 2, label="At most 2 cards per board")
+```
+
+```
+analint check . --what-if /tmp/hypothesis.py
+  FAIL  archive-card/happy
+         ↳  INVARIANT failed: At most 2 cards per board
+```
+
+### MCP server (for AI agents)
+
+```bash
+pip install analint[mcp]
+analint-mcp        # stdio MCP server with tools: check, show, affects
+```
+
+The same three operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with `what_if`, and validate after editing.
 
 ---
 

@@ -10,7 +10,7 @@ from analint.models.effect import Set, Subtract, Add
 from analint.models.flow import Assert, Emitted, Flow
 from analint.models.root import Spec
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 __all__ = [
     # state

@@ -6,7 +6,12 @@ from analint.reporter.base import ValidationResult
 
 
 def report_json(result: ValidationResult) -> None:
-    output = {
+    json.dump(result_to_dict(result), sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+
+
+def result_to_dict(result: ValidationResult) -> dict:
+    return {
         "spec": {"id": result.spec_id, "name": result.spec_name},
         "passed": not result.has_errors,
         "load_errors": result.load_errors,
@@ -33,5 +38,3 @@ def report_json(result: ValidationResult) -> None:
             "warnings": result.warning_count,
         },
     }
-    json.dump(output, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")

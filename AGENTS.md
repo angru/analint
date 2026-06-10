@@ -15,7 +15,9 @@ The central idea: constraints are predicate expressions over entity fields (`Wal
 ```
 src/analint/
   __init__.py               ← public API — all user-facing symbols exported here
-  cli.py                    ← typer CLI entry point
+  cli.py                    ← typer CLI: check / show / affects (bare PATH → check)
+  query.py                  ← read-only model queries (overview, describe, affects)
+  mcp_server.py             ← MCP stdio server (optional `mcp` extra)
 
   models/
     entity.py               ← Entity base, EntityMeta metaclass, FieldDescriptor, _init_fields
@@ -104,12 +106,35 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (63)
-uv run analint examples/ecommerce/    # 4 scenarios
+uv run pytest                          # run all tests (75)
+uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios, game spec
-uv run analint . --format json        # JSON output
+uv run analint check . -f json         # machine-readable validation
+uv run analint show action create_card -p examples/taskboard/
+uv run analint affects Board.card_count -p examples/taskboard/
+uv run analint check . --what-if /tmp/hypothesis.py   # hypothesis without editing files
 ```
+
+Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load.
+
+## Working on a spec as an agent (the intended loop)
+
+1. **Orient** — `analint show -p <spec>` for the model overview; `show action <id>`
+   for details. This replaces grepping the spec files.
+2. **Assess impact** — before changing a field or action:
+   `analint affects Card.status -p <spec>` (who reads/writes it, which invariants
+   and lifecycles constrain it, which scenarios cover it).
+3. **Test the hypothesis** — write the new invariant/scenario into a standalone
+   file and run `analint check <spec> --what-if <file>`; iterate until the
+   outcome matches the intent.
+4. **Apply** — move the change into the spec files, run `analint check <spec>`,
+   fix findings, commit.
+
+The MCP server (`analint-mcp`, optional `mcp` extra, `src/analint/mcp_server.py`)
+exposes the same three operations as tools: `check`, `show`, `affects`.
+Query logic lives in `src/analint/query.py` — plain dict-returning functions
+shared by the CLI and MCP.
 
 ## What NOT to do
 

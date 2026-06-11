@@ -21,3 +21,5 @@ class Spec(BaseModel):
     lifecycles: list[Any] = Field(default_factory=list)  # Lifecycle instances
     flows: list[Any] = Field(default_factory=list)       # Flow instances
     scenarios: list[Any] = Field(default_factory=list)   # Scenario instances
+    queries: list[Any] = Field(default_factory=list)     # Reachable/Unreachable/… instances
+    bounds: list[Any] = Field(default_factory=list)      # Bounds instances

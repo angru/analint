@@ -45,8 +45,35 @@ def report_terminal(result: ValidationResult) -> None:
         for sr in result.scenario_results:
             _print_scenario(sr)
 
+    if result.exploration_findings:
+        console.print()
+        console.print("[bold]EXPLORATION[/bold]")
+        for f in result.exploration_findings:
+            color = "red" if f.severity == Severity.ERROR else "yellow"
+            console.print(f"  [{color}]{f.severity.value:<5}[/{color}]  [{f.location}] {f.message}")
+
+    if result.query_results:
+        console.print()
+        console.print("[bold]QUERIES[/bold]")
+        for qr in result.query_results:
+            _print_query(qr)
+
     console.print()
     _print_summary(result)
+
+
+def _print_query(qr) -> None:
+    colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
+    color = colors.get(qr.status, "white")
+    meta = f"({qr.kind}, {qr.states_explored} states)"
+    console.print(f"  [{color}]{qr.status:<4}[/{color}]  {qr.query_id:<40} {meta}")
+    for f in qr.findings:
+        if f.severity == Severity.ERROR:
+            console.print(f"         [red]↳[/red] {f.message}")
+        elif f.severity == Severity.WARNING:
+            console.print(f"         [yellow]↳[/yellow] {f.message}")
+        else:
+            console.print(f"         [dim]↳[/dim] {f.message}")
 
 
 def _print_scenario(sr: ScenarioResult) -> None:
@@ -66,12 +93,22 @@ def _print_summary(result: ValidationResult) -> None:
     passed = result.passed_count
     failed = result.failed_count
     warnings = result.warning_count
+    q_passed = sum(1 for q in result.query_results if q.status == "PASS")
+    q_failed = sum(1 for q in result.query_results if q.status == "FAIL")
+    q_open = sum(1 for q in result.query_results if q.status == "INCONCLUSIVE")
 
     parts = []
     if passed:
         parts.append(f"[green]{passed} passed[/green]")
     if failed:
         parts.append(f"[red]{failed} failed[/red]")
+    if q_passed or q_failed or q_open:
+        q_parts = [f"[green]{q_passed} ok[/green]"]
+        if q_failed:
+            q_parts.append(f"[red]{q_failed} failed[/red]")
+        if q_open:
+            q_parts.append(f"[yellow]{q_open} inconclusive[/yellow]")
+        parts.append(f"queries: {', '.join(q_parts)}")
     if warnings:
         parts.append(f"[yellow]{warnings} warnings[/yellow]")
     if not parts:

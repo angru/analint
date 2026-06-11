@@ -9,8 +9,9 @@ trampled at most once you win, otherwise you lose.
 from enum import Enum
 
 from analint import (
-    Action, Add, Assert, Entity, Expect, Implies, Invariant,
-    Lifecycle, Scenario, Set, Spec, Transition,
+    Action, Add, AlwaysHolds, Assert, Bounds, DeadActions, Entity, Expect,
+    Implies, Invariant, Lifecycle, NoDeadEnd, Reachable, Scenario, Set,
+    Spec, Transition,
 )
 
 # ── State ──────────────────────────────────────────────────────────────────────
@@ -218,11 +219,39 @@ sc_game_already_over = Scenario(
     expected=Expect.FAIL,
 )
 
+# ── Reachability queries ───────────────────────────────────────────────────────
+
+# Only the thresholds matter (≤1 legible, ≥2 trampled), so the counter
+# saturates at 2 — this keeps the state space finite.
+message_bounds = Bounds(Message.disturbances, 0, 2, saturate=True)
+
+win_is_reachable = Reachable(
+    Game.result == Result.WON,
+    label="the player can win",
+)
+
+lose_is_reachable = Reachable(
+    Game.result == Result.LOST,
+    label="the player can lose (otherwise why model it)",
+)
+
+game_can_always_end = NoDeadEnd(
+    goal=Game.result != Result.PLAYING,
+    label="the player can never get stuck",
+)
+
+every_action_playable = DeadActions()
+
+cloak_invariant_holds_everywhere = AlwaysHolds(
+    Implies(Hook.holds_cloak == True, Player.has_cloak == False),  # noqa: E712
+    label="the cloak is never in two places",
+)
+
 # ── Spec — everything above is discovered automatically ───────────────────────
 
 spec = Spec(
     id="cloak-of-darkness",
     name="Cloak of Darkness",
-    version="0.9.0",
+    version="1.0.0",
     description="The classic IF benchmark expressed as verifiable game rules",
 )

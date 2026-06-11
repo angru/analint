@@ -30,13 +30,15 @@ src/analint/
     lifecycle.py            ← Lifecycle (with terminal states), Transition
     scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
+    query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions, Bounds
     root.py                 ← Spec (top-level aggregate)
 
   validator/
-    engine.py               ← orchestration: load → auto-populate → structural → scenarios
+    engine.py               ← orchestration: load → auto-populate → structural → scenarios → queries
     structural.py           ← static validation (refs, cycles, payload bindings, terminal)
     scenario_runner.py      ← invariants → pre → effects (simultaneous) → post → then
     rule_checker.py         ← evaluate(pred, context) and resolve(operand, context)
+    explorer.py             ← bounded reachability: BFS, traces, query evaluation
 
   reporter/                 ← Finding/ScenarioResult/ValidationResult, terminal + JSON output
 
@@ -90,6 +92,19 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 - `collect_from_modules` walks the loaded modules, collects instances, and **fills empty `id` fields from variable names**
 - a `.py` file in the directory not reachable from the entry point → warning (engine.`_unloaded_file_warnings`)
 
+### Reachability engine (explorer.py)
+
+State = field values of one instance per entity type; key = sorted tuple.
+BFS from an initial context (entity defaults, overridden by `query.given`);
+an action is enabled when its `pre` holds and no terminal-lifecycle entity is
+touched. En route the explorer reports invariant violations, `Bounds`
+violations (hard bounds prune the branch; `saturate=True` clamps), and
+undeclared lifecycle transitions — all with traces (`Exploration.trace_to`).
+Explorations are cached per (initial state key, max_states) within one
+validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
+Actions whose `pre` references event payloads are treated as disabled in
+exploration (event-pool semantics is future work — see research/07).
+
 ### Auto-populate Spec (engine.py)
 
 `Spec(...)` with empty lists → `_auto_populate` fills them from collected objects. Non-empty list → used as-is. Dedup of instances is **by object identity** (`id(obj)`), never `==` — dataclass equality on predicate fields hits the overloaded operators.
@@ -106,10 +121,11 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (75)
+uv run pytest                          # run all tests (91)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
-uv run analint examples/cloak/        # 11 scenarios, game spec
+uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green
+uv run analint examples/trollbridge/  # deliberately broken: queries find softlock + hp<0
 uv run analint check . -f json         # machine-readable validation
 uv run analint show action create_card -p examples/taskboard/
 uv run analint affects Board.card_count -p examples/taskboard/

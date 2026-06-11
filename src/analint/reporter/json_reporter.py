@@ -32,9 +32,29 @@ def result_to_dict(result: ValidationResult) -> dict:
             }
             for sr in result.scenario_results
         ],
+        "exploration": [
+            {"severity": f.severity.value, "location": f.location, "message": f.message}
+            for f in result.exploration_findings
+        ],
+        "queries": [
+            {
+                "id": qr.query_id,
+                "kind": qr.kind,
+                "status": qr.status,
+                "states_explored": qr.states_explored,
+                "trace": qr.trace,
+                "findings": [
+                    {"severity": f.severity.value, "location": f.location, "message": f.message}
+                    for f in qr.findings
+                ],
+            }
+            for qr in result.query_results
+        ],
         "summary": {
             "passed": result.passed_count,
             "failed": result.failed_count,
             "warnings": result.warning_count,
+            "queries_passed": sum(1 for q in result.query_results if q.status == "PASS"),
+            "queries_failed": sum(1 for q in result.query_results if q.status == "FAIL"),
         },
     }

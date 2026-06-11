@@ -28,6 +28,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         ("scenario", spec.scenarios),
         ("lifecycle", spec.lifecycles),
         ("flow", spec.flows),
+        ("query", spec.queries),
     ]:
         seen: set[str] = set()
         for obj in objs:
@@ -179,6 +180,28 @@ def validate_structural(spec: Spec) -> list[Finding]:
                         loc,
                         f"{lc.entity_cls.__name__}.{lc.field_name}={state!r} "
                         f"is not reachable from initial state {lc.initial!r}"))
+
+    # Queries: predicates reference registered entities
+    for query in spec.queries:
+        pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
+        if pred is not None:
+            findings.extend(_check_pred_refs(pred, spec.entities, spec.events,
+                                             f"query:{query.id}"))
+
+    # Bounds: valid field, sane range
+    for b in spec.bounds:
+        loc = f"bounds:{b.id or '?'}"
+        if not isinstance(b.field, FieldDescriptor):
+            findings.append(err(loc, "field must be a FieldDescriptor (e.g. Hero.hp)"))
+            continue
+        if b.field.entity_cls.__name__ not in spec_entity_names:
+            findings.append(err(loc, f"entity '{b.field.entity_cls.__name__}' "
+                                     f"not in spec.entities"))
+        try:
+            if b.min > b.max:
+                findings.append(err(loc, f"min {b.min!r} > max {b.max!r}"))
+        except TypeError:
+            findings.append(err(loc, f"min/max are not comparable: {b.min!r}, {b.max!r}"))
 
     # Flows: steps registered; requires order respected
     for flow in spec.flows:

@@ -27,11 +27,23 @@ class ScenarioResult:
 
 
 @dataclass
+class QueryResult:
+    query_id: str
+    kind: str                       # Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
+    status: str = "PASS"            # PASS | FAIL | INCONCLUSIVE
+    findings: list[Finding] = field(default_factory=list)
+    states_explored: int = 0
+    trace: list[str] | None = None  # action ids from the initial state
+
+
+@dataclass
 class ValidationResult:
     spec_id: str
     spec_name: str
     structural_findings: list[Finding] = field(default_factory=list)
     scenario_results: list[ScenarioResult] = field(default_factory=list)
+    query_results: list[QueryResult] = field(default_factory=list)
+    exploration_findings: list[Finding] = field(default_factory=list)
     load_errors: list[str] = field(default_factory=list)
 
     @property
@@ -39,6 +51,8 @@ class ValidationResult:
         return (
             any(f.severity == Severity.ERROR for f in self.structural_findings)
             or any(not sr.passed for sr in self.scenario_results)
+            or any(qr.status == "FAIL" for qr in self.query_results)
+            or any(f.severity == Severity.ERROR for f in self.exploration_findings)
             or bool(self.load_errors)
         )
 

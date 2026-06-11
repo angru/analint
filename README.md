@@ -284,6 +284,38 @@ purchase_flow = Flow(
 )
 ```
 
+### Reachability queries
+
+Scenarios check states you thought of. Queries **explore every reachable state** (BFS over the model) and answer questions you can't answer by hand — each verdict comes with a trace:
+
+```python
+from analint import Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions, Bounds
+
+bridge_is_reachable = Reachable(Quest.bridge_crossed == True)
+no_softlock         = NoDeadEnd(goal=Quest.bridge_crossed == True)
+hp_never_negative   = AlwaysHolds(Hero.hp >= 0)
+no_gold_from_air    = Unreachable(Hero.gold > 6)     # regression guard
+every_action_used   = DeadActions()
+```
+
+```
+QUERIES
+  PASS  bridge_is_reachable        (Reachable, 9 states)
+         ↳ reachable: buy_sword → fight_troll → cross_bridge
+  FAIL  no_softlock                (NoDeadEnd, 9 states)
+         ↳ dead end: after buy_potion the goal can no longer be reached
+  FAIL  hp_never_negative          (AlwaysHolds, 9 states)
+         ↳ breaks: buy_sword → fight_troll → cross_bridge ⇒ Hero.hp=-1
+```
+
+The softlock above is invisible to every scenario in the spec — nobody writes a test for a situation they didn't think of. The explorer finds it in milliseconds with the shortest trace.
+
+- The **initial state** is built from entity field defaults; `given=[...]` supplies or overrides instances.
+- **`Bounds(field, min, max)`** keeps numeric fields finite: driving a field out of range is an error with a trace. `saturate=True` clamps instead — for counters where only thresholds matter.
+- If the state space exceeds `max_states` (default 10 000), the query reports **INCONCLUSIVE** instead of pretending.
+- During exploration the engine also reports **violated invariants** and **undeclared lifecycle transitions** (an effect performing `A → C` when the lifecycle only allows `A → B`).
+- An ad-hoc query without editing the spec: put it in a file and run `analint check . --what-if query.py`.
+
 ### Spec
 
 The root aggregate — usually just metadata:
@@ -407,12 +439,24 @@ The same three operations as the CLI, callable as agent tools — an agent can i
 
 If `expected=Expect.FAIL`: the scenario passes when steps 1–2 block the action.
 
+### Reachability (queries)
+
+BFS over all reachable states; every query answers with a trace of action ids:
+
+- `Reachable(p)` — a witness path exists / FAIL with "explored all N states"
+- `Unreachable(p)` — regression guard; FAIL shows the counterexample path
+- `AlwaysHolds(p)` — invariant over the whole space, not just scenarios
+- `NoDeadEnd(goal)` — softlock detector: a reachable state from which the goal is gone
+- `DeadActions()` — actions never enabled in any reachable state
+- en route: invariant violations and undeclared lifecycle transitions, with traces
+
 ---
 
 ## Examples
 
 | Example | What it shows |
 |---|---|
-| [`examples/ecommerce/`](examples/ecommerce/spec.py) | Single file: invariants, pre/post, effects, payload-bound events |
+| [`examples/ecommerce/`](examples/ecommerce/spec.py) | Single file: invariants, pre/post, effects, payload-bound events, Reachable with `given` |
 | [`examples/taskboard/`](examples/taskboard/) | Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions |
-| [`examples/cloak/`](examples/cloak/spec.py) | A text-adventure game as a verifiable spec: Implies, terminal endings, derived "darkness" predicate |
+| [`examples/cloak/`](examples/cloak/spec.py) | A text-adventure game as a verifiable spec: the engine finds the walkthrough (`Reachable(WON)`), proves you can't get stuck (`NoDeadEnd`) |
+| [`examples/trollbridge/`](examples/trollbridge/spec.py) | **Deliberately broken**: all scenarios green, but the engine finds an economy softlock and an unmodelled death — bugs example-based testing cannot see |

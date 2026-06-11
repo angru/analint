@@ -1,8 +1,8 @@
 from enum import Enum
 
 from analint import (
-    Action, Actor, Assert, Emitted, Entity, Event, Expect,
-    Invariant, Lifecycle, Scenario, Set, Spec, Subtract, Transition,
+    Action, Actor, Assert, Emitted, Entity, Event, Expect, Invariant,
+    Lifecycle, Reachable, Scenario, Set, Spec, Subtract, Transition,
 )
 
 # ── Actors ─────────────────────────────────────────────────────────────────────
@@ -157,6 +157,20 @@ order_lifecycle = Lifecycle(
     ],
     terminal=[OrderStatus.CANCELLED],
     description="Order moves from PENDING to PAID on checkout, can be cancelled at any point",
+)
+
+# ── Reachability ───────────────────────────────────────────────────────────────
+
+# Entities here have required fields without defaults, so the query supplies
+# the initial world explicitly via given=[...].
+paid_is_reachable = Reachable(
+    Order.status == OrderStatus.PAID,
+    given=[
+        Order(id="o1", total=50.0, customer_id="c1"),
+        Wallet(balance=100.0, customer_id="c1"),
+        Product(stock=5, price=50.0, name="Widget"),
+    ],
+    label="an order can actually get paid",
 )
 
 # ── Spec — everything above is discovered automatically ───────────────────────

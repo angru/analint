@@ -93,6 +93,8 @@ def spec_overview(spec: Spec) -> dict:
         "lifecycles": [lc.id for lc in spec.lifecycles],
         "flows": [f.id for f in spec.flows],
         "scenarios": [sc.id for sc in spec.scenarios],
+        "queries": [q.id for q in spec.queries],
+        "bounds": [b.id for b in spec.bounds],
     }
 
 

@@ -73,6 +73,18 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
+    if spec.queries:
+        from analint.validator.explorer import run_query
+        explorations: dict = {}
+        for query in spec.queries:
+            result.query_results.append(run_query(query, spec, explorations))
+        seen_messages: set[str] = set()
+        for exp in explorations.values():
+            for finding in exp.findings:
+                if finding.message not in seen_messages:
+                    seen_messages.add(finding.message)
+                    result.exploration_findings.append(finding)
+
     return result
 
 
@@ -127,6 +139,8 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
         invariants=_resolve(spec.invariants, "invariants"),
         actions=_resolve(spec.actions, "actions"),
         scenarios=_resolve(spec.scenarios, "scenarios"),
+        queries=_resolve(spec.queries, "queries"),
+        bounds=_resolve(spec.bounds, "bounds"),
     )
 
 
@@ -155,6 +169,8 @@ def _merge_specs(specs: list[Spec]) -> Spec:
             (s.invariants, merged.invariants),
             (s.actions, merged.actions),
             (s.scenarios, merged.scenarios),
+            (s.queries, merged.queries),
+            (s.bounds, merged.bounds),
         ]:
             for obj in inst_list:
                 if id(obj) not in seen_instances:

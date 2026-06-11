@@ -1,9 +1,10 @@
 # analint — Roadmap
 
-Текущее состояние: **v0.10** — универсальный DSL (Entity, Invariant, Action,
-Lifecycle, события с payload) + агентская поверхность (check/show/affects,
---what-if, MCP-сервер). 75 тестов, три примера (ecommerce, taskboard, cloak).
-Фазы v0.9 и v0.10 ниже — выполнены.
+Текущее состояние: **v1.0** — универсальный DSL + агентская поверхность +
+reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
+Bounds, трассы-контрпримеры). 91 тест, четыре примера (ecommerce, taskboard,
+cloak, trollbridge). Фазы v0.9, v0.10 и v1.0 ниже — выполнены.
+Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
 
 Этот роадмап выведен из исследования в `research/` (файлы 00–09). Краткая
 логика: ядро DSL удачное (≈ планировочный домен STRIPS), узкие места —
@@ -105,7 +106,7 @@ analint coverage                  # каждое действие реализо
 - MCP-сервер поверх того же ядра (тонкая обёртка CLI-команд)
 - Раздел в AGENTS.md: как агенту работать со спекой (цикл A→B→C→D)
 
-### v1.0 — Движок: bounded reachability (research/04)
+### v1.0 — Движок: bounded reachability (research/04) ✅
 
 Превращает линтер в верификатор. Состояние = кортеж полей; enum'ы конечны,
 числовые поля требуют явных границ (без границ — честная деградация до

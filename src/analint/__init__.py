@@ -8,9 +8,12 @@ from analint.models.scenario import Expect, Scenario
 from analint.models.lifecycle import Lifecycle, Transition
 from analint.models.effect import Set, Subtract, Add
 from analint.models.flow import Assert, Emitted, Flow
+from analint.models.query import (
+    AlwaysHolds, Bounds, DeadActions, NoDeadEnd, Reachable, Unreachable,
+)
 from analint.models.root import Spec
 
-__version__ = "0.10.0"
+__version__ = "1.0.0"
 
 __all__ = [
     # state
@@ -39,6 +42,13 @@ __all__ = [
     "Assert",
     "Emitted",
     "Flow",
+    # reachability queries
+    "Reachable",
+    "Unreachable",
+    "AlwaysHolds",
+    "NoDeadEnd",
+    "DeadActions",
+    "Bounds",
     # root
     "Spec",
     "__version__",

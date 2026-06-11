@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import click
 from typer.testing import CliRunner
 
 from analint import query as q
@@ -41,11 +42,11 @@ def test_describe_entity():
     field_names = {f["name"] for f in payload["fields"]}
     assert "card_count" in field_names
     assert "create_card" in payload["written_by"]
-    assert "board_lifecycle" in payload["lifecycles"]
+    assert "Board.status" in payload["lifecycles"]
 
 
 def test_describe_lifecycle_reports_unreachable():
-    payload = q.describe(_spec(CLOAK), "lifecycle", "game_over")
+    payload = q.describe(_spec(CLOAK), "lifecycle", "Game.result")
     assert payload["terminal"] == ["Result.WON", "Result.LOST"]
     assert payload["unreachable"] == []
 
@@ -62,7 +63,9 @@ def test_affects_field():
     payload = q.affects(_spec(TASKBOARD), "Board.card_count")
     writers = {w["action"] for w in payload["written_by"]}
     assert writers == {"create_card", "archive_card"}
-    assert "card_count_not_negative" in payload["invariants"]
+    board = q.describe(_spec(TASKBOARD), "entity", "Board")
+    card_count = next(field for field in board["fields"] if field["name"] == "card_count")
+    assert card_count["constraints"] == {"ge": "0"}
     assert "create-card/happy" in payload["scenarios"]
 
 
@@ -106,7 +109,7 @@ runner = CliRunner()
 def test_cli_bare_path_routes_to_check():
     result = runner.invoke(app, [str(CLOAK)])
     assert result.exit_code == 0
-    assert "11 passed" in result.output
+    assert "11 passed" in click.unstyle(result.output)
 
 
 def test_cli_show_action_json():

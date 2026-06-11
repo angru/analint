@@ -140,7 +140,6 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
         actions=_resolve(spec.actions, "actions"),
         scenarios=_resolve(spec.scenarios, "scenarios"),
         queries=_resolve(spec.queries, "queries"),
-        bounds=_resolve(spec.bounds, "bounds"),
     )
 
 
@@ -170,7 +169,6 @@ def _merge_specs(specs: list[Spec]) -> Spec:
             (s.actions, merged.actions),
             (s.scenarios, merged.scenarios),
             (s.queries, merged.queries),
-            (s.bounds, merged.bounds),
         ]:
             for obj in inst_list:
                 if id(obj) not in seen_instances:

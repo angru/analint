@@ -1,7 +1,7 @@
 from __future__ import annotations
 from rich.console import Console
 
-from analint.reporter.base import Finding, ScenarioResult, Severity, ValidationResult
+from analint.reporter.base import ScenarioResult, Severity, ValidationResult
 
 console = Console()
 
@@ -31,7 +31,7 @@ def report_terminal(result: ValidationResult) -> None:
         for f in warnings:
             console.print(f"  [yellow]WARN[/yellow]   [{f.location}] {f.message}")
         if errors:
-            console.print(f"\n  [red]Structural errors found — scenario validation skipped[/red]")
+            console.print("\n  [red]Structural errors found — scenario validation skipped[/red]")
             _print_summary(result)
             return
 

@@ -19,6 +19,8 @@
 | [10-scale-and-honest-assessment.md](10-scale-and-honest-assessment.md) | После v1.0: впечатления агента-пользователя, пределы синглтонов, что нужно до реальных продуктов |
 | [11-spec-code-bridge.md](11-spec-code-bridge.md) | Мост спека↔код: якоря @implements отклонены; пин + семантика агента + Service-маппинг в спеке |
 | [12-domain-layer-and-ddd.md](12-domain-layer-and-ddd.md) | Терминология: analint = исполняемый тактический DDD; сага — домен, а не сервисы |
+| [13-field-level-dsl.md](13-field-level-dsl.md) | Реформа полей: inline Lifecycle, Field-констрейнты и усиление типизации |
+| [14-positioning-declarativity-and-audit.md](14-positioning-declarativity-and-audit.md) | Аудит после v1.0: Python как host language, декларативность, выразительность, Quint/P, роль DDD, soundness и новый roadmap |
 
 Итог ресёрча сведён в план действий: **[../ROADMAP.md](../ROADMAP.md)** —
 сценарии использования (агент/человек/CI) и фазы v0.9 → v1.2+ с дорожкой
@@ -29,6 +31,13 @@
 спросе (Spec Kit/Kiro/Tessl — спеки без верификации; FM+LLM — верификация
 без эргономики), а агенты инвертируют экономику поддержки спеки, убившую
 идею у людей. Приоритеты пересобраны в 08 §7.
+
+**Апдейт после 14:** к июню 2026 ниша уже не пуста: Quint и P развивают
+LLM/MCP, model-based testing и runtime conformance. Уточнённое преимущество
+analint — маленький domain-shaped embedded DSL и Python как готовая среда
+авторинга, а не язык реализации описываемой системы. DDD признан полезным
+профилем, но не фундаментом универсального ядра. Перед новой
+выразительностью приоритет отдан soundness и устранению false-green.
 
 ## TL;DR
 

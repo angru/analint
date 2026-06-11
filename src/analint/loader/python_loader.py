@@ -161,7 +161,7 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     from analint.models.scenario import Scenario
     from analint.models.lifecycle import Lifecycle
     from analint.models.flow import Flow
-    from analint.models.query import QUERY_TYPES, Bounds
+    from analint.models.query import QUERY_TYPES
 
     _BASE_CLASSES = {Entity, Actor, Event}
 
@@ -179,9 +179,8 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     lifecycles: list = []
     flows: list = []
     queries: list = []
-    bounds: list = []
 
-    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow, Bounds) + QUERY_TYPES
+    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow) + QUERY_TYPES
 
     for module in modules:
         for var_name, obj in inspect.getmembers(module):
@@ -211,10 +210,17 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
                     lifecycles.append(obj)
                 elif isinstance(obj, Flow):
                     flows.append(obj)
-                elif isinstance(obj, Bounds):
-                    bounds.append(obj)
                 elif isinstance(obj, QUERY_TYPES):
                     queries.append(obj)
+
+    # Lifecycles declared inline as field defaults live on the entity classes
+    seen_lc = {id(lc) for lc in lifecycles}
+    for cls in entities:
+        for desc in getattr(cls, "_own_fields", {}).values():
+            lc = desc.lifecycle
+            if lc is not None and id(lc) not in seen_lc:
+                seen_lc.add(id(lc))
+                lifecycles.append(lc)
 
     return {
         "entities": entities,
@@ -226,5 +232,4 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
         "lifecycles": lifecycles,
         "flows": flows,
         "queries": queries,
-        "bounds": bounds,
     }

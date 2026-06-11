@@ -11,11 +11,6 @@ user_is_active = Invariant(
     label="User must be active",
 )
 
-card_count_not_negative = Invariant(
-    Board.card_count >= 0,
-    label="Board card counter can never go below zero",
-)
-
 # ── Reusable predicates — plain expressions shared by actions ──────────────────
 
 board_is_active         = Board.status == BoardStatus.ACTIVE

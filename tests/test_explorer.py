@@ -2,8 +2,8 @@ from enum import Enum
 from pathlib import Path
 
 from analint import (
-    Action, Add, AlwaysHolds, Bounds, DeadActions, Entity, Invariant,
-    Lifecycle, NoDeadEnd, Reachable, Set, Spec, Subtract, Transition, Unreachable,
+    Action, Add, AlwaysHolds, DeadActions, Entity, Field, Invariant, Lifecycle,
+    NoDeadEnd, Reachable, Set, Spec, Subtract, Transition, Unreachable,
 )
 from analint.validator.engine import validate
 from analint.validator.explorer import build_initial, run_query
@@ -61,11 +61,10 @@ def test_unreachable_pass():
 
 def test_always_holds_fail_with_offending_values():
     class Tank(Entity):
-        fuel: int = 5
+        fuel: int = Field(5, ge=-10, le=10)
 
     burn = Action(id="burn", pre=[Tank.fuel >= 0], effect=[Subtract(Tank.fuel, 3)])
-    spec = Spec(id="s", name="S", entities=[Tank], actions=[burn],
-                bounds=[Bounds(Tank.fuel, -10, 10, id="b")])
+    spec = Spec(id="s", name="S", entities=[Tank], actions=[burn])
     result = _run(AlwaysHolds(Tank.fuel >= 0, id="q"), spec)
     assert result.status == "FAIL"
     assert "Tank.fuel=-1" in result.findings[0].message
@@ -111,26 +110,24 @@ def test_dead_actions_reported():
     assert "open_box" in result.findings[0].message
 
 
-# ── Bounds ─────────────────────────────────────────────────────────────────────
+# ── Field constraints ──────────────────────────────────────────────────────────
 
-def test_bounds_violation_pruned_and_reported():
+def test_field_constraint_violation_pruned_and_reported():
     class Meter(Entity):
-        value: int = 0
+        value: int = Field(0, ge=0, le=10)
 
     pump = Action(id="pump", effect=[Add(Meter.value, 7)])
-    spec = Spec(id="s", name="S", entities=[Meter], actions=[pump],
-                bounds=[Bounds(Meter.value, 0, 10, id="b")])
+    spec = Spec(id="s", name="S", entities=[Meter], actions=[pump])
     result = _run(Reachable(Meter.value >= 14, id="q"), spec)
     assert result.status == "FAIL"   # 14 pruned at the bound
 
 
-def test_bounds_saturate_clamps():
+def test_field_constraint_saturate_clamps():
     class Meter(Entity):
-        value: int = 0
+        value: int = Field(0, ge=0, le=10, saturate=True)
 
     pump = Action(id="pump", effect=[Add(Meter.value, 7)])
-    spec = Spec(id="s", name="S", entities=[Meter], actions=[pump],
-                bounds=[Bounds(Meter.value, 0, 10, saturate=True, id="b")])
+    spec = Spec(id="s", name="S", entities=[Meter], actions=[pump])
     result = _run(Reachable(Meter.value == 10, id="q"), spec)
     assert result.status == "PASS"   # 0 → 7 → clamp(14)=10
 
@@ -154,12 +151,16 @@ def test_undeclared_lifecycle_transition_found():
         C = "c"
 
     class Thing(Entity):
-        state: S = S.A
+        state: S = Lifecycle(
+            initial=S.A,
+            transitions=[
+                Transition(S.A, [S.B]),
+                Transition(S.B, [S.C]),
+            ],
+        )
 
     jump = Action(id="jump", pre=[Thing.state == S.A], effect=[Set(Thing.state, S.C)])
-    lc = Lifecycle(id="lc", field=Thing.state, initial=S.A,
-                   transitions=[Transition(S.A, S.B), Transition(S.B, S.C)])
-    spec = Spec(id="s", name="S", entities=[Thing], actions=[jump], lifecycles=[lc])
+    spec = Spec(id="s", name="S", entities=[Thing], actions=[jump])
 
     cache: dict = {}
     result = run_query(Reachable(Thing.state == S.C, id="q"), spec, cache)
@@ -170,12 +171,11 @@ def test_undeclared_lifecycle_transition_found():
 
 def test_invariant_violation_found_during_exploration():
     class Acc(Entity):
-        balance: int = 5
+        balance: int = Field(5, ge=-100, le=100)
 
     spend = Action(id="spend", effect=[Subtract(Acc.balance, 4)])
     inv = Invariant(Acc.balance >= 0, label="No overdraft", id="inv")
-    spec = Spec(id="s", name="S", entities=[Acc], actions=[spend],
-                invariants=[inv], bounds=[Bounds(Acc.balance, -100, 100, id="b")])
+    spec = Spec(id="s", name="S", entities=[Acc], actions=[spend], invariants=[inv])
 
     cache: dict = {}
     run_query(DeadActions(id="q"), spec, cache)

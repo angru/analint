@@ -2,7 +2,7 @@ from enum import Enum
 
 from analint import (
     Action, Actor, Add, And, Assert, Emitted, Entity, Event, Expect,
-    Flow, Implies, Invariant, Lifecycle, Not, Scenario, Set, Spec,
+    Field, Flow, Implies, Invariant, Lifecycle, Not, Scenario, Set, Spec,
     Subtract, Transition,
 )
 from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
@@ -37,6 +37,50 @@ def test_entity_default_field():
     i = Item(price=5.0)
     assert i.active is True
     assert i.price == 5.0
+
+
+def test_field_constraints_validate_instances():
+    class Item(Entity):
+        stock: int = Field(0, ge=0, le=10)
+
+    assert Item(stock=10).stock == 10
+    try:
+        Item(stock=-1)
+        assert False, "should have raised"
+    except ValueError as exc:
+        assert "must be >= 0" in str(exc)
+
+
+def test_field_constraint_checks_post_state():
+    from analint.validator.scenario_runner import run_scenario
+
+    class Item(Entity):
+        stock: int = Field(0, ge=0)
+
+    consume = Action(id="consume", effect=[Subtract(Item.stock, 1)])
+    scenario = Scenario(id="sc", action=consume, given=[Item()])
+    spec = Spec(id="s", name="S", entities=[Item], actions=[consume], scenarios=[scenario])
+
+    result = run_scenario(scenario, spec)
+    assert not result.passed
+    assert any("field constraint violated" in finding.message for finding in result.findings)
+
+
+def test_saturating_field_clamps_before_postconditions():
+    from analint.validator.scenario_runner import run_scenario
+
+    class Meter(Entity):
+        value: int = Field(0, ge=0, le=10, saturate=True)
+
+    pump = Action(
+        id="pump",
+        effect=[Add(Meter.value, 20)],
+        post=[Meter.value == 10],
+    )
+    scenario = Scenario(id="sc", action=pump, given=[Meter()])
+    spec = Spec(id="s", name="S", entities=[Meter], actions=[pump], scenarios=[scenario])
+
+    assert run_scenario(scenario, spec).passed
 
 
 def test_entity_missing_required_field_raises():
@@ -284,16 +328,16 @@ def test_lifecycle_reachable_states():
         D = "d"  # unreachable
 
     class Thing(Entity):
-        state: S
+        state: S = Lifecycle(
+            initial=S.A,
+            transitions=[
+                Transition(S.A, [S.B]),
+                Transition(S.B, [S.C]),
+            ],
+        )
 
-    lc = Lifecycle(
-        field=Thing.state,
-        initial=S.A,
-        transitions=[
-            Transition(S.A, S.B),
-            Transition(S.B, S.C),
-        ],
-    )
+    lc = Thing.state.lifecycle
+    assert lc is not None
     reachable = lc.reachable_states()
     assert S.A in reachable
     assert S.B in reachable
@@ -303,11 +347,21 @@ def test_lifecycle_reachable_states():
 
 def test_lifecycle_entity_cls():
     class Order(Entity):
-        status: str
+        status: str = Lifecycle(initial="pending")
 
-    lc = Lifecycle(field=Order.status, initial="pending")
+    lc = Order.status.lifecycle
+    assert lc is not None
     assert lc.entity_cls is Order
     assert lc.field_name == "status"
+    assert lc.field is Order.status
+
+
+def test_transition_requires_a_collection():
+    try:
+        Transition("pending", "paid")
+        assert False, "should have raised"
+    except TypeError as exc:
+        assert "must be a collection" in str(exc)
 
 
 def test_structural_warns_unreachable_state_in_given():
@@ -320,15 +374,12 @@ def test_structural_warns_unreachable_state_in_given():
         C = "c"  # no transition into C
 
     class Item(Entity):
-        state: Status
+        state: Status = Lifecycle(
+            initial=Status.A,
+            transitions=[Transition(Status.A, [Status.B])],
+        )
 
     action = Action(id="act", pre=[Item.state == Status.A])
-    lc = Lifecycle(
-        id="lc",
-        field=Item.state,
-        initial=Status.A,
-        transitions=[Transition(Status.A, Status.B)],
-    )
     sc = Scenario(
         id="sc",
         name="SC",
@@ -339,7 +390,6 @@ def test_structural_warns_unreachable_state_in_given():
     spec = Spec(
         id="s", name="S",
         entities=[Item],
-        lifecycles=[lc],
         actions=[action],
         scenarios=[sc],
     )
@@ -357,19 +407,16 @@ def test_structural_transition_out_of_terminal_state_is_error():
         CLOSED = "closed"
 
     class Ticket(Entity):
-        state: Status
+        state: Status = Lifecycle(
+            initial=Status.OPEN,
+            transitions=[
+                Transition(Status.OPEN, [Status.CLOSED]),
+                Transition(Status.CLOSED, [Status.OPEN]),  # escapes a terminal state
+            ],
+            terminal=[Status.CLOSED],
+        )
 
-    lc = Lifecycle(
-        id="lc",
-        field=Ticket.state,
-        initial=Status.OPEN,
-        transitions=[
-            Transition(Status.OPEN, Status.CLOSED),
-            Transition(Status.CLOSED, Status.OPEN),  # escapes a terminal state
-        ],
-        terminal=[Status.CLOSED],
-    )
-    spec = Spec(id="s", name="S", entities=[Ticket], lifecycles=[lc])
+    spec = Spec(id="s", name="S", entities=[Ticket])
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
     assert any("terminal" in f.message for f in errors)
@@ -383,25 +430,21 @@ def test_runner_blocks_modification_of_terminal_entity():
         CLOSED = "closed"
 
     class Ticket(Entity):
-        state: Status
+        state: Status = Lifecycle(
+            initial=Status.OPEN,
+            transitions=[Transition(Status.OPEN, [Status.CLOSED])],
+            terminal=[Status.CLOSED],
+        )
         notes: int
 
     action = Action(id="annotate", effect=[Add(Ticket.notes, 1)])
-    lc = Lifecycle(
-        id="lc",
-        field=Ticket.state,
-        initial=Status.OPEN,
-        transitions=[Transition(Status.OPEN, Status.CLOSED)],
-        terminal=[Status.CLOSED],
-    )
     sc = Scenario(
         id="sc", name="SC",
         action=action,
         given=[Ticket(state=Status.CLOSED, notes=0)],
         expected=Expect.FAIL,  # terminal entity must not be modifiable
     )
-    spec = Spec(id="s", name="S", entities=[Ticket], lifecycles=[lc],
-                actions=[action], scenarios=[sc])
+    spec = Spec(id="s", name="S", entities=[Ticket], actions=[action], scenarios=[sc])
     result = run_scenario(sc, spec)
     assert result.passed
 

@@ -20,7 +20,7 @@ src/analint/
   mcp_server.py             ← MCP stdio server (optional `mcp` extra)
 
   models/
-    entity.py               ← Entity base, EntityMeta metaclass, FieldDescriptor, _init_fields
+    entity.py               ← Entity, Field constraints, EntityMeta, FieldDescriptor
     actor.py                ← Actor base class (role markers)
     event.py                ← Event base class (same metaclass as Entity)
     predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
@@ -30,7 +30,7 @@ src/analint/
     lifecycle.py            ← Lifecycle (with terminal states), Transition
     scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
-    query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions, Bounds
+    query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
     root.py                 ← Spec (top-level aggregate)
 
   validator/
@@ -57,7 +57,14 @@ tests/                      ← test_models, test_validator, test_loader + fixtu
 
 ### Entity / Event
 
-`EntityMeta` converts annotated fields to `FieldDescriptor` objects at class creation. Class-level access returns the descriptor (for predicates); instance-level access returns the value. `Event` reuses the same metaclass — so event payloads work in predicates exactly like entity fields. `_init_fields` raises on unknown **and** missing required fields.
+`EntityMeta` converts annotated fields to `FieldDescriptor` objects at class
+creation. Class-level access returns the descriptor (for predicates);
+instance-level access returns the value. `Field(...)` declares single-field
+constraints and numeric exploration bounds. `Lifecycle(...)` is attached as
+the field default and contributes its initial value. `Event` reuses the same
+metaclass, so event payloads work in predicates exactly like entity fields.
+`_init_fields` raises on unknown, missing required, and constraint-violating
+fields.
 
 ### Predicates
 
@@ -97,8 +104,8 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 State = field values of one instance per entity type; key = sorted tuple.
 BFS from an initial context (entity defaults, overridden by `query.given`);
 an action is enabled when its `pre` holds and no terminal-lifecycle entity is
-touched. En route the explorer reports invariant violations, `Bounds`
-violations (hard bounds prune the branch; `saturate=True` clamps), and
+touched. En route the explorer reports invariant violations, `Field`
+constraint violations (hard bounds prune the branch; `saturate=True` clamps), and
 undeclared lifecycle transitions — all with traces (`Exploration.trace_to`).
 Explorations are cached per (initial state key, max_states) within one
 validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
@@ -116,6 +123,9 @@ exploration (event-pool semantics is future work — see research/07).
 - **No pydantic for Entity/Event/predicates/effects/Invariant/Lifecycle** — metaclass conflict / unnecessary; pydantic only for `Action`, `Scenario`, `Spec`.
 - **ids are optional** — derived from module-level variable names by the loader. Tests constructing objects directly must pass `id=` explicitly.
 - **Terminal lifecycle states block modification** — both statically (no transition out) and at runtime (effects on a terminal entity fail).
+- **Field placement carries semantics** — one-field domains/ranges belong in
+  `Field(...)`; relations between fields/entities belong in `Invariant(...)`;
+  state transitions belong in the field's inline `Lifecycle(...)`.
 - **Event payload templates** — `emits=[CardCreated(card_id=Card.id)]` binds payload to state expressions; structural validation checks fields and annotation compatibility; subscriber `pre` can reference event fields because Event instances can live in `given`.
 
 ## Commands

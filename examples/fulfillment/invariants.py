@@ -1,25 +1,16 @@
-from analint import Bounds, Implies, Invariant
+from analint import Implies, Invariant
 from .entities import (
     Order, OrderStatus, Payment, PaymentStatus, Reservation, ReservationStatus,
-    Shipment, ShipmentStatus, Warehouse,
+    Shipment, ShipmentStatus,
 )
 
 # ── World invariants ───────────────────────────────────────────────────────────
-
-stock_not_negative = Invariant(
-    Warehouse.stock >= 0,
-    label="Warehouse stock can never go negative",
-)
 
 delivered_means_paid = Invariant(
     Implies(Order.status == OrderStatus.DELIVERED,
             Payment.status == PaymentStatus.CAPTURED),
     label="A delivered order is always a captured payment",
 )
-
-# ── Bounds (keep the state space finite) ───────────────────────────────────────
-
-stock_bounds = Bounds(Warehouse.stock, 0, 2)
 
 # ── Reusable predicates ────────────────────────────────────────────────────────
 

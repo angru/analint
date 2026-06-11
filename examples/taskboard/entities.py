@@ -1,28 +1,29 @@
-from enum import Enum
-from analint import Entity
+from enum import StrEnum
+
+from analint import Entity, Field, Lifecycle, Transition
 
 
-class MemberRole(Enum):
+class MemberRole(StrEnum):
     OWNER  = "owner"
     MEMBER = "member"
     VIEWER = "viewer"
 
-class BoardStatus(Enum):
+class BoardStatus(StrEnum):
     ACTIVE   = "active"
     ARCHIVED = "archived"
 
-class CardStatus(Enum):
+class CardStatus(StrEnum):
     TODO        = "todo"
     IN_PROGRESS = "in_progress"
     DONE        = "done"
     ARCHIVED    = "archived"
 
-class Priority(Enum):
+class Priority(StrEnum):
     LOW    = "low"
     MEDIUM = "medium"
     HIGH   = "high"
 
-class NotificationStatus(Enum):
+class NotificationStatus(StrEnum):
     UNREAD = "unread"
     READ   = "read"
 
@@ -35,8 +36,14 @@ class User(Entity):
 class Board(Entity):
     id: str
     owner_id: str
-    status: BoardStatus = BoardStatus.ACTIVE
-    card_count: int = 0
+    status: BoardStatus = Lifecycle(
+        initial=BoardStatus.ACTIVE,
+        transitions=[
+            Transition(BoardStatus.ACTIVE, [BoardStatus.ARCHIVED]),
+        ],
+        terminal=[BoardStatus.ARCHIVED],
+    )
+    card_count: int = Field(0, ge=0)
 
 class Membership(Entity):
     user_id: str
@@ -53,9 +60,17 @@ class Card(Entity):
     column_id: str
     creator_id: str
     assignee_id: str = ""
-    status: CardStatus = CardStatus.TODO
+    status: CardStatus = Lifecycle(
+        initial=CardStatus.TODO,
+        transitions=[
+            Transition(CardStatus.TODO, [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED]),
+            Transition(CardStatus.IN_PROGRESS, [CardStatus.DONE, CardStatus.ARCHIVED]),
+            Transition(CardStatus.DONE, [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED]),
+        ],
+        terminal=[CardStatus.ARCHIVED],
+    )
     priority: Priority = Priority.MEDIUM
-    comment_count: int = 0
+    comment_count: int = Field(0, ge=0)
 
 class Comment(Entity):
     id: str
@@ -65,4 +80,10 @@ class Comment(Entity):
 class Notification(Entity):
     id: str
     recipient_id: str
-    status: NotificationStatus = NotificationStatus.UNREAD
+    status: NotificationStatus = Lifecycle(
+        initial=NotificationStatus.UNREAD,
+        transitions=[
+            Transition(NotificationStatus.UNREAD, [NotificationStatus.READ]),
+        ],
+        terminal=[NotificationStatus.READ],
+    )

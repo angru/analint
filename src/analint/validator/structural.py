@@ -1,7 +1,10 @@
 from __future__ import annotations
+from typing import Any
+
 from analint.models.entity import FieldDescriptor
 from analint.models.root import Spec
 from analint.models.predicate import (
+    Predicate,
     _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
     _And, _Or, _Not, _Implies,
     _In, _IsNull, _IsNotNull,
@@ -144,9 +147,10 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Lifecycles
     for lc in spec.lifecycles:
-        loc = f"lifecycle:{lc.id}"
-        if not isinstance(lc.field, FieldDescriptor):
-            findings.append(err(loc, "field must be a FieldDescriptor (e.g. Order.status)"))
+        loc = f"lifecycle:{lc.id or '?'}"
+        if lc._entity_cls is None:
+            findings.append(err(loc, "lifecycle is not attached to an entity field — "
+                                     "declare it as the field's default value"))
             continue
         if lc.entity_cls.__name__ not in spec_entity_names:
             findings.append(err(loc, f"entity '{lc.entity_cls.__name__}' not in spec.entities"))
@@ -169,7 +173,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                                           f"but not in given"))
 
         for lc in spec.lifecycles:
-            if not isinstance(lc.field, FieldDescriptor):
+            if lc._entity_cls is None:
                 continue
             for inst in sc.given:
                 if type(inst) is not lc.entity_cls:
@@ -187,21 +191,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if pred is not None:
             findings.extend(_check_pred_refs(pred, spec.entities, spec.events,
                                              f"query:{query.id}"))
-
-    # Bounds: valid field, sane range
-    for b in spec.bounds:
-        loc = f"bounds:{b.id or '?'}"
-        if not isinstance(b.field, FieldDescriptor):
-            findings.append(err(loc, "field must be a FieldDescriptor (e.g. Hero.hp)"))
-            continue
-        if b.field.entity_cls.__name__ not in spec_entity_names:
-            findings.append(err(loc, f"entity '{b.field.entity_cls.__name__}' "
-                                     f"not in spec.entities"))
-        try:
-            if b.min > b.max:
-                findings.append(err(loc, f"min {b.min!r} > max {b.max!r}"))
-        except TypeError:
-            findings.append(err(loc, f"min/max are not comparable: {b.min!r}, {b.max!r}"))
 
     # Flows: steps registered; requires order respected
     for flow in spec.flows:
@@ -261,7 +250,12 @@ def _check_event_template(template, spec_entities: list, loc: str) -> list[Findi
     return findings
 
 
-def _check_pred_refs(pred: object, spec_entities: list, spec_events: list, loc: str) -> list[Finding]:
+def _check_pred_refs(
+    pred: Predicate,
+    spec_entities: list[type],
+    spec_events: list[type],
+    loc: str,
+) -> list[Finding]:
     findings: list[Finding] = []
     known_names = {e.__name__ for e in spec_entities} | {e.__name__ for e in spec_events}
     for ref in _collect_field_refs(pred):
@@ -283,7 +277,7 @@ def _check_pred_refs(pred: object, spec_entities: list, spec_events: list, loc: 
     return findings
 
 
-def _collect_field_refs(pred: object) -> list[FieldDescriptor]:
+def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor]:
     refs: list[FieldDescriptor] = []
     if isinstance(pred, (_And, _Or)):
         for e in pred.exprs:
@@ -343,7 +337,7 @@ def _check_requires_cycles(
             dfs(action.id)
 
 
-def _describe_operand(op: object) -> str:
+def _describe_operand(op: Any) -> str:
     if isinstance(op, FieldDescriptor):
         return f"{op.entity_cls.__name__}.{op.field_name}"
     if hasattr(op, "name") and hasattr(op, "value"):
@@ -351,7 +345,7 @@ def _describe_operand(op: object) -> str:
     return repr(op)
 
 
-def _describe(pred: object) -> str:
+def _describe(pred: Predicate) -> str:
     if isinstance(pred, _Eq):
         return f"{_describe_operand(pred.left)} == {_describe_operand(pred.right)}"
     if isinstance(pred, _Ne):

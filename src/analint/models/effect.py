@@ -1,23 +1,37 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Union
+
+if TYPE_CHECKING:
+    from analint.models.entity import FieldDescriptor
+
+    Amount = Union["FieldDescriptor", int, float]
+
+
+class Effect:
+    """Base class for next-state facts (enables typing and isinstance)."""
 
 
 @dataclass
-class Set:
-    """Set field to a fixed value after use case execution."""
-    field: object   # FieldDescriptor
-    value: object   # literal or enum value
+class Set(Effect):
+    """Fact: after the action, the field holds this value.
+
+    The value may be a literal, an enum member, or another FieldDescriptor —
+    resolved against the *pre*-state, like every effect right-hand side.
+    """
+    field: "FieldDescriptor"
+    value: Any
 
 
 @dataclass
-class Subtract:
-    """Subtract amount from field value after use case execution."""
-    field: object   # FieldDescriptor
-    amount: object  # FieldDescriptor or literal
+class Subtract(Effect):
+    """Fact: after the action, the field holds (old value − amount)."""
+    field: "FieldDescriptor"
+    amount: "Amount"
 
 
 @dataclass
-class Add:
-    """Add amount to field value after use case execution."""
-    field: object   # FieldDescriptor
-    amount: object  # FieldDescriptor or literal
+class Add(Effect):
+    """Fact: after the action, the field holds (old value + amount)."""
+    field: "FieldDescriptor"
+    amount: "Amount"

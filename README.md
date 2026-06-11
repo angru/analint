@@ -460,3 +460,4 @@ BFS over all reachable states; every query answers with a trace of action ids:
 | [`examples/taskboard/`](examples/taskboard/) | Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions |
 | [`examples/cloak/`](examples/cloak/spec.py) | A text-adventure game as a verifiable spec: the engine finds the walkthrough (`Reachable(WON)`), proves you can't get stuck (`NoDeadEnd`) |
 | [`examples/trollbridge/`](examples/trollbridge/spec.py) | **Deliberately broken**: all scenarios green, but the engine finds an economy softlock and an unmodelled death — bugs example-based testing cannot see |
+| [`examples/fulfillment/`](examples/fulfillment/) | An order-fulfillment **saga** as a pure domain model: 16 actions with compensations for every failure, `NoDeadEnd` proves no order ever wedges with money or goods stuck |

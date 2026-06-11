@@ -218,3 +218,16 @@ def test_cloak_all_queries_pass():
     assert {qr.status for qr in result.query_results} == {"PASS"}
     win = next(qr for qr in result.query_results if qr.query_id == "win_is_reachable")
     assert win.trace == ["go_west", "hang_cloak", "go_east", "go_south", "read_message_win"]
+
+
+def test_fulfillment_saga_all_green():
+    result = validate(Path(__file__).parent.parent / "examples" / "fulfillment")
+    assert not result.has_errors, [f.message for f in result.exploration_findings]
+    by_id = {qr.query_id: qr for qr in result.query_results}
+    assert by_id["saga_always_settles"].status == "PASS"
+    assert by_id["happy_path_exists"].trace == [
+        "supplier_restock", "reserve_stock", "authorize_payment",
+        "confirm_order", "capture_payment", "dispatch", "confirm_delivery",
+    ]
+    assert by_id["no_money_for_nothing"].status == "PASS"
+    assert by_id["every_step_used"].status == "PASS"

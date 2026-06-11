@@ -16,6 +16,9 @@
 | [07-declarative-semantics.md](07-declarative-semantics.md) | Чистая декларативность: эффекты как факты (не команды), параметризация событий |
 | [08-ai-agents.md](08-ai-agents.md) | analint для AI-агентов: ландшафт 2026, инверсия экономики, интерфейс, вердикт |
 | [09-loader-and-entrypoint.md](09-loader-and-entrypoint.md) | Лоадер: подтверждённый баг двойного импорта, переход на точку входа + реестр |
+| [10-scale-and-honest-assessment.md](10-scale-and-honest-assessment.md) | После v1.0: впечатления агента-пользователя, пределы синглтонов, что нужно до реальных продуктов |
+| [11-spec-code-bridge.md](11-spec-code-bridge.md) | Мост спека↔код: якоря @implements отклонены; пин + семантика агента + Service-маппинг в спеке |
+| [12-domain-layer-and-ddd.md](12-domain-layer-and-ddd.md) | Терминология: analint = исполняемый тактический DDD; сага — домен, а не сервисы |
 
 Итог ресёрча сведён в план действий: **[../ROADMAP.md](../ROADMAP.md)** —
 сценарии использования (агент/человек/CI) и фазы v0.9 → v1.2+ с дорожкой

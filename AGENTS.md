@@ -126,6 +126,7 @@ uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green
 uv run analint examples/trollbridge/  # deliberately broken: queries find softlock + hp<0
+uv run analint examples/fulfillment/  # order saga: 16 actions, compensations, NoDeadEnd green
 uv run analint check . -f json         # machine-readable validation
 uv run analint show action create_card -p examples/taskboard/
 uv run analint affects Board.card_count -p examples/taskboard/

@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from analint.models.entity import FieldDescriptor
 
-    Amount = Union["FieldDescriptor", int, float]
+    Amount = FieldDescriptor | int | float
 
 
 class Effect:
@@ -19,19 +20,22 @@ class Set(Effect):
     The value may be a literal, an enum member, or another FieldDescriptor —
     resolved against the *pre*-state, like every effect right-hand side.
     """
-    field: "FieldDescriptor"
+
+    field: FieldDescriptor
     value: Any
 
 
 @dataclass
 class Subtract(Effect):
     """Fact: after the action, the field holds (old value − amount)."""
-    field: "FieldDescriptor"
-    amount: "Amount"
+
+    field: FieldDescriptor
+    amount: Amount
 
 
 @dataclass
 class Add(Effect):
     """Fact: after the action, the field holds (old value + amount)."""
-    field: "FieldDescriptor"
-    amount: "Amount"
+
+    field: FieldDescriptor
+    amount: Amount

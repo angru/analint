@@ -31,8 +31,12 @@ def resolve_entry(path: Path) -> Path:
     entry = path / "spec.py"
     if entry.is_file():
         return entry.resolve()
-    raise LoadError(path, FileNotFoundError(
-        "no spec.py entry point found; create spec.py that imports the rest of the spec"))
+    raise LoadError(
+        path,
+        FileNotFoundError(
+            "no spec.py entry point found; create spec.py that imports the rest of the spec"
+        ),
+    )
 
 
 def _package_context(entry: Path) -> tuple[Path, str]:
@@ -57,7 +61,8 @@ def _import_packaged(qualname: str, entry: Path) -> ModuleType:
         if cached_file and Path(cached_file).resolve() != entry:
             raise ImportError(
                 f"module name '{qualname}' already refers to {cached_file}; "
-                f"rename the spec package to avoid the collision")
+                f"rename the spec package to avoid the collision"
+            )
         return cached
     return importlib.import_module(qualname)
 
@@ -114,7 +119,7 @@ def load_entry(entry: Path) -> tuple[ModuleType, list[ModuleType]]:
     for name in sorted(closure):
         m = sys.modules.get(name)
         f = getattr(m, "__file__", None) if m is not None else None
-        if f and Path(f).resolve().is_relative_to(base):
+        if m is not None and f and Path(f).resolve().is_relative_to(base):
             modules.append(m)
     return module, modules
 
@@ -153,15 +158,15 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     As a side effect, fills empty `id` fields from the module-level variable
     name the object is bound to (`archive_card = Action(...)` → id "archive_card").
     """
-    from analint.models.entity import Entity
-    from analint.models.actor import Actor
-    from analint.models.event import Event
     from analint.models.action import Action
-    from analint.models.invariant import Invariant
-    from analint.models.scenario import Scenario
-    from analint.models.lifecycle import Lifecycle
+    from analint.models.actor import Actor
+    from analint.models.entity import Entity
+    from analint.models.event import Event
     from analint.models.flow import Flow
+    from analint.models.invariant import Invariant
+    from analint.models.lifecycle import Lifecycle
     from analint.models.query import QUERY_TYPES
+    from analint.models.scenario import Scenario
 
     _BASE_CLASSES = {Entity, Actor, Event}
 
@@ -180,7 +185,7 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     flows: list = []
     queries: list = []
 
-    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow) + QUERY_TYPES
+    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow, *QUERY_TYPES)
 
     for module in modules:
         for var_name, obj in inspect.getmembers(module):

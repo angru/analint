@@ -1,32 +1,56 @@
 from analint import Assert, Emitted, Expect, Scenario
+
+from .actions import (
+    add_comment,
+    archive_card,
+    assign_card,
+    create_card,
+    invite_member,
+    move_card,
+    send_notification,
+)
 from .entities import (
-    Board, BoardStatus, Card, CardStatus, Column, Comment,
-    MemberRole, Membership, Notification, NotificationStatus, User,
+    Board,
+    BoardStatus,
+    Card,
+    CardStatus,
+    Column,
+    Comment,
+    MemberRole,
+    Membership,
+    Notification,
+    NotificationStatus,
+    User,
 )
 from .events import (
-    CardAssigned, CardCreated, CardMoved, CommentAdded, NotificationDelivered,
+    CardAssigned,
+    CardCreated,
+    CardMoved,
+    CommentAdded,
+    NotificationDelivered,
 )
-from .actions import (
-    add_comment, archive_card, assign_card,
-    create_card, invite_member, move_card, send_notification,
-)
+
 
 # helpers
 def _active_board(id="b1"):
     return Board(id=id, owner_id="u1", status=BoardStatus.ACTIVE, card_count=0)
 
+
 def _owner_membership(user_id="u1", board_id="b1"):
     return Membership(user_id=user_id, board_id=board_id, role=MemberRole.OWNER)
+
 
 def _member_membership(user_id="u2", board_id="b1"):
     return Membership(user_id=user_id, board_id=board_id, role=MemberRole.MEMBER)
 
+
 def _active_user(id="u1"):
     return User(id=id, email=f"{id}@example.com", is_active=True)
 
+
 def _active_card(board_id="b1", column_id="col-todo", status=CardStatus.TODO):
-    return Card(id="c1", board_id=board_id, column_id=column_id,
-                creator_id="u1", status=status)
+    return Card(id="c1", board_id=board_id, column_id=column_id, creator_id="u1", status=status)
+
 
 def _column(id="col-inprogress", board_id="b1"):
     return Column(id=id, board_id=board_id)
@@ -152,8 +176,14 @@ sc_assign_ok = Scenario(
         _active_user("u1"),
         _active_board(),
         Membership(user_id="u2", board_id="b1", role=MemberRole.MEMBER),
-        Card(id="c1", board_id="b1", column_id="col-todo",
-             creator_id="u1", assignee_id="u2", status=CardStatus.TODO),
+        Card(
+            id="c1",
+            board_id="b1",
+            column_id="col-todo",
+            creator_id="u1",
+            assignee_id="u2",
+            status=CardStatus.TODO,
+        ),
     ],
     then=[Assert(Card.assignee_id == "u2"), Emitted(CardAssigned)],
     expected=Expect.PASS,
@@ -167,8 +197,14 @@ sc_assign_nonmember = Scenario(
         _active_user("u1"),
         _active_board(),
         Membership(user_id="u99", board_id="b1", role=MemberRole.MEMBER),
-        Card(id="c1", board_id="b1", column_id="col-todo",
-             creator_id="u1", assignee_id="u2", status=CardStatus.TODO),
+        Card(
+            id="c1",
+            board_id="b1",
+            column_id="col-todo",
+            creator_id="u1",
+            assignee_id="u2",
+            status=CardStatus.TODO,
+        ),
     ],
     expected=Expect.FAIL,
 )

@@ -8,9 +8,11 @@ Three tools over the same core as the CLI:
 Run: `analint-mcp` (stdio transport). Requires the optional dependency:
 `pip install analint[mcp]`.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from analint import query as q
 from analint.reporter.json_reporter import result_to_dict
@@ -38,7 +40,7 @@ def affects_target(target: str, path: str = ".") -> dict:
     return q.affects(spec, target)
 
 
-def build_server():
+def build_server() -> Any:
     from mcp.server.fastmcp import FastMCP
 
     mcp = FastMCP("analint")
@@ -79,9 +81,10 @@ def build_server():
 def main() -> None:
     try:
         server = build_server()
-    except ImportError:
+    except ImportError as exc:
         raise SystemExit(
-            "the 'mcp' package is not installed — run: pip install analint[mcp]")
+            "the 'mcp' package is not installed — run: pip install analint[mcp]"
+        ) from exc
     server.run()
 
 

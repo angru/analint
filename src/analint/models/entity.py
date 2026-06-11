@@ -14,12 +14,13 @@ _MISSING = object()
 @dataclass
 class FieldSpec:
     """Declarative field configuration — created via the `Field(...)` factory."""
+
     default: Any = _MISSING
     ge: Any = None
     gt: Any = None
     le: Any = None
     lt: Any = None
-    saturate: bool = False      # engine: clamp into [ge, le] instead of failing
+    saturate: bool = False  # engine: clamp into [ge, le] instead of failing
     description: str = ""
 
     def has_constraints(self) -> bool:
@@ -47,9 +48,16 @@ class FieldSpec:
         return value
 
 
-def Field(default: Any = _MISSING, *, ge: Any = None, gt: Any = None,
-          le: Any = None, lt: Any = None, saturate: bool = False,
-          description: str = "") -> Any:
+def Field(
+    default: Any = _MISSING,
+    *,
+    ge: Any = None,
+    gt: Any = None,
+    le: Any = None,
+    lt: Any = None,
+    saturate: bool = False,
+    description: str = "",
+) -> Any:
     """Declare a field with constraints, pydantic-style:
 
         class Warehouse(Entity):
@@ -63,16 +71,22 @@ def Field(default: Any = _MISSING, *, ge: Any = None, gt: Any = None,
         raise TypeError("saturate=True requires both ge= and le=")
     if ge is not None and le is not None and ge > le:
         raise TypeError(f"Field ge={ge!r} is greater than le={le!r}")
-    return FieldSpec(default=default, ge=ge, gt=gt, le=le, lt=lt,
-                     saturate=saturate, description=description)
+    return FieldSpec(
+        default=default, ge=ge, gt=gt, le=le, lt=lt, saturate=saturate, description=description
+    )
 
 
 class FieldDescriptor:
     """Class-level field proxy that yields predicate objects when compared."""
 
-    def __init__(self, entity_cls: type, field_name: str, default: Any = _MISSING,
-                 spec: FieldSpec | None = None,
-                 lifecycle: Lifecycle[Any] | None = None) -> None:
+    def __init__(
+        self,
+        entity_cls: type,
+        field_name: str,
+        default: Any = _MISSING,
+        spec: FieldSpec | None = None,
+        lifecycle: Lifecycle[Any] | None = None,
+    ) -> None:
         self.entity_cls = entity_cls
         self.field_name = field_name
         self.default = default
@@ -95,28 +109,34 @@ class FieldDescriptor:
     # comparison operators → predicate objects ────────────────────────────────
     # Imports are deferred to avoid circular dependency with predicate.py
 
-    def __eq__(self, other: Any) -> "Predicate":  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
         from analint.models.predicate import _Eq
+
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> "Predicate":  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
         from analint.models.predicate import _Ne
+
         return _Ne(left=self, right=other)
 
-    def __gt__(self, other: Any) -> "Predicate":
+    def __gt__(self, other: Any) -> Predicate:
         from analint.models.predicate import _Gt
+
         return _Gt(left=self, right=other)
 
-    def __ge__(self, other: Any) -> "Predicate":
+    def __ge__(self, other: Any) -> Predicate:
         from analint.models.predicate import _Gte
+
         return _Gte(left=self, right=other)
 
-    def __lt__(self, other: Any) -> "Predicate":
+    def __lt__(self, other: Any) -> Predicate:
         from analint.models.predicate import _Lt
+
         return _Lt(left=self, right=other)
 
-    def __le__(self, other: Any) -> "Predicate":
+    def __le__(self, other: Any) -> Predicate:
         from analint.models.predicate import _Lte
+
         return _Lte(left=self, right=other)
 
     def __hash__(self) -> int:
@@ -136,7 +156,8 @@ class EntityMeta(type):
         annotations: dict[str, Any] = ns.get("__annotations__", {})
         cls = super().__new__(mcs, name, bases, ns)
         own_fields: dict[str, FieldDescriptor] = {}
-        setattr(cls, "_own_fields", own_fields)
+        dynamic_cls: Any = cls
+        dynamic_cls._own_fields = own_fields
         for field_name in annotations:
             declared = ns.get(field_name, _MISSING)
             default: Any = declared
@@ -168,7 +189,8 @@ def _init_fields(instance: Any, kwargs: dict[str, Any]) -> None:
     unknown = set(kwargs) - set(fields)
     if unknown:
         raise TypeError(
-            f"{type(instance).__name__}() got unknown field(s): {', '.join(sorted(unknown))}")
+            f"{type(instance).__name__}() got unknown field(s): {', '.join(sorted(unknown))}"
+        )
     for field_name, desc in fields.items():
         if field_name in kwargs:
             value = kwargs[field_name]
@@ -179,8 +201,7 @@ def _init_fields(instance: Any, kwargs: dict[str, Any]) -> None:
         if desc.spec is not None:
             problem = desc.spec.violation(value)
             if problem is not None:
-                raise ValueError(
-                    f"{type(instance).__name__}.{field_name} {problem}")
+                raise ValueError(f"{type(instance).__name__}.{field_name} {problem}")
         instance.__dict__[field_name] = value
 
 
@@ -198,6 +219,5 @@ class Entity(metaclass=EntityMeta):
         _init_fields(self, kwargs)
 
     def __repr__(self) -> str:
-        parts = ", ".join(
-            f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))
+        parts = ", ".join(f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))
         return f"{type(self).__name__}({parts})"

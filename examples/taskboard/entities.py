@@ -4,34 +4,39 @@ from analint import Entity, Field, Lifecycle, Transition
 
 
 class MemberRole(StrEnum):
-    OWNER  = "owner"
+    OWNER = "owner"
     MEMBER = "member"
     VIEWER = "viewer"
 
+
 class BoardStatus(StrEnum):
-    ACTIVE   = "active"
+    ACTIVE = "active"
     ARCHIVED = "archived"
 
+
 class CardStatus(StrEnum):
-    TODO        = "todo"
+    TODO = "todo"
     IN_PROGRESS = "in_progress"
-    DONE        = "done"
-    ARCHIVED    = "archived"
+    DONE = "done"
+    ARCHIVED = "archived"
+
 
 class Priority(StrEnum):
-    LOW    = "low"
+    LOW = "low"
     MEDIUM = "medium"
-    HIGH   = "high"
+    HIGH = "high"
+
 
 class NotificationStatus(StrEnum):
     UNREAD = "unread"
-    READ   = "read"
+    READ = "read"
 
 
 class User(Entity):
     id: str
     email: str
     is_active: bool = True
+
 
 class Board(Entity):
     id: str
@@ -45,14 +50,17 @@ class Board(Entity):
     )
     card_count: int = Field(0, ge=0)
 
+
 class Membership(Entity):
     user_id: str
     board_id: str
     role: MemberRole = MemberRole.MEMBER
 
+
 class Column(Entity):
     id: str
     board_id: str
+
 
 class Card(Entity):
     id: str
@@ -72,10 +80,12 @@ class Card(Entity):
     priority: Priority = Priority.MEDIUM
     comment_count: int = Field(0, ge=0)
 
+
 class Comment(Entity):
     id: str
     card_id: str
     author_id: str
+
 
 class Notification(Entity):
     id: str

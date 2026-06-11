@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -13,6 +14,7 @@ class Reachable:
     or supplies instances (required for entities without full defaults).
     Passing produces a witness trace — the sequence of actions leading there.
     """
+
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
     id: str = ""
@@ -27,6 +29,7 @@ class Unreachable:
     A regression guard: if a later change makes the state reachable, the query
     fails with a counterexample trace.
     """
+
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
     id: str = ""
@@ -38,6 +41,7 @@ class Unreachable:
 class AlwaysHolds:
     """The predicate must hold in every reachable state (a checked invariant
     over the whole state space, not just over scenario snapshots)."""
+
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
     id: str = ""
@@ -52,6 +56,7 @@ class NoDeadEnd:
     The classic softlock detector: fails with a trace to the first reachable
     state from which no path to the goal exists.
     """
+
     goal: Predicate
     given: list[Any] = field(default_factory=list)
     id: str = ""
@@ -62,6 +67,7 @@ class NoDeadEnd:
 @dataclass
 class DeadActions:
     """Report actions that are never enabled in any reachable state."""
+
     given: list[Any] = field(default_factory=list)
     id: str = ""
     label: str = ""

@@ -1,12 +1,23 @@
 from __future__ import annotations
+
 from typing import Any
 
 from analint.models.entity import FieldDescriptor
 from analint.models.predicate import (
     Predicate,
-    _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
-    _And, _Or, _Not, _Implies,
-    _In, _IsNull, _IsNotNull,
+    _And,
+    _Eq,
+    _Gt,
+    _Gte,
+    _Implies,
+    _In,
+    _IsNotNull,
+    _IsNull,
+    _Lt,
+    _Lte,
+    _Ne,
+    _Not,
+    _Or,
 )
 
 Context = dict[type, Any]

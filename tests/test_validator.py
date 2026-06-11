@@ -1,7 +1,7 @@
 from pathlib import Path
-from analint.validator.engine import validate
-from analint.reporter.base import Severity
 
+from analint.reporter.base import Severity
+from analint.validator.engine import validate
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -31,7 +31,8 @@ def test_ecommerce_all_scenarios_pass():
     result = validate(Path(__file__).parent.parent / "examples" / "ecommerce")
     assert result.failed_count == 0, [
         (sr.scenario_id, [f.message for f in sr.findings])
-        for sr in result.scenario_results if not sr.passed
+        for sr in result.scenario_results
+        if not sr.passed
     ]
 
 
@@ -41,7 +42,7 @@ def test_ecommerce_has_four_scenarios():
 
 
 def test_rule_failure_reported_in_scenario():
-    from analint import Entity, Action, Scenario, Spec, Expect
+    from analint import Action, Entity, Expect, Scenario, Spec
     from analint.validator.scenario_runner import run_scenario
 
     class Wallet(Entity):
@@ -56,16 +57,16 @@ def test_rule_failure_reported_in_scenario():
         name="Not enough",
         action=action,
         given=[Wallet(balance=5.0), Order(total=50.0)],
-        expected=Expect.FAIL,   # we expect it to fail → scenario should PASS
+        expected=Expect.FAIL,  # we expect it to fail → scenario should PASS
     )
     spec = Spec(id="s", name="S", entities=[Wallet, Order], actions=[action], scenarios=[sc])
 
     result = run_scenario(sc, spec)
-    assert result.passed is True   # correctly predicted failure
+    assert result.passed is True  # correctly predicted failure
 
 
 def test_rule_success_with_expect_fail_makes_scenario_fail():
-    from analint import Entity, Action, Scenario, Spec, Expect
+    from analint import Action, Entity, Expect, Scenario, Spec
     from analint.validator.scenario_runner import run_scenario
 
     class Item(Entity):

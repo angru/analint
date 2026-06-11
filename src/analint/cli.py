@@ -1,17 +1,19 @@
 from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Never
 
 import click
 import typer
 from typer.core import TyperGroup
 
-from analint.validator.engine import build_spec, validate
-from analint.reporter.terminal import report_terminal
-from analint.reporter.json_reporter import report_json
 from analint import query as q
+from analint.models.root import Spec
+from analint.reporter.json_reporter import report_json
+from analint.reporter.terminal import report_terminal
+from analint.validator.engine import build_spec, validate
 
 # Exit codes (stable interface for agents and CI):
 #   0 — checks passed (warnings allowed unless --strict)
@@ -23,7 +25,9 @@ from analint import query as q
 class _DefaultToCheck(TyperGroup):
     """`analint PATH` keeps working: an unknown first argument routes to `check`."""
 
-    def resolve_command(self, ctx: click.Context, args: list[str]):
+    def resolve_command(
+        self, ctx: click.Context, args: list[str]
+    ) -> tuple[str | None, click.Command | None, list[str]]:
         try:
             return super().resolve_command(ctx, args)
         except click.exceptions.UsageError:
@@ -46,13 +50,21 @@ def _root(ctx: typer.Context) -> None:
 @app.command()
 def check(
     path: Path = typer.Argument(Path("."), help="Directory with spec.py, or a spec file"),
-    format: str = typer.Option("terminal", "--format", "-f", help="Output format: terminal or json"),
-    scenario: Optional[list[str]] = typer.Option(None, "--scenario", "-s", help="Run only this scenario id"),
-    tag: Optional[list[str]] = typer.Option(None, "--tag", "-t", help="Run only scenarios with this tag"),
+    format: str = typer.Option(
+        "terminal", "--format", "-f", help="Output format: terminal or json"
+    ),
+    scenario: list[str] | None = typer.Option(
+        None, "--scenario", "-s", help="Run only this scenario id"
+    ),
+    tag: list[str] | None = typer.Option(
+        None, "--tag", "-t", help="Run only scenarios with this tag"
+    ),
     strict: bool = typer.Option(False, "--strict", help="Treat warnings as errors"),
-    what_if: Optional[Path] = typer.Option(None, "--what-if",
-                                           help="Also load this .py file into the model "
-                                                "(hypothesis check, spec files untouched)"),
+    what_if: Path | None = typer.Option(
+        None,
+        "--what-if",
+        help="Also load this .py file into the model (hypothesis check, spec files untouched)",
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
     result = validate(path, scenario_ids=scenario or None, tags=tag or None, extra=what_if)
@@ -72,10 +84,13 @@ def check(
 
 @app.command()
 def show(
-    kind: Optional[str] = typer.Argument(None, help="entity | actor | event | invariant | "
-                                                    "action | lifecycle | flow | scenario"),
-    name: Optional[str] = typer.Argument(None, help="id or class name"),
-    path: Path = typer.Option(Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"),
+    kind: str | None = typer.Argument(
+        None, help="entity | actor | event | invariant | action | lifecycle | flow | scenario"
+    ),
+    name: str | None = typer.Argument(None, help="id or class name"),
+    path: Path = typer.Option(
+        Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
+    ),
 ) -> None:
     """Inspect the model: overview, or details of one object. Output is JSON."""
     spec = _load_spec_or_exit(path)
@@ -98,7 +113,9 @@ def show(
 @app.command()
 def affects(
     target: str = typer.Argument(..., help="Entity.field, entity/event name, or action id"),
-    path: Path = typer.Option(Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"),
+    path: Path = typer.Option(
+        Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
+    ),
 ) -> None:
     """Impact analysis: what reads, writes, or depends on the target. Output is JSON."""
     spec = _load_spec_or_exit(path)
@@ -108,7 +125,7 @@ def affects(
     _emit(payload)
 
 
-def _load_spec_or_exit(path: Path):
+def _load_spec_or_exit(path: Path) -> Spec:
     spec, _, load_errors = build_spec(path)
     if spec is None:
         _emit({"error": "no spec found", "load_errors": [str(e) for e in load_errors]})
@@ -121,6 +138,6 @@ def _emit(payload: dict) -> None:
     sys.stdout.write("\n")
 
 
-def _emit_error(payload: dict) -> None:
+def _emit_error(payload: dict) -> Never:
     _emit(payload)
     raise typer.Exit(1)

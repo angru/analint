@@ -4,33 +4,33 @@ from analint import Entity, Field, Lifecycle, Transition
 
 
 class OrderStatus(StrEnum):
-    PLACED    = "placed"
+    PLACED = "placed"
     CONFIRMED = "confirmed"
-    SHIPPED   = "shipped"
+    SHIPPED = "shipped"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
 
 
 class ReservationStatus(StrEnum):
-    NONE     = "none"
+    NONE = "none"
     RESERVED = "reserved"
-    RELEASED = "released"   # stock returned after a failure/cancellation
-    CONSUMED = "consumed"   # goods left the warehouse
+    RELEASED = "released"  # stock returned after a failure/cancellation
+    CONSUMED = "consumed"  # goods left the warehouse
 
 
 class PaymentStatus(StrEnum):
-    NONE       = "none"
+    NONE = "none"
     AUTHORIZED = "authorized"
-    FAILED     = "failed"
-    CAPTURED   = "captured"
-    REFUNDED   = "refunded"
+    FAILED = "failed"
+    CAPTURED = "captured"
+    REFUNDED = "refunded"
 
 
 class ShipmentStatus(StrEnum):
-    NONE       = "none"
+    NONE = "none"
     DISPATCHED = "dispatched"
-    DELIVERED  = "delivered"
-    LOST       = "lost"
+    DELIVERED = "delivered"
+    LOST = "lost"
 
 
 class Order(Entity):

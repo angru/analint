@@ -1,18 +1,31 @@
 from __future__ import annotations
+
+from collections.abc import Callable, Sequence
 from typing import Any
 
+from analint.models.action import Action
+from analint.models.actor import Actor
+from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor
-from analint.models.root import Spec
+from analint.models.event import Event
 from analint.models.predicate import (
     Predicate,
-    _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
-    _And, _Or, _Not, _Implies,
-    _In, _IsNull, _IsNotNull,
+    _And,
+    _Eq,
+    _Gt,
+    _Gte,
+    _Implies,
+    _In,
+    _IsNotNull,
+    _IsNull,
+    _Lt,
+    _Lte,
+    _Ne,
+    _Not,
+    _Or,
 )
+from analint.models.root import Spec
 from analint.reporter.base import Finding, Severity
-from analint.models.actor import Actor
-from analint.models.event import Event
-from analint.models.effect import Set, Subtract, Add
 
 
 def validate_structural(spec: Spec) -> list[Finding]:
@@ -36,9 +49,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
         seen: set[str] = set()
         for obj in objs:
             if not obj.id:
-                findings.append(err(f"{kind}:?",
-                                    f"{kind} has no id — assign it to a module-level "
-                                    f"variable or set id= explicitly"))
+                findings.append(
+                    err(
+                        f"{kind}:?",
+                        f"{kind} has no id — assign it to a module-level "
+                        f"variable or set id= explicitly",
+                    )
+                )
                 continue
             if obj.id in seen:
                 findings.append(err(f"{kind}:{obj.id}", f"duplicate id '{obj.id}'"))
@@ -46,16 +63,23 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Duplicate entity class names with different identities — almost always
     # the same file imported under two module names (use relative imports)
-    for kind, classes in [("entity", spec.entities), ("actor", spec.actors), ("event", spec.events)]:
+    for kind, classes in [
+        ("entity", spec.entities),
+        ("actor", spec.actors),
+        ("event", spec.events),
+    ]:
         by_name: dict[str, type] = {}
         for cls in classes:
             other = by_name.get(cls.__name__)
             if other is not None and other is not cls:
-                findings.append(err(
-                    f"{kind}:{cls.__name__}",
-                    f"two different classes named '{cls.__name__}' are registered "
-                    f"({other.__module__} and {cls.__module__}) — the same file is "
-                    f"probably imported under two module names; use relative imports"))
+                findings.append(
+                    err(
+                        f"{kind}:{cls.__name__}",
+                        f"two different classes named '{cls.__name__}' are registered "
+                        f"({other.__module__} and {cls.__module__}) — the same file is "
+                        f"probably imported under two module names; use relative imports",
+                    )
+                )
             by_name[cls.__name__] = cls
 
     spec_entity_names = {e.__name__ for e in spec.entities}
@@ -73,8 +97,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Invariants: expressions reference registered entities and existing fields
     for inv in spec.invariants:
-        findings.extend(_check_pred_refs(inv.expression, spec.entities, spec.events,
-                                         f"invariant:{inv.id}"))
+        findings.extend(
+            _check_pred_refs(inv.expression, spec.entities, spec.events, f"invariant:{inv.id}")
+        )
 
     # Requires cycles
     action_by_id = {a.id: a for a in spec.actions}
@@ -109,10 +134,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 findings.append(err(loc, f"emits entry '{emitted!r}' is not an Event"))
                 continue
             if event_cls.__name__ not in spec_event_names:
-                findings.append(err(loc, f"emitted event '{event_cls.__name__}' not in spec.events"))
+                findings.append(
+                    err(loc, f"emitted event '{event_cls.__name__}' not in spec.events")
+                )
             elif event_cls.__name__ not in handled_event_names:
-                findings.append(warn(loc, f"event '{event_cls.__name__}' is emitted "
-                                          f"but never triggers an action"))
+                findings.append(
+                    warn(
+                        loc, f"event '{event_cls.__name__}' is emitted but never triggers an action"
+                    )
+                )
             if not isinstance(emitted, type):
                 findings.extend(_check_event_template(emitted, spec.entities, loc))
 
@@ -133,13 +163,19 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 continue
             cls = effect.field.entity_cls
             if cls.__name__ not in spec_entity_names:
-                findings.append(err(loc, f"effect targets entity '{cls.__name__}' "
-                                         f"not in spec.entities"))
+                findings.append(
+                    err(loc, f"effect targets entity '{cls.__name__}' not in spec.entities")
+                )
             target = (cls, effect.field.field_name)
             if target in effect_targets:
-                findings.append(err(loc, f"two effects target '{cls.__name__}."
-                                         f"{effect.field.field_name}' — effects are "
-                                         f"simultaneous, a field can change only once"))
+                findings.append(
+                    err(
+                        loc,
+                        f"two effects target '{cls.__name__}."
+                        f"{effect.field.field_name}' — effects are "
+                        f"simultaneous, a field can change only once",
+                    )
+                )
             effect_targets.add(target)
 
         if not any(sc.action.id == action.id for sc in spec.scenarios):
@@ -149,8 +185,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
     for lc in spec.lifecycles:
         loc = f"lifecycle:{lc.id or '?'}"
         if lc._entity_cls is None:
-            findings.append(err(loc, "lifecycle is not attached to an entity field — "
-                                     "declare it as the field's default value"))
+            findings.append(
+                err(
+                    loc,
+                    "lifecycle is not attached to an entity field — "
+                    "declare it as the field's default value",
+                )
+            )
             continue
         if lc.entity_cls.__name__ not in spec_entity_names:
             findings.append(err(loc, f"entity '{lc.entity_cls.__name__}' not in spec.entities"))
@@ -169,8 +210,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
         needed = _needed_types(sc.action)
         for cls in needed:
             if cls not in given_types:
-                findings.append(warn(loc, f"'{cls.__name__}' referenced by the action "
-                                          f"but not in given"))
+                findings.append(
+                    warn(loc, f"'{cls.__name__}' referenced by the action but not in given")
+                )
 
         for lc in spec.lifecycles:
             if lc._entity_cls is None:
@@ -180,17 +222,19 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     continue
                 state = getattr(inst, lc.field_name, None)
                 if state is not None and state not in lc.reachable_states():
-                    findings.append(warn(
-                        loc,
-                        f"{lc.entity_cls.__name__}.{lc.field_name}={state!r} "
-                        f"is not reachable from initial state {lc.initial!r}"))
+                    findings.append(
+                        warn(
+                            loc,
+                            f"{lc.entity_cls.__name__}.{lc.field_name}={state!r} "
+                            f"is not reachable from initial state {lc.initial!r}",
+                        )
+                    )
 
     # Queries: predicates reference registered entities
     for query in spec.queries:
         pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
         if pred is not None:
-            findings.extend(_check_pred_refs(pred, spec.entities, spec.events,
-                                             f"query:{query.id}"))
+            findings.extend(_check_pred_refs(pred, spec.entities, spec.events, f"query:{query.id}"))
 
     # Flows: steps registered; requires order respected
     for flow in spec.flows:
@@ -202,14 +246,19 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for step in flow.steps:
             for req in step.requires:
                 if req.id not in seen_steps:
-                    findings.append(err(loc, f"'{step.id}' requires '{req.id}' but "
-                                             f"'{req.id}' does not appear before it in steps"))
+                    findings.append(
+                        err(
+                            loc,
+                            f"'{step.id}' requires '{req.id}' but "
+                            f"'{req.id}' does not appear before it in steps",
+                        )
+                    )
             seen_steps.add(step.id)
 
     return findings
 
 
-def _needed_types(action) -> set[type]:
+def _needed_types(action: Action) -> set[type]:
     """Entity/Event types an action's predicates and effects reference."""
     types: set[type] = set()
     for pred in list(action.pre) + list(action.post):
@@ -221,7 +270,9 @@ def _needed_types(action) -> set[type]:
     return types
 
 
-def _check_event_template(template, spec_entities: list, loc: str) -> list[Finding]:
+def _check_event_template(
+    template: Event, spec_entities: Sequence[type], loc: str
+) -> list[Finding]:
     """Validate a payload template: bound FieldDescriptors must point to
     registered entities; annotations are compared when both sides have them."""
     findings: list[Finding] = []
@@ -234,26 +285,34 @@ def _check_event_template(template, spec_entities: list, loc: str) -> list[Findi
             continue
         src_cls = value.entity_cls
         if src_cls.__name__ not in spec_entity_names:
-            findings.append(Finding(
-                Severity.ERROR, loc,
-                f"payload {event_cls.__name__}.{field_name} is bound to "
-                f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
-                f"is not in spec.entities"))
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"payload {event_cls.__name__}.{field_name} is bound to "
+                    f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
+                    f"is not in spec.entities",
+                )
+            )
             continue
         src_ann = getattr(src_cls, "__annotations__", {}).get(value.field_name)
         dst_ann = event_ann.get(field_name)
         if src_ann is not None and dst_ann is not None and str(src_ann) != str(dst_ann):
-            findings.append(Finding(
-                Severity.WARNING, loc,
-                f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
-                f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ"))
+            findings.append(
+                Finding(
+                    Severity.WARNING,
+                    loc,
+                    f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
+                    f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ",
+                )
+            )
     return findings
 
 
 def _check_pred_refs(
     pred: Predicate,
-    spec_entities: list[type],
-    spec_events: list[type],
+    spec_entities: Sequence[type],
+    spec_events: Sequence[type],
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
@@ -261,19 +320,28 @@ def _check_pred_refs(
     for ref in _collect_field_refs(pred):
         cls = ref.entity_cls
         if not hasattr(cls, "_own_fields"):
-            findings.append(Finding(Severity.ERROR, loc,
-                                    f"FieldDescriptor references non-Entity class '{cls.__name__}'"))
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"FieldDescriptor references non-Entity class '{cls.__name__}'",
+                )
+            )
             continue
         if cls.__name__ not in known_names:
-            findings.append(Finding(Severity.ERROR, loc,
-                                    f"entity '{cls.__name__}' not in spec.entities"))
+            findings.append(
+                Finding(Severity.ERROR, loc, f"entity '{cls.__name__}' not in spec.entities")
+            )
             continue
         all_fields: dict = {}
         for klass in reversed(cls.__mro__):
             all_fields.update(getattr(klass, "_own_fields", {}))
         if ref.field_name not in all_fields:
-            findings.append(Finding(Severity.ERROR, loc,
-                                    f"field '{cls.__name__}.{ref.field_name}' does not exist"))
+            findings.append(
+                Finding(
+                    Severity.ERROR, loc, f"field '{cls.__name__}.{ref.field_name}' does not exist"
+                )
+            )
     return findings
 
 
@@ -292,17 +360,16 @@ def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor]:
             refs.append(pred.left)
         if isinstance(pred.right, FieldDescriptor):
             refs.append(pred.right)
-    elif isinstance(pred, (_In, _IsNull, _IsNotNull)):
-        if isinstance(pred.operand, FieldDescriptor):
-            refs.append(pred.operand)
+    elif isinstance(pred, (_In, _IsNull, _IsNotNull)) and isinstance(pred.operand, FieldDescriptor):
+        refs.append(pred.operand)
     return refs
 
 
 def _check_requires_cycles(
-    actions: list,
-    action_by_id: dict,
+    actions: list[Action],
+    action_by_id: dict[str, Action],
     findings: list[Finding],
-    err_fn,
+    err_fn: Callable[[str, str], Finding],
 ) -> None:
     """DFS cycle detection on the requires graph."""
     WHITE, GRAY, BLACK = 0, 1, 2
@@ -319,16 +386,17 @@ def _check_requires_cycles(
             if nid not in color:
                 color[nid] = WHITE
             if color[nid] == GRAY:
-                findings.append(err_fn(
-                    f"action:{action_id}",
-                    f"circular dependency detected involving '{nid}'",
-                ))
+                findings.append(
+                    err_fn(
+                        f"action:{action_id}",
+                        f"circular dependency detected involving '{nid}'",
+                    )
+                )
                 color[action_id] = BLACK
                 return True
-            if color[nid] == WHITE:
-                if dfs(nid):
-                    color[action_id] = BLACK
-                    return True
+            if color[nid] == WHITE and dfs(nid):
+                color[action_id] = BLACK
+                return True
         color[action_id] = BLACK
         return False
 

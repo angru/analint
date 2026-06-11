@@ -3,41 +3,44 @@
 Every function returns plain JSON-able dicts. Used by `analint show`,
 `analint affects`, and the MCP server.
 """
+
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
+from analint.models.action import Action
 from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import FieldDescriptor, _MISSING
+from analint.models.entity import _MISSING, FieldDescriptor
+from analint.models.event import Event
 from analint.models.root import Spec
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
 
-
 # ── Rendering helpers ──────────────────────────────────────────────────────────
 
-def _effect_str(effect) -> str:
-    field = _describe_operand(effect.field)
+
+def _effect_str(effect: Any) -> str:
     if isinstance(effect, Set):
-        return f"{field} = {_describe_operand(effect.value)}"
+        return f"{_describe_operand(effect.field)} = {_describe_operand(effect.value)}"
     if isinstance(effect, Subtract):
-        return f"{field} -= {_describe_operand(effect.amount)}"
+        return f"{_describe_operand(effect.field)} -= {_describe_operand(effect.amount)}"
     if isinstance(effect, Add):
-        return f"{field} += {_describe_operand(effect.amount)}"
+        return f"{_describe_operand(effect.field)} += {_describe_operand(effect.amount)}"
     return repr(effect)
 
 
-def _emit_str(emitted) -> str:
+def _emit_str(emitted: type[Event] | Event) -> str:
     if isinstance(emitted, type):
         return emitted.__name__
     bound = ", ".join(f"{f}={_bind_str(v)}" for f, v in emitted.__dict__.items())
     return f"{type(emitted).__name__}({bound})"
 
 
-def _bind_str(value) -> str:
+def _bind_str(value: Any) -> str:
     return _describe_operand(value) if isinstance(value, FieldDescriptor) else repr(value)
 
 
-def _fields_of(cls) -> list[dict]:
+def _fields_of(cls: type) -> list[dict]:
     own_fields: dict = {}
     for klass in reversed(cls.__mro__):
         own_fields.update(getattr(klass, "_own_fields", {}))
@@ -72,22 +75,25 @@ def _fields_of(cls) -> list[dict]:
     return out
 
 
-def _value_str(value) -> str:
+def _value_str(value: Any) -> str:
     if isinstance(value, Enum):
         return f"{type(value).__name__}.{value.name}"
     return repr(value)
 
 
-def _action_refs(action) -> list[FieldDescriptor]:
+def _action_refs(action: Action) -> list[FieldDescriptor]:
     refs: list[FieldDescriptor] = []
     for pred in list(action.pre) + list(action.post):
         refs.extend(_collect_field_refs(pred))
     return refs
 
 
-def _action_writes(action) -> list:
-    return [e for e in action.effect
-            if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)]
+def _action_writes(action: Action) -> list[Set | Subtract | Add]:
+    return [
+        e
+        for e in action.effect
+        if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)
+    ]
 
 
 def _scenarios_of(spec: Spec, action_id: str) -> list[str]:
@@ -96,10 +102,15 @@ def _scenarios_of(spec: Spec, action_id: str) -> list[str]:
 
 # ── Overview ───────────────────────────────────────────────────────────────────
 
+
 def spec_overview(spec: Spec) -> dict:
     return {
-        "spec": {"id": spec.id, "name": spec.name,
-                 "version": spec.version, "description": spec.description},
+        "spec": {
+            "id": spec.id,
+            "name": spec.name,
+            "version": spec.version,
+            "description": spec.description,
+        },
         "entities": [e.__name__ for e in spec.entities],
         "actors": [a.__name__ for a in spec.actors],
         "events": [e.__name__ for e in spec.events],
@@ -113,6 +124,7 @@ def spec_overview(spec: Spec) -> dict:
 
 
 # ── show <kind> <name> ─────────────────────────────────────────────────────────
+
 
 def describe(spec: Spec, kind: str, name: str) -> dict:
     dispatch = {
@@ -139,10 +151,12 @@ def _describe_entity(spec: Spec, name: str) -> dict:
     cls = next((e for e in spec.entities if e.__name__ == name), None)
     if cls is None:
         return _not_found("entity", name, [e.__name__ for e in spec.entities])
-    read_by = sorted({a.id for a in spec.actions
-                      if any(r.entity_cls is cls for r in _action_refs(a))})
-    written_by = sorted({a.id for a in spec.actions
-                         if any(w.field.entity_cls is cls for w in _action_writes(a))})
+    read_by = sorted(
+        {a.id for a in spec.actions if any(r.entity_cls is cls for r in _action_refs(a))}
+    )
+    written_by = sorted(
+        {a.id for a in spec.actions if any(w.field.entity_cls is cls for w in _action_writes(a))}
+    )
     return {
         "kind": "entity",
         "name": name,
@@ -150,8 +164,11 @@ def _describe_entity(spec: Spec, name: str) -> dict:
         "lifecycles": [lc.id for lc in spec.lifecycles if lc.entity_cls is cls],
         "read_by": read_by,
         "written_by": written_by,
-        "invariants": [i.id for i in spec.invariants
-                       if any(r.entity_cls is cls for r in _collect_field_refs(i.expression))],
+        "invariants": [
+            i.id
+            for i in spec.invariants
+            if any(r.entity_cls is cls for r in _collect_field_refs(i.expression))
+        ],
     }
 
 
@@ -214,10 +231,8 @@ def _describe_action(spec: Spec, name: str) -> dict:
         "emits": [_emit_str(e) for e in action.emits],
         "on": [e.__name__ for e in action.on if isinstance(e, type)],
         "requires": [r.id for r in action.requires],
-        "required_by": [a.id for a in spec.actions
-                        if any(r.id == action.id for r in a.requires)],
-        "flows": [f.id for f in spec.flows
-                  if any(s.id == action.id for s in f.steps)],
+        "required_by": [a.id for a in spec.actions if any(r.id == action.id for r in a.requires)],
+        "flows": [f.id for f in spec.flows if any(s.id == action.id for s in f.steps)],
         "scenarios": _scenarios_of(spec, action.id),
         "tags": list(action.tags),
     }
@@ -276,6 +291,7 @@ def _describe_scenario(spec: Spec, name: str) -> dict:
 
 # ── affects <target> ───────────────────────────────────────────────────────────
 
+
 def affects(spec: Spec, target: str) -> dict:
     """Impact analysis: what touches this field / entity / action.
 
@@ -305,12 +321,15 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
             if _matches(w.field):
                 written_by.append({"action": a.id, "effect": _effect_str(w)})
 
-    read_by = sorted({a.id for a in spec.actions
-                      if any(_matches(r) for r in _action_refs(a))})
-    invariants = [i.id for i in spec.invariants
-                  if any(_matches(r) for r in _collect_field_refs(i.expression))]
-    lifecycles = [lc.id for lc in spec.lifecycles
-                  if isinstance(lc.field, FieldDescriptor) and _matches(lc.field)]
+    read_by = sorted({a.id for a in spec.actions if any(_matches(r) for r in _action_refs(a))})
+    invariants = [
+        i.id for i in spec.invariants if any(_matches(r) for r in _collect_field_refs(i.expression))
+    ]
+    lifecycles = [
+        lc.id
+        for lc in spec.lifecycles
+        if isinstance(lc.field, FieldDescriptor) and _matches(lc.field)
+    ]
 
     event_bindings = []
     for a in spec.actions:
@@ -320,7 +339,8 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
             for f, v in emitted.__dict__.items():
                 if isinstance(v, FieldDescriptor) and _matches(v):
                     event_bindings.append(
-                        {"action": a.id, "event": type(emitted).__name__, "payload_field": f})
+                        {"action": a.id, "event": type(emitted).__name__, "payload_field": f}
+                    )
 
     impacted_actions = sorted({w["action"] for w in written_by} | set(read_by))
     return {
@@ -331,8 +351,7 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
         "invariants": invariants,
         "lifecycles": lifecycles,
         "event_bindings": event_bindings,
-        "scenarios": sorted({sc.id for sc in spec.scenarios
-                             if sc.action.id in impacted_actions}),
+        "scenarios": sorted({sc.id for sc in spec.scenarios if sc.action.id in impacted_actions}),
     }
 
 
@@ -346,8 +365,7 @@ def _affects_entity(spec: Spec, name: str) -> dict:
 def _affects_action(spec: Spec, action_id: str) -> dict:
     action = next(a for a in spec.actions if a.id == action_id)
     emitted_classes = [(e if isinstance(e, type) else type(e)) for e in action.emits]
-    downstream = sorted({a.id for a in spec.actions
-                         if any(cls in a.on for cls in emitted_classes)})
+    downstream = sorted({a.id for a in spec.actions if any(cls in a.on for cls in emitted_classes)})
     return {
         "kind": "action-impact",
         "target": action_id,
@@ -355,8 +373,7 @@ def _affects_action(spec: Spec, action_id: str) -> dict:
         "writes": [_effect_str(w) for w in _action_writes(action)],
         "emits": [_emit_str(e) for e in action.emits],
         "triggers_downstream": downstream,
-        "required_by": [a.id for a in spec.actions
-                        if any(r.id == action_id for r in a.requires)],
+        "required_by": [a.id for a in spec.actions if any(r.id == action_id for r in a.requires)],
         "flows": [f.id for f in spec.flows if any(s.id == action_id for s in f.steps)],
         "scenarios": _scenarios_of(spec, action_id),
     }

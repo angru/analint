@@ -5,18 +5,40 @@ actions with the same precondition — the reachability engine explores both.
 Every failure has a compensating action; the NoDeadEnd query in queries.py
 proves the process can never wedge.
 """
+
 from analint import Action, Add, Set, Subtract
+
 from .entities import (
-    Order, OrderStatus, Payment, PaymentStatus, Reservation, ReservationStatus,
-    Shipment, ShipmentStatus, Warehouse,
+    Order,
+    OrderStatus,
+    Payment,
+    PaymentStatus,
+    Reservation,
+    ReservationStatus,
+    Shipment,
+    ShipmentStatus,
+    Warehouse,
 )
 from .events import (
-    PaymentAuthorized, PaymentCaptured, PaymentFailed, ShipmentLost, StockReserved,
+    PaymentAuthorized,
+    PaymentCaptured,
+    PaymentFailed,
+    ShipmentLost,
+    StockReserved,
 )
 from .invariants import (
-    nothing_reserved, not_shipped_yet, order_cancelled, order_confirmed,
-    order_placed, order_shipped, payment_authorized, payment_captured,
-    payment_missing, shipment_lost, shipment_on_road, stock_reserved,
+    not_shipped_yet,
+    nothing_reserved,
+    order_cancelled,
+    order_confirmed,
+    order_placed,
+    order_shipped,
+    payment_authorized,
+    payment_captured,
+    payment_missing,
+    shipment_lost,
+    shipment_on_road,
+    stock_reserved,
 )
 
 # ── Stock ──────────────────────────────────────────────────────────────────────
@@ -35,8 +57,10 @@ supplier_restock = Action(
 reserve_stock = Action(
     name="Reserve goods for the order",
     pre=[order_placed, nothing_reserved, Warehouse.stock >= Order.qty],
-    effect=[Set(Reservation.status, ReservationStatus.RESERVED),
-            Subtract(Warehouse.stock, Order.qty)],
+    effect=[
+        Set(Reservation.status, ReservationStatus.RESERVED),
+        Subtract(Warehouse.stock, Order.qty),
+    ],
     emits=[StockReserved(order_id=Order.id)],
 )
 
@@ -68,9 +92,11 @@ compensate_failed_payment = Action(
     name="Compensation: failed payment cancels the order, stock returns",
     on=PaymentFailed,
     pre=[order_placed, stock_reserved, Payment.status == PaymentStatus.FAILED],
-    effect=[Set(Order.status, OrderStatus.CANCELLED),
-            Set(Reservation.status, ReservationStatus.RELEASED),
-            Add(Warehouse.stock, Order.qty)],
+    effect=[
+        Set(Order.status, OrderStatus.CANCELLED),
+        Set(Reservation.status, ReservationStatus.RELEASED),
+        Add(Warehouse.stock, Order.qty),
+    ],
 )
 
 confirm_order = Action(
@@ -104,8 +130,7 @@ refund_after_cancel = Action(
 release_after_cancel = Action(
     name="Compensation: return reserved goods to the shelf",
     pre=[order_cancelled, stock_reserved],
-    effect=[Set(Reservation.status, ReservationStatus.RELEASED),
-            Add(Warehouse.stock, Order.qty)],
+    effect=[Set(Reservation.status, ReservationStatus.RELEASED), Add(Warehouse.stock, Order.qty)],
 )
 
 # ── Shipment ───────────────────────────────────────────────────────────────────
@@ -114,16 +139,20 @@ dispatch = Action(
     name="Dispatch the shipment",
     on=PaymentCaptured,
     pre=[order_confirmed, payment_captured, not_shipped_yet],
-    effect=[Set(Shipment.status, ShipmentStatus.DISPATCHED),
-            Set(Reservation.status, ReservationStatus.CONSUMED),
-            Set(Order.status, OrderStatus.SHIPPED)],
+    effect=[
+        Set(Shipment.status, ShipmentStatus.DISPATCHED),
+        Set(Reservation.status, ReservationStatus.CONSUMED),
+        Set(Order.status, OrderStatus.SHIPPED),
+    ],
 )
 
 confirm_delivery = Action(
     name="Confirm delivery",
     pre=[order_shipped, shipment_on_road],
-    effect=[Set(Shipment.status, ShipmentStatus.DELIVERED),
-            Set(Order.status, OrderStatus.DELIVERED)],
+    effect=[
+        Set(Shipment.status, ShipmentStatus.DELIVERED),
+        Set(Order.status, OrderStatus.DELIVERED),
+    ],
 )
 
 report_lost = Action(

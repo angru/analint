@@ -8,6 +8,6 @@ spec = Spec(
     name="Order Fulfillment Saga",
     version="1.0.0",
     description="A pure domain model of an order saga: reservation, payment, "
-                "shipment, and a compensation for every failure — verified to "
-                "never wedge",
+    "shipment, and a compensation for every failure — verified to "
+    "never wedge",
 )

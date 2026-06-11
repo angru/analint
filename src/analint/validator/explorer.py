@@ -9,16 +9,26 @@ INCONCLUSIVE instead of pretending.
 Every answer comes with a trace — the sequence of action ids from the
 initial state — because a counterexample you can read beats a verdict.
 """
+
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from enum import Enum
+from typing import Any
 
-from analint.models.effect import Add, Effect, Set, Subtract
+from analint.models.action import Action
+from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
+from analint.models.lifecycle import Lifecycle
+from analint.models.predicate import Predicate
 from analint.models.query import (
-    AlwaysHolds, DeadActions, NoDeadEnd, Reachable, Unreachable,
+    AlwaysHolds,
+    DeadActions,
+    NoDeadEnd,
+    Reachable,
+    Unreachable,
 )
 from analint.models.root import Spec
 from analint.reporter.base import Finding, QueryResult, Severity
@@ -26,20 +36,23 @@ from analint.validator.rule_checker import evaluate
 from analint.validator.scenario_runner import _apply_effects
 from analint.validator.structural import _collect_field_refs, _describe
 
+StateKey = tuple[Any, ...]
+Query = Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
 
 # ── Exploration result ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class Exploration:
-    states: dict = dc_field(default_factory=dict)    # key → context
-    order: list = dc_field(default_factory=list)     # keys in BFS order
-    edges: list = dc_field(default_factory=list)     # (key, action_id, key)
-    parents: dict = dc_field(default_factory=dict)   # key → (prev_key, action_id)
-    fired: set = dc_field(default_factory=set)       # action ids ever enabled
+    states: dict = dc_field(default_factory=dict)  # key → context
+    order: list = dc_field(default_factory=list)  # keys in BFS order
+    edges: list = dc_field(default_factory=list)  # (key, action_id, key)
+    parents: dict = dc_field(default_factory=dict)  # key → (prev_key, action_id)
+    fired: set = dc_field(default_factory=set)  # action ids ever enabled
     findings: list = dc_field(default_factory=list)  # violations met en route
     capped: bool = False
 
-    def trace_to(self, key) -> list[str]:
+    def trace_to(self, key: StateKey) -> list[str]:
         steps: list[str] = []
         while True:
             prev, action_id = self.parents[key]
@@ -50,6 +63,7 @@ class Exploration:
 
 
 # ── State helpers ──────────────────────────────────────────────────────────────
+
 
 def state_key(ctx: dict) -> tuple:
     items = []
@@ -69,7 +83,7 @@ def render_state(ctx: dict) -> dict:
     return out
 
 
-def _value_str(value) -> str:
+def _value_str(value: Any) -> str:
     if isinstance(value, Enum):
         return f"{type(value).__name__}.{value.name}"
     return repr(value)
@@ -80,6 +94,7 @@ def _trace_str(steps: list[str]) -> str:
 
 
 # ── Initial state ──────────────────────────────────────────────────────────────
+
 
 def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
     """Initial context: `given` instances + defaults-built entities.
@@ -106,18 +121,21 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
             for pred in list(action.pre) + list(action.post):
                 needed.update(r.entity_cls for r in _collect_field_refs(pred))
             for e in action.effect:
-                if isinstance(e, Effect) and isinstance(e.field, FieldDescriptor):
+                if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor):
                     needed.add(e.field.entity_cls)
         for inv in spec.invariants:
             needed.update(r.entity_cls for r in _collect_field_refs(inv.expression))
         blocked = [c.__name__ for c in missing if c in needed]
         if blocked:
-            return None, (f"entities without full defaults need initial instances: "
-                          f"{', '.join(sorted(blocked))} — pass given=[...] in the query")
+            return None, (
+                f"entities without full defaults need initial instances: "
+                f"{', '.join(sorted(blocked))} — pass given=[...] in the query"
+            )
     return ctx, None
 
 
 # ── Exploration ────────────────────────────────────────────────────────────────
+
 
 def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
     # Field constraints double as the engine's bounds (research/13)
@@ -154,10 +172,14 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
             try:
                 post = _apply_effects(action.effect, ctx)
             except Exception as exc:
-                exp.findings.append(Finding(
-                    Severity.ERROR, f"action:{action.id}",
-                    f"effect evaluation error during exploration: {exc} "
-                    f"[after: {_trace_str(exp.trace_to(key))}]"))
+                exp.findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"action:{action.id}",
+                        f"effect evaluation error during exploration: {exc} "
+                        f"[after: {_trace_str(exp.trace_to(key))}]",
+                    )
+                )
                 continue
 
             if not _check_bounds(action, ctx, post, bounds_map, key, exp):
@@ -179,7 +201,7 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
     return exp
 
 
-def _enabled(action, ctx: dict, lifecycles: list) -> bool:
+def _enabled(action: Action, ctx: dict, lifecycles: list[Lifecycle]) -> bool:
     for pred in action.pre:
         refs = _collect_field_refs(pred)
         if any(r.entity_cls not in ctx for r in refs):
@@ -193,7 +215,7 @@ def _enabled(action, ctx: dict, lifecycles: list) -> bool:
     touched = {
         e.field.entity_cls
         for e in action.effect
-        if isinstance(e, Effect) and isinstance(e.field, FieldDescriptor)
+        if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)
     }
     for lc in lifecycles:
         if not lc.terminal or lc.entity_cls not in touched:
@@ -204,7 +226,14 @@ def _enabled(action, ctx: dict, lifecycles: list) -> bool:
     return True
 
 
-def _check_bounds(action, ctx: dict, post: dict, bounds_map: dict, key, exp: Exploration) -> bool:
+def _check_bounds(
+    action: Action,
+    ctx: dict,
+    post: dict,
+    bounds_map: dict,
+    key: StateKey,
+    exp: Exploration,
+) -> bool:
     """Clamp saturating fields; report and prune on hard constraint violations."""
     for effect in action.effect:
         if not isinstance(effect, (Set, Subtract, Add)):
@@ -221,17 +250,27 @@ def _check_bounds(action, ctx: dict, post: dict, bounds_map: dict, key, exp: Exp
         if spec.saturate:
             inst.__dict__[target[1]] = spec.clamp(value)
             continue
-        exp.findings.append(Finding(
-            Severity.ERROR, f"action:{action.id}",
-            f"'{action.id}' drives {target[0].__name__}.{target[1]} out of its "
-            f"declared range: {problem} "
-            f"[after: {_trace_str(exp.trace_to(key) + [action.id])}]"))
+        exp.findings.append(
+            Finding(
+                Severity.ERROR,
+                f"action:{action.id}",
+                f"'{action.id}' drives {target[0].__name__}.{target[1]} out of its "
+                f"declared range: {problem} "
+                f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
+            )
+        )
         return False
     return True
 
 
-def _check_lifecycle_transitions(action, ctx: dict, post: dict, lifecycles: list,
-                                 key, exp: Exploration) -> bool:
+def _check_lifecycle_transitions(
+    action: Action,
+    ctx: dict,
+    post: dict,
+    lifecycles: list[Lifecycle],
+    key: StateKey,
+    exp: Exploration,
+) -> bool:
     """A Set on a lifecycle field must follow a declared transition."""
     for lc in lifecycles:
         inst_pre = ctx.get(lc.entity_cls)
@@ -247,17 +286,21 @@ def _check_lifecycle_transitions(action, ctx: dict, post: dict, lifecycles: list
             if t.from_state == old:
                 allowed.update(t.to_states)
         if new not in allowed:
-            exp.findings.append(Finding(
-                Severity.ERROR, f"action:{action.id}",
-                f"'{action.id}' performs {lc.entity_cls.__name__}.{lc.field_name} "
-                f"{_value_str(old)} → {_value_str(new)}, not declared in "
-                f"lifecycle '{lc.id}' "
-                f"[after: {_trace_str(exp.trace_to(key) + [action.id])}]"))
+            exp.findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"'{action.id}' performs {lc.entity_cls.__name__}.{lc.field_name} "
+                    f"{_value_str(old)} → {_value_str(new)}, not declared in "
+                    f"lifecycle '{lc.id}' "
+                    f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
+                )
+            )
             return False
     return True
 
 
-def _report_invariant_violations(spec: Spec, ctx: dict, key, exp: Exploration) -> bool:
+def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Exploration) -> bool:
     violated = False
     for inv in spec.invariants:
         refs = _collect_field_refs(inv.expression)
@@ -269,23 +312,38 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key, exp: Exploration) -
             continue
         if not ok:
             violated = True
-            exp.findings.append(Finding(
-                Severity.ERROR, f"invariant:{inv.id}",
-                f"invariant '{inv.label or _describe(inv.expression)}' breaks "
-                f"[after: {_trace_str(exp.trace_to(key))}]"))
+            exp.findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"invariant:{inv.id}",
+                    f"invariant '{inv.label or _describe(inv.expression)}' breaks "
+                    f"[after: {_trace_str(exp.trace_to(key))}]",
+                )
+            )
     return violated
 
 
 # ── Query evaluation ───────────────────────────────────────────────────────────
 
-def run_query(query, spec: Spec, cache: dict) -> QueryResult:
+
+def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
     initial, error = build_initial(spec, query.given)
     if initial is None:
-        return QueryResult(query_id=qid, kind=kind, status="FAIL",
-                           findings=[Finding(Severity.ERROR, f"query:{qid}", error)])
+        return QueryResult(
+            query_id=qid,
+            kind=kind,
+            status="FAIL",
+            findings=[
+                Finding(
+                    Severity.ERROR,
+                    f"query:{qid}",
+                    error or "could not build the initial state",
+                )
+            ],
+        )
 
     cache_key = (state_key(initial), query.max_states)
     if cache_key not in cache:
@@ -302,12 +360,15 @@ def run_query(query, spec: Spec, cache: dict) -> QueryResult:
         return _eval_no_dead_end(query, qid, exp)
     if isinstance(query, DeadActions):
         return _eval_dead_actions(query, qid, exp, spec)
-    return QueryResult(query_id=qid, kind=kind, status="FAIL",
-                       findings=[Finding(Severity.ERROR, f"query:{qid}",
-                                         f"unknown query type {kind}")])
+    return QueryResult(
+        query_id=qid,
+        kind=kind,
+        status="FAIL",
+        findings=[Finding(Severity.ERROR, f"query:{qid}", f"unknown query type {kind}")],
+    )
 
 
-def _find_state(exp: Exploration, predicate) -> tuple | None:
+def _find_state(exp: Exploration, predicate: Predicate) -> StateKey | None:
     for key in exp.order:
         ctx = exp.states[key]
         refs = _collect_field_refs(predicate)
@@ -321,7 +382,12 @@ def _find_state(exp: Exploration, predicate) -> tuple | None:
     return None
 
 
-def _eval_reachable(query, qid: str, exp: Exploration, expect_reachable: bool) -> QueryResult:
+def _eval_reachable(
+    query: Reachable | Unreachable,
+    qid: str,
+    exp: Exploration,
+    expect_reachable: bool,
+) -> QueryResult:
     kind = type(query).__name__
     text = query.label or _describe(query.predicate)
     found = _find_state(exp, query.predicate)
@@ -330,29 +396,52 @@ def _eval_reachable(query, qid: str, exp: Exploration, expect_reachable: bool) -
         trace = exp.trace_to(found)
         if expect_reachable:
             return QueryResult(
-                query_id=qid, kind=kind, status="PASS",
-                states_explored=len(exp.states), trace=trace,
-                findings=[Finding(Severity.INFO, f"query:{qid}",
-                                  f"'{text}' reachable: {_trace_str(trace)}")])
+                query_id=qid,
+                kind=kind,
+                status="PASS",
+                states_explored=len(exp.states),
+                trace=trace,
+                findings=[
+                    Finding(
+                        Severity.INFO, f"query:{qid}", f"'{text}' reachable: {_trace_str(trace)}"
+                    )
+                ],
+            )
         return QueryResult(
-            query_id=qid, kind=kind, status="FAIL",
-            states_explored=len(exp.states), trace=trace,
-            findings=[Finding(Severity.ERROR, f"query:{qid}",
-                              f"'{text}' must be unreachable, but: {_trace_str(trace)}")])
+            query_id=qid,
+            kind=kind,
+            status="FAIL",
+            states_explored=len(exp.states),
+            trace=trace,
+            findings=[
+                Finding(
+                    Severity.ERROR,
+                    f"query:{qid}",
+                    f"'{text}' must be unreachable, but: {_trace_str(trace)}",
+                )
+            ],
+        )
 
     if exp.capped:
         return _inconclusive(qid, kind, exp)
     if expect_reachable:
         return QueryResult(
-            query_id=qid, kind=kind, status="FAIL", states_explored=len(exp.states),
-            findings=[Finding(Severity.ERROR, f"query:{qid}",
-                              f"'{text}' is not reachable "
-                              f"(explored all {len(exp.states)} states)")])
-    return QueryResult(query_id=qid, kind=kind, status="PASS",
-                       states_explored=len(exp.states))
+            query_id=qid,
+            kind=kind,
+            status="FAIL",
+            states_explored=len(exp.states),
+            findings=[
+                Finding(
+                    Severity.ERROR,
+                    f"query:{qid}",
+                    f"'{text}' is not reachable (explored all {len(exp.states)} states)",
+                )
+            ],
+        )
+    return QueryResult(query_id=qid, kind=kind, status="PASS", states_explored=len(exp.states))
 
 
-def _eval_always(query, qid: str, exp: Exploration) -> QueryResult:
+def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     text = query.label or _describe(query.predicate)
     for key in exp.order:
         ctx = exp.states[key]
@@ -366,18 +455,28 @@ def _eval_always(query, qid: str, exp: Exploration) -> QueryResult:
         if not ok:
             trace = exp.trace_to(key)
             return QueryResult(
-                query_id=qid, kind="AlwaysHolds", status="FAIL",
-                states_explored=len(exp.states), trace=trace,
-                findings=[Finding(Severity.ERROR, f"query:{qid}",
-                                  f"'{text}' breaks: {_trace_str(trace)} ⇒ "
-                                  f"{_offending_values(query.predicate, ctx)}")])
+                query_id=qid,
+                kind="AlwaysHolds",
+                status="FAIL",
+                states_explored=len(exp.states),
+                trace=trace,
+                findings=[
+                    Finding(
+                        Severity.ERROR,
+                        f"query:{qid}",
+                        f"'{text}' breaks: {_trace_str(trace)} ⇒ "
+                        f"{_offending_values(query.predicate, ctx)}",
+                    )
+                ],
+            )
     if exp.capped:
         return _inconclusive(qid, "AlwaysHolds", exp)
-    return QueryResult(query_id=qid, kind="AlwaysHolds", status="PASS",
-                       states_explored=len(exp.states))
+    return QueryResult(
+        query_id=qid, kind="AlwaysHolds", status="PASS", states_explored=len(exp.states)
+    )
 
 
-def _eval_no_dead_end(query, qid: str, exp: Exploration) -> QueryResult:
+def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResult:
     text = query.label or _describe(query.goal)
     if exp.capped:
         return _inconclusive(qid, "NoDeadEnd", exp)
@@ -396,9 +495,14 @@ def _eval_no_dead_end(query, qid: str, exp: Exploration) -> QueryResult:
 
     if not goal_states:
         return QueryResult(
-            query_id=qid, kind="NoDeadEnd", status="FAIL", states_explored=len(exp.states),
-            findings=[Finding(Severity.ERROR, f"query:{qid}",
-                              f"goal '{text}' is not reachable at all")])
+            query_id=qid,
+            kind="NoDeadEnd",
+            status="FAIL",
+            states_explored=len(exp.states),
+            findings=[
+                Finding(Severity.ERROR, f"query:{qid}", f"goal '{text}' is not reachable at all")
+            ],
+        )
 
     reverse: dict = {}
     for src, _, dst in exp.edges:
@@ -416,42 +520,72 @@ def _eval_no_dead_end(query, qid: str, exp: Exploration) -> QueryResult:
         if key not in co_reachable:
             trace = exp.trace_to(key)
             return QueryResult(
-                query_id=qid, kind="NoDeadEnd", status="FAIL",
-                states_explored=len(exp.states), trace=trace,
-                findings=[Finding(Severity.ERROR, f"query:{qid}",
-                                  f"dead end: after {_trace_str(trace)} the goal "
-                                  f"'{text}' can no longer be reached")])
-    return QueryResult(query_id=qid, kind="NoDeadEnd", status="PASS",
-                       states_explored=len(exp.states))
+                query_id=qid,
+                kind="NoDeadEnd",
+                status="FAIL",
+                states_explored=len(exp.states),
+                trace=trace,
+                findings=[
+                    Finding(
+                        Severity.ERROR,
+                        f"query:{qid}",
+                        f"dead end: after {_trace_str(trace)} the goal "
+                        f"'{text}' can no longer be reached",
+                    )
+                ],
+            )
+    return QueryResult(
+        query_id=qid, kind="NoDeadEnd", status="PASS", states_explored=len(exp.states)
+    )
 
 
-def _eval_dead_actions(query, qid: str, exp: Exploration, spec: Spec) -> QueryResult:
+def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spec) -> QueryResult:
     dead = sorted(a.id for a in spec.actions if a.id not in exp.fired)
     if not dead:
-        return QueryResult(query_id=qid, kind="DeadActions", status="PASS",
-                           states_explored=len(exp.states))
+        return QueryResult(
+            query_id=qid, kind="DeadActions", status="PASS", states_explored=len(exp.states)
+        )
     if exp.capped:
         return _inconclusive(qid, "DeadActions", exp)
     return QueryResult(
-        query_id=qid, kind="DeadActions", status="FAIL",
+        query_id=qid,
+        kind="DeadActions",
+        status="FAIL",
         states_explored=len(exp.states),
-        findings=[Finding(Severity.ERROR, f"query:{qid}",
-                          f"never enabled in any reachable state: {', '.join(dead)}")])
+        findings=[
+            Finding(
+                Severity.ERROR,
+                f"query:{qid}",
+                f"never enabled in any reachable state: {', '.join(dead)}",
+            )
+        ],
+    )
 
 
 def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
     return QueryResult(
-        query_id=qid, kind=kind, status="INCONCLUSIVE", states_explored=len(exp.states),
-        findings=[Finding(Severity.WARNING, f"query:{qid}",
-                          f"state space exceeded max_states={len(exp.states)} — "
-                          f"add Field constraints to numeric fields or raise max_states")])
+        query_id=qid,
+        kind=kind,
+        status="INCONCLUSIVE",
+        states_explored=len(exp.states),
+        findings=[
+            Finding(
+                Severity.WARNING,
+                f"query:{qid}",
+                f"state space exceeded max_states={len(exp.states)} — "
+                f"add Field constraints to numeric fields or raise max_states",
+            )
+        ],
+    )
 
 
-def _offending_values(predicate, ctx: dict) -> str:
+def _offending_values(predicate: Predicate, ctx: dict) -> str:
     parts = []
     for ref in _collect_field_refs(predicate):
         inst = ctx.get(ref.entity_cls)
         if inst is not None:
-            parts.append(f"{ref.entity_cls.__name__}.{ref.field_name}="
-                         f"{_value_str(getattr(inst, ref.field_name, None))}")
+            parts.append(
+                f"{ref.entity_cls.__name__}.{ref.field_name}="
+                f"{_value_str(getattr(inst, ref.field_name, None))}"
+            )
     return ", ".join(parts)

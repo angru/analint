@@ -1,14 +1,22 @@
 from __future__ import annotations
+
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TypeVar
 
 from analint.loader.discovery import discover_files
 from analint.loader.python_loader import (
-    LoadError, _import_standalone, collect_from_modules, load_path,
+    LoadError,
+    _import_standalone,
+    collect_from_modules,
+    load_path,
 )
 from analint.models.root import Spec
 from analint.reporter.base import Finding, Severity, ValidationResult
-from analint.validator.structural import validate_structural
 from analint.validator.scenario_runner import run_scenario
+from analint.validator.structural import validate_structural
+
+T = TypeVar("T")
 
 
 def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
@@ -22,9 +30,9 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
     if extra is not None:
         try:
             patch = _import_standalone(Path(extra).resolve())
-            modules = modules + [patch]
+            modules = [*modules, patch]
         except Exception as exc:
-            load_errors = load_errors + [LoadError(Path(extra), exc)]
+            load_errors = [*load_errors, LoadError(Path(extra), exc)]
 
     if not specs:
         return None, modules, load_errors
@@ -58,9 +66,7 @@ def validate(
     result.structural_findings.extend(_unloaded_file_warnings(path, modules))
     result.structural_findings.extend(validate_structural(spec))
 
-    has_structural_errors = any(
-        f.severity.value == "ERROR" for f in result.structural_findings
-    )
+    has_structural_errors = any(f.severity.value == "ERROR" for f in result.structural_findings)
     if has_structural_errors:
         return result
 
@@ -75,6 +81,7 @@ def validate(
 
     if spec.queries:
         from analint.validator.explorer import run_query
+
         explorations: dict = {}
         for query in spec.queries:
             result.query_results.append(run_query(query, spec, explorations))
@@ -96,20 +103,18 @@ def _unloaded_file_warnings(path: Path, modules: list) -> list[Finding]:
     """
     if not path.is_dir():
         return []
-    loaded = {
-        Path(m.__file__).resolve()
-        for m in modules
-        if getattr(m, "__file__", None)
-    }
+    loaded = {Path(m.__file__).resolve() for m in modules if getattr(m, "__file__", None)}
     findings: list[Finding] = []
     for f in discover_files(path):
         rf = f.resolve()
         if rf not in loaded and rf.name != "__init__.py":
-            findings.append(Finding(
-                Severity.WARNING,
-                f"loader:{f.name}",
-                f"'{f}' is not imported from the spec entry point and was ignored",
-            ))
+            findings.append(
+                Finding(
+                    Severity.WARNING,
+                    f"loader:{f.name}",
+                    f"'{f}' is not imported from the spec entry point and was ignored",
+                )
+            )
     return findings
 
 
@@ -148,30 +153,32 @@ def _merge_specs(specs: list[Spec]) -> Spec:
         return specs[0]
 
     first = specs[0]
-    merged = Spec(id=first.id, name=first.name, version=first.version, description=first.description)
+    merged = Spec(
+        id=first.id, name=first.name, version=first.version, description=first.description
+    )
     seen_classes: set = set()
     seen_instances: list = []
 
-    for s in specs:
-        for cls_list, target in [
-            (s.entities, merged.entities),
-            (s.actors, merged.actors),
-            (s.events, merged.events),
-        ]:
-            for c in cls_list:
-                if c not in seen_classes:
-                    seen_classes.add(c)
-                    target.append(c)
-        for inst_list, target in [
-            (s.lifecycles, merged.lifecycles),
-            (s.flows, merged.flows),
-            (s.invariants, merged.invariants),
-            (s.actions, merged.actions),
-            (s.scenarios, merged.scenarios),
-            (s.queries, merged.queries),
-        ]:
-            for obj in inst_list:
-                if id(obj) not in seen_instances:
-                    seen_instances.append(id(obj))
-                    target.append(obj)
+    def append_classes(source: Sequence[T], target: list[T]) -> None:
+        for cls in source:
+            if cls not in seen_classes:
+                seen_classes.add(cls)
+                target.append(cls)
+
+    def append_instances(source: list, target: list) -> None:
+        for obj in source:
+            if id(obj) not in seen_instances:
+                seen_instances.append(id(obj))
+                target.append(obj)
+
+    for spec in specs:
+        append_classes(spec.entities, merged.entities)
+        append_classes(spec.actors, merged.actors)
+        append_classes(spec.events, merged.events)
+        append_instances(spec.lifecycles, merged.lifecycles)
+        append_instances(spec.flows, merged.flows)
+        append_instances(spec.invariants, merged.invariants)
+        append_instances(spec.actions, merged.actions)
+        append_instances(spec.scenarios, merged.scenarios)
+        append_instances(spec.queries, merged.queries)
     return merged

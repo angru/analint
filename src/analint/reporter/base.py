@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Protocol
@@ -29,8 +30,8 @@ class ScenarioResult:
 @dataclass
 class QueryResult:
     query_id: str
-    kind: str                       # Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
-    status: str = "PASS"            # PASS | FAIL | INCONCLUSIVE
+    kind: str  # Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
+    status: str = "PASS"  # PASS | FAIL | INCONCLUSIVE
     findings: list[Finding] = field(default_factory=list)
     states_explored: int = 0
     trace: list[str] | None = None  # action ids from the initial state

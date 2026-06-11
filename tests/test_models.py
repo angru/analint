@@ -1,16 +1,33 @@
 from enum import Enum
 
 from analint import (
-    Action, Actor, Add, And, Assert, Emitted, Entity, Event, Expect,
-    Field, Flow, Implies, Invariant, Lifecycle, Not, Scenario, Set, Spec,
-    Subtract, Transition,
+    Action,
+    Actor,
+    Add,
+    And,
+    Assert,
+    Emitted,
+    Entity,
+    Event,
+    Expect,
+    Field,
+    Flow,
+    Implies,
+    Invariant,
+    Lifecycle,
+    Not,
+    Scenario,
+    Set,
+    Spec,
+    Subtract,
+    Transition,
 )
-from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
 from analint.models.entity import FieldDescriptor
+from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
 from analint.validator.rule_checker import evaluate
 
-
 # ── Entity DSL ─────────────────────────────────────────────────────────────────
+
 
 def test_entity_class_field_access_returns_descriptor():
     class Order(Entity):
@@ -117,6 +134,7 @@ def test_entity_repr():
 
 # ── Operator overloading → predicates ─────────────────────────────────────────
 
+
 def test_ge_returns_gte_predicate():
     class Wallet(Entity):
         balance: float
@@ -174,6 +192,7 @@ def test_implies_returns_implies_predicate():
 
 
 # ── Predicate evaluation ───────────────────────────────────────────────────────
+
 
 def _ctx(*instances):
     return {type(inst): inst for inst in instances}
@@ -260,6 +279,7 @@ def test_evaluate_implies():
 
 # ── Invariant / Action / Scenario / Spec ──────────────────────────────────────
 
+
 def test_invariant_holds_expression():
     class Wallet(Entity):
         balance: float
@@ -320,6 +340,7 @@ def test_spec_aggregate():
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
 
+
 def test_lifecycle_reachable_states():
     class S(Enum):
         A = "a"
@@ -365,8 +386,8 @@ def test_transition_requires_a_collection():
 
 
 def test_structural_warns_unreachable_state_in_given():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Status(Enum):
         A = "a"
@@ -388,7 +409,8 @@ def test_structural_warns_unreachable_state_in_given():
         expected=Expect.FAIL,
     )
     spec = Spec(
-        id="s", name="S",
+        id="s",
+        name="S",
         entities=[Item],
         actions=[action],
         scenarios=[sc],
@@ -399,8 +421,8 @@ def test_structural_warns_unreachable_state_in_given():
 
 
 def test_structural_transition_out_of_terminal_state_is_error():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Status(Enum):
         OPEN = "open"
@@ -439,7 +461,8 @@ def test_runner_blocks_modification_of_terminal_entity():
 
     action = Action(id="annotate", effect=[Add(Ticket.notes, 1)])
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Ticket(state=Status.CLOSED, notes=0)],
         expected=Expect.FAIL,  # terminal entity must not be modifiable
@@ -450,6 +473,7 @@ def test_runner_blocks_modification_of_terminal_entity():
 
 
 # ── Actor ──────────────────────────────────────────────────────────────────────
+
 
 def test_actor_subclass():
     class Customer(Actor):
@@ -467,8 +491,8 @@ def test_action_with_actor():
 
 
 def test_structural_actor_not_registered():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Customer(Actor):
         pass
@@ -479,7 +503,8 @@ def test_structural_actor_not_registered():
     action = Action(id="act", by=Customer, pre=[Item.price > 0])
     sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
-        id="s", name="S",
+        id="s",
+        name="S",
         entities=[Item],
         actors=[],  # Customer not registered
         actions=[action],
@@ -491,8 +516,8 @@ def test_structural_actor_not_registered():
 
 
 def test_structural_actor_registered_ok():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Customer(Actor):
         pass
@@ -503,7 +528,8 @@ def test_structural_actor_registered_ok():
     action = Action(id="act", by=Customer, pre=[Item.price > 0])
     sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
-        id="s", name="S",
+        id="s",
+        name="S",
         entities=[Item],
         actors=[Customer],
         actions=[action],
@@ -515,6 +541,7 @@ def test_structural_actor_registered_ok():
 
 
 # ── Event ──────────────────────────────────────────────────────────────────────
+
 
 def test_event_field_access():
     class OrderPlaced(Event):
@@ -536,8 +563,8 @@ def test_event_instance():
 
 
 def test_structural_event_not_registered():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class OrderPlaced(Event):
         order_id: str
@@ -548,7 +575,8 @@ def test_structural_event_not_registered():
     action = Action(id="act", pre=[Item.price > 0], emits=[OrderPlaced])
     sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
-        id="s", name="S",
+        id="s",
+        name="S",
         entities=[Item],
         events=[],  # OrderPlaced not registered
         actions=[action],
@@ -560,8 +588,8 @@ def test_structural_event_not_registered():
 
 
 def test_structural_event_emitted_but_unhandled_warns():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class OrderPlaced(Event):
         order_id: str
@@ -572,7 +600,8 @@ def test_structural_event_emitted_but_unhandled_warns():
     action = Action(id="act", pre=[Item.price > 0], emits=[OrderPlaced])
     sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
     spec = Spec(
-        id="s", name="S",
+        id="s",
+        name="S",
         entities=[Item],
         events=[OrderPlaced],
         actions=[action],
@@ -584,8 +613,8 @@ def test_structural_event_emitted_but_unhandled_warns():
 
 
 def test_event_payload_template_binds_fields():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Card(Entity):
         id: str
@@ -594,22 +623,26 @@ def test_event_payload_template_binds_fields():
     class CardCreated(Event):
         card_id: str
 
-    action = Action(id="create", pre=[Card.title != ""],
-                    emits=[CardCreated(card_id=Card.id)])
+    action = Action(id="create", pre=[Card.title != ""], emits=[CardCreated(card_id=Card.id)])
     handler = Action(id="notify", on=CardCreated, pre=[CardCreated.card_id != ""])
     sc1 = Scenario(id="sc1", name="S1", action=action, given=[Card(id="c1", title="t")])
-    sc2 = Scenario(id="sc2", name="S2", action=handler,
-                   given=[CardCreated(card_id="c1")])
-    spec = Spec(id="s", name="S", entities=[Card], events=[CardCreated],
-                actions=[action, handler], scenarios=[sc1, sc2])
+    sc2 = Scenario(id="sc2", name="S2", action=handler, given=[CardCreated(card_id="c1")])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Card],
+        events=[CardCreated],
+        actions=[action, handler],
+        scenarios=[sc1, sc2],
+    )
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
     assert not errors
 
 
 def test_event_payload_type_mismatch_warns():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Card(Entity):
         id: str
@@ -618,12 +651,17 @@ def test_event_payload_type_mismatch_warns():
     class CardWeighed(Event):
         weight: str  # wrong: bound to a float field
 
-    action = Action(id="weigh", pre=[Card.weight > 0],
-                    emits=[CardWeighed(weight=Card.weight)])
+    action = Action(id="weigh", pre=[Card.weight > 0], emits=[CardWeighed(weight=Card.weight)])
     handler = Action(id="log", on=CardWeighed, pre=[])
     sc = Scenario(id="sc", name="S", action=action, given=[Card(id="c", weight=1.0)])
-    spec = Spec(id="s", name="S", entities=[Card], events=[CardWeighed],
-                actions=[action, handler], scenarios=[sc])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Card],
+        events=[CardWeighed],
+        actions=[action, handler],
+        scenarios=[sc],
+    )
     findings = validate_structural(spec)
     warnings = [f for f in findings if f.severity == Severity.WARNING]
     assert any("types differ" in f.message for f in warnings)
@@ -645,29 +683,38 @@ def test_scenario_runner_evaluates_event_payload_predicates():
         effect=[Add(Ledger.entries, 1)],
     )
     sc_big = Scenario(
-        id="sc-big", name="big",
+        id="sc-big",
+        name="big",
         action=handler,
         given=[BigOrder(total=500.0), Ledger(entries=0)],
         then=[Assert(Ledger.entries == 1)],
         expected=Expect.PASS,
     )
     sc_small = Scenario(
-        id="sc-small", name="small",
+        id="sc-small",
+        name="small",
         action=handler,
         given=[BigOrder(total=5.0), Ledger(entries=0)],
         expected=Expect.FAIL,
     )
-    spec = Spec(id="s", name="S", entities=[Ledger], events=[BigOrder],
-                actions=[handler], scenarios=[sc_big, sc_small])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Ledger],
+        events=[BigOrder],
+        actions=[handler],
+        scenarios=[sc_big, sc_small],
+    )
     assert run_scenario(sc_big, spec).passed
     assert run_scenario(sc_small, spec).passed  # correctly blocked
 
 
 # ── Requires ──────────────────────────────────────────────────────────────────
 
+
 def test_requires_valid():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Item(Entity):
         price: float
@@ -683,8 +730,8 @@ def test_requires_valid():
 
 
 def test_requires_circular_detected():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Item(Entity):
         price: float
@@ -703,9 +750,16 @@ def test_requires_circular_detected():
 
 # ── Effects ───────────────────────────────────────────────────────────────────
 
+
 def _spec_for(action, *, entities, scenarios, lifecycles=()):
-    return Spec(id="s", name="S", entities=list(entities), actions=[action],
-                scenarios=list(scenarios), lifecycles=list(lifecycles))
+    return Spec(
+        id="s",
+        name="S",
+        entities=list(entities),
+        actions=[action],
+        scenarios=list(scenarios),
+        lifecycles=list(lifecycles),
+    )
 
 
 def test_effect_set_changes_state():
@@ -720,8 +774,9 @@ def test_effect_set_changes_state():
         effect=[Set(Order.status, "paid")],
         post=[Order.status == "paid"],
     )
-    sc = Scenario(id="sc", name="SC", action=action, given=[Order(status="pending")],
-                  expected=Expect.PASS)
+    sc = Scenario(
+        id="sc", name="SC", action=action, given=[Order(status="pending")], expected=Expect.PASS
+    )
     result = run_scenario(sc, _spec_for(action, entities=[Order], scenarios=[sc]))
     assert result.passed
 
@@ -741,7 +796,8 @@ def test_effect_subtract():
         effect=[Subtract(Wallet.balance, Order.total)],
     )
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Wallet(balance=100.0), Order(total=30.0)],
         then=[Assert(Wallet.balance == 70.0)],
@@ -769,7 +825,8 @@ def test_effects_are_simultaneous():
         ],
     )
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Order(status="pending"), Audit(last_status="")],
         then=[
@@ -783,8 +840,8 @@ def test_effects_are_simultaneous():
 
 
 def test_structural_conflicting_effects_on_same_field():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Wallet(Entity):
         balance: float
@@ -813,13 +870,20 @@ def test_invariant_checked_after_effects():
     no_overdraft = Invariant(Wallet.balance >= 0, label="No overdraft", id="no-overdraft")
     action = Action(id="spend", effect=[Subtract(Wallet.balance, 100.0)])
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
-        given=[Wallet(balance=10.0)],   # 10 - 100 = -90 → invariant breaks post
+        given=[Wallet(balance=10.0)],  # 10 - 100 = -90 → invariant breaks post
         expected=Expect.PASS,
     )
-    spec = Spec(id="s", name="S", entities=[Wallet], invariants=[no_overdraft],
-                actions=[action], scenarios=[sc])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Wallet],
+        invariants=[no_overdraft],
+        actions=[action],
+        scenarios=[sc],
+    )
     result = run_scenario(sc, spec)
     assert not result.passed
     assert any("INVARIANT (post)" in f.message for f in result.findings)
@@ -837,7 +901,8 @@ def test_then_assert_fails_when_condition_wrong():
         effect=[Set(Order.status, "paid")],
     )
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Order(status="pending")],
         then=[Assert(Order.status == "cancelled")],  # wrong: it becomes "paid"
@@ -856,10 +921,10 @@ def test_then_emitted_ok():
     class ItemSold(Event):
         item_id: str
 
-    action = Action(id="sell", pre=[Item.price > 0],
-                    emits=[ItemSold(item_id=Item.price)])
+    action = Action(id="sell", pre=[Item.price > 0], emits=[ItemSold(item_id=Item.price)])
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Item(price=10.0)],
         then=[Emitted(ItemSold)],
@@ -880,7 +945,8 @@ def test_then_emitted_fails_when_not_in_emits():
 
     action = Action(id="sell", pre=[Item.price > 0], emits=[])
     sc = Scenario(
-        id="sc", name="SC",
+        id="sc",
+        name="SC",
         action=action,
         given=[Item(price=10.0)],
         then=[Emitted(OtherEvent)],
@@ -892,9 +958,10 @@ def test_then_emitted_fails_when_not_in_emits():
 
 # ── Flow ──────────────────────────────────────────────────────────────────────
 
+
 def test_flow_requires_order_valid():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Item(Entity):
         price: float
@@ -904,16 +971,17 @@ def test_flow_requires_order_valid():
     flow = Flow(id="f1", steps=[a, b])
     sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
     sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
-    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b],
-                flows=[flow], scenarios=[sc_a, sc_b])
+    spec = Spec(
+        id="s", name="S", entities=[Item], actions=[a, b], flows=[flow], scenarios=[sc_a, sc_b]
+    )
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR and "requires" in f.message]
     assert not errors
 
 
 def test_flow_requires_order_violated():
-    from analint.validator.structural import validate_structural
     from analint.reporter.base import Severity
+    from analint.validator.structural import validate_structural
 
     class Item(Entity):
         price: float
@@ -923,8 +991,9 @@ def test_flow_requires_order_violated():
     flow = Flow(id="f1", steps=[b, a])  # wrong order: b before a
     sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
     sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
-    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b],
-                flows=[flow], scenarios=[sc_a, sc_b])
+    spec = Spec(
+        id="s", name="S", entities=[Item], actions=[a, b], flows=[flow], scenarios=[sc_a, sc_b]
+    )
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
     assert any("requires" in f.message and "'a'" in f.message for f in errors)
@@ -932,8 +1001,10 @@ def test_flow_requires_order_violated():
 
 # ── Loader: id autofill from variable names ───────────────────────────────────
 
+
 def test_collect_fills_ids_from_variable_names():
     import types
+
     from analint.loader.python_loader import collect_from_modules
 
     class Item(Entity):

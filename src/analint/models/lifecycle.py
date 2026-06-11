@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, Iterable, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
     from analint.models.entity import FieldDescriptor
@@ -17,6 +19,7 @@ class Transition(Generic[S]):
         Transition(PENDING, [PAID, CANCELLED])
         Transition(PAID, [CANCELLED])
     """
+
     from_state: S
     to_states: tuple[S, ...]
 
@@ -24,7 +27,8 @@ class Transition(Generic[S]):
         if isinstance(to_states, (str, bytes)) or not isinstance(to_states, Iterable):
             raise TypeError(
                 f"Transition to_states must be a collection — write "
-                f"Transition({from_state!r}, [{to_states!r}])")
+                f"Transition({from_state!r}, [{to_states!r}])"
+            )
         self.from_state = from_state
         self.to_states = tuple(to_states)
 
@@ -44,6 +48,7 @@ class Lifecycle(Generic[S]):
     an entity in a terminal state cannot be modified by any action.
     `entity_cls` and `field_name` are wired by the Entity metaclass.
     """
+
     initial: S
     transitions: list[Transition[S]] = field(default_factory=list)
     terminal: list[S] = field(default_factory=list)
@@ -71,7 +76,7 @@ class Lifecycle(Generic[S]):
         return self._field_name
 
     @property
-    def field(self) -> "FieldDescriptor":
+    def field(self) -> FieldDescriptor:
         """The bound descriptor, exposed for read-only introspection."""
         from analint.models.entity import all_fields
 

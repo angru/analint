@@ -1,4 +1,4 @@
-from analint import Entity, Action, Scenario, Spec, Expect
+from analint import Action, Entity, Expect, Scenario, Spec
 
 
 class Item(Entity):
@@ -39,7 +39,7 @@ sc_missing_entity = Scenario(
 spec = Spec(
     id="broken",
     name="Broken Spec",
-    entities=[Item, Budget],   # Phantom intentionally omitted
+    entities=[Item, Budget],  # Phantom intentionally omitted
     actions=[buy],
     scenarios=[sc_missing_entity],
 )

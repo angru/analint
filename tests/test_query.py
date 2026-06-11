@@ -19,6 +19,7 @@ def _spec(path):
 
 # ── overview / describe ────────────────────────────────────────────────────────
 
+
 def test_overview_lists_everything():
     overview = q.spec_overview(_spec(TASKBOARD))
     assert overview["spec"]["id"] == "taskboard"
@@ -59,6 +60,7 @@ def test_describe_not_found_lists_known():
 
 # ── affects ───────────────────────────────────────────────────────────────────
 
+
 def test_affects_field():
     payload = q.affects(_spec(TASKBOARD), "Board.card_count")
     writers = {w["action"] for w in payload["written_by"]}
@@ -84,6 +86,7 @@ def test_affects_unknown_target():
 
 
 # ── what-if ───────────────────────────────────────────────────────────────────
+
 
 def test_what_if_patch_adds_invariant(tmp_path):
     patch = tmp_path / "hypothesis.py"
@@ -114,6 +117,7 @@ def test_cli_bare_path_routes_to_check():
 
 def test_cli_show_action_json():
     import json
+
     result = runner.invoke(app, ["show", "action", "create_card", "-p", str(TASKBOARD)])
     assert result.exit_code == 0
     payload = json.loads(result.output)

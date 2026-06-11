@@ -1,8 +1,21 @@
 from enum import StrEnum
 
 from analint import (
-    Action, Actor, Assert, Emitted, Entity, Event, Expect, Field, Lifecycle,
-    Reachable, Scenario, Set, Spec, Subtract, Transition,
+    Action,
+    Actor,
+    Assert,
+    Emitted,
+    Entity,
+    Event,
+    Expect,
+    Field,
+    Lifecycle,
+    Reachable,
+    Scenario,
+    Set,
+    Spec,
+    Subtract,
+    Transition,
 )
 
 # ── Actors ─────────────────────────────────────────────────────────────────────
@@ -20,8 +33,8 @@ class Admin(Actor):
 
 
 class OrderStatus(StrEnum):
-    PENDING   = "pending"
-    PAID      = "paid"
+    PENDING = "pending"
+    PAID = "paid"
     CANCELLED = "cancelled"
 
 
@@ -112,7 +125,7 @@ sc_no_funds = Scenario(
     action=checkout,
     given=[
         Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
-        Wallet(balance=10.0, customer_id="c1"),          # 10 < 50 → blocked
+        Wallet(balance=10.0, customer_id="c1"),  # 10 < 50 → blocked
         Product(stock=5, price=50.0, name="Widget"),
     ],
     expected=Expect.FAIL,
@@ -125,7 +138,7 @@ sc_no_stock = Scenario(
     given=[
         Order(id="o1", total=50.0, status=OrderStatus.PENDING, customer_id="c1"),
         Wallet(balance=100.0, customer_id="c1"),
-        Product(stock=0, price=50.0, name="Widget"),     # stock=0 → blocked
+        Product(stock=0, price=50.0, name="Widget"),  # stock=0 → blocked
     ],
     expected=Expect.FAIL,
 )

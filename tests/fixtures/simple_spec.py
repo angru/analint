@@ -1,5 +1,6 @@
 from enum import StrEnum
-from analint import Entity, Action, Scenario, Spec, Expect
+
+from analint import Action, Entity, Expect, Scenario, Spec
 
 
 class ItemStatus(StrEnum):

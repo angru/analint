@@ -1,6 +1,6 @@
 from __future__ import annotations
-from pathlib import Path
 
+from pathlib import Path
 
 _EXCLUDE_DIRS = {"__pycache__", ".venv", ".git", "node_modules", "dist", "build"}
 

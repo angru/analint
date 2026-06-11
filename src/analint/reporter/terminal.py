@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 from rich.console import Console
 
-from analint.reporter.base import ScenarioResult, Severity, ValidationResult
+from analint.reporter.base import QueryResult, ScenarioResult, Severity, ValidationResult
 
 console = Console()
 
 
 def report_terminal(result: ValidationResult) -> None:
     from importlib.metadata import version as _ver
+
     try:
         ver = _ver("analint")
     except Exception:
@@ -62,7 +64,7 @@ def report_terminal(result: ValidationResult) -> None:
     _print_summary(result)
 
 
-def _print_query(qr) -> None:
+def _print_query(qr: QueryResult) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
     color = colors.get(qr.status, "white")
     meta = f"({qr.kind}, {qr.states_explored} states)"

@@ -1,7 +1,12 @@
 from analint import Flow
+
 from .actions import (
-    add_comment, archive_card, assign_card,
-    create_card, invite_member, move_card,
+    add_comment,
+    archive_card,
+    assign_card,
+    create_card,
+    invite_member,
+    move_card,
 )
 
 flow_onboarding = Flow(

@@ -9,9 +9,23 @@ Rules: the hero has 10 HP and 6 gold. The shop sells a sword (5 gold) and
 potions (3 gold, +4 HP when drunk). The troll guarding the bridge can only
 be slain with the sword (3 HP). Crossing the ruined bridge costs 8 HP.
 """
+
 from analint import (
-    Action, Add, AlwaysHolds, Assert, DeadActions, Entity, Expect, Invariant,
-    NoDeadEnd, Reachable, Scenario, Set, Spec, Subtract, Unreachable,
+    Action,
+    Add,
+    AlwaysHolds,
+    Assert,
+    DeadActions,
+    Entity,
+    Expect,
+    Invariant,
+    NoDeadEnd,
+    Reachable,
+    Scenario,
+    Set,
+    Spec,
+    Subtract,
+    Unreachable,
 )
 
 # ── State ──────────────────────────────────────────────────────────────────────
@@ -147,5 +161,5 @@ spec = Spec(
     name="Troll Bridge",
     version="1.0.0",
     description="Deliberately broken micro-RPG: the engine finds a softlock "
-                "and an unmodelled death that scenarios cannot see",
+    "and an unmodelled death that scenarios cannot see",
 )

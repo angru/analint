@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,7 +12,11 @@ from analint.models.flow import Flow
 from analint.models.invariant import Invariant
 from analint.models.lifecycle import Lifecycle
 from analint.models.query import (
-    AlwaysHolds, DeadActions, NoDeadEnd, Reachable, Unreachable,
+    AlwaysHolds,
+    DeadActions,
+    NoDeadEnd,
+    Reachable,
+    Unreachable,
 )
 from analint.models.scenario import Scenario
 
@@ -22,6 +27,7 @@ class Spec(BaseModel):
     """Root aggregate. With empty lists (the default) everything is discovered
     automatically from the modules imported by the spec entry point; a non-empty
     list is used as-is."""
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: str
     name: str

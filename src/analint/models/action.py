@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -26,9 +27,10 @@ class Action(BaseModel):
             emits=[CardArchived(card_id=Card.id)],
         )
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: str = ""             # filled from the variable name by the loader when empty
+    id: str = ""  # filled from the variable name by the loader when empty
     name: str = ""
     description: str = ""
     by: type[Actor] | None = None

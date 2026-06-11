@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import copy
 from typing import Any
 
-from analint.models.effect import Set, Subtract, Add
+from analint.models.action import Action
+from analint.models.effect import Add, Set, Subtract
 from analint.models.flow import Assert, Emitted
 from analint.models.predicate import Predicate
 from analint.models.root import Spec
@@ -18,15 +20,20 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     action = scenario.action
 
     relevant_invariants = [
-        inv for inv in spec.invariants
-        if _referenced_types(inv.expression) <= set(context)
+        inv for inv in spec.invariants if _referenced_types(inv.expression) <= set(context)
     ]
     checks_count = len(relevant_invariants) + len(action.pre) + len(action.post)
 
     # Phase 1: world invariants and preconditions against the pre-state
     for inv in relevant_invariants:
-        _check(findings, inv.expression, context,
-               "INVARIANT", inv.label or _describe(inv.expression), f"invariant:{inv.id}")
+        _check(
+            findings,
+            inv.expression,
+            context,
+            "INVARIANT",
+            inv.label or _describe(inv.expression),
+            f"invariant:{inv.id}",
+        )
     for pred in action.pre:
         _check(findings, pred, context, "PRE", _describe(pred), f"action:{action.id}")
 
@@ -38,8 +45,9 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         try:
             post_context = _apply_effects(action.effect, context)
         except Exception as exc:
-            findings.append(Finding(Severity.ERROR, f"action:{action.id}",
-                                    f"effect evaluation error: {exc}"))
+            findings.append(
+                Finding(Severity.ERROR, f"action:{action.id}", f"effect evaluation error: {exc}")
+            )
             pre_errors = True
             post_context = context
     else:
@@ -51,35 +59,46 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         for pred in action.post:
             _check(findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}")
         for inv in relevant_invariants:
-            _check(findings, inv.expression, post_context,
-                   "INVARIANT (post)", inv.label or _describe(inv.expression), f"invariant:{inv.id}")
+            _check(
+                findings,
+                inv.expression,
+                post_context,
+                "INVARIANT (post)",
+                inv.label or _describe(inv.expression),
+                f"invariant:{inv.id}",
+            )
 
         # Phase 4: then assertions (Assert / Emitted)
-        emitted_names = {
-            (e if isinstance(e, type) else type(e)).__name__ for e in action.emits
-        }
+        emitted_names = {(e if isinstance(e, type) else type(e)).__name__ for e in action.emits}
         for assertion in scenario.then:
             if isinstance(assertion, Assert):
                 try:
                     if not evaluate(assertion.predicate, post_context):
-                        findings.append(Finding(
+                        findings.append(
+                            Finding(
+                                Severity.ERROR,
+                                f"scenario:{scenario.id}",
+                                f"then: {_describe(assertion.predicate)} — not satisfied",
+                            )
+                        )
+                except Exception as exc:
+                    findings.append(
+                        Finding(
                             Severity.ERROR,
                             f"scenario:{scenario.id}",
-                            f"then: {_describe(assertion.predicate)} — not satisfied",
-                        ))
-                except Exception as exc:
-                    findings.append(Finding(
-                        Severity.ERROR,
-                        f"scenario:{scenario.id}",
-                        f"then evaluation error: {exc}",
-                    ))
-            elif isinstance(assertion, Emitted):
-                if assertion.event_cls.__name__ not in emitted_names:
-                    findings.append(Finding(
+                            f"then evaluation error: {exc}",
+                        )
+                    )
+            elif (
+                isinstance(assertion, Emitted) and assertion.event_cls.__name__ not in emitted_names
+            ):
+                findings.append(
+                    Finding(
                         Severity.ERROR,
                         f"scenario:{scenario.id}",
                         f"then: event '{assertion.event_cls.__name__}' not in action.emits",
-                    ))
+                    )
+                )
 
     has_errors = any(f.severity == Severity.ERROR for f in findings)
     passed = not has_errors
@@ -87,11 +106,13 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     if scenario.expected == Expect.FAIL:
         passed = not passed
         if passed:
-            findings.append(Finding(
-                Severity.INFO,
-                f"scenario:{scenario.id}",
-                "correctly blocked — rules rejected this data as expected",
-            ))
+            findings.append(
+                Finding(
+                    Severity.INFO,
+                    f"scenario:{scenario.id}",
+                    "correctly blocked — rules rejected this data as expected",
+                )
+            )
 
     return ScenarioResult(
         scenario_id=scenario.id,
@@ -121,7 +142,7 @@ def _referenced_types(pred: Predicate) -> set[type]:
     return {ref.entity_cls for ref in _collect_field_refs(pred)}
 
 
-def _check_field_constraints(findings: list, action, post: dict) -> None:
+def _check_field_constraints(findings: list, action: Action, post: dict) -> None:
     """Effects must not drive a field outside its declared Field(...) range
     (saturating fields clamp instead)."""
     from analint.models.entity import all_fields
@@ -143,9 +164,13 @@ def _check_field_constraints(findings: list, action, post: dict) -> None:
         if desc.spec.saturate:
             inst.__dict__[effect.field.field_name] = desc.spec.clamp(value)
             continue
-        findings.append(Finding(
-            Severity.ERROR, f"action:{action.id}",
-            f"field constraint violated: {cls.__name__}.{effect.field.field_name} {problem}"))
+        findings.append(
+            Finding(
+                Severity.ERROR,
+                f"action:{action.id}",
+                f"field constraint violated: {cls.__name__}.{effect.field.field_name} {problem}",
+            )
+        )
 
 
 def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, context: dict) -> None:
@@ -163,12 +188,14 @@ def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, conte
             continue
         value = getattr(inst, lc.field_name, None)
         if value in lc.terminal:
-            findings.append(Finding(
-                Severity.ERROR,
-                f"lifecycle:{lc.id}",
-                f"{lc.entity_cls.__name__}.{lc.field_name}={value!r} is terminal — "
-                f"the entity cannot be modified",
-            ))
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"lifecycle:{lc.id}",
+                    f"{lc.entity_cls.__name__}.{lc.field_name}={value!r} is terminal — "
+                    f"the entity cannot be modified",
+                )
+            )
 
 
 def _apply_effects(effects: list, context: dict) -> dict:
@@ -183,16 +210,27 @@ def _apply_effects(effects: list, context: dict) -> dict:
         if isinstance(effect, (Set, Subtract, Add)) and effect.field.entity_cls not in context:
             continue  # target entity absent from given — structural validation warns about this
         if isinstance(effect, Set):
-            updates.append((effect.field.entity_cls, effect.field.field_name,
-                            resolve(effect.value, context)))
+            updates.append(
+                (effect.field.entity_cls, effect.field.field_name, resolve(effect.value, context))
+            )
         elif isinstance(effect, Subtract):
             current = resolve(effect.field, context)
-            updates.append((effect.field.entity_cls, effect.field.field_name,
-                            current - resolve(effect.amount, context)))
+            updates.append(
+                (
+                    effect.field.entity_cls,
+                    effect.field.field_name,
+                    current - resolve(effect.amount, context),
+                )
+            )
         elif isinstance(effect, Add):
             current = resolve(effect.field, context)
-            updates.append((effect.field.entity_cls, effect.field.field_name,
-                            current + resolve(effect.amount, context)))
+            updates.append(
+                (
+                    effect.field.entity_cls,
+                    effect.field.field_name,
+                    current + resolve(effect.amount, context),
+                )
+            )
 
     post = {cls: copy.copy(inst) for cls, inst in context.items()}
     for entity_cls, field_name, value in updates:

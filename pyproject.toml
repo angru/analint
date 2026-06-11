@@ -13,13 +13,16 @@ dependencies = [
     "rich>=13.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "prek",
     "pytest>=8.0",
     "pytest-cov",
     "ruff",
-    "mypy",
+    "ty",
 ]
+
+[project.optional-dependencies]
 mcp = [
     "mcp>=1.0",
 ]
@@ -33,8 +36,43 @@ packages = ["src/analint"]
 
 [tool.ruff]
 line-length = 100
-src = ["src"]
+target-version = "py311"
+src = ["src", "tests"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
+[tool.ruff.lint]
+select = [
+    "ANN", # type annotations
+    "B",   # bugbear
+    "E4",
+    "E7",
+    "E9",
+    "F",   # pyflakes
+    "I",   # import sorting
+    "RUF", # Ruff-specific rules
+    "SIM", # simplifications
+    "UP",  # modern Python
+]
+ignore = [
+    "ANN401", # Any is part of the public DSL and dynamic loader boundary
+    "B008",   # Typer declares options through function defaults
+    "RUF022", # public exports are grouped by DSL concept
+    "RUF001",
+    "RUF002",
+    "RUF003", # intentional Unicode in human-facing output and research notes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/**/*.py" = ["ANN"]
+"tests/**/*.py" = ["ANN", "B011"]
+
+[tool.ty.environment]
+python-version = "3.11"
+
+[tool.ty.analysis]
+allowed-unresolved-imports = ["mcp.**"]
+
+[tool.ty.rules]
+invalid-method-override = "ignore" # comparisons intentionally build Predicate objects
+
+[tool.ty.src]
+include = ["src"]

@@ -3,6 +3,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from analint.models.actor import Actor
+from analint.models.effect import Effect
+from analint.models.event import Event
+from analint.models.predicate import Predicate
+
 
 class Action(BaseModel):
     """A state transition: facts about the world before (`pre`) and after (`effect`).
@@ -26,13 +31,13 @@ class Action(BaseModel):
     id: str = ""             # filled from the variable name by the loader when empty
     name: str = ""
     description: str = ""
-    by: Any = None                                    # Actor subclass | None = system
-    pre: list[Any] = Field(default_factory=list)      # predicates over the pre-state
-    post: list[Any] = Field(default_factory=list)     # predicates over the post-state
-    effect: list[Any] = Field(default_factory=list)   # Set/Add/Subtract facts
-    requires: list[Any] = Field(default_factory=list) # Actions that must precede this one
-    emits: list[Any] = Field(default_factory=list)    # Event classes or payload templates
-    on: list[Any] = Field(default_factory=list)       # Event classes that trigger this action
+    by: type[Actor] | None = None
+    pre: list[Predicate] = Field(default_factory=list)
+    post: list[Predicate] = Field(default_factory=list)
+    effect: list[Effect] = Field(default_factory=list)
+    requires: list[Action] = Field(default_factory=list)
+    emits: list[type[Event] | Event] = Field(default_factory=list)
+    on: list[type[Event]] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
     @field_validator("on", "emits", "pre", "post", "effect", mode="before")
@@ -43,3 +48,6 @@ class Action(BaseModel):
         if not isinstance(v, list):
             return [v]
         return v
+
+
+Action.model_rebuild()

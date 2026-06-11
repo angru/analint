@@ -3,7 +3,7 @@
 State = the field values of one instance per entity type (singletons).
 Transitions = actions whose preconditions hold. The space is finite when
 fields are enums/bools and numeric fields either converge or carry declared
-Bounds; otherwise exploration stops at max_states and queries report
+Field constraints; otherwise exploration stops at max_states and queries report
 INCONCLUSIVE instead of pretending.
 
 Every answer comes with a trace — the sequence of action ids from the
@@ -15,10 +15,10 @@ import copy
 from dataclasses import dataclass, field as dc_field
 from enum import Enum
 
-from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import FieldDescriptor
+from analint.models.effect import Add, Effect, Set, Subtract
+from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.query import (
-    AlwaysHolds, Bounds, DeadActions, NoDeadEnd, Reachable, Unreachable,
+    AlwaysHolds, DeadActions, NoDeadEnd, Reachable, Unreachable,
 )
 from analint.models.root import Spec
 from analint.reporter.base import Finding, QueryResult, Severity
@@ -51,18 +51,11 @@ class Exploration:
 
 # ── State helpers ──────────────────────────────────────────────────────────────
 
-def _all_fields(cls) -> list[str]:
-    fields: dict = {}
-    for klass in reversed(cls.__mro__):
-        fields.update(getattr(klass, "_own_fields", {}))
-    return sorted(fields)
-
-
 def state_key(ctx: dict) -> tuple:
     items = []
     for cls in sorted(ctx, key=lambda c: c.__name__):
         inst = ctx[cls]
-        for f in _all_fields(cls):
+        for f in sorted(all_fields(cls)):
             items.append((cls.__name__, f, inst.__dict__.get(f)))
     return tuple(items)
 
@@ -71,7 +64,7 @@ def render_state(ctx: dict) -> dict:
     out = {}
     for cls in sorted(ctx, key=lambda c: c.__name__):
         inst = ctx[cls]
-        for f in _all_fields(cls):
+        for f in sorted(all_fields(cls)):
             out[f"{cls.__name__}.{f}"] = _value_str(inst.__dict__.get(f))
     return out
 
@@ -113,7 +106,7 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
             for pred in list(action.pre) + list(action.post):
                 needed.update(r.entity_cls for r in _collect_field_refs(pred))
             for e in action.effect:
-                if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor):
+                if isinstance(e, Effect) and isinstance(e.field, FieldDescriptor):
                     needed.add(e.field.entity_cls)
         for inv in spec.invariants:
             needed.update(r.entity_cls for r in _collect_field_refs(inv.expression))
@@ -127,12 +120,14 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
 # ── Exploration ────────────────────────────────────────────────────────────────
 
 def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
+    # Field constraints double as the engine's bounds (research/13)
     bounds_map = {
-        (b.field.entity_cls, b.field.field_name): b
-        for b in spec.bounds
-        if isinstance(b.field, FieldDescriptor)
+        (cls, fname): desc.spec
+        for cls in spec.entities
+        for fname, desc in all_fields(cls).items()
+        if desc.spec is not None and desc.spec.has_constraints()
     }
-    lifecycles = [lc for lc in spec.lifecycles if isinstance(lc.field, FieldDescriptor)]
+    lifecycles = list(spec.lifecycles)
 
     exp = Exploration()
     key0 = state_key(initial_ctx)
@@ -198,7 +193,7 @@ def _enabled(action, ctx: dict, lifecycles: list) -> bool:
     touched = {
         e.field.entity_cls
         for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)
+        if isinstance(e, Effect) and isinstance(e.field, FieldDescriptor)
     }
     for lc in lifecycles:
         if not lc.terminal or lc.entity_cls not in touched:
@@ -210,25 +205,26 @@ def _enabled(action, ctx: dict, lifecycles: list) -> bool:
 
 
 def _check_bounds(action, ctx: dict, post: dict, bounds_map: dict, key, exp: Exploration) -> bool:
-    """Clamp saturating fields; report and prune on hard bound violations."""
+    """Clamp saturating fields; report and prune on hard constraint violations."""
     for effect in action.effect:
         if not isinstance(effect, (Set, Subtract, Add)):
             continue
         target = (effect.field.entity_cls, effect.field.field_name)
-        b = bounds_map.get(target)
-        if b is None or target[0] not in post:
+        spec = bounds_map.get(target)
+        if spec is None or target[0] not in post:
             continue
         inst = post[target[0]]
         value = inst.__dict__.get(target[1])
-        if value is None or b.min <= value <= b.max:
+        problem = spec.violation(value)
+        if problem is None:
             continue
-        if b.saturate:
-            inst.__dict__[target[1]] = b.min if value < b.min else b.max
+        if spec.saturate:
+            inst.__dict__[target[1]] = spec.clamp(value)
             continue
         exp.findings.append(Finding(
             Severity.ERROR, f"action:{action.id}",
-            f"'{action.id}' drives {target[0].__name__}.{target[1]} to "
-            f"{_value_str(value)}, outside bounds [{b.min}, {b.max}] "
+            f"'{action.id}' drives {target[0].__name__}.{target[1]} out of its "
+            f"declared range: {problem} "
             f"[after: {_trace_str(exp.trace_to(key) + [action.id])}]"))
         return False
     return True
@@ -448,7 +444,7 @@ def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
         query_id=qid, kind=kind, status="INCONCLUSIVE", states_explored=len(exp.states),
         findings=[Finding(Severity.WARNING, f"query:{qid}",
                           f"state space exceeded max_states={len(exp.states)} — "
-                          f"add Bounds to numeric fields or raise max_states")])
+                          f"add Field constraints to numeric fields or raise max_states")])
 
 
 def _offending_values(predicate, ctx: dict) -> str:

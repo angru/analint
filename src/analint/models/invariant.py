@@ -1,6 +1,8 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 
+from analint.models.predicate import Predicate
+
 
 @dataclass
 class Invariant:
@@ -12,8 +14,8 @@ class Invariant:
 
         user_is_active = Invariant(User.is_active == True)
     """
-    expression: object
+    expression: Predicate
     label: str = ""          # human text for reports; defaults to the rendered expression
     id: str = ""             # filled from the variable name by the loader when empty
     description: str = ""
-    tags: list = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)

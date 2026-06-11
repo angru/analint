@@ -1,53 +1,121 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
+
+from analint.models.lifecycle import Lifecycle
+
+if TYPE_CHECKING:
+    from analint.models.predicate import Predicate
+
 _MISSING = object()
+
+
+@dataclass
+class FieldSpec:
+    """Declarative field configuration — created via the `Field(...)` factory."""
+    default: Any = _MISSING
+    ge: Any = None
+    gt: Any = None
+    le: Any = None
+    lt: Any = None
+    saturate: bool = False      # engine: clamp into [ge, le] instead of failing
+    description: str = ""
+
+    def has_constraints(self) -> bool:
+        return any(v is not None for v in (self.ge, self.gt, self.le, self.lt))
+
+    def violation(self, value: Any) -> str | None:
+        """Return a human-readable violation, or None when the value fits."""
+        if value is None:
+            return None
+        if self.ge is not None and not value >= self.ge:
+            return f"must be >= {self.ge}, got {value!r}"
+        if self.gt is not None and not value > self.gt:
+            return f"must be > {self.gt}, got {value!r}"
+        if self.le is not None and not value <= self.le:
+            return f"must be <= {self.le}, got {value!r}"
+        if self.lt is not None and not value < self.lt:
+            return f"must be < {self.lt}, got {value!r}"
+        return None
+
+    def clamp(self, value: Any) -> Any:
+        if self.ge is not None and value < self.ge:
+            return self.ge
+        if self.le is not None and value > self.le:
+            return self.le
+        return value
+
+
+def Field(default: Any = _MISSING, *, ge: Any = None, gt: Any = None,
+          le: Any = None, lt: Any = None, saturate: bool = False,
+          description: str = "") -> Any:
+    """Declare a field with constraints, pydantic-style:
+
+        class Warehouse(Entity):
+            stock: int = Field(0, ge=0, le=2)
+
+    One declaration drives three checks: instance construction, the post-state
+    of every scenario, and the bounds of the reachability engine
+    (`saturate=True` clamps instead of failing — for threshold counters).
+    """
+    if saturate and (ge is None or le is None):
+        raise TypeError("saturate=True requires both ge= and le=")
+    if ge is not None and le is not None and ge > le:
+        raise TypeError(f"Field ge={ge!r} is greater than le={le!r}")
+    return FieldSpec(default=default, ge=ge, gt=gt, le=le, lt=lt,
+                     saturate=saturate, description=description)
 
 
 class FieldDescriptor:
     """Class-level field proxy that yields predicate objects when compared."""
 
-    def __init__(self, entity_cls: type, field_name: str, default: object = _MISSING) -> None:
+    def __init__(self, entity_cls: type, field_name: str, default: Any = _MISSING,
+                 spec: FieldSpec | None = None,
+                 lifecycle: Lifecycle[Any] | None = None) -> None:
         self.entity_cls = entity_cls
         self.field_name = field_name
         self.default = default
+        self.spec = spec
+        self.lifecycle = lifecycle
 
     # descriptor protocol ──────────────────────────────────────────────────────
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.field_name = name
 
-    def __get__(self, obj: object, objtype: type | None = None) -> object:
+    def __get__(self, obj: Any | None, objtype: type | None = None) -> Any:
         if obj is None:
             return self
         return obj.__dict__.get(self.field_name)
 
-    def __set__(self, obj: object, value: object) -> None:
+    def __set__(self, obj: Any, value: Any) -> None:
         obj.__dict__[self.field_name] = value
 
     # comparison operators → predicate objects ────────────────────────────────
     # Imports are deferred to avoid circular dependency with predicate.py
 
-    def __eq__(self, other: object) -> object:  # type: ignore[override]
+    def __eq__(self, other: Any) -> "Predicate":  # type: ignore[override]
         from analint.models.predicate import _Eq
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: object) -> object:  # type: ignore[override]
+    def __ne__(self, other: Any) -> "Predicate":  # type: ignore[override]
         from analint.models.predicate import _Ne
         return _Ne(left=self, right=other)
 
-    def __gt__(self, other: object) -> object:
+    def __gt__(self, other: Any) -> "Predicate":
         from analint.models.predicate import _Gt
         return _Gt(left=self, right=other)
 
-    def __ge__(self, other: object) -> object:
+    def __ge__(self, other: Any) -> "Predicate":
         from analint.models.predicate import _Gte
         return _Gte(left=self, right=other)
 
-    def __lt__(self, other: object) -> object:
+    def __lt__(self, other: Any) -> "Predicate":
         from analint.models.predicate import _Lt
         return _Lt(left=self, right=other)
 
-    def __le__(self, other: object) -> object:
+    def __le__(self, other: Any) -> "Predicate":
         from analint.models.predicate import _Lte
         return _Lte(left=self, right=other)
 
@@ -59,34 +127,61 @@ class FieldDescriptor:
 
 
 class EntityMeta(type):
-    def __new__(mcs, name: str, bases: tuple, ns: dict) -> type:
-        annotations: dict[str, object] = ns.get("__annotations__", {})
+    def __new__(
+        mcs,
+        name: str,
+        bases: tuple[type, ...],
+        ns: dict[str, Any],
+    ) -> type:
+        annotations: dict[str, Any] = ns.get("__annotations__", {})
         cls = super().__new__(mcs, name, bases, ns)
-        cls._own_fields: dict[str, FieldDescriptor] = {}  # type: ignore[attr-defined]
+        own_fields: dict[str, FieldDescriptor] = {}
+        setattr(cls, "_own_fields", own_fields)
         for field_name in annotations:
-            default = ns.get(field_name, _MISSING)
-            desc = FieldDescriptor(cls, field_name, default)
+            declared = ns.get(field_name, _MISSING)
+            default: Any = declared
+            spec: FieldSpec | None = None
+            lifecycle: Lifecycle[Any] | None = None
+            if isinstance(declared, FieldSpec):
+                spec = declared
+                default = declared.default
+            elif isinstance(declared, Lifecycle):
+                lifecycle = declared
+                lifecycle._bind(cls, field_name)
+                default = lifecycle.initial
+            desc = FieldDescriptor(cls, field_name, default, spec=spec, lifecycle=lifecycle)
             setattr(cls, field_name, desc)
-            cls._own_fields[field_name] = desc  # type: ignore[attr-defined]
+            own_fields[field_name] = desc
         return cls
 
 
-def _init_fields(instance: object, kwargs: dict) -> None:
+def all_fields(cls: type) -> dict[str, FieldDescriptor]:
+    fields: dict[str, FieldDescriptor] = {}
+    for klass in reversed(cls.__mro__):
+        fields.update(getattr(klass, "_own_fields", {}))
+    return fields
+
+
+def _init_fields(instance: Any, kwargs: dict[str, Any]) -> None:
     """Shared __init__ logic for Entity and Event."""
-    all_fields: dict[str, FieldDescriptor] = {}
-    for klass in reversed(type(instance).__mro__):
-        all_fields.update(getattr(klass, "_own_fields", {}))
-    unknown = set(kwargs) - set(all_fields)
+    fields = all_fields(type(instance))
+    unknown = set(kwargs) - set(fields)
     if unknown:
         raise TypeError(
             f"{type(instance).__name__}() got unknown field(s): {', '.join(sorted(unknown))}")
-    for field_name, desc in all_fields.items():
+    for field_name, desc in fields.items():
         if field_name in kwargs:
-            instance.__dict__[field_name] = kwargs[field_name]
+            value = kwargs[field_name]
         elif desc.default is not _MISSING:
-            instance.__dict__[field_name] = desc.default
+            value = desc.default
         else:
             raise TypeError(f"{type(instance).__name__}() missing required field: '{field_name}'")
+        if desc.spec is not None:
+            problem = desc.spec.violation(value)
+            if problem is not None:
+                raise ValueError(
+                    f"{type(instance).__name__}.{field_name} {problem}")
+        instance.__dict__[field_name] = value
 
 
 class Entity(metaclass=EntityMeta):
@@ -95,14 +190,14 @@ class Entity(metaclass=EntityMeta):
     Class-level field access (``Order.total``) returns a ``FieldDescriptor``
     that supports comparison operators to build predicate expressions.
     Instance-level access (``order.total``) returns the stored value.
+    Fields may carry constraints (``Field(0, ge=0)``) or a state machine
+    (``Lifecycle(initial=..., transitions=[...])``) as their default.
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         _init_fields(self, kwargs)
 
     def __repr__(self) -> str:
-        all_fields: dict[str, FieldDescriptor] = {}
-        for klass in reversed(type(self).__mro__):
-            all_fields.update(getattr(klass, "_own_fields", {}))
-        parts = ", ".join(f"{k}={self.__dict__.get(k)!r}" for k in all_fields)
+        parts = ", ".join(
+            f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))
         return f"{type(self).__name__}({parts})"

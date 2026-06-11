@@ -92,25 +92,40 @@ The DSL has three layers: **state** (Entity, Actor, Event), **constraints** (Inv
 
 ### Entity
 
-Domain objects. Annotate fields normally; class-level access returns a `FieldDescriptor` usable in predicate expressions.
+Typed system state. Annotate fields normally; class-level access returns a
+`FieldDescriptor` usable in predicate expressions. Use `Field(...)` for
+constraints on one value, and attach a `Lifecycle(...)` directly to a field
+whose states have declared transitions.
 
 ```python
-from analint import Entity
-from enum import Enum
+from enum import StrEnum
+from analint import Entity, Field, Lifecycle, Transition
 
-class OrderStatus(Enum):
+class OrderStatus(StrEnum):
     PENDING   = "pending"
     PAID      = "paid"
     CANCELLED = "cancelled"
 
 class Order(Entity):
-    status: OrderStatus = OrderStatus.PENDING  # field with default
-    total: float                               # required field
+    status: OrderStatus = Lifecycle(
+        initial=OrderStatus.PENDING,
+        transitions=[
+            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
+            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
+        ],
+        terminal=[OrderStatus.CANCELLED],
+    )
+    total: float = Field(gt=0)                 # required, must be positive
     customer_id: str
 
 Order.total                           # class level → FieldDescriptor (for predicates)
 Order(total=50.0, customer_id="c1").total   # instance level → 50.0
 ```
+
+`Field(default, ge=..., gt=..., le=..., lt=...)` validates constructed
+instances, checks post-action values, and supplies finite numeric bounds to the
+reachability engine. With `saturate=True`, values clamp at the declared
+`ge`/`le` thresholds instead of making the transition invalid.
 
 ### Predicates
 
@@ -139,14 +154,19 @@ archive_card = Action(pre=[board_is_active, ...])
 
 ### Invariant
 
-A constraint on the world that must hold in **every** state — checked before an action and re-checked after its effects.
+A relation that must hold in **every** state — checked before an action and
+re-checked after its effects. Put constraints involving one field on
+`Field(...)`; use `Invariant` for relationships between fields or entities.
 
 ```python
-from analint import Invariant
+from analint import Implies, Invariant
 
-no_overdraft = Invariant(
-    Wallet.balance >= 0,
-    label="Wallet balance can never go below zero",
+delivered_means_paid = Invariant(
+    Implies(
+        Order.status == OrderStatus.DELIVERED,
+        Payment.status == PaymentStatus.CAPTURED,
+    ),
+    label="A delivered order must have a captured payment",
 )
 ```
 
@@ -222,19 +242,19 @@ The linter validates payload bindings (fields exist, types match) and warns when
 ### Lifecycle
 
 Valid states of an entity field and the allowed transitions between them.
+The lifecycle is declared as the field's default, so the state definition,
+initial value, transitions, and terminal states stay together.
 
 ```python
-from analint import Lifecycle, Transition
-
-order_lifecycle = Lifecycle(
-    field=Order.status,
-    initial=OrderStatus.PENDING,
-    transitions=[
-        Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-        Transition(OrderStatus.PAID,    OrderStatus.CANCELLED),
-    ],
-    terminal=[OrderStatus.CANCELLED],
-)
+class Order(Entity):
+    status: OrderStatus = Lifecycle(
+        initial=OrderStatus.PENDING,
+        transitions=[
+            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
+            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
+        ],
+        terminal=[OrderStatus.CANCELLED],
+    )
 ```
 
 `terminal` states have teeth: an entity whose lifecycle field is in a terminal state cannot be modified by any action, and a transition out of a terminal state is a structural error.
@@ -289,7 +309,7 @@ purchase_flow = Flow(
 Scenarios check states you thought of. Queries **explore every reachable state** (BFS over the model) and answer questions you can't answer by hand — each verdict comes with a trace:
 
 ```python
-from analint import Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions, Bounds
+from analint import Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions
 
 bridge_is_reachable = Reachable(Quest.bridge_crossed == True)
 no_softlock         = NoDeadEnd(goal=Quest.bridge_crossed == True)
@@ -311,7 +331,9 @@ QUERIES
 The softlock above is invisible to every scenario in the spec — nobody writes a test for a situation they didn't think of. The explorer finds it in milliseconds with the shortest trace.
 
 - The **initial state** is built from entity field defaults; `given=[...]` supplies or overrides instances.
-- **`Bounds(field, min, max)`** keeps numeric fields finite: driving a field out of range is an error with a trace. `saturate=True` clamps instead — for counters where only thresholds matter.
+- Numeric `Field(ge=..., le=...)` constraints keep the state space finite.
+  Driving a field out of range is an error with a trace; `saturate=True`
+  clamps instead, for counters where only thresholds matter.
 - If the state space exceeds `max_states` (default 10 000), the query reports **INCONCLUSIVE** instead of pretending.
 - During exploration the engine also reports **violated invariants** and **undeclared lifecycle transitions** (an effect performing `A → C` when the lifecycle only allows `A → B`).
 - An ad-hoc query without editing the spec: put it in a file and run `analint check . --what-if query.py`.
@@ -345,7 +367,6 @@ myproject/
   events.py         ← Event subclasses
   invariants.py     ← Invariant instances + reusable predicates
   actions.py        ← Action instances
-  lifecycles.py     ← Lifecycle instances
   flows.py          ← Flow instances
   scenarios.py      ← Scenario instances
   spec.py           ← imports the tops of the graph + Spec(id=..., name=...)
@@ -354,7 +375,7 @@ myproject/
 ```python
 # myproject/spec.py
 from analint import Spec
-from . import flows, lifecycles, scenarios  # noqa: F401
+from . import flows, scenarios  # noqa: F401
 
 spec = Spec(id="myproject", name="My Project")
 ```
@@ -376,7 +397,7 @@ analint check [PATH]              # validate: structural checks + scenario runs
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind
   analint show action checkout -p .  # pre/effect/post/emits/scenarios of one action
-  analint show lifecycle order_lifecycle -p .   # transitions, terminal, unreachable states
+  analint show lifecycle Order.status -p .      # transitions, terminal, unreachable states
 
 analint affects TARGET -p PATH    # impact analysis before changing something (JSON)
   analint affects Wallet.balance -p .   # who reads/writes the field, invariants, lifecycles
@@ -424,6 +445,7 @@ The same three operations as the CLI, callable as agent tools — an agent can i
 - Event payload bindings: fields exist, annotation types match
 - Emitted events are handled by at least one `on=` (warning if not)
 - Two effects on the same field (simultaneity violation)
+- Field constraints on construction and after effects
 - Transitions out of `terminal` states
 - Scenario `given` covers the entities the action references (warning)
 - Scenario `given` states reachable from the lifecycle initial state (warning)
@@ -434,7 +456,7 @@ The same three operations as the CLI, callable as agent tools — an agent can i
 1. **Invariants** and **pre** — checked against `given`
 2. **Terminal guard** — an entity in a terminal lifecycle state must not be modified
 3. **Effects** applied simultaneously → post-state
-4. **post** and invariants — re-checked against the post-state
+4. **post**, invariants, and field constraints — checked against the post-state
 5. **then** (`Assert`, `Emitted`) — checked against the post-state
 
 If `expected=Expect.FAIL`: the scenario passes when steps 1–2 block the action.

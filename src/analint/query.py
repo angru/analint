@@ -53,6 +53,21 @@ def _fields_of(cls) -> list[dict]:
         }
         if desc.default is not _MISSING:
             entry["default"] = _value_str(desc.default)
+        if desc.spec is not None:
+            entry["constraints"] = {
+                key: _value_str(value)
+                for key, value in {
+                    "ge": desc.spec.ge,
+                    "gt": desc.spec.gt,
+                    "le": desc.spec.le,
+                    "lt": desc.spec.lt,
+                }.items()
+                if value is not None
+            }
+            if desc.spec.saturate:
+                entry["saturate"] = True
+        if desc.lifecycle is not None:
+            entry["lifecycle"] = desc.lifecycle.id
         out.append(entry)
     return out
 
@@ -94,7 +109,6 @@ def spec_overview(spec: Spec) -> dict:
         "flows": [f.id for f in spec.flows],
         "scenarios": [sc.id for sc in spec.scenarios],
         "queries": [q.id for q in spec.queries],
-        "bounds": [b.id for b in spec.bounds],
     }
 
 

@@ -1,102 +1,107 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any
+
+
+class Predicate:
+    """Base class for all predicate expressions (enables typing and isinstance)."""
 
 
 # ── Comparison predicates ───────────────────────────────────────────────────────
 
 @dataclass
-class _Eq:
-    left: object
-    right: object
+class _Eq(Predicate):
+    left: Any
+    right: Any
 
 @dataclass
-class _Ne:
-    left: object
-    right: object
+class _Ne(Predicate):
+    left: Any
+    right: Any
 
 @dataclass
-class _Gt:
-    left: object
-    right: object
+class _Gt(Predicate):
+    left: Any
+    right: Any
 
 @dataclass
-class _Gte:
-    left: object
-    right: object
+class _Gte(Predicate):
+    left: Any
+    right: Any
 
 @dataclass
-class _Lt:
-    left: object
-    right: object
+class _Lt(Predicate):
+    left: Any
+    right: Any
 
 @dataclass
-class _Lte:
-    left: object
-    right: object
+class _Lte(Predicate):
+    left: Any
+    right: Any
 
 
 # ── Logical predicates ─────────────────────────────────────────────────────────
 
 @dataclass
-class _And:
-    exprs: list
+class _And(Predicate):
+    exprs: list[Predicate]
 
 @dataclass
-class _Or:
-    exprs: list
+class _Or(Predicate):
+    exprs: list[Predicate]
 
 @dataclass
-class _Not:
-    expr: object
+class _Not(Predicate):
+    expr: Predicate
 
 @dataclass
-class _Implies:
-    left: object
-    right: object
+class _Implies(Predicate):
+    left: Predicate
+    right: Predicate
 
 
 # ── Membership / null predicates ───────────────────────────────────────────────
 
 @dataclass
-class _In:
-    operand: object
-    values: list
+class _In(Predicate):
+    operand: Any
+    values: list[Any]
 
 @dataclass
-class _IsNull:
-    operand: object
+class _IsNull(Predicate):
+    operand: Any
 
 @dataclass
-class _IsNotNull:
-    operand: object
+class _IsNotNull(Predicate):
+    operand: Any
 
 
 # ── Public DSL factory functions ───────────────────────────────────────────────
 
-def And(*exprs: object) -> _And:
+def And(*exprs: Predicate) -> _And:
     """All sub-predicates must hold."""
     return _And(exprs=list(exprs))
 
-def Or(*exprs: object) -> _Or:
+def Or(*exprs: Predicate) -> _Or:
     """At least one sub-predicate must hold."""
     return _Or(exprs=list(exprs))
 
-def Not(expr: object) -> _Not:
+def Not(expr: Predicate) -> _Not:
     """Negation of a predicate."""
     return _Not(expr=expr)
 
-def Implies(left: object, right: object) -> _Implies:
+def Implies(left: Predicate, right: Predicate) -> _Implies:
     """If `left` holds, `right` must hold too (vacuously true when `left` is false)."""
     return _Implies(left=left, right=right)
 
-def In(operand: object, values: list) -> _In:
+def In(operand: Any, values: list[Any]) -> _In:
     """Field value must be one of the given values."""
     return _In(operand=operand, values=values)
 
-def IsNull(operand: object) -> _IsNull:
+def IsNull(operand: Any) -> _IsNull:
     """Field value must be None."""
     return _IsNull(operand=operand)
 
-def IsNotNull(operand: object) -> _IsNotNull:
+def IsNotNull(operand: Any) -> _IsNotNull:
     """Field value must not be None."""
     return _IsNotNull(operand=operand)

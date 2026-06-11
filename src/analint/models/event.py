@@ -1,5 +1,7 @@
 from __future__ import annotations
-from analint.models.entity import EntityMeta, _init_fields
+from typing import Any
+
+from analint.models.entity import EntityMeta, _init_fields, all_fields
 
 
 class Event(metaclass=EntityMeta):
@@ -19,12 +21,10 @@ class Event(metaclass=EntityMeta):
         uc_payment  = UseCase(..., triggered_by=[OrderPlaced])
     """
 
-    def __init__(self, **kwargs: object) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         _init_fields(self, kwargs)
 
     def __repr__(self) -> str:
-        all_fields: dict = {}
-        for klass in reversed(type(self).__mro__):
-            all_fields.update(getattr(klass, "_own_fields", {}))
-        parts = ", ".join(f"{k}={self.__dict__.get(k)!r}" for k in all_fields)
+        parts = ", ".join(
+            f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))
         return f"{type(self).__name__}({parts})"

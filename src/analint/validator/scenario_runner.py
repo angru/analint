@@ -1,8 +1,10 @@
 from __future__ import annotations
 import copy
+from typing import Any
 
 from analint.models.effect import Set, Subtract, Add
 from analint.models.flow import Assert, Emitted
+from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.reporter.base import Finding, ScenarioResult, Severity
@@ -44,7 +46,8 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         post_context = context
 
     if not pre_errors:
-        # Phase 3: postconditions and invariants against the post-state
+        # Phase 3: postconditions, invariants, and field constraints (post-state)
+        _check_field_constraints(findings, action, post_context)
         for pred in action.post:
             _check(findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}")
         for inv in relevant_invariants:
@@ -99,7 +102,14 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     )
 
 
-def _check(findings: list, pred: object, context: dict, label: str, text: str, loc: str) -> None:
+def _check(
+    findings: list[Finding],
+    pred: Predicate,
+    context: dict,
+    label: str,
+    text: str,
+    loc: str,
+) -> None:
     try:
         if not evaluate(pred, context):
             findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
@@ -107,8 +117,35 @@ def _check(findings: list, pred: object, context: dict, label: str, text: str, l
         findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
 
 
-def _referenced_types(pred: object) -> set:
+def _referenced_types(pred: Predicate) -> set[type]:
     return {ref.entity_cls for ref in _collect_field_refs(pred)}
+
+
+def _check_field_constraints(findings: list, action, post: dict) -> None:
+    """Effects must not drive a field outside its declared Field(...) range
+    (saturating fields clamp instead)."""
+    from analint.models.entity import all_fields
+
+    for effect in action.effect:
+        if not isinstance(effect, (Set, Subtract, Add)):
+            continue
+        cls = effect.field.entity_cls
+        inst = post.get(cls)
+        if inst is None:
+            continue
+        desc = all_fields(cls).get(effect.field.field_name)
+        if desc is None or desc.spec is None or not desc.spec.has_constraints():
+            continue
+        value = inst.__dict__.get(effect.field.field_name)
+        problem = desc.spec.violation(value)
+        if problem is None:
+            continue
+        if desc.spec.saturate:
+            inst.__dict__[effect.field.field_name] = desc.spec.clamp(value)
+            continue
+        findings.append(Finding(
+            Severity.ERROR, f"action:{action.id}",
+            f"field constraint violated: {cls.__name__}.{effect.field.field_name} {problem}"))
 
 
 def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, context: dict) -> None:
@@ -141,7 +178,7 @@ def _apply_effects(effects: list, context: dict) -> dict:
     is resolved against the pre-state, so the order of the list carries no
     meaning and effects never observe each other.
     """
-    updates: list[tuple[type, str, object]] = []
+    updates: list[tuple[type, str, Any]] = []
     for effect in effects:
         if isinstance(effect, (Set, Subtract, Add)) and effect.field.entity_cls not in context:
             continue  # target entity absent from given — structural validation warns about this

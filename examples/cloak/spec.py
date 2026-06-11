@@ -6,24 +6,24 @@ dark tramples the message written in sawdust on the floor. Hang the cloak on
 the hook in the Cloakroom and the Bar lights up; read the message — if it was
 trampled at most once you win, otherwise you lose.
 """
-from enum import Enum
+from enum import StrEnum
 
 from analint import (
-    Action, Add, AlwaysHolds, Assert, Bounds, DeadActions, Entity, Expect,
-    Implies, Invariant, Lifecycle, NoDeadEnd, Reachable, Scenario, Set,
-    Spec, Transition,
+    Action, Add, AlwaysHolds, Assert, DeadActions, Entity, Expect, Field,
+    Implies, Invariant, Lifecycle, NoDeadEnd, Reachable, Scenario, Set, Spec,
+    Transition,
 )
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
 
-class Room(Enum):
+class Room(StrEnum):
     FOYER = "foyer"
     CLOAKROOM = "cloakroom"
     BAR = "bar"
 
 
-class Result(Enum):
+class Result(StrEnum):
     PLAYING = "playing"
     WON = "won"
     LOST = "lost"
@@ -39,11 +39,17 @@ class Hook(Entity):
 
 
 class Message(Entity):
-    disturbances: int = 0           # how many times it was trampled
+    # Only the thresholds matter (<=1 legible, >=2 trampled), so the counter
+    # saturates at two and keeps the state space finite.
+    disturbances: int = Field(0, ge=0, le=2, saturate=True)
 
 
 class Game(Entity):
-    result: Result = Result.PLAYING
+    result: Result = Lifecycle(
+        initial=Result.PLAYING,
+        transitions=[Transition(Result.PLAYING, [Result.WON, Result.LOST])],
+        terminal=[Result.WON, Result.LOST],
+    )
 
 
 # ── Constraints ────────────────────────────────────────────────────────────────
@@ -107,15 +113,6 @@ read_message_lose = Action(
     name="Read the message (trampled)",
     pre=[Player.location == Room.BAR, bar_is_lit, Message.disturbances >= 2],
     effect=[Set(Game.result, Result.LOST)],
-)
-
-# Terminal states replace the "game is over" precondition hack: once the game
-# is WON or LOST, no action may modify it.
-game_over = Lifecycle(
-    field=Game.result,
-    initial=Result.PLAYING,
-    transitions=[Transition(Result.PLAYING, [Result.WON, Result.LOST])],
-    terminal=[Result.WON, Result.LOST],
 )
 
 # ── Scenarios ──────────────────────────────────────────────────────────────────
@@ -201,7 +198,7 @@ sc_trampled_lose = Scenario(
     given=[
         Player(location=Room.BAR, has_cloak=False),
         Hook(holds_cloak=True),
-        Message(disturbances=3),
+        Message(disturbances=2),
         Game(),
     ],
     then=[Assert(Game.result == Result.LOST)],
@@ -220,10 +217,6 @@ sc_game_already_over = Scenario(
 )
 
 # ── Reachability queries ───────────────────────────────────────────────────────
-
-# Only the thresholds matter (≤1 legible, ≥2 trampled), so the counter
-# saturates at 2 — this keeps the state space finite.
-message_bounds = Bounds(Message.disturbances, 0, 2, saturate=True)
 
 win_is_reachable = Reachable(
     Game.result == Result.WON,

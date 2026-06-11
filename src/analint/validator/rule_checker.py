@@ -1,15 +1,18 @@
 from __future__ import annotations
-from analint.models.entity import Entity, FieldDescriptor
+from typing import Any
+
+from analint.models.entity import FieldDescriptor
 from analint.models.predicate import (
+    Predicate,
     _Eq, _Ne, _Gt, _Gte, _Lt, _Lte,
     _And, _Or, _Not, _Implies,
     _In, _IsNull, _IsNotNull,
 )
 
-Context = dict[type, Entity]
+Context = dict[type, Any]
 
 
-def resolve(operand: object, context: Context) -> object:
+def resolve(operand: Any, context: Context) -> Any:
     if isinstance(operand, FieldDescriptor):
         entity = context.get(operand.entity_cls)
         if entity is None:
@@ -18,7 +21,7 @@ def resolve(operand: object, context: Context) -> object:
     return operand
 
 
-def evaluate(pred: object, context: Context) -> bool:
+def evaluate(pred: Predicate, context: Context) -> bool:
     if isinstance(pred, _Eq):
         return resolve(pred.left, context) == resolve(pred.right, context)
     if isinstance(pred, _Ne):

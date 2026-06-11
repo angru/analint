@@ -1,8 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 
 from analint import (
-    Action, Actor, Assert, Emitted, Entity, Event, Expect, Invariant,
-    Lifecycle, Reachable, Scenario, Set, Spec, Subtract, Transition,
+    Action, Actor, Assert, Emitted, Entity, Event, Expect, Field, Lifecycle,
+    Reachable, Scenario, Set, Spec, Subtract, Transition,
 )
 
 # ── Actors ─────────────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ class Admin(Actor):
 # ── Domain entity statuses ─────────────────────────────────────────────────────
 
 
-class OrderStatus(Enum):
+class OrderStatus(StrEnum):
     PENDING   = "pending"
     PAID      = "paid"
     CANCELLED = "cancelled"
@@ -30,19 +30,27 @@ class OrderStatus(Enum):
 
 class Order(Entity):
     id: str
-    status: OrderStatus = OrderStatus.PENDING
-    total: float
+    status: OrderStatus = Lifecycle(
+        initial=OrderStatus.PENDING,
+        transitions=[
+            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
+            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
+        ],
+        terminal=[OrderStatus.CANCELLED],
+        description="An order can be paid and later cancelled",
+    )
+    total: float = Field(gt=0)
     customer_id: str
 
 
 class Wallet(Entity):
-    balance: float
+    balance: float = Field(ge=0)
     customer_id: str
 
 
 class Product(Entity):
-    stock: int
-    price: float
+    stock: int = Field(ge=0)
+    price: float = Field(gt=0)
     name: str
 
 
@@ -54,18 +62,6 @@ class OrderPlaced(Event):
     total: float
     customer_id: str
 
-
-# ── Invariants (hold in every state) ───────────────────────────────────────────
-
-price_is_positive = Invariant(
-    Product.price > 0,
-    label="Product price must be positive",
-)
-
-balance_not_negative = Invariant(
-    Wallet.balance >= 0,
-    label="Wallet balance can never go below zero",
-)
 
 # ── Actions ────────────────────────────────────────────────────────────────────
 
@@ -144,19 +140,6 @@ sc_already_paid = Scenario(
         Product(stock=5, price=50.0, name="Widget"),
     ],
     expected=Expect.FAIL,
-)
-
-# ── Lifecycles ─────────────────────────────────────────────────────────────────
-
-order_lifecycle = Lifecycle(
-    field=Order.status,
-    initial=OrderStatus.PENDING,
-    transitions=[
-        Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-        Transition(OrderStatus.PAID,    OrderStatus.CANCELLED),
-    ],
-    terminal=[OrderStatus.CANCELLED],
-    description="Order moves from PENDING to PAID on checkout, can be cancelled at any point",
 )
 
 # ── Reachability ───────────────────────────────────────────────────────────────

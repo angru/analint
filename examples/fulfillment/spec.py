@@ -1,7 +1,7 @@
 from analint import Spec
 
 # The entry point's import graph defines the spec.
-from . import lifecycles, queries, scenarios  # noqa: F401
+from . import queries, scenarios  # noqa: F401
 
 spec = Spec(
     id="fulfillment",

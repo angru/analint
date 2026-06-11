@@ -1,8 +1,8 @@
-from enum import Enum
+from enum import StrEnum
 from analint import Entity, Action, Scenario, Spec, Expect
 
 
-class ItemStatus(Enum):
+class ItemStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
 

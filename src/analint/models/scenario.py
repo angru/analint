@@ -1,12 +1,12 @@
 from __future__ import annotations
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from analint.models.action import Action
 
 
-class Expect(Enum):
+class Expect(StrEnum):
     PASS = "pass"
     FAIL = "fail"
 

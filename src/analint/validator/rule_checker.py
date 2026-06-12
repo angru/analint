@@ -23,6 +23,13 @@ from analint.models.predicate import (
 Context = dict[type, Any]
 
 
+class UnsupportedPredicateError(TypeError):
+    """An object that is not a known predicate node reached the evaluator.
+
+    A verifier must never guess: an unknown node is a model error, not `True`.
+    """
+
+
 def resolve(operand: Any, context: Context) -> Any:
     if isinstance(operand, FieldDescriptor):
         entity = context.get(operand.entity_cls)
@@ -59,4 +66,7 @@ def evaluate(pred: Predicate, context: Context) -> bool:
         return resolve(pred.operand, context) is None
     if isinstance(pred, _IsNotNull):
         return resolve(pred.operand, context) is not None
-    return True
+    raise UnsupportedPredicateError(
+        f"unsupported predicate node: {pred!r} ({type(pred).__name__}) — "
+        f"predicates must be built from analint field comparisons and combinators"
+    )

@@ -109,8 +109,21 @@ constraint violations (hard bounds prune the branch; `saturate=True` clamps), an
 undeclared lifecycle transitions — all with traces (`Exploration.trace_to`).
 Explorations are cached per (initial state key, max_states) within one
 validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
-Actions whose `pre` references event payloads are treated as disabled in
-exploration (event-pool semantics is future work — see research/07).
+
+**Soundness rules (research/14 §7 — do not regress):**
+- an unknown predicate node raises `UnsupportedPredicateError`, never `True`
+- evaluation errors become findings (`Exploration.report_once`) or FAIL the
+  query — they are never swallowed into "no violation"
+- a query predicate that is applicable in zero states → FAIL ("vacuous"),
+  not a silent PASS
+- `Expect.FAIL` passes only on **pre-execution rejection** (invariant/pre/
+  terminal); a broken effect/post/then under Expect.FAIL fails the scenario
+- unsupported state domains (unhashable values) are rejected up front
+- actions with event-payload preconditions are **excluded** from exploration
+  and reported (`Exploration.excluded`); DeadActions lists them as "not
+  assessed", not dead — full event-pool semantics is future work (research/07)
+- `requires` is Flow-ordering documentation; the explorer deliberately does
+  NOT honor it (an action may fire without its requires having run)
 
 ### Auto-populate Spec (engine.py)
 

@@ -50,7 +50,16 @@ class Exploration:
     parents: dict = dc_field(default_factory=dict)  # key → (prev_key, action_id)
     fired: set = dc_field(default_factory=set)  # action ids ever enabled
     findings: list = dc_field(default_factory=list)  # violations met en route
+    excluded: dict = dc_field(default_factory=dict)  # action id → why it is not explorable
     capped: bool = False
+    _seen: set = dc_field(default_factory=set)
+
+    def report_once(self, severity: Severity, loc: str, message: str) -> None:
+        """Deduplicated finding — a model error would otherwise repeat per state."""
+        if (loc, message) in self._seen:
+            return
+        self._seen.add((loc, message))
+        self.findings.append(Finding(severity, loc, message))
 
     def trace_to(self, key: StateKey) -> list[str]:
         steps: list[str] = []
@@ -131,6 +140,19 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
                 f"entities without full defaults need initial instances: "
                 f"{', '.join(sorted(blocked))} — pass given=[...] in the query"
             )
+
+    # the explored state must be hashable — reject unsupported field domains
+    # up front instead of crashing inside state_key
+    for cls, inst in ctx.items():
+        for fname in all_fields(cls):
+            value = inst.__dict__.get(fname)
+            try:
+                hash(value)
+            except TypeError:
+                return None, (
+                    f"{cls.__name__}.{fname} holds an unhashable value {value!r} — "
+                    f"the engine supports scalar, enum, str and bool fields only"
+                )
     return ctx, None
 
 
@@ -148,6 +170,30 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
     lifecycles = list(spec.lifecycles)
 
     exp = Exploration()
+
+    # Actions whose preconditions reference event payloads are not explorable:
+    # events are not part of the state. Report explicitly instead of silently
+    # never enabling them (research/14 §7.5).
+    state_types = set(spec.entities)
+    for action in spec.actions:
+        foreign = {
+            r.entity_cls.__name__
+            for pred in action.pre
+            for r in _collect_field_refs(pred)
+            if r.entity_cls not in state_types
+        }
+        if foreign:
+            exp.excluded[action.id] = (
+                f"preconditions reference {', '.join(sorted(foreign))}, which is "
+                f"not part of the explored state (event payloads are outside "
+                f"the engine's state model)"
+            )
+            exp.report_once(
+                Severity.WARNING,
+                f"action:{action.id}",
+                f"excluded from exploration: {exp.excluded[action.id]}",
+            )
+
     key0 = state_key(initial_ctx)
     exp.states[key0] = initial_ctx
     exp.order.append(key0)
@@ -163,7 +209,9 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
         ctx = exp.states[key]
 
         for action in spec.actions:
-            if not _enabled(action, ctx, lifecycles):
+            if action.id in exp.excluded:
+                continue
+            if not _enabled(action, ctx, lifecycles, exp, key):
                 continue
             exp.fired.add(action.id)
             if not action.effect:
@@ -172,13 +220,11 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
             try:
                 post = _apply_effects(action.effect, ctx)
             except Exception as exc:
-                exp.findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"action:{action.id}",
-                        f"effect evaluation error during exploration: {exc} "
-                        f"[after: {_trace_str(exp.trace_to(key))}]",
-                    )
+                exp.report_once(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"effect evaluation error during exploration: {exc} "
+                    f"[after: {_trace_str(exp.trace_to(key))}]",
                 )
                 continue
 
@@ -187,7 +233,16 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
             if not _check_lifecycle_transitions(action, ctx, post, lifecycles, key, exp):
                 continue
 
-            k2 = state_key(post)
+            try:
+                k2 = state_key(post)
+            except TypeError as exc:
+                exp.report_once(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"'{action.id}' produces an unhashable state value ({exc}) — "
+                    f"the engine supports scalar, enum, str and bool fields only",
+                )
+                continue
             exp.edges.append((key, action.id, k2))
             if k2 in exp.states:
                 continue
@@ -201,15 +256,24 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
     return exp
 
 
-def _enabled(action: Action, ctx: dict, lifecycles: list[Lifecycle]) -> bool:
+def _enabled(
+    action: Action, ctx: dict, lifecycles: list[Lifecycle], exp: Exploration, key: StateKey
+) -> bool:
     for pred in action.pre:
         refs = _collect_field_refs(pred)
         if any(r.entity_cls not in ctx for r in refs):
-            return False  # references something outside the state (e.g. event payload)
+            return False  # entity intentionally absent from this state
         try:
             if not evaluate(pred, ctx):
                 return False
-        except Exception:
+        except Exception as exc:
+            # a model/type error is never "the action is just disabled"
+            exp.report_once(
+                Severity.ERROR,
+                f"action:{action.id}",
+                f"pre evaluation error: {exc} (predicate: {_describe(pred)}) "
+                f"[at: {_trace_str(exp.trace_to(key))}]",
+            )
             return False
 
     touched = {
@@ -308,7 +372,12 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
             continue
         try:
             ok = evaluate(inv.expression, ctx)
-        except Exception:
+        except Exception as exc:
+            exp.report_once(
+                Severity.ERROR,
+                f"invariant:{inv.id}",
+                f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]",
+            )
             continue
         if not ok:
             violated = True
@@ -368,18 +437,63 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     )
 
 
-def _find_state(exp: Exploration, predicate: Predicate) -> StateKey | None:
+@dataclass
+class _Scan:
+    """Strict predicate scan over explored states (research/14 §7.2).
+
+    Distinguishes: matched / applicable-but-false / never applicable /
+    evaluation errors — so a model error can never read as a verdict.
+    """
+
+    first_match: StateKey | None = None
+    applicable: int = 0
+    errors: list = dc_field(default_factory=list)
+
+
+def _scan_states(exp: Exploration, predicate: Predicate) -> _Scan:
+    scan = _Scan()
+    refs = _collect_field_refs(predicate)
     for key in exp.order:
         ctx = exp.states[key]
-        refs = _collect_field_refs(predicate)
         if any(r.entity_cls not in ctx for r in refs):
             continue
+        scan.applicable += 1
         try:
-            if evaluate(predicate, ctx):
-                return key
-        except Exception:
-            continue
-    return None
+            if evaluate(predicate, ctx) and scan.first_match is None:
+                scan.first_match = key
+        except Exception as exc:
+            message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
+            if message not in scan.errors:
+                scan.errors.append(message)
+    return scan
+
+
+def _model_error_result(qid: str, kind: str, exp: Exploration, problems: list[str]) -> QueryResult:
+    return QueryResult(
+        query_id=qid,
+        kind=kind,
+        status="FAIL",
+        states_explored=len(exp.states),
+        findings=[Finding(Severity.ERROR, f"query:{qid}", p) for p in problems],
+    )
+
+
+def _never_applicable_result(qid: str, kind: str, exp: Exploration, text: str) -> QueryResult:
+    return QueryResult(
+        query_id=qid,
+        kind=kind,
+        status="FAIL",
+        states_explored=len(exp.states),
+        findings=[
+            Finding(
+                Severity.ERROR,
+                f"query:{qid}",
+                f"'{text}' was not applicable in any explored state — it references "
+                f"types that are never part of the state (event payloads or missing "
+                f"entities); the verdict would be vacuous",
+            )
+        ],
+    )
 
 
 def _eval_reachable(
@@ -390,7 +504,12 @@ def _eval_reachable(
 ) -> QueryResult:
     kind = type(query).__name__
     text = query.label or _describe(query.predicate)
-    found = _find_state(exp, query.predicate)
+    scan = _scan_states(exp, query.predicate)
+    if scan.errors:
+        return _model_error_result(qid, kind, exp, scan.errors)
+    if scan.applicable == 0:
+        return _never_applicable_result(qid, kind, exp, text)
+    found = scan.first_match
 
     if found is not None:
         trace = exp.trace_to(found)
@@ -443,14 +562,20 @@ def _eval_reachable(
 
 def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     text = query.label or _describe(query.predicate)
+    refs = _collect_field_refs(query.predicate)
+    applicable = 0
+    errors: list[str] = []
     for key in exp.order:
         ctx = exp.states[key]
-        refs = _collect_field_refs(query.predicate)
         if any(r.entity_cls not in ctx for r in refs):
             continue
+        applicable += 1
         try:
             ok = evaluate(query.predicate, ctx)
-        except Exception:
+        except Exception as exc:
+            message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
+            if message not in errors:
+                errors.append(message)
             continue
         if not ok:
             trace = exp.trace_to(key)
@@ -469,6 +594,10 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
                     )
                 ],
             )
+    if errors:
+        return _model_error_result(qid, "AlwaysHolds", exp, errors)
+    if applicable == 0:
+        return _never_applicable_result(qid, "AlwaysHolds", exp, text)
     if exp.capped:
         return _inconclusive(qid, "AlwaysHolds", exp)
     return QueryResult(
@@ -481,18 +610,27 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
     if exp.capped:
         return _inconclusive(qid, "NoDeadEnd", exp)
 
+    refs = _collect_field_refs(query.goal)
+    applicable = 0
+    errors: list[str] = []
     goal_states = set()
     for key in exp.order:
         ctx = exp.states[key]
-        refs = _collect_field_refs(query.goal)
         if any(r.entity_cls not in ctx for r in refs):
             continue
+        applicable += 1
         try:
             if evaluate(query.goal, ctx):
                 goal_states.add(key)
-        except Exception:
-            continue
+        except Exception as exc:
+            message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
+            if message not in errors:
+                errors.append(message)
 
+    if errors:
+        return _model_error_result(qid, "NoDeadEnd", exp, errors)
+    if applicable == 0:
+        return _never_applicable_result(qid, "NoDeadEnd", exp, text)
     if not goal_states:
         return QueryResult(
             query_id=qid,
@@ -540,10 +678,24 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
 
 
 def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spec) -> QueryResult:
-    dead = sorted(a.id for a in spec.actions if a.id not in exp.fired)
+    # Actions excluded from exploration (event-payload preconditions) are not
+    # "dead" — they are outside the engine's state model and reported as such.
+    dead = sorted(a.id for a in spec.actions if a.id not in exp.fired and a.id not in exp.excluded)
+    notes = [
+        Finding(
+            Severity.INFO,
+            f"query:{qid}",
+            f"not assessed (excluded from exploration): {aid} — {reason}",
+        )
+        for aid, reason in sorted(exp.excluded.items())
+    ]
     if not dead:
         return QueryResult(
-            query_id=qid, kind="DeadActions", status="PASS", states_explored=len(exp.states)
+            query_id=qid,
+            kind="DeadActions",
+            status="PASS",
+            states_explored=len(exp.states),
+            findings=notes,
         )
     if exp.capped:
         return _inconclusive(qid, "DeadActions", exp)
@@ -557,7 +709,8 @@ def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spe
                 Severity.ERROR,
                 f"query:{qid}",
                 f"never enabled in any reachable state: {', '.join(dead)}",
-            )
+            ),
+            *notes,
         ],
     )
 

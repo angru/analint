@@ -39,28 +39,33 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
 
     _check_terminal_states(findings, scenario, spec, context)
 
-    # Phase 2: effects — simultaneous facts about the next state
+    # Pre-execution rejection is the only thing Expect.FAIL may legitimise;
+    # anything that breaks after the effects ran is a model defect (research/14 §7.3)
     pre_errors = any(f.severity == Severity.ERROR for f in findings)
+    post_findings: list[Finding] = []
+
+    # Phase 2: effects — simultaneous facts about the next state
     if not pre_errors:
         try:
             post_context = _apply_effects(action.effect, context)
         except Exception as exc:
-            findings.append(
+            post_findings.append(
                 Finding(Severity.ERROR, f"action:{action.id}", f"effect evaluation error: {exc}")
             )
-            pre_errors = True
             post_context = context
     else:
         post_context = context
 
-    if not pre_errors:
+    if not pre_errors and not post_findings:
         # Phase 3: postconditions, invariants, and field constraints (post-state)
-        _check_field_constraints(findings, action, post_context)
+        _check_field_constraints(post_findings, action, post_context)
         for pred in action.post:
-            _check(findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}")
+            _check(
+                post_findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}"
+            )
         for inv in relevant_invariants:
             _check(
-                findings,
+                post_findings,
                 inv.expression,
                 post_context,
                 "INVARIANT (post)",
@@ -74,7 +79,7 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
             if isinstance(assertion, Assert):
                 try:
                     if not evaluate(assertion.predicate, post_context):
-                        findings.append(
+                        post_findings.append(
                             Finding(
                                 Severity.ERROR,
                                 f"scenario:{scenario.id}",
@@ -82,29 +87,37 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
                             )
                         )
                 except Exception as exc:
-                    findings.append(
+                    post_findings.append(
                         Finding(
                             Severity.ERROR,
                             f"scenario:{scenario.id}",
                             f"then evaluation error: {exc}",
                         )
                     )
-            elif (
-                isinstance(assertion, Emitted) and assertion.event_cls.__name__ not in emitted_names
-            ):
-                findings.append(
+            elif isinstance(assertion, Emitted):
+                if assertion.event_cls.__name__ not in emitted_names:
+                    post_findings.append(
+                        Finding(
+                            Severity.ERROR,
+                            f"scenario:{scenario.id}",
+                            f"then: event '{assertion.event_cls.__name__}' not in action.emits",
+                        )
+                    )
+            else:
+                post_findings.append(
                     Finding(
                         Severity.ERROR,
                         f"scenario:{scenario.id}",
-                        f"then: event '{assertion.event_cls.__name__}' not in action.emits",
+                        f"then entry '{assertion!r}' is not Assert(...) or Emitted(...)",
                     )
                 )
 
-    has_errors = any(f.severity == Severity.ERROR for f in findings)
-    passed = not has_errors
+    post_errors = any(f.severity == Severity.ERROR for f in post_findings)
+    findings.extend(post_findings)
 
     if scenario.expected == Expect.FAIL:
-        passed = not passed
+        # passes only when the action was rejected BEFORE its effects ran
+        passed = pre_errors
         if passed:
             findings.append(
                 Finding(
@@ -113,6 +126,13 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
                     "correctly blocked — rules rejected this data as expected",
                 )
             )
+        else:
+            message = "expected the action to be blocked, but every precondition passed"
+            if post_errors:
+                message += " — the post-state failures above are a model defect, not a rejection"
+            findings.append(Finding(Severity.ERROR, f"scenario:{scenario.id}", message))
+    else:
+        passed = not (pre_errors or post_errors)
 
     return ScenarioResult(
         scenario_id=scenario.id,

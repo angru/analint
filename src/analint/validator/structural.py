@@ -8,6 +8,7 @@ from analint.models.actor import Actor
 from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.event import Event
+from analint.models.flow import Assert, Emitted
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -214,6 +215,25 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     warn(loc, f"'{cls.__name__}' referenced by the action but not in given")
                 )
 
+        # then entries: only Assert/Emitted are checks — anything else would
+        # be silently ignored at run time, which is a false-green path
+        for assertion in sc.then:
+            if isinstance(assertion, Assert):
+                findings.extend(
+                    _check_pred_refs(assertion.predicate, spec.entities, spec.events, loc)
+                )
+            elif isinstance(assertion, Emitted):
+                if not (
+                    isinstance(assertion.event_cls, type) and issubclass(assertion.event_cls, Event)
+                ):
+                    findings.append(
+                        err(loc, f"Emitted(...) needs an Event class, got {assertion.event_cls!r}")
+                    )
+            else:
+                findings.append(
+                    err(loc, f"then entry '{assertion!r}' must be Assert(...) or Emitted(...)")
+                )
+
         for lc in spec.lifecycles:
             if lc._entity_cls is None:
                 continue
@@ -309,13 +329,42 @@ def _check_event_template(
     return findings
 
 
+def _check_pred_nodes(pred: Any, loc: str) -> list[Finding]:
+    """Every node of a predicate tree must be a known analint node.
+
+    A foreign object would otherwise reach the evaluator and raise (or, worse,
+    be silently skipped by walkers) — a verifier rejects it up front.
+    """
+    findings: list[Finding] = []
+    if not isinstance(pred, Predicate):
+        return [
+            Finding(
+                Severity.ERROR,
+                loc,
+                f"'{pred!r}' is not a predicate — build conditions from entity "
+                f"field comparisons and And/Or/Not/Implies/In combinators",
+            )
+        ]
+    if isinstance(pred, (_And, _Or)):
+        for e in pred.exprs:
+            findings.extend(_check_pred_nodes(e, loc))
+    elif isinstance(pred, _Not):
+        findings.extend(_check_pred_nodes(pred.expr, loc))
+    elif isinstance(pred, _Implies):
+        findings.extend(_check_pred_nodes(pred.left, loc))
+        findings.extend(_check_pred_nodes(pred.right, loc))
+    return findings
+
+
 def _check_pred_refs(
     pred: Predicate,
     spec_entities: Sequence[type],
     spec_events: Sequence[type],
     loc: str,
 ) -> list[Finding]:
-    findings: list[Finding] = []
+    findings = _check_pred_nodes(pred, loc)
+    if findings:
+        return findings
     known_names = {e.__name__ for e in spec_entities} | {e.__name__ for e in spec_events}
     for ref in _collect_field_refs(pred):
         cls = ref.entity_cls

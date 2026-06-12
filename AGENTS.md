@@ -25,6 +25,7 @@ src/analint/
     event.py                ← Event base class (same metaclass as Entity)
     predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
     invariant.py            ← Invariant dataclass (world-level constraint)
+    initial.py              ← Initial relation over finite field domains
     action.py               ← Action (pre / effect / post / emits / on / requires / by)
     effect.py               ← Set, Subtract, Add effect dataclasses
     lifecycle.py            ← Lifecycle (with terminal states), Transition
@@ -152,6 +153,17 @@ or aggregate and binders over unregistered scopes are structural errors.
 AST nodes, so they compose with field math and may be used in predicates and
 effect right-hand sides. There is no create/delete yet.
 
+### Declarative initial relations
+
+`Initial(vary=[...], where=[...])` expands finite field domains into the
+multi-root BFS input. Domains come from bool/Enum annotations, bounded integer
+`Field(ge=..., le=...)`, lifecycle states, or `Field(values=[...])`.
+`BoundField` in `vary` expands across every instance in its registered Scope;
+`where` uses ordinary predicates and aggregates for correlations such as
+exactly one Mafia. Candidate expansion is rejected above `max_candidates`,
+never truncated, and predicate evaluation errors fail the query. A query may
+use only one of `given`, `given_any`, or `initial`.
+
 ### Auto-populate Spec (engine.py)
 
 `Spec(...)` with empty lists → `_auto_populate` fills them from collected objects. Non-empty list → used as-is. Dedup of instances is **by object identity** (`id(obj)`), never `==` — dataclass equality on predicate fields hits the overloaded operators.
@@ -171,7 +183,7 @@ effect right-hand sides. There is no create/delete yet.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (163)
+uv run pytest                          # run all tests (171)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

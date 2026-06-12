@@ -1,6 +1,7 @@
 from analint.models.action import Action
 from analint.models.effect import Add, Effect, Set, Subtract
 from analint.models.entity import Entity, Field, FieldDescriptor
+from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.lifecycle import Lifecycle, Transition
 from analint.models.predicate import (
@@ -36,6 +37,7 @@ __all__ = [
     "Implies",
     "In",
     "Invariant",
+    "Initial",
     "ForAll",
     "IsNotNull",
     "IsNull",

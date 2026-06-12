@@ -42,6 +42,7 @@ from analint.models.root import Spec
 from analint.models.scope import (
     InstanceField,
     InstanceRef,
+    context_key_label,
     field_context_key,
     instance_context_key,
     is_field_ref,
@@ -338,6 +339,62 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Queries: predicates reference registered entities
     for query in spec.queries:
+        loc = f"query:{query.id}"
+        initial_sources = bool(query.given) + bool(query.given_any) + (query.initial is not None)
+        if initial_sources > 1:
+            findings.append(
+                err(
+                    loc,
+                    "use exactly one of given=, given_any=, or initial=, not both/multiple",
+                )
+            )
+
+        if query.initial is not None:
+            initial_refs: list[FieldDescriptor | InstanceField] = []
+            initial_markers: set[tuple[Any, str]] = set()
+            for item in query.initial.vary:
+                if isinstance(item, BoundField):
+                    if item.variable.scope not in spec.scopes:
+                        findings.append(_unregistered_bound_scope(item.variable, loc))
+                        continue
+                    initial_refs.extend(
+                        getattr(ref, item.field_name) for ref in item.variable.scope
+                    )
+                elif is_field_ref(item):
+                    initial_refs.append(item)
+                else:
+                    findings.append(
+                        err(
+                            loc,
+                            f"Initial vary entry '{item!r}' is not a field "
+                            f"reference or Bound field",
+                        )
+                    )
+            for ref in initial_refs:
+                marker = (field_context_key(ref), ref.field_name)
+                if marker in initial_markers:
+                    findings.append(
+                        err(
+                            loc,
+                            f"Initial varies {context_key_label(marker[0])}.{marker[1]} twice",
+                        )
+                    )
+                initial_markers.add(marker)
+                if ref.entity_cls not in spec.entities:
+                    findings.append(
+                        err(
+                            loc,
+                            f"Initial varies entity '{ref.entity_cls.__name__}' "
+                            f"not in spec.entities",
+                        )
+                    )
+            findings.extend(_check_scoped_refs(initial_refs, scoped_entities, loc))
+            for pred in query.initial.where:
+                findings.extend(
+                    _check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes)
+                )
+                findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
+
         pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
         if pred is not None:
             findings.extend(
@@ -345,13 +402,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     pred,
                     spec.entities,
                     spec.events,
-                    f"query:{query.id}",
+                    loc,
                     spec.scopes,
                 )
             )
-            findings.extend(
-                _check_scoped_refs(_collect_field_refs(pred), scoped_entities, f"query:{query.id}")
-            )
+            findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
 
     # Flows: steps registered; requires order respected
     for flow in spec.flows:

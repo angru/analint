@@ -68,6 +68,27 @@ def test_field_constraints_validate_instances():
         assert "must be >= 0" in str(exc)
 
 
+def test_field_values_validate_instances_and_post_state():
+    from analint.validator.scenario_runner import run_scenario
+
+    class Document(Entity):
+        status: str = Field("draft", values=["draft", "published"])
+
+    assert Document(status="published").status == "published"
+    try:
+        Document(status="deleted")
+        assert False, "should have raised"
+    except ValueError as exc:
+        assert "must be one of" in str(exc)
+
+    delete = Action(id="delete", effect=[Set(Document.status, "deleted")])
+    scenario = Scenario(id="sc", action=delete, given=[Document()])
+    spec = Spec(id="s", name="S", entities=[Document], actions=[delete], scenarios=[scenario])
+    result = run_scenario(scenario, spec)
+    assert not result.passed
+    assert any("field constraint violated" in finding.message for finding in result.findings)
+
+
 def test_field_constraint_checks_post_state():
     from analint.validator.scenario_runner import run_scenario
 

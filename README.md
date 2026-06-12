@@ -124,8 +124,9 @@ Order(total=50.0, customer_id="c1").total   # instance level → 50.0
 
 `Field(default, ge=..., gt=..., le=..., lt=...)` validates constructed
 instances, checks post-action values, and supplies finite numeric bounds to the
-reachability engine. With `saturate=True`, values clamp at the declared
-`ge`/`le` thresholds instead of making the transition invalid.
+reachability engine. `Field(default, values=[...])` declares an explicit
+finite scalar domain. With `saturate=True`, numeric values clamp at the
+declared `ge`/`le` thresholds instead of making the transition invalid.
 
 ### Predicates
 
@@ -427,13 +428,33 @@ QUERIES
 
 The softlock above is invisible to every scenario in the spec — nobody writes a test for a situation they didn't think of. The explorer finds it in milliseconds with the shortest trace.
 
-- The **initial state** is built from entity field defaults; `given=[...]` supplies or overrides instances. `given_any=[[...], [...]]` declares a finite **set** of admissible initial states — the verdict then quantifies over every one of them, and traces name the originating configuration (`init #2 ⊢ …`).
+- The **initial state** is built from entity field defaults; `given=[...]`
+  supplies or overrides instances. `given_any=[[...], [...]]` declares an
+  explicit finite set of roots.
+- `initial=Initial(vary=[...], where=[...])` declares an initial relation.
+  `vary` fields range over `bool`, `Enum`, bounded integer `Field`, or
+  `Field(values=[...])` domains; ordinary predicates filter the Cartesian
+  product. `BoundField` varies a field across an entire `Scope`.
+- Queries quantify over every admissible root, and traces name the originating
+  configuration (`init #2 ⊢ …`).
 - Numeric `Field(ge=..., le=...)` constraints keep the state space finite.
   Driving a field out of range is an error with a trace; `saturate=True`
   clamps instead, for counters where only thresholds matter.
 - If the state space exceeds `max_states` (default 10 000), the query reports **INCONCLUSIVE** instead of pretending.
 - During exploration the engine also reports **violated invariants** and **undeclared lifecycle transitions** (an effect performing `A → C` when the lifecycle only allows `A → B`).
 - An ad-hoc query without editing the spec: put it in a file and run `analint check . --what-if query.py`.
+
+```python
+from analint import Bound, Count, Initial
+
+player = Bound("player", players)
+role_assignments = Initial(
+    vary=[player.role],
+    where=[Count(player, player.role == Role.MAFIA) == 1],
+)
+
+mafia_can_win = Reachable(Game.winner == Role.MAFIA, initial=role_assignments)
+```
 
 ### Spec
 

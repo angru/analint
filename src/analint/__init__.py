@@ -4,6 +4,7 @@ from analint.models.effect import Add, Effect, Set, Subtract
 from analint.models.entity import Entity, Field
 from analint.models.event import Event
 from analint.models.flow import Assert, Emitted, Flow
+from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.lifecycle import Lifecycle, Transition
 from analint.models.param import Param
@@ -42,6 +43,7 @@ __all__ = [
     # constraints
     "Predicate",
     "Invariant",
+    "Initial",
     "Bound",
     "ForAll",
     "Exists",

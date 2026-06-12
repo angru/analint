@@ -699,8 +699,9 @@ Rust или HTTP/BPMN adapters.
 2. ✅ parameterized actions;
 3. ✅ bounded multiplicity (`Scope` + stable instance refs);
 4. ✅ `ForAll/Exists/Count/Sum/Min/Max` над bounded scope;
-5. create/delete в bounded universe;
-6. composition of specs / explicit contracts.
+5. ✅ declarative initial relation (`Initial(vary, where)`);
+6. create/delete в bounded universe;
+7. composition of specs / explicit contracts.
 
 Перевод Coin на один `Account` scope сохранил прежние 216 достижимых
 состояний; это первый baseline state explosion. Следующий эксперимент должен

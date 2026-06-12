@@ -5,13 +5,17 @@ from analint import (
     Action,
     Add,
     AlwaysHolds,
+    Bound,
+    Count,
     DeadActions,
     Entity,
     Field,
+    Initial,
     Invariant,
     Lifecycle,
     NoDeadEnd,
     Reachable,
+    Scope,
     Set,
     Spec,
     Subtract,
@@ -20,6 +24,7 @@ from analint import (
 )
 from analint.validator.engine import validate
 from analint.validator.explorer import build_initial, run_query
+from analint.validator.structural import validate_structural
 
 TROLLBRIDGE = Path(__file__).parent.parent / "examples" / "trollbridge"
 CLOAK = Path(__file__).parent.parent / "examples" / "cloak"
@@ -363,6 +368,177 @@ def test_duplicate_roots_merge():
     )
     assert result.status == "PASS"
     assert result.states_explored == 1
+
+
+def test_declarative_initial_relation_varies_finite_fields():
+    class Door(Entity):
+        locked: bool = True
+        open: bool = False
+
+    push = Action(
+        id="push",
+        pre=[Door.locked == False, Door.open == False],  # noqa: E712
+        effect=[Set(Door.open, True)],
+    )
+    initials = Initial(vary=[Door.locked])
+    spec = Spec(id="s", name="S", entities=[Door], actions=[push])
+
+    result = run_query(
+        Reachable(Door.open == True, id="q", initial=initials),  # noqa: E712
+        spec,
+        cache={},
+    )
+    assert result.status == "PASS"
+    assert result.states_explored == 3
+    assert any("init #1" in finding.message for finding in result.findings)
+
+
+def test_initial_relation_filters_scoped_domains_with_aggregates():
+    class Role(Enum):
+        MAFIA = "mafia"
+        CITIZEN = "citizen"
+
+    class Player(Entity):
+        role: Role = Role.CITIZEN
+
+    players = Scope(Player, keys=["a", "b", "c"], id="players")
+    player = Bound("player", players)
+    exactly_one_mafia = Count(player, player.role == Role.MAFIA) == 1
+    initials = Initial(vary=[player.role], where=[exactly_one_mafia])
+    spec = Spec(id="s", name="S", entities=[Player], scopes=[players])
+
+    result = run_query(
+        AlwaysHolds(exactly_one_mafia, id="q", initial=initials),
+        spec,
+        cache={},
+    )
+    assert result.status == "PASS"
+    assert result.states_explored == 3
+
+
+def test_initial_relation_uses_explicit_field_values():
+    class Mode(Entity):
+        name: str = Field("draft", values=["draft", "published"])
+
+    spec = Spec(id="s", name="S", entities=[Mode])
+    result = run_query(
+        Reachable(
+            Mode.name == "published",
+            id="q",
+            initial=Initial(vary=[Mode.name]),
+        ),
+        spec,
+        cache={},
+    )
+    assert result.status == "PASS"
+    assert result.states_explored == 2
+
+
+def test_initial_relation_infers_domain_from_required_given_value():
+    class Switch(Entity):
+        enabled: bool
+
+    spec = Spec(id="s", name="S", entities=[Switch])
+    result = run_query(
+        Reachable(
+            Switch.enabled == False,  # noqa: E712
+            id="q",
+            initial=Initial(
+                vary=[Switch.enabled],
+                given=[Switch(enabled=True)],
+            ),
+        ),
+        spec,
+        cache={},
+    )
+    assert result.status == "PASS"
+    assert result.states_explored == 2
+
+
+def test_initial_relation_rejects_unbounded_and_oversized_domains():
+    class FreeText(Entity):
+        value: str = "anything"
+
+    spec = Spec(id="s", name="S", entities=[FreeText])
+    unbounded = run_query(
+        Reachable(
+            FreeText.value == "x",
+            id="unbounded",
+            initial=Initial(vary=[FreeText.value]),
+        ),
+        spec,
+        cache={},
+    )
+    assert unbounded.status == "FAIL"
+    assert "cannot infer a finite domain" in unbounded.findings[0].message
+
+    class Number(Entity):
+        value: int = Field(0, ge=0, le=10)
+
+    limited = run_query(
+        Reachable(
+            Number.value == 5,
+            id="limited",
+            initial=Initial(vary=[Number.value], max_candidates=5),
+        ),
+        Spec(id="numbers", name="Numbers", entities=[Number]),
+        cache={},
+    )
+    assert limited.status == "FAIL"
+    assert "11 candidates" in limited.findings[0].message
+
+
+def test_initial_relation_rejects_empty_and_broken_relations():
+    class Value(Entity):
+        item: object = Field(1, values=[1, "broken"])
+
+    spec = Spec(id="s", name="S", entities=[Value])
+    empty = run_query(
+        Reachable(
+            Value.item == 1,
+            id="empty",
+            initial=Initial(vary=[Value.item], where=[Value.item != Value.item]),
+        ),
+        spec,
+        cache={},
+    )
+    assert empty.status == "FAIL"
+    assert "matches no states" in empty.findings[0].message
+
+    broken = run_query(
+        Reachable(
+            Value.item == 1,
+            id="broken",
+            initial=Initial(vary=[Value.item], where=[Value.item > 0]),
+        ),
+        spec,
+        cache={},
+    )
+    assert broken.status == "FAIL"
+    assert "where evaluation error" in broken.findings[0].message
+
+
+def test_initial_relation_is_structurally_validated():
+    class Player(Entity):
+        alive: bool = True
+
+    registered = Scope(Player, keys=["a"], id="registered")
+    other = Scope(Player, keys=["b"], id="other")
+    outsider = Bound("outsider", other)
+    query = AlwaysHolds(
+        Player.alive == True,  # noqa: E712
+        id="q",
+        initial=Initial(vary=[outsider.alive]),
+    )
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Player],
+        scopes=[registered],
+        queries=[query],
+    )
+    findings = validate_structural(spec)
+    assert any("not registered in spec.scopes" in finding.message for finding in findings)
 
 
 def test_mafia_theorem_quantifies_over_role_assignments():

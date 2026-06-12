@@ -16,13 +16,17 @@ import copy
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from enum import Enum
+from itertools import product
+from math import prod
 from typing import Any
 
 from analint.models.action import Action
 from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import all_fields
+from analint.models.entity import FieldDescriptor, all_fields
+from analint.models.initial import Initial
 from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import Predicate
+from analint.models.quantifier import BoundField
 from analint.models.query import (
     AlwaysHolds,
     DeadActions,
@@ -32,6 +36,7 @@ from analint.models.query import (
 )
 from analint.models.root import Spec
 from analint.models.scope import (
+    InstanceField,
     InstanceRef,
     context_key_label,
     field_context_key,
@@ -203,6 +208,144 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
                     f"the engine supports scalar, enum, str and bool fields only"
                 )
     return ctx, None
+
+
+def build_initial_relation(
+    spec: Spec,
+    initial: Initial,
+) -> tuple[list[dict] | None, str | None]:
+    """Expand a declarative initial relation into finite BFS roots."""
+    base, error = build_initial(spec, initial.given)
+    if base is None:
+        return None, error
+
+    fields: list[FieldDescriptor | InstanceField] = []
+    seen: set[tuple[Any, str]] = set()
+    registered_scopes = set(spec.scopes)
+    for item in initial.vary:
+        if isinstance(item, BoundField):
+            if item.variable.scope not in registered_scopes:
+                return None, (
+                    f"Bound '{item.variable.name}' uses Scope "
+                    f"'{item.variable.scope.id or item.variable.scope.entity_cls.__name__}' "
+                    f"not registered in spec.scopes"
+                )
+            expanded = [getattr(ref, item.field_name) for ref in item.variable.scope]
+        elif is_field_ref(item):
+            expanded = [item]
+        else:
+            return None, (f"Initial vary entry {item!r} is not a field reference or Bound field")
+        for ref in expanded:
+            marker = (field_context_key(ref), ref.field_name)
+            if marker in seen:
+                return None, f"Initial varies {context_key_label(marker[0])}.{marker[1]} twice"
+            seen.add(marker)
+            fields.append(ref)
+
+    domains: list[list[Any]] = []
+    for ref in fields:
+        current = base.get(field_context_key(ref))
+        current_value = getattr(current, ref.field_name, None) if current is not None else None
+        domain, domain_error = _initial_field_domain(ref, current_value)
+        if domain is None:
+            return None, domain_error
+        domains.append(domain)
+
+    candidate_count = prod(len(domain) for domain in domains)
+    if candidate_count > initial.max_candidates:
+        return None, (
+            f"Initial relation has {candidate_count} candidates, exceeding "
+            f"max_candidates={initial.max_candidates} — narrow vary/domains or raise the limit"
+        )
+
+    roots: list[dict] = []
+    root_keys: set[StateKey] = set()
+    for values in product(*domains):
+        ctx = {key: copy.copy(instance) for key, instance in base.items()}
+        for ref, value in zip(fields, values, strict=True):
+            key = field_context_key(ref)
+            instance = ctx.get(key)
+            if instance is None:
+                return None, (
+                    f"Initial varies {context_key_label(key)}.{ref.field_name}, "
+                    f"but that entity is absent from the initial state"
+                )
+            setattr(instance, ref.field_name, value)
+
+        results: list[bool] = []
+        for predicate in initial.where:
+            refs = _collect_field_refs(predicate)
+            missing = [field_context_key(ref) for ref in refs if field_context_key(ref) not in ctx]
+            if missing:
+                labels = ", ".join(sorted({context_key_label(key) for key in missing}))
+                return None, f"Initial where predicate references missing entities: {labels}"
+            try:
+                results.append(evaluate(predicate, ctx))
+            except Exception as exc:
+                return None, (
+                    f"Initial where evaluation error: {exc} (predicate: {_describe(predicate)})"
+                )
+        if not all(results):
+            continue
+        key = state_key(ctx)
+        if key in root_keys:
+            continue
+        root_keys.add(key)
+        roots.append(ctx)
+
+    if not roots:
+        return None, "Initial relation matches no states"
+    return roots, None
+
+
+def _initial_field_domain(
+    ref: FieldDescriptor | InstanceField,
+    current_value: Any,
+) -> tuple[list[Any] | None, str | None]:
+    descriptor = ref.descriptor if isinstance(ref, InstanceField) else ref
+    spec = descriptor.spec
+    if spec is not None and spec.values is not None:
+        return list(spec.values), None
+
+    default = descriptor.default
+    annotation = _field_annotation(descriptor.entity_cls, descriptor.field_name)
+    if annotation is bool or isinstance(default, bool) or isinstance(current_value, bool):
+        return [False, True], None
+    enum_cls = annotation if isinstance(annotation, type) and issubclass(annotation, Enum) else None
+    if enum_cls is None and isinstance(default, Enum):
+        enum_cls = type(default)
+    if enum_cls is None and isinstance(current_value, Enum):
+        enum_cls = type(current_value)
+    if enum_cls is not None:
+        return list(enum_cls), None
+
+    if descriptor.lifecycle is not None:
+        return sorted(descriptor.lifecycle.reachable_states(), key=repr), None
+
+    if spec is not None:
+        lower = spec.ge
+        upper = spec.le
+        if lower is None and isinstance(spec.gt, int):
+            lower = spec.gt + 1
+        if upper is None and isinstance(spec.lt, int):
+            upper = spec.lt - 1
+        if isinstance(lower, int) and isinstance(upper, int):
+            return list(range(lower, upper + 1)), None
+
+    return None, (
+        f"Initial cannot infer a finite domain for "
+        f"{context_key_label(field_context_key(ref))}.{ref.field_name} — "
+        f"use bool/Enum, bounded integer Field(ge=..., le=...), "
+        f"or Field(values=[...])"
+    )
+
+
+def _field_annotation(entity_cls: type, field_name: str) -> Any:
+    for cls in entity_cls.__mro__:
+        annotation = getattr(cls, "__annotations__", {}).get(field_name)
+        if annotation is not None:
+            return annotation
+    return None
 
 
 # ── Exploration ────────────────────────────────────────────────────────────────
@@ -461,7 +604,8 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
-    if query.given and query.given_any:
+    initial_sources = bool(query.given) + bool(query.given_any) + (query.initial is not None)
+    if initial_sources > 1:
         return QueryResult(
             query_id=qid,
             kind=kind,
@@ -470,16 +614,15 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
                 Finding(
                     Severity.ERROR,
                     f"query:{qid}",
-                    "use either given= (one initial state) or given_any= "
-                    "(a set of admissible initial states), not both",
+                    "use exactly one of given=, given_any=, or initial=, not both/multiple",
                 )
             ],
         )
 
-    initials: list[dict] = []
-    for given in query.given_any or [query.given]:
-        initial, error = build_initial(spec, given)
-        if initial is None:
+    initials: list[dict]
+    if query.initial is not None:
+        built, error = build_initial_relation(spec, query.initial)
+        if built is None:
             return QueryResult(
                 query_id=qid,
                 kind=kind,
@@ -492,9 +635,28 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
                     )
                 ],
             )
-        initials.append(initial)
+        initials = built
+    else:
+        initials = []
+        for given in query.given_any or [query.given]:
+            initial, error = build_initial(spec, given)
+            if initial is None:
+                return QueryResult(
+                    query_id=qid,
+                    kind=kind,
+                    status="FAIL",
+                    findings=[
+                        Finding(
+                            Severity.ERROR,
+                            f"query:{qid}",
+                            error or "could not build the initial state",
+                        )
+                    ],
+                )
+            initials.append(initial)
 
-    cache_key = (tuple(sorted(state_key(ctx) for ctx in initials)), query.max_states)
+    root_keys = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
+    cache_key = (root_keys, query.max_states)
     if cache_key not in cache:
         cache[cache_key] = explore(spec, initials, query.max_states)
     exp = cache[cache_key]

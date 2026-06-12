@@ -20,16 +20,21 @@ class FieldSpec:
     gt: Any = None
     le: Any = None
     lt: Any = None
+    values: tuple[Any, ...] | None = None
     saturate: bool = False  # engine: clamp into [ge, le] instead of failing
     description: str = ""
 
     def has_constraints(self) -> bool:
-        return any(v is not None for v in (self.ge, self.gt, self.le, self.lt))
+        return self.values is not None or any(
+            v is not None for v in (self.ge, self.gt, self.le, self.lt)
+        )
 
     def violation(self, value: Any) -> str | None:
         """Return a human-readable violation, or None when the value fits."""
         if value is None:
             return None
+        if self.values is not None and value not in self.values:
+            return f"must be one of {list(self.values)!r}, got {value!r}"
         if self.ge is not None and not value >= self.ge:
             return f"must be >= {self.ge}, got {value!r}"
         if self.gt is not None and not value > self.gt:
@@ -55,6 +60,7 @@ def Field(
     gt: Any = None,
     le: Any = None,
     lt: Any = None,
+    values: list[Any] | tuple[Any, ...] | None = None,
     saturate: bool = False,
     description: str = "",
 ) -> Any:
@@ -67,12 +73,29 @@ def Field(
     of every scenario, and the bounds of the reachability engine
     (`saturate=True` clamps instead of failing — for threshold counters).
     """
+    if values is not None:
+        if not values:
+            raise TypeError("Field values= needs at least one value")
+        for value in values:
+            try:
+                hash(value)
+            except TypeError as exc:
+                raise TypeError(f"Field value {value!r} is not hashable") from exc
+        if len(set(values)) != len(values):
+            raise TypeError("Field values= must be unique")
     if saturate and (ge is None or le is None):
         raise TypeError("saturate=True requires both ge= and le=")
     if ge is not None and le is not None and ge > le:
         raise TypeError(f"Field ge={ge!r} is greater than le={le!r}")
     return FieldSpec(
-        default=default, ge=ge, gt=gt, le=le, lt=lt, saturate=saturate, description=description
+        default=default,
+        ge=ge,
+        gt=gt,
+        le=le,
+        lt=lt,
+        values=tuple(values) if values is not None else None,
+        saturate=saturate,
+        description=description,
     )
 
 

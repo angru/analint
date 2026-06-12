@@ -58,7 +58,7 @@ def _fields_of(cls: type) -> list[dict]:
         if desc.default is not _MISSING:
             entry["default"] = _value_str(desc.default)
         if desc.spec is not None:
-            entry["constraints"] = {
+            constraints: dict[str, Any] = {
                 key: _value_str(value)
                 for key, value in {
                     "ge": desc.spec.ge,
@@ -68,6 +68,9 @@ def _fields_of(cls: type) -> list[dict]:
                 }.items()
                 if value is not None
             }
+            if desc.spec.values is not None:
+                constraints["values"] = [_value_str(value) for value in desc.spec.values]
+            entry["constraints"] = constraints
             if desc.spec.saturate:
                 entry["saturate"] = True
         if desc.lifecycle is not None:

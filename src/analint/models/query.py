@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from analint.models.initial import Initial
 from analint.models.predicate import Predicate
 
 
@@ -14,6 +15,8 @@ class Reachable:
     or supplies instances (required for entities without full defaults).
     `given_any=[[...], [...]]` declares a finite SET of admissible initial
     states — the verdict then quantifies over every one of them (research/16).
+    `initial=Initial(...)` generates that set from finite field domains and
+    shared predicate constraints.
     Passing produces a witness trace — the sequence of actions leading there.
     """
 
@@ -23,6 +26,7 @@ class Reachable:
     id: str = ""
     label: str = ""
     max_states: int = 10_000
+    initial: Initial | None = None
 
 
 @dataclass
@@ -39,6 +43,7 @@ class Unreachable:
     id: str = ""
     label: str = ""
     max_states: int = 10_000
+    initial: Initial | None = None
 
 
 @dataclass
@@ -52,6 +57,7 @@ class AlwaysHolds:
     id: str = ""
     label: str = ""
     max_states: int = 10_000
+    initial: Initial | None = None
 
 
 @dataclass
@@ -68,6 +74,7 @@ class NoDeadEnd:
     id: str = ""
     label: str = ""
     max_states: int = 10_000
+    initial: Initial | None = None
 
 
 @dataclass
@@ -79,6 +86,7 @@ class DeadActions:
     id: str = ""
     label: str = ""
     max_states: int = 10_000
+    initial: Initial | None = None
 
 
 QUERY_TYPES = (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)

@@ -154,6 +154,11 @@ snapshot-режима).
   по итогам перевода Quint, research/15)
 - ✅ Арифметический AST (`Wallet.balance - Order.total >= 0`, именованные
   выражения, канон эффекта `Set(field, expr)`)
+- Конечное множество допустимых начальных состояний + multi-source BFS
+  (research/16): существующий переходный недетерминизм (`Param`, несколько
+  enabled actions) не покрывает назначения ролей и другие конфигурации.
+  `AlwaysHolds`/`Unreachable` должны квантифицироваться по всем roots;
+  начать с явных сериализуемых snapshots, затем добавить initial relation
 - Множественность экземпляров + `ForAll/Exists/Count` в bounded scope
   (путь Alloy; research/01, 06) — `Param` уже готовая ступень: домен из
   классов станет доменом из экземпляров

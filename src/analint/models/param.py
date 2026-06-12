@@ -49,6 +49,7 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
+from analint.models.scope import InstanceRef, Scope
 
 if TYPE_CHECKING:
     from analint.models.action import Action
@@ -91,7 +92,9 @@ class Param:
 
         expanded: list[Any] = []
         for entry in domain:
-            if entry is bool:
+            if isinstance(entry, Scope):
+                expanded.extend(entry)
+            elif entry is bool:
                 expanded.extend([False, True])
             elif entry in (int, float, str):
                 raise TypeError(
@@ -189,10 +192,13 @@ def _resolve(operand: Any, binding: Binding) -> Any:
     """Substitute a binding into an operand; non-param operands pass through."""
     if isinstance(operand, ParamField):
         bound = binding[operand.param.name]
+        if isinstance(bound, InstanceRef):
+            return getattr(bound, operand.field_name)
         if not isinstance(bound, type):
             raise TypeError(
                 f"param '{operand.param.name}' is bound to {bound!r}, but "
-                f"'{operand.param.name}.{operand.field_name}' needs an entity class"
+                f"'{operand.param.name}.{operand.field_name}' needs an entity class "
+                f"or InstanceRef"
             )
         descriptor = getattr(bound, operand.field_name, None)
         if not isinstance(descriptor, FieldDescriptor):
@@ -251,6 +257,8 @@ def _subst_emit(emitted: Any, binding: Binding) -> Any:
 
 
 def _label(value: Any) -> str:
+    if isinstance(value, InstanceRef):
+        return repr(value)
     if isinstance(value, type):
         return value.__name__
     return repr(value)

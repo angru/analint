@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from analint.models.entity import FieldDescriptor
+    from analint.models.scope import FieldRef
 
-    Amount = FieldDescriptor | int | float
+    Amount = FieldRef | int | float
 
 
 class Effect:
@@ -21,7 +21,7 @@ class Set(Effect):
     resolved against the *pre*-state, like every effect right-hand side.
     """
 
-    field: FieldDescriptor
+    field: FieldRef
     value: Any
 
 
@@ -29,7 +29,7 @@ class Set(Effect):
 class Subtract(Effect):
     """Fact: after the action, the field holds (old value − amount)."""
 
-    field: FieldDescriptor
+    field: FieldRef
     amount: Amount
 
 
@@ -37,5 +37,5 @@ class Subtract(Effect):
 class Add(Effect):
     """Fact: after the action, the field holds (old value + amount)."""
 
-    field: FieldDescriptor
+    field: FieldRef
     amount: Amount

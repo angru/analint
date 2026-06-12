@@ -26,6 +26,7 @@ from analint.models.query import (
 )
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
+from analint.models.scope import InstanceRef, Scope
 
 __version__ = "1.0.1"
 
@@ -33,6 +34,8 @@ __all__ = [
     # state
     "Entity",
     "Field",
+    "Scope",
+    "InstanceRef",
     "Actor",
     "Event",
     # constraints

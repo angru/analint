@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from analint.models.entity import FieldDescriptor
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.predicate import (
     Predicate,
@@ -20,8 +19,9 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
+from analint.models.scope import field_context_key, is_field_ref
 
-Context = dict[type, Any]
+Context = dict[Any, Any]
 
 
 class UnsupportedPredicateError(TypeError):
@@ -32,10 +32,10 @@ class UnsupportedPredicateError(TypeError):
 
 
 def resolve(operand: Any, context: Context) -> Any:
-    if isinstance(operand, FieldDescriptor):
-        entity = context.get(operand.entity_cls)
+    if is_field_ref(operand):
+        entity = context.get(field_context_key(operand))
         if entity is None:
-            raise KeyError(f"Entity '{operand.entity_cls.__name__}' not in scenario given")
+            raise KeyError(f"Entity '{field_context_key(operand)!r}' not in scenario given")
         return getattr(entity, operand.field_name)
     if isinstance(operand, _AddExpr):
         return resolve(operand.left, context) + resolve(operand.right, context)

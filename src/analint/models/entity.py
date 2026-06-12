@@ -254,4 +254,6 @@ class Entity(metaclass=EntityMeta):
 
     def __repr__(self) -> str:
         parts = ", ".join(f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))
-        return f"{type(self).__name__}({parts})"
+        ref = self.__dict__.get("_analint_instance_ref")
+        prefix = repr(ref) if ref is not None else type(self).__name__
+        return f"{prefix}({parts})"

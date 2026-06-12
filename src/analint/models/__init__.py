@@ -15,6 +15,7 @@ from analint.models.predicate import (
 )
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
+from analint.models.scope import InstanceField, InstanceRef, Scope
 
 __all__ = [
     "Action",
@@ -25,6 +26,8 @@ __all__ = [
     "Expect",
     "Field",
     "FieldDescriptor",
+    "InstanceField",
+    "InstanceRef",
     "Implies",
     "In",
     "Invariant",
@@ -35,6 +38,7 @@ __all__ = [
     "Or",
     "Predicate",
     "Scenario",
+    "Scope",
     "Set",
     "Spec",
     "Subtract",

@@ -19,6 +19,7 @@ from analint.models.query import (
     Unreachable,
 )
 from analint.models.scenario import Scenario
+from analint.models.scope import Scope
 
 Query = Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
 
@@ -35,6 +36,7 @@ class Spec(BaseModel):
     description: str = ""
 
     entities: list[type[Entity]] = Field(default_factory=list)
+    scopes: list[Scope] = Field(default_factory=list)
     actors: list[type[Actor]] = Field(default_factory=list)
     events: list[type[Event]] = Field(default_factory=list)
     invariants: list[Invariant] = Field(default_factory=list)

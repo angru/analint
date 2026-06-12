@@ -1,10 +1,11 @@
 # analint — Roadmap
 
-Текущее состояние: **v1.0** — универсальный DSL + агентская поверхность +
+Текущее состояние: **v1.0.1 + v1.2 expressiveness** — универсальный DSL +
+агентская поверхность +
 reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
-Field-границы, трассы-контрпримеры). 96 тестов, пять примеров (ecommerce,
-taskboard, cloak, trollbridge, fulfillment). Фазы v0.9, v0.10 и v1.0 ниже
-выполнены.
+Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root и
+первая ступень bounded multiplicity. 146 тестов. Фазы v0.9, v0.10 и v1.0
+ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
 
 Этот роадмап выведен из исследования в `research/` (файлы 00–14). Краткая
@@ -156,14 +157,12 @@ snapshot-режима).
   выражения, канон эффекта `Set(field, expr)`)
 - ✅ Конечные множества начальных состояний (`given_any` + multi-root BFS,
   research/16; прототип — мафия с квантификацией по расстановкам ролей)
-- Конечное множество допустимых начальных состояний + multi-source BFS
-  (research/16): существующий переходный недетерминизм (`Param`, несколько
-  enabled actions) не покрывает назначения ролей и другие конфигурации.
-  `AlwaysHolds`/`Unreachable` должны квантифицироваться по всем roots;
-  начать с явных сериализуемых snapshots, затем добавить initial relation
-- Множественность экземпляров + `ForAll/Exists/Count` в bounded scope
-  (путь Alloy; research/01, 06) — `Param` уже готовая ступень: домен из
-  классов станет доменом из экземпляров
+- ✅ Bounded multiplicity, ступень 1: `Scope(Entity, keys=[...])`, стабильные
+  `InstanceRef`, адресуемые поля экземпляров, `Param` по экземплярам,
+  scenario runner и explorer над несколькими объектами одного типа
+- `ForAll/Exists/Count` над bounded scope; затем declarative initial relation
+  и create/delete внутри фиксированного universe (путь Alloy; research/01, 06,
+  14, 16)
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)

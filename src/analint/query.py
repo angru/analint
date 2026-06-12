@@ -11,9 +11,10 @@ from typing import Any
 
 from analint.models.action import Action
 from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import _MISSING, FieldDescriptor
+from analint.models.entity import _MISSING
 from analint.models.event import Event
 from analint.models.root import Spec
+from analint.models.scope import is_field_ref
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
 
 # ── Rendering helpers ──────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ def _emit_str(emitted: type[Event] | Event) -> str:
 
 
 def _bind_str(value: Any) -> str:
-    return _describe_operand(value) if isinstance(value, FieldDescriptor) else repr(value)
+    return _describe_operand(value) if is_field_ref(value) else repr(value)
 
 
 def _fields_of(cls: type) -> list[dict]:
@@ -81,8 +82,8 @@ def _value_str(value: Any) -> str:
     return repr(value)
 
 
-def _action_refs(action: Action) -> list[FieldDescriptor]:
-    refs: list[FieldDescriptor] = []
+def _action_refs(action: Action) -> list:
+    refs: list = []
     for pred in list(action.pre) + list(action.post):
         refs.extend(_collect_field_refs(pred))
     return refs
@@ -90,9 +91,7 @@ def _action_refs(action: Action) -> list[FieldDescriptor]:
 
 def _action_writes(action: Action) -> list[Set | Subtract | Add]:
     return [
-        e
-        for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)
+        e for e in action.effect if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
     ]
 
 
@@ -112,6 +111,14 @@ def spec_overview(spec: Spec) -> dict:
             "description": spec.description,
         },
         "entities": [e.__name__ for e in spec.entities],
+        "scopes": [
+            {
+                "id": scope.id,
+                "entity": scope.entity_cls.__name__,
+                "instances": [repr(ref) for ref in scope],
+            }
+            for scope in spec.scopes
+        ],
         "actors": [a.__name__ for a in spec.actors],
         "events": [e.__name__ for e in spec.events],
         "invariants": [i.id for i in spec.invariants],
@@ -161,6 +168,11 @@ def _describe_entity(spec: Spec, name: str) -> dict:
         "kind": "entity",
         "name": name,
         "fields": _fields_of(cls),
+        "scopes": [
+            {"id": scope.id, "instances": [repr(ref) for ref in scope]}
+            for scope in spec.scopes
+            if scope.entity_cls is cls
+        ],
         "lifecycles": [lc.id for lc in spec.lifecycles if lc.entity_cls is cls],
         "read_by": read_by,
         "written_by": written_by,
@@ -312,7 +324,7 @@ def affects(spec: Spec, target: str) -> dict:
 
 
 def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
-    def _matches(ref: FieldDescriptor) -> bool:
+    def _matches(ref: Any) -> bool:
         return ref.entity_cls.__name__ == entity_name and ref.field_name == field_name
 
     written_by = []
@@ -325,11 +337,7 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
     invariants = [
         i.id for i in spec.invariants if any(_matches(r) for r in _collect_field_refs(i.expression))
     ]
-    lifecycles = [
-        lc.id
-        for lc in spec.lifecycles
-        if isinstance(lc.field, FieldDescriptor) and _matches(lc.field)
-    ]
+    lifecycles = [lc.id for lc in spec.lifecycles if _matches(lc.field)]
 
     event_bindings = []
     for a in spec.actions:
@@ -337,7 +345,7 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
             if isinstance(emitted, type):
                 continue
             for f, v in emitted.__dict__.items():
-                if isinstance(v, FieldDescriptor) and _matches(v):
+                if is_field_ref(v) and _matches(v):
                     event_bindings.append(
                         {"action": a.id, "event": type(emitted).__name__, "payload_field": f}
                     )

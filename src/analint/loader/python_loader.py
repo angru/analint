@@ -167,6 +167,7 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     from analint.models.lifecycle import Lifecycle
     from analint.models.query import QUERY_TYPES
     from analint.models.scenario import Scenario
+    from analint.models.scope import Scope
 
     _BASE_CLASSES = {Entity, Actor, Event}
 
@@ -184,8 +185,9 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     lifecycles: list = []
     flows: list = []
     queries: list = []
+    scopes: list = []
 
-    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow, *QUERY_TYPES)
+    _INSTANCE_TYPES = (Invariant, Action, Scenario, Lifecycle, Flow, Scope, *QUERY_TYPES)
 
     for module in modules:
         for var_name, obj in inspect.getmembers(module):
@@ -217,6 +219,8 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
                     flows.append(obj)
                 elif isinstance(obj, QUERY_TYPES):
                     queries.append(obj)
+                elif isinstance(obj, Scope):
+                    scopes.append(obj)
 
     # Lifecycles declared inline as field defaults live on the entity classes
     seen_lc = {id(lc) for lc in lifecycles}
@@ -237,4 +241,5 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
         "lifecycles": lifecycles,
         "flows": flows,
         "queries": queries,
+        "scopes": scopes,
     }

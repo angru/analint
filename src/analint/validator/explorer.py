@@ -20,7 +20,7 @@ from typing import Any
 
 from analint.models.action import Action
 from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import FieldDescriptor, all_fields
+from analint.models.entity import all_fields
 from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import Predicate
 from analint.models.query import (
@@ -31,6 +31,13 @@ from analint.models.query import (
     Unreachable,
 )
 from analint.models.root import Spec
+from analint.models.scope import (
+    InstanceRef,
+    context_key_label,
+    field_context_key,
+    instance_context_key,
+    is_field_ref,
+)
 from analint.reporter.base import Finding, QueryResult, Severity
 from analint.validator.rule_checker import evaluate
 from analint.validator.scenario_runner import _apply_effects
@@ -94,19 +101,20 @@ class Exploration:
 
 def state_key(ctx: dict) -> tuple:
     items = []
-    for cls in sorted(ctx, key=lambda c: c.__name__):
-        inst = ctx[cls]
+    for key in sorted(ctx, key=context_key_label):
+        inst = ctx[key]
+        cls = type(inst)
         for f in sorted(all_fields(cls)):
-            items.append((cls.__name__, f, inst.__dict__.get(f)))
+            items.append((context_key_label(key), f, inst.__dict__.get(f)))
     return tuple(items)
 
 
 def render_state(ctx: dict) -> dict:
     out = {}
-    for cls in sorted(ctx, key=lambda c: c.__name__):
-        inst = ctx[cls]
-        for f in sorted(all_fields(cls)):
-            out[f"{cls.__name__}.{f}"] = _value_str(inst.__dict__.get(f))
+    for key in sorted(ctx, key=context_key_label):
+        inst = ctx[key]
+        for f in sorted(all_fields(type(inst))):
+            out[f"{context_key_label(key)}.{f}"] = _value_str(inst.__dict__.get(f))
     return out
 
 
@@ -130,11 +138,33 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
     invariant references them; otherwise the query must supply them.
     """
     ctx: dict = {}
+    scopes_by_entity = {scope.entity_cls: scope for scope in spec.scopes}
+    allowed_refs = {ref for scope in spec.scopes for ref in scope}
     for inst in given:
-        ctx[type(inst)] = copy.copy(inst)
+        context_key = instance_context_key(inst)
+        if type(inst) in scopes_by_entity and not isinstance(context_key, InstanceRef):
+            return None, (
+                f"{type(inst).__name__} has a Scope — initial instances must be "
+                f"created through a registered InstanceRef"
+            )
+        if isinstance(context_key, InstanceRef) and context_key not in allowed_refs:
+            return None, f"{context_key!r} belongs to a Scope not registered in spec.scopes"
+        ctx[context_key] = copy.copy(inst)
 
-    missing: list[type] = []
+    missing: list[Any] = []
+    scoped_classes = set(scopes_by_entity)
+    for scope in spec.scopes:
+        for ref in scope:
+            if ref in ctx:
+                continue
+            try:
+                ctx[ref] = ref()
+            except TypeError:
+                missing.append(ref)
+
     for cls in spec.entities:
+        if cls in scoped_classes:
+            continue
         if cls in ctx:
             continue
         try:
@@ -143,16 +173,16 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
             missing.append(cls)
 
     if missing:
-        needed: set[type] = set()
+        needed: set[Any] = set()
         for action in spec.actions:
             for pred in list(action.pre) + list(action.post):
-                needed.update(r.entity_cls for r in _collect_field_refs(pred))
+                needed.update(field_context_key(r) for r in _collect_field_refs(pred))
             for e in action.effect:
-                if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor):
-                    needed.add(e.field.entity_cls)
+                if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field):
+                    needed.add(field_context_key(e.field))
         for inv in spec.invariants:
-            needed.update(r.entity_cls for r in _collect_field_refs(inv.expression))
-        blocked = [c.__name__ for c in missing if c in needed]
+            needed.update(field_context_key(r) for r in _collect_field_refs(inv.expression))
+        blocked = [context_key_label(key) for key in missing if key in needed]
         if blocked:
             return None, (
                 f"entities without full defaults need initial instances: "
@@ -161,14 +191,15 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
 
     # the explored state must be hashable — reject unsupported field domains
     # up front instead of crashing inside state_key
-    for cls, inst in ctx.items():
-        for fname in all_fields(cls):
+    for context_key, inst in ctx.items():
+        for fname in all_fields(type(inst)):
             value = inst.__dict__.get(fname)
             try:
                 hash(value)
             except TypeError:
                 return None, (
-                    f"{cls.__name__}.{fname} holds an unhashable value {value!r} — "
+                    f"{context_key_label(context_key)}.{fname} holds an unhashable "
+                    f"value {value!r} — "
                     f"the engine supports scalar, enum, str and bool fields only"
                 )
     return ctx, None
@@ -285,7 +316,7 @@ def _enabled(
 ) -> bool:
     for pred in action.pre:
         refs = _collect_field_refs(pred)
-        if any(r.entity_cls not in ctx for r in refs):
+        if any(field_context_key(r) not in ctx for r in refs):
             return False  # entity intentionally absent from this state
         try:
             if not evaluate(pred, ctx):
@@ -301,16 +332,19 @@ def _enabled(
             return False
 
     touched = {
-        e.field.entity_cls
+        field_context_key(e.field)
         for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and isinstance(e.field, FieldDescriptor)
+        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
     }
     for lc in lifecycles:
-        if not lc.terminal or lc.entity_cls not in touched:
+        if not lc.terminal:
             continue
-        inst = ctx.get(lc.entity_cls)
-        if inst is not None and getattr(inst, lc.field_name, None) in lc.terminal:
-            return False
+        for target in touched:
+            if _key_entity_cls(target) is not lc.entity_cls:
+                continue
+            inst = ctx.get(target)
+            if inst is not None and getattr(inst, lc.field_name, None) in lc.terminal:
+                return False
     return True
 
 
@@ -326,11 +360,12 @@ def _check_bounds(
     for effect in action.effect:
         if not isinstance(effect, (Set, Subtract, Add)):
             continue
+        context_key = field_context_key(effect.field)
         target = (effect.field.entity_cls, effect.field.field_name)
         spec = bounds_map.get(target)
-        if spec is None or target[0] not in post:
+        if spec is None or context_key not in post:
             continue
-        inst = post[target[0]]
+        inst = post[context_key]
         value = inst.__dict__.get(target[1])
         problem = spec.violation(value)
         if problem is None:
@@ -342,7 +377,8 @@ def _check_bounds(
             Finding(
                 Severity.ERROR,
                 f"action:{action.id}",
-                f"'{action.id}' drives {target[0].__name__}.{target[1]} out of its "
+                f"'{action.id}' drives {context_key_label(context_key)}.{target[1]} "
+                f"out of its "
                 f"declared range: {problem} "
                 f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
             )
@@ -361,30 +397,32 @@ def _check_lifecycle_transitions(
 ) -> bool:
     """A Set on a lifecycle field must follow a declared transition."""
     for lc in lifecycles:
-        inst_pre = ctx.get(lc.entity_cls)
-        inst_post = post.get(lc.entity_cls)
-        if inst_pre is None or inst_post is None:
-            continue
-        old = getattr(inst_pre, lc.field_name, None)
-        new = getattr(inst_post, lc.field_name, None)
-        if old == new:
-            continue
-        allowed: set = set()
-        for t in lc.transitions:
-            if t.from_state == old:
-                allowed.update(t.to_states)
-        if new not in allowed:
-            exp.findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"'{action.id}' performs {lc.entity_cls.__name__}.{lc.field_name} "
-                    f"{_value_str(old)} → {_value_str(new)}, not declared in "
-                    f"lifecycle '{lc.id}' "
-                    f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
+        for context_key, inst_pre in ctx.items():
+            if type(inst_pre) is not lc.entity_cls:
+                continue
+            inst_post = post.get(context_key)
+            if inst_post is None:
+                continue
+            old = getattr(inst_pre, lc.field_name, None)
+            new = getattr(inst_post, lc.field_name, None)
+            if old == new:
+                continue
+            allowed: set = set()
+            for t in lc.transitions:
+                if t.from_state == old:
+                    allowed.update(t.to_states)
+            if new not in allowed:
+                exp.findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"action:{action.id}",
+                        f"'{action.id}' performs {context_key_label(context_key)}."
+                        f"{lc.field_name} {_value_str(old)} → {_value_str(new)}, "
+                        f"not declared in lifecycle '{lc.id}' "
+                        f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
+                    )
                 )
-            )
-            return False
+                return False
     return True
 
 
@@ -392,7 +430,7 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
     violated = False
     for inv in spec.invariants:
         refs = _collect_field_refs(inv.expression)
-        if any(r.entity_cls not in ctx for r in refs):
+        if any(field_context_key(r) not in ctx for r in refs):
             continue
         try:
             ok = evaluate(inv.expression, ctx)
@@ -497,7 +535,7 @@ def _scan_states(exp: Exploration, predicate: Predicate) -> _Scan:
     refs = _collect_field_refs(predicate)
     for key in exp.order:
         ctx = exp.states[key]
-        if any(r.entity_cls not in ctx for r in refs):
+        if any(field_context_key(r) not in ctx for r in refs):
             continue
         scan.applicable += 1
         try:
@@ -614,7 +652,7 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     errors: list[str] = []
     for key in exp.order:
         ctx = exp.states[key]
-        if any(r.entity_cls not in ctx for r in refs):
+        if any(field_context_key(r) not in ctx for r in refs):
             continue
         applicable += 1
         try:
@@ -664,7 +702,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
     goal_states = set()
     for key in exp.order:
         ctx = exp.states[key]
-        if any(r.entity_cls not in ctx for r in refs):
+        if any(field_context_key(r) not in ctx for r in refs):
             continue
         applicable += 1
         try:
@@ -793,10 +831,15 @@ def _origin_findings(exp: Exploration, key: StateKey, qid: str) -> list[Finding]
 def _offending_values(predicate: Predicate, ctx: dict) -> str:
     parts = []
     for ref in _collect_field_refs(predicate):
-        inst = ctx.get(ref.entity_cls)
+        key = field_context_key(ref)
+        inst = ctx.get(key)
         if inst is not None:
             parts.append(
-                f"{ref.entity_cls.__name__}.{ref.field_name}="
+                f"{context_key_label(key)}.{ref.field_name}="
                 f"{_value_str(getattr(inst, ref.field_name, None))}"
             )
     return ", ".join(parts)
+
+
+def _key_entity_cls(key: Any) -> type:
+    return key.entity_cls if isinstance(key, InstanceRef) else key

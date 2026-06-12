@@ -32,6 +32,7 @@ src/analint/
     flow.py                 ← Flow, Assert, Emitted dataclasses
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
     param.py                ← Param/ParamField + expansion of parameterized actions
+    scope.py                ← bounded multiplicity: Scope/InstanceRef/InstanceField
     root.py                 ← Spec (top-level aggregate)
 
   validator/
@@ -76,8 +77,10 @@ Imports inside operator methods are deferred to avoid a circular import between 
 ### Evaluation model
 
 ```python
-context = {type(inst): inst for inst in scenario.given}   # entities AND events
+context = {instance_context_key(inst): inst for inst in scenario.given}
+# singleton key = entity/event type; scoped key = InstanceRef
 resolve(FieldDescriptor, context) → getattr(context[desc.entity_cls], desc.field_name)
+resolve(InstanceField, context) → getattr(context[field.instance], field.field_name)
 evaluate(_Gte(a, b), context) → resolve(a) >= resolve(b)
 ```
 
@@ -102,7 +105,8 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 
 ### Reachability engine (explorer.py)
 
-State = field values of one instance per entity type; key = sorted tuple.
+State = field values of singleton entities plus every instance in bounded
+`Scope`; key = sorted tuple labelled by entity type or `InstanceRef`.
 BFS from an initial context (entity defaults, overridden by `query.given`);
 an action is enabled when its `pre` holds and no terminal-lifecycle entity is
 touched. En route the explorer reports invariant violations, `Field`
@@ -126,6 +130,15 @@ validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
 - `requires` is Flow-ordering documentation; the explorer deliberately does
   NOT honor it (an action may fire without its requires having run)
 
+### Bounded multiplicity
+
+`Scope(EntityClass, keys=[...])` declares a fixed finite universe. Each key
+has a stable `InstanceRef`; `ref.field` is an `InstanceField`, and
+`ref(field=value)` creates an identified snapshot for `given`. `Param` accepts
+a Scope as its domain and expands actions over instance refs. Class-level
+`Entity.field` is structurally rejected for scoped entity types because it is
+ambiguous. There are no quantifiers or create/delete yet.
+
 ### Auto-populate Spec (engine.py)
 
 `Spec(...)` with empty lists → `_auto_populate` fills them from collected objects. Non-empty list → used as-is. Dedup of instances is **by object identity** (`id(obj)`), never `==` — dataclass equality on predicate fields hits the overloaded operators.
@@ -145,7 +158,7 @@ validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (91)
+uv run pytest                          # run all tests (146)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

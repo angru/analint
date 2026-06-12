@@ -137,6 +137,7 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
         version=spec.version,
         description=spec.description,
         entities=_resolve(spec.entities, "entities"),
+        scopes=_resolve(spec.scopes, "scopes"),
         actors=_resolve(spec.actors, "actors"),
         events=_resolve(spec.events, "events"),
         lifecycles=_resolve(spec.lifecycles, "lifecycles"),
@@ -173,6 +174,7 @@ def _merge_specs(specs: list[Spec]) -> Spec:
 
     for spec in specs:
         append_classes(spec.entities, merged.entities)
+        append_instances(spec.scopes, merged.scopes)
         append_classes(spec.actors, merged.actors)
         append_classes(spec.events, merged.events)
         append_instances(spec.lifecycles, merged.lifecycles)

@@ -27,6 +27,13 @@ from analint.models.predicate import (
     _Or,
 )
 from analint.models.root import Spec
+from analint.models.scope import (
+    InstanceField,
+    InstanceRef,
+    field_context_key,
+    instance_context_key,
+    is_field_ref,
+)
 from analint.reporter.base import Finding, Severity
 
 
@@ -89,6 +96,17 @@ def validate_structural(spec: Spec) -> list[Finding]:
     spec_event_names = {e.__name__ for e in spec.events}
     action_ids = {a.id for a in spec.actions}
 
+    scoped_entities: dict[type, Any] = {}
+    for scope in spec.scopes:
+        loc = f"scope:{scope.id or scope.entity_cls.__name__}"
+        if scope.entity_cls not in spec.entities:
+            findings.append(err(loc, f"entity '{scope.entity_cls.__name__}' not in spec.entities"))
+        if scope.entity_cls in scoped_entities:
+            findings.append(
+                err(loc, f"entity '{scope.entity_cls.__name__}' has more than one Scope")
+            )
+        scoped_entities[scope.entity_cls] = scope
+
     # Actors / Events: registered classes must subclass the right base
     for actor_cls in spec.actors:
         if not (isinstance(actor_cls, type) and issubclass(actor_cls, Actor)):
@@ -101,6 +119,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
     for inv in spec.invariants:
         findings.extend(
             _check_pred_refs(inv.expression, spec.entities, spec.events, f"invariant:{inv.id}")
+        )
+        findings.extend(
+            _check_scoped_refs(
+                _collect_field_refs(inv.expression), scoped_entities, f"invariant:{inv.id}"
+            )
         )
 
     # Requires cycles
@@ -118,6 +141,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
         for pred in list(action.pre) + list(action.post):
             findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc))
+            findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
 
         if action.by is not None:
             if not (isinstance(action.by, type) and issubclass(action.by, Actor)):
@@ -147,6 +171,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
             if not isinstance(emitted, type):
                 findings.extend(_check_event_template(emitted, spec.entities, loc))
+                findings.extend(
+                    _check_scoped_refs(
+                        [value for value in emitted.__dict__.values() if is_field_ref(value)],
+                        scoped_entities,
+                        loc,
+                    )
+                )
 
         for event_cls in action.on:
             if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
@@ -155,20 +186,23 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 findings.append(err(loc, f"on event '{event_cls.__name__}' not in spec.events"))
 
         # effects: registered targets, no two effects on the same field
-        effect_targets: set[tuple[type, str]] = set()
+        effect_targets: set[tuple[Any, str]] = set()
         for effect in action.effect:
             if not isinstance(effect, (Set, Subtract, Add)):
                 findings.append(err(loc, f"effect entry '{effect!r}' is not Set/Add/Subtract"))
                 continue
-            if not isinstance(effect.field, FieldDescriptor):
-                findings.append(err(loc, "effect field must be a FieldDescriptor"))
+            if not is_field_ref(effect.field):
+                findings.append(err(loc, "effect field must be a field reference"))
                 continue
             cls = effect.field.entity_cls
             if cls.__name__ not in spec_entity_names:
                 findings.append(
                     err(loc, f"effect targets entity '{cls.__name__}' not in spec.entities")
                 )
-            target = (cls, effect.field.field_name)
+            findings.extend(_check_scoped_refs([effect.field], scoped_entities, loc))
+            rhs = effect.value if isinstance(effect, Set) else effect.amount
+            findings.extend(_check_scoped_refs(_operand_refs(rhs), scoped_entities, loc))
+            target = (field_context_key(effect.field), effect.field.field_name)
             if target in effect_targets:
                 findings.append(
                     err(
@@ -216,13 +250,27 @@ def validate_structural(spec: Spec) -> list[Finding]:
             findings.append(err(loc, f"action '{sc.action.id}' not in spec.actions"))
             continue
 
-        given_types = {type(inst) for inst in sc.given}
-        needed = _needed_types(sc.action)
-        for cls in needed:
-            if cls not in given_types:
+        given_keys = {instance_context_key(inst) for inst in sc.given}
+        for inst in sc.given:
+            key = instance_context_key(inst)
+            scope = scoped_entities.get(type(inst))
+            if scope is not None and not isinstance(key, InstanceRef):
                 findings.append(
-                    warn(loc, f"'{cls.__name__}' referenced by the action but not in given")
+                    err(
+                        loc,
+                        f"{type(inst).__name__} has Scope '{scope.id}' — create the "
+                        f"snapshot through a registered InstanceRef",
+                    )
                 )
+            elif isinstance(key, InstanceRef) and scoped_entities.get(type(inst)) is not key.scope:
+                findings.append(
+                    err(loc, f"{key!r} belongs to a Scope not registered in spec.scopes")
+                )
+        needed = _needed_keys(sc.action)
+        for key in needed:
+            if key not in given_keys:
+                label = repr(key) if isinstance(key, InstanceRef) else key.__name__
+                findings.append(warn(loc, f"'{label}' referenced by the action but not in given"))
 
         # then entries: only Assert/Emitted are checks — anything else would
         # be silently ignored at run time, which is a false-green path
@@ -230,6 +278,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if isinstance(assertion, Assert):
                 findings.extend(
                     _check_pred_refs(assertion.predicate, spec.entities, spec.events, loc)
+                )
+                findings.extend(
+                    _check_scoped_refs(
+                        _collect_field_refs(assertion.predicate), scoped_entities, loc
+                    )
                 )
             elif isinstance(assertion, Emitted):
                 if not (
@@ -264,6 +317,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
         pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
         if pred is not None:
             findings.extend(_check_pred_refs(pred, spec.entities, spec.events, f"query:{query.id}"))
+            findings.extend(
+                _check_scoped_refs(_collect_field_refs(pred), scoped_entities, f"query:{query.id}")
+            )
 
     # Flows: steps registered; requires order respected
     for flow in spec.flows:
@@ -287,19 +343,56 @@ def validate_structural(spec: Spec) -> list[Finding]:
     return findings
 
 
-def _needed_types(action: Action) -> set[type]:
-    """Entity/Event types an action's predicates and effects reference."""
-    types: set[type] = set()
+def _needed_keys(action: Action) -> set[Any]:
+    """Entity/Event context keys an action's predicates and effects reference."""
+    keys: set[Any] = set()
     for pred in list(action.pre) + list(action.post):
         for ref in _collect_field_refs(pred):
-            types.add(ref.entity_cls)
+            keys.add(field_context_key(ref))
     for effect in action.effect:
         if isinstance(effect, (Set, Subtract, Add)):
-            if isinstance(effect.field, FieldDescriptor):
-                types.add(effect.field.entity_cls)
+            if is_field_ref(effect.field):
+                keys.add(field_context_key(effect.field))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
-            types.update(ref.entity_cls for ref in _operand_refs(rhs))
-    return types
+            keys.update(field_context_key(ref) for ref in _operand_refs(rhs))
+    return keys
+
+
+def _check_scoped_refs(
+    refs: Sequence[FieldDescriptor | InstanceField],
+    scoped_entities: dict[type, Any],
+    loc: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    seen: set[tuple[type, str]] = set()
+    for ref in refs:
+        if isinstance(ref, InstanceField):
+            if scoped_entities.get(ref.entity_cls) is not ref.instance.scope:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"{ref!r} belongs to a Scope not registered in spec.scopes",
+                    )
+                )
+            continue
+        if ref.entity_cls not in scoped_entities:
+            continue
+        marker = (ref.entity_cls, ref.field_name)
+        if marker in seen:
+            continue
+        seen.add(marker)
+        scope = scoped_entities[ref.entity_cls]
+        findings.append(
+            Finding(
+                Severity.ERROR,
+                loc,
+                f"'{ref.entity_cls.__name__}.{ref.field_name}' is ambiguous because "
+                f"{ref.entity_cls.__name__} has Scope '{scope.id or scope.entity_cls.__name__}' — "
+                f"address an instance through the Scope or an instance Param",
+            )
+        )
+    return findings
 
 
 def _check_event_template(
@@ -313,7 +406,7 @@ def _check_event_template(
     event_ann = getattr(event_cls, "__annotations__", {})
     for field_name in getattr(event_cls, "_own_fields", {}):
         value = template.__dict__.get(field_name)
-        if not isinstance(value, FieldDescriptor):
+        if not is_field_ref(value):
             continue
         src_cls = value.entity_cls
         if src_cls.__name__ not in spec_entity_names:
@@ -406,17 +499,17 @@ def _check_pred_refs(
     return findings
 
 
-def _operand_refs(operand: Any) -> list[FieldDescriptor]:
+def _operand_refs(operand: Any) -> list[FieldDescriptor | InstanceField]:
     """Field references inside an operand: a descriptor or an expression tree."""
-    if isinstance(operand, FieldDescriptor):
+    if is_field_ref(operand):
         return [operand]
     if isinstance(operand, Expr):
         return _operand_refs(operand.left) + _operand_refs(operand.right)  # type: ignore[attr-defined]
     return []
 
 
-def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor]:
-    refs: list[FieldDescriptor] = []
+def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor | InstanceField]:
+    refs: list[FieldDescriptor | InstanceField] = []
     if isinstance(pred, (_And, _Or)):
         for e in pred.exprs:
             refs.extend(_collect_field_refs(e))
@@ -474,8 +567,8 @@ def _check_requires_cycles(
 
 
 def _describe_operand(op: Any) -> str:
-    if isinstance(op, FieldDescriptor):
-        return f"{op.entity_cls.__name__}.{op.field_name}"
+    if is_field_ref(op):
+        return repr(op)
     if isinstance(op, Expr):
         return (
             f"({_describe_operand(op.left)} {expr_op(op)} "  # type: ignore[attr-defined]

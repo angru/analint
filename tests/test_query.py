@@ -127,3 +127,21 @@ def test_cli_show_action_json():
 def test_cli_load_error_exit_code():
     result = runner.invoke(app, ["check", "/nonexistent/place"])
     assert result.exit_code == 3
+
+
+def test_overview_includes_bounded_scopes():
+    from analint import Entity, Scope, Spec
+    from analint.query import spec_overview
+
+    class Account(Entity):
+        balance: int = 0
+
+    accounts = Scope(Account, keys=["alice", "bob"], id="accounts")
+    payload = spec_overview(Spec(id="s", name="S", entities=[Account], scopes=[accounts]))
+    assert payload["scopes"] == [
+        {
+            "id": "accounts",
+            "entity": "Account",
+            "instances": ["Account['alice']", "Account['bob']"],
+        }
+    ]

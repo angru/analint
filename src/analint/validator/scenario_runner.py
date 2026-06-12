@@ -9,6 +9,12 @@ from analint.models.flow import Assert, Emitted
 from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
+from analint.models.scope import (
+    context_key_label,
+    field_context_key,
+    instance_context_key,
+    is_field_ref,
+)
 from analint.reporter.base import Finding, ScenarioResult, Severity
 from analint.validator.rule_checker import evaluate, resolve
 from analint.validator.structural import _collect_field_refs, _describe
@@ -16,11 +22,11 @@ from analint.validator.structural import _collect_field_refs, _describe
 
 def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     findings: list[Finding] = []
-    context = {type(inst): inst for inst in scenario.given}
+    context = {instance_context_key(inst): inst for inst in scenario.given}
     action = scenario.action
 
     relevant_invariants = [
-        inv for inv in spec.invariants if _referenced_types(inv.expression) <= set(context)
+        inv for inv in spec.invariants if _referenced_keys(inv.expression) <= set(context)
     ]
     checks_count = len(relevant_invariants) + len(action.pre) + len(action.post)
 
@@ -158,8 +164,8 @@ def _check(
         findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
 
 
-def _referenced_types(pred: Predicate) -> set[type]:
-    return {ref.entity_cls for ref in _collect_field_refs(pred)}
+def _referenced_keys(pred: Predicate) -> set[Any]:
+    return {field_context_key(ref) for ref in _collect_field_refs(pred)}
 
 
 def _check_field_constraints(findings: list, action: Action, post: dict) -> None:
@@ -171,7 +177,8 @@ def _check_field_constraints(findings: list, action: Action, post: dict) -> None
         if not isinstance(effect, (Set, Subtract, Add)):
             continue
         cls = effect.field.entity_cls
-        inst = post.get(cls)
+        key = field_context_key(effect.field)
+        inst = post.get(key)
         if inst is None:
             continue
         desc = all_fields(cls).get(effect.field.field_name)
@@ -196,26 +203,29 @@ def _check_field_constraints(findings: list, action: Action, post: dict) -> None
 def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, context: dict) -> None:
     """An entity whose lifecycle field is in a terminal state cannot be modified."""
     touched = {
-        e.field.entity_cls
+        field_context_key(e.field)
         for e in scenario.action.effect
-        if isinstance(e, (Set, Subtract, Add)) and hasattr(e.field, "entity_cls")
+        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
     }
     for lc in spec.lifecycles:
-        if not lc.terminal or lc.entity_cls not in touched:
+        if not lc.terminal:
             continue
-        inst = context.get(lc.entity_cls)
-        if inst is None:
-            continue
-        value = getattr(inst, lc.field_name, None)
-        if value in lc.terminal:
-            findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"lifecycle:{lc.id}",
-                    f"{lc.entity_cls.__name__}.{lc.field_name}={value!r} is terminal — "
-                    f"the entity cannot be modified",
+        for key in touched:
+            if _key_entity_cls(key) is not lc.entity_cls:
+                continue
+            inst = context.get(key)
+            if inst is None:
+                continue
+            value = getattr(inst, lc.field_name, None)
+            if value in lc.terminal:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"lifecycle:{lc.id}",
+                        f"{context_key_label(key)}.{lc.field_name}={value!r} is terminal — "
+                        f"the entity cannot be modified",
+                    )
                 )
-            )
 
 
 def _apply_effects(effects: list, context: dict) -> dict:
@@ -225,19 +235,18 @@ def _apply_effects(effects: list, context: dict) -> dict:
     is resolved against the pre-state, so the order of the list carries no
     meaning and effects never observe each other.
     """
-    updates: list[tuple[type, str, Any]] = []
+    updates: list[tuple[Any, str, Any]] = []
     for effect in effects:
-        if isinstance(effect, (Set, Subtract, Add)) and effect.field.entity_cls not in context:
+        target = field_context_key(effect.field) if is_field_ref(effect.field) else None
+        if isinstance(effect, (Set, Subtract, Add)) and target not in context:
             continue  # target entity absent from given — structural validation warns about this
         if isinstance(effect, Set):
-            updates.append(
-                (effect.field.entity_cls, effect.field.field_name, resolve(effect.value, context))
-            )
+            updates.append((target, effect.field.field_name, resolve(effect.value, context)))
         elif isinstance(effect, Subtract):
             current = resolve(effect.field, context)
             updates.append(
                 (
-                    effect.field.entity_cls,
+                    target,
                     effect.field.field_name,
                     current - resolve(effect.amount, context),
                 )
@@ -246,15 +255,19 @@ def _apply_effects(effects: list, context: dict) -> dict:
             current = resolve(effect.field, context)
             updates.append(
                 (
-                    effect.field.entity_cls,
+                    target,
                     effect.field.field_name,
                     current + resolve(effect.amount, context),
                 )
             )
 
     post = {cls: copy.copy(inst) for cls, inst in context.items()}
-    for entity_cls, field_name, value in updates:
-        entity = post.get(entity_cls)
+    for key, field_name, value in updates:
+        entity = post.get(key)
         if entity is not None:
             entity.__dict__[field_name] = value
     return post
+
+
+def _key_entity_cls(key: Any) -> type:
+    return key.entity_cls if hasattr(key, "entity_cls") else key

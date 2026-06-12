@@ -239,6 +239,40 @@ action (`send(src=AliceCoins, dst=BobCoins, amount=2)`); traces and reports
 use the parametric names. A scenario picks one binding:
 `action=send.bind(src=BobCoins, dst=EveCoins, amount=2)`.
 
+#### Bounded multiplicity
+
+`Scope` declares a fixed finite set of identified instances of one entity
+type. Instance refs work in predicates and effects, and can be a `Param`
+domain:
+
+```python
+from analint import Scope
+
+class Account(Entity):
+    balance: int = Field(0, ge=0, le=5)
+
+accounts = Scope(Account, keys=["alice", "bob", "eve"])
+alice = accounts["alice"]
+
+src = Param("src", accounts)
+dst = Param("dst", accounts)
+
+transfer = Action(
+    params=[src, dst],
+    where=[src != dst],
+    pre=[src.balance >= 1],
+    effect=[Subtract(src.balance, 1), Add(dst.balance, 1)],
+)
+
+alice_pays_bob = Scenario(
+    action=transfer.bind(src=alice, dst=accounts["bob"]),
+    given=[alice(balance=3), accounts["bob"](balance=0)],
+)
+```
+
+The universe is fixed: `Scope` supports multiple existing instances, while
+`ForAll/Exists/Count` and create/delete are later layers.
+
 ### Actor
 
 Who can trigger an action. Subclass `Actor` to define a role:

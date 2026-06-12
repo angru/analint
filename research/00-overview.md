@@ -21,6 +21,7 @@
 | [12-domain-layer-and-ddd.md](12-domain-layer-and-ddd.md) | Терминология: analint = исполняемый тактический DDD; сага — домен, а не сервисы |
 | [13-field-level-dsl.md](13-field-level-dsl.md) | Реформа полей: inline Lifecycle, Field-констрейнты и усиление типизации |
 | [14-positioning-declarativity-and-audit.md](14-positioning-declarativity-and-audit.md) | Аудит после v1.0: Python как host language, декларативность, выразительность, Quint/P, роль DDD, soundness и новый roadmap |
+| [15-quint-coin-comparison.md](15-quint-coin-comparison.md) | P6: перевод флагманского туториала Quint (coin.qnt) — паритет по объёму, стена множественности подтверждена делом |
 
 Итог ресёрча сведён в план действий: **[../ROADMAP.md](../ROADMAP.md)** —
 сценарии использования (агент/человек/CI) и фазы v0.9 → v1.2+ с дорожкой

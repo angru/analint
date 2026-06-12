@@ -268,3 +268,14 @@ def test_fulfillment_saga_all_green():
     ]
     assert by_id["no_money_for_nothing"].status == "PASS"
     assert by_id["every_step_used"].status == "PASS"
+
+
+def test_coin_translation_reproduces_quint_lesson_violation():
+    result = validate(Path(__file__).parent.parent / "examples" / "coin")
+    by_id = {qr.query_id: qr for qr in result.query_results}
+    overflow = by_id["supply_never_overflows"]
+    assert overflow.status == "FAIL"  # the Quint lesson's teaching moment
+    assert overflow.trace is not None and len(overflow.trace) == 6  # minimal counterexample
+    assert by_id["everyone_can_get_paid"].status == "PASS"
+    assert by_id["every_method_callable"].status == "PASS"
+    assert result.failed_count == 0  # all translated Quint tests pass

@@ -153,8 +153,10 @@ class EntityMeta(type):
         bases: tuple[type, ...],
         ns: dict[str, Any],
     ) -> type:
-        annotations: dict[str, Any] = ns.get("__annotations__", {})
         cls = super().__new__(mcs, name, bases, ns)
+        # Python 3.14 stores annotations lazily (PEP 649), so read them from
+        # the completed class rather than from the pre-creation namespace.
+        annotations: dict[str, Any] = cls.__annotations__
         own_fields: dict[str, FieldDescriptor] = {}
         dynamic_cls: Any = cls
         dynamic_cls._own_fields = own_fields

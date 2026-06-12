@@ -2,16 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from analint.models.entity import FieldDescriptor
 
-S = TypeVar("S")  # the state type (usually an Enum)
-
 
 @dataclass
-class Transition(Generic[S]):
+class Transition[S]:
     """One allowed group of state transitions for an entity field.
 
     `to_states` is always a collection (a single target is a one-element list):
@@ -34,7 +32,7 @@ class Transition(Generic[S]):
 
 
 @dataclass
-class Lifecycle(Generic[S]):
+class Lifecycle[S]:
     """The lifecycle of an entity field, declared as the field's default value:
 
         class Card(Entity):

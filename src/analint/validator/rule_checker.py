@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from analint.models.entity import FieldDescriptor
+from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -36,6 +37,12 @@ def resolve(operand: Any, context: Context) -> Any:
         if entity is None:
             raise KeyError(f"Entity '{operand.entity_cls.__name__}' not in scenario given")
         return getattr(entity, operand.field_name)
+    if isinstance(operand, _AddExpr):
+        return resolve(operand.left, context) + resolve(operand.right, context)
+    if isinstance(operand, _SubExpr):
+        return resolve(operand.left, context) - resolve(operand.right, context)
+    if isinstance(operand, _MulExpr):
+        return resolve(operand.left, context) * resolve(operand.right, context)
     return operand
 
 

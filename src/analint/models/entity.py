@@ -139,6 +139,38 @@ class FieldDescriptor:
 
         return _Lte(left=self, right=other)
 
+    # arithmetic operators → expression AST nodes ──────────────────────────────
+
+    def __add__(self, other: Any) -> Any:
+        from analint.models.expr import _AddExpr
+
+        return _AddExpr(self, other)
+
+    def __radd__(self, other: Any) -> Any:
+        from analint.models.expr import _AddExpr
+
+        return _AddExpr(other, self)
+
+    def __sub__(self, other: Any) -> Any:
+        from analint.models.expr import _SubExpr
+
+        return _SubExpr(self, other)
+
+    def __rsub__(self, other: Any) -> Any:
+        from analint.models.expr import _SubExpr
+
+        return _SubExpr(other, self)
+
+    def __mul__(self, other: Any) -> Any:
+        from analint.models.expr import _MulExpr
+
+        return _MulExpr(self, other)
+
+    def __rmul__(self, other: Any) -> Any:
+        from analint.models.expr import _MulExpr
+
+        return _MulExpr(other, self)
+
     def __hash__(self) -> int:
         return hash((id(self.entity_cls), self.field_name))
 

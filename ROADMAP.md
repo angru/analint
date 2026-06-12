@@ -150,9 +150,13 @@ snapshot-режима).
 
 ### v1.2+ — Выразительность (по спросу, не авансом)
 
-- Множественность экземпляров + параметризованные действия + `ForAll/Exists/
-  Count` в bounded scope (путь Alloy; research/01, 06) — самый дорогой пункт,
-  делать после подтверждения спроса движком
+- ✅ Параметризованные действия (`Param`, `params=`/`where=`/`bind()` —
+  по итогам перевода Quint, research/15)
+- ✅ Арифметический AST (`Wallet.balance - Order.total >= 0`, именованные
+  выражения, канон эффекта `Set(field, expr)`)
+- Множественность экземпляров + `ForAll/Exists/Count` в bounded scope
+  (путь Alloy; research/01, 06) — `Param` уже готовая ступень: домен из
+  классов станет доменом из экземпляров
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)

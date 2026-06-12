@@ -143,6 +143,15 @@ Implies(Hook.holds_cloak == True, Player.has_cloak == False)   # if A then B
 In(Order.status, [OrderStatus.PAID, OrderStatus.CANCELLED])
 ```
 
+Arithmetic over fields builds expression nodes — including named, reusable
+ones (Quint-style derived values):
+
+```python
+Wallet.balance - Order.total >= 0
+total_supply = Alice.coins + Bob.coins + Eve.coins   # named expression
+supply_fits  = AlwaysHolds(total_supply <= MAX_SUPPLY)
+```
+
 Predicates are values — name them and reuse them:
 
 ```python
@@ -202,9 +211,8 @@ checkout = Action(
 
 | Effect | Next-state fact |
 |---|---|
-| `Set(field, value)` | field becomes the value (literal, enum, or another field's pre-state value) |
-| `Subtract(field, amount)` | field becomes field − amount |
-| `Add(field, amount)` | field becomes field + amount |
+| `Set(field, value)` | field becomes the value — a literal, an enum, or an **expression over the pre-state**: `Set(src.coins, src.coins - amount)` is the canonical form |
+| `Subtract(field, amount)` / `Add(field, amount)` | sugar for `Set(field, field ∓ amount)` |
 
 #### Parameterized actions
 

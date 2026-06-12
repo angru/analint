@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from analint.models.effect import Add, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
+from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -79,19 +80,19 @@ class Param:
     def __hash__(self) -> int:
         return id(self)
 
-    # expansion-time arithmetic with constants/params (NOT state arithmetic:
-    # everything here is concrete once a binding is chosen)
-    def __add__(self, other: Any) -> ParamExpr:
-        return ParamExpr("+", self, other)
+    # arithmetic builds shared expression nodes; param leaves are substituted
+    # with concrete values at expansion time
+    def __add__(self, other: Any) -> Expr:
+        return _AddExpr(self, other)
 
-    def __radd__(self, other: Any) -> ParamExpr:
-        return ParamExpr("+", other, self)
+    def __radd__(self, other: Any) -> Expr:
+        return _AddExpr(other, self)
 
-    def __sub__(self, other: Any) -> ParamExpr:
-        return ParamExpr("-", self, other)
+    def __sub__(self, other: Any) -> Expr:
+        return _SubExpr(self, other)
 
-    def __rsub__(self, other: Any) -> ParamExpr:
-        return ParamExpr("-", other, self)
+    def __rsub__(self, other: Any) -> Expr:
+        return _SubExpr(other, self)
 
     def __repr__(self) -> str:
         return f"Param({self.name})"
@@ -122,23 +123,23 @@ class ParamField:
     def __le__(self, other: Any) -> Predicate:
         return _Lte(left=self, right=other)
 
+    def __add__(self, other: Any) -> Expr:
+        return _AddExpr(self, other)
+
+    def __radd__(self, other: Any) -> Expr:
+        return _AddExpr(other, self)
+
+    def __sub__(self, other: Any) -> Expr:
+        return _SubExpr(self, other)
+
+    def __rsub__(self, other: Any) -> Expr:
+        return _SubExpr(other, self)
+
     def __hash__(self) -> int:
         return hash((id(self.param), self.field_name))
 
     def __repr__(self) -> str:
         return f"{self.param.name}.{self.field_name}"
-
-
-class ParamExpr:
-    """Arithmetic over params and constants, evaluated at expansion time."""
-
-    def __init__(self, op: str, left: Any, right: Any) -> None:
-        self.op = op
-        self.left = left
-        self.right = right
-
-    def __repr__(self) -> str:
-        return f"({self.left!r} {self.op} {self.right!r})"
 
 
 def _resolve(operand: Any, binding: Binding) -> Any:
@@ -159,10 +160,10 @@ def _resolve(operand: Any, binding: Binding) -> Any:
         return descriptor
     if isinstance(operand, Param):
         return binding[operand.name]
-    if isinstance(operand, ParamExpr):
-        left = _resolve(operand.left, binding)
-        right = _resolve(operand.right, binding)
-        return left + right if operand.op == "+" else left - right
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+        # substitute param leaves; the expression itself is resolved against
+        # the state at evaluation time (rule_checker.resolve)
+        return type(operand)(_resolve(operand.left, binding), _resolve(operand.right, binding))
     return operand
 
 

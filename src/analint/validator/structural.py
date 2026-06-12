@@ -8,6 +8,7 @@ from analint.models.actor import Actor
 from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.event import Event
+from analint.models.expr import Expr, expr_op
 from analint.models.flow import Assert, Emitted
 from analint.models.predicate import (
     Predicate,
@@ -293,8 +294,11 @@ def _needed_types(action: Action) -> set[type]:
         for ref in _collect_field_refs(pred):
             types.add(ref.entity_cls)
     for effect in action.effect:
-        if isinstance(effect, (Set, Subtract, Add)) and isinstance(effect.field, FieldDescriptor):
-            types.add(effect.field.entity_cls)
+        if isinstance(effect, (Set, Subtract, Add)):
+            if isinstance(effect.field, FieldDescriptor):
+                types.add(effect.field.entity_cls)
+            rhs = effect.value if isinstance(effect, Set) else effect.amount
+            types.update(ref.entity_cls for ref in _operand_refs(rhs))
     return types
 
 
@@ -402,6 +406,15 @@ def _check_pred_refs(
     return findings
 
 
+def _operand_refs(operand: Any) -> list[FieldDescriptor]:
+    """Field references inside an operand: a descriptor or an expression tree."""
+    if isinstance(operand, FieldDescriptor):
+        return [operand]
+    if isinstance(operand, Expr):
+        return _operand_refs(operand.left) + _operand_refs(operand.right)  # type: ignore[attr-defined]
+    return []
+
+
 def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor]:
     refs: list[FieldDescriptor] = []
     if isinstance(pred, (_And, _Or)):
@@ -413,12 +426,10 @@ def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor]:
         refs.extend(_collect_field_refs(pred.left))
         refs.extend(_collect_field_refs(pred.right))
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
-        if isinstance(pred.left, FieldDescriptor):
-            refs.append(pred.left)
-        if isinstance(pred.right, FieldDescriptor):
-            refs.append(pred.right)
-    elif isinstance(pred, (_In, _IsNull, _IsNotNull)) and isinstance(pred.operand, FieldDescriptor):
-        refs.append(pred.operand)
+        refs.extend(_operand_refs(pred.left))
+        refs.extend(_operand_refs(pred.right))
+    elif isinstance(pred, (_In, _IsNull, _IsNotNull)):
+        refs.extend(_operand_refs(pred.operand))
     return refs
 
 
@@ -465,6 +476,11 @@ def _check_requires_cycles(
 def _describe_operand(op: Any) -> str:
     if isinstance(op, FieldDescriptor):
         return f"{op.entity_cls.__name__}.{op.field_name}"
+    if isinstance(op, Expr):
+        return (
+            f"({_describe_operand(op.left)} {expr_op(op)} "  # type: ignore[attr-defined]
+            f"{_describe_operand(op.right)})"  # type: ignore[attr-defined]
+        )
     if hasattr(op, "name") and hasattr(op, "value"):
         return f"{type(op).__name__}.{op.name}"
     return repr(op)

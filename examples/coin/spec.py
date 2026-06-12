@@ -13,8 +13,8 @@ Deliberate translation choices (the comparison is the point — research/15):
   analint Action over `Param` domains, expanded by the engine.
 - Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → `Param("amount", 1, 2, 3)`
   (we explore explicitly, so the domain is small and finite).
-- Quint's `totalSupply` fold over the map → a denormalized Ledger counter
-  (analint has no arithmetic aggregates — yet).
+- Quint's `totalSupply` fold over the map → a named arithmetic expression
+  over the fixed accounts (`AliceCoins.coins + BobCoins.coins + …`).
 - Quint's `require(sender == minter)` → encoded structurally: minting is a
   separate action carrying `by=Minter`.
 
@@ -26,7 +26,6 @@ demonstrates with `quint run --invariant totalSupplyDoesNotOverflowInv`.
 from analint import (
     Action,
     Actor,
-    Add,
     AlwaysHolds,
     Assert,
     DeadActions,
@@ -36,8 +35,8 @@ from analint import (
     Param,
     Reachable,
     Scenario,
+    Set,
     Spec,
-    Subtract,
 )
 
 # In Quint: MAX_UINT = 2^256 - 1, checked symbolically by Apalache.
@@ -72,12 +71,9 @@ class EveCoins(Entity):
     coins: int = Field(0, ge=0, le=MAX_BALANCE)
 
 
-class Ledger(Entity):
-    # Denormalized: Quint computes totalSupply as a fold over the balances
-    # map; analint has no aggregates, so every mint maintains the counter.
-    # The bound is deliberately wider than MAX_SUPPLY — the overflow must be
-    # representable for the engine to find it.
-    total_supply: int = Field(0, ge=0, le=3 * MAX_BALANCE)
+# Quint: val totalSupply = ADDR.fold(0, (sum, a) => sum + balances.get(a))
+# A named expression over the fixed accounts — no denormalized counter needed.
+total_supply = AliceCoins.coins + BobCoins.coins + EveCoins.coins
 
 
 # ── Actions (Quint: parameterized mint/send + nondet step) ────────────────────
@@ -95,7 +91,7 @@ mint = Action(
     by=Minter,
     params=[receiver, amount],
     pre=[receiver.coins <= MAX_BALANCE - amount],  # require(isUInt(newBal))
-    effect=[Add(receiver.coins, amount), Add(Ledger.total_supply, amount)],
+    effect=[Set(receiver.coins, receiver.coins + amount)],
 )
 
 send = Action(
@@ -107,7 +103,12 @@ send = Action(
         src.coins >= amount,  # require(not(amount > balances.get(sender)))
         dst.coins <= MAX_BALANCE - amount,  # require(isUInt(newReceiverBal))
     ],
-    effect=[Subtract(src.coins, amount), Add(dst.coins, amount)],
+    # canonical effect form: "the next value IS this expression" —
+    # right-hand sides always read the pre-state
+    effect=[
+        Set(src.coins, src.coins - amount),
+        Set(dst.coins, dst.coins + amount),
+    ],
 )
 
 
@@ -115,12 +116,7 @@ send = Action(
 
 
 def _world(alice: int = 0, bob: int = 0, eve: int = 0) -> list:
-    return [
-        AliceCoins(coins=alice),
-        BobCoins(coins=bob),
-        EveCoins(coins=eve),
-        Ledger(total_supply=alice + bob + eve),
-    ]
+    return [AliceCoins(coins=alice), BobCoins(coins=bob), EveCoins(coins=eve)]
 
 
 # Quint: run sendWithoutMintTest = init.then(send(minter, "bob", 5)).fail()
@@ -142,7 +138,7 @@ sc_mint_then_send = Scenario(
     then=[
         Assert(BobCoins.coins == 3),
         Assert(EveCoins.coins == 2),
-        Assert(Ledger.total_supply == 5),  # transfers do not change the supply
+        Assert(total_supply == 5),  # transfers do not change the supply
     ],
 )
 
@@ -164,7 +160,7 @@ sc_minting_works = Scenario(
     name="The minter issues coins out of thin air",
     action=mint.bind(receiver=AliceCoins, amount=3),
     given=_world(),
-    then=[Assert(AliceCoins.coins == 3), Assert(Ledger.total_supply == 3)],
+    then=[Assert(AliceCoins.coins == 3), Assert(total_supply == 3)],
 )
 
 
@@ -180,7 +176,7 @@ sc_minting_works = Scenario(
 # is range-checked but nothing checks the sum. The engine finds the same
 # counterexample `quint run` finds.
 supply_never_overflows = AlwaysHolds(
-    Ledger.total_supply <= MAX_SUPPLY,
+    total_supply <= MAX_SUPPLY,
     label="the total supply fits the same range as a single balance",
 )
 

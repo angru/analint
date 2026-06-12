@@ -280,7 +280,7 @@ remain explicit predicate AST nodes and work in invariants, action guards,
 scenario assertions, and reachability queries:
 
 ```python
-from analint import Bound, Exists, ForAll
+from analint import Bound, Count, Exists, ForAll, Max, Min, Sum
 
 account = Bound("account", accounts)
 
@@ -291,10 +291,17 @@ all_balances_valid = AlwaysHolds(
 someone_is_full = Reachable(
     Exists(account, account.balance == 5)
 )
+
+total_balance = Sum(account, account.balance)
+nonempty_accounts = Count(account, account.balance > 0)
+balance_range = Max(account, account.balance) - Min(account, account.balance)
 ```
 
-Quantifiers are finite and exhaustive over the registered scope. `Count` and
-collection aggregates are the next language layer.
+Quantifiers and aggregates are finite and exhaustive over the registered
+scope. Aggregate nodes are ordinary arithmetic expressions: they can be
+compared, composed with field math, used in effect right-hand sides, and
+checked by the reachability engine. A `Scope` is always non-empty, so
+`Min`/`Max` are defined for every valid scope.
 
 ### Actor
 

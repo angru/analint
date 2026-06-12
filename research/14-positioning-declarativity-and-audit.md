@@ -698,7 +698,7 @@ Rust или HTTP/BPMN adapters.
 1. ✅ typed arithmetic/derived expression AST;
 2. ✅ parameterized actions;
 3. ✅ bounded multiplicity (`Scope` + stable instance refs);
-4. ✅ `ForAll/Exists`; следующий срез — `Count` и агрегаты;
+4. ✅ `ForAll/Exists/Count/Sum/Min/Max` над bounded scope;
 5. create/delete в bounded universe;
 6. composition of specs / explicit contracts.
 

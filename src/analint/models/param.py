@@ -49,7 +49,7 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
-from analint.models.quantifier import _Exists, _ForAll
+from analint.models.quantifier import _Count, _Exists, _ForAll, _Max, _Min, _Sum
 from analint.models.scope import InstanceRef, Scope
 
 if TYPE_CHECKING:
@@ -210,6 +210,16 @@ def _resolve(operand: Any, binding: Binding) -> Any:
         return descriptor
     if isinstance(operand, Param):
         return binding[operand.name]
+    if isinstance(operand, _Count):
+        return _Count(
+            variable=operand.variable,
+            predicate=_subst_pred(operand.predicate, binding),
+        )
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        return type(operand)(
+            variable=operand.variable,
+            operand=_resolve(operand.operand, binding),
+        )
     if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
         # substitute param leaves; the expression itself is resolved against
         # the state at evaluation time (rule_checker.resolve)

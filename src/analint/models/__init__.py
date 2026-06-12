@@ -13,7 +13,7 @@ from analint.models.predicate import (
     Or,
     Predicate,
 )
-from analint.models.quantifier import Bound, BoundField, Exists, ForAll
+from analint.models.quantifier import Bound, BoundField, Count, Exists, ForAll, Max, Min, Sum
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.models.scope import InstanceField, InstanceRef, Scope
@@ -24,6 +24,7 @@ __all__ = [
     "And",
     "Bound",
     "BoundField",
+    "Count",
     "Effect",
     "Entity",
     "Expect",
@@ -39,6 +40,8 @@ __all__ = [
     "IsNotNull",
     "IsNull",
     "Lifecycle",
+    "Max",
+    "Min",
     "Not",
     "Or",
     "Predicate",
@@ -47,5 +50,6 @@ __all__ = [
     "Set",
     "Spec",
     "Subtract",
+    "Sum",
     "Transition",
 ]

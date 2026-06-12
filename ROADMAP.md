@@ -3,8 +3,9 @@
 Текущее состояние: **v1.0.1 + v1.2 expressiveness** — универсальный DSL +
 агентская поверхность +
 reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
-Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root и
-bounded multiplicity и конечные `ForAll/Exists`. 154 теста. Фазы v0.9,
+Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root,
+bounded multiplicity, конечные `ForAll/Exists` и `Count/Sum/Min/Max`.
+163 теста. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -163,9 +164,10 @@ snapshot-режима).
   scenario runner и explorer над несколькими объектами одного типа
 - ✅ `Bound` + конечные `ForAll/Exists` над bounded scope: явные AST-узлы,
   вложенные кванторы, использование в invariants/actions/scenarios/queries
-- `Count` и агрегаты над scope; затем declarative initial relation и
-  create/delete внутри фиксированного universe (путь Alloy; research/01, 06,
-  14, 16)
+- ✅ `Count/Sum/Min/Max` над scope: арифметические AST-узлы, композиция с
+  выражениями, использование в эффектах и reachability
+- Declarative initial relation и create/delete внутри фиксированного universe
+  (путь Alloy; research/01, 06, 14, 16)
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)

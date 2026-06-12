@@ -41,6 +41,7 @@ from analint import (
     Scope,
     Set,
     Spec,
+    Sum,
 )
 
 # In Quint: MAX_UINT = 2^256 - 1, checked symbolically by Apalache.
@@ -75,8 +76,8 @@ account = Bound("account", accounts)
 
 
 # Quint: val totalSupply = ADDR.fold(0, (sum, a) => sum + balances.get(a))
-# A named expression over the fixed accounts — no denormalized counter needed.
-total_supply = alice.coins + bob.coins + eve.coins
+# A finite aggregate over the account scope — no denormalized counter needed.
+total_supply = Sum(account, account.coins)
 
 
 # ── Actions (Quint: parameterized mint/send + nondet step) ────────────────────

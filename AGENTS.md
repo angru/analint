@@ -32,7 +32,7 @@ src/analint/
     flow.py                 ← Flow, Assert, Emitted dataclasses
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
     param.py                ← Param/ParamField + expansion of parameterized actions
-    quantifier.py           ← Bound/BoundField + finite ForAll/Exists AST
+    quantifier.py           ← Bound fields + finite quantifier/aggregate AST
     scope.py                ← bounded multiplicity: Scope/InstanceRef/InstanceField
     root.py                 ← Spec (top-level aggregate)
 
@@ -83,6 +83,7 @@ context = {instance_context_key(inst): inst for inst in scenario.given}
 resolve(FieldDescriptor, context) → getattr(context[desc.entity_cls], desc.field_name)
 resolve(InstanceField, context) → getattr(context[field.instance], field.field_name)
 resolve(BoundField, context, bindings) → current quantified instance field
+resolve(Sum/Min/Max/Count, context, bindings) → exhaustive finite aggregation
 evaluate(_Gte(a, b), context) → resolve(a) >= resolve(b)
 ```
 
@@ -146,8 +147,10 @@ ambiguous.
 predicate AST nodes, not Python callbacks. The evaluator exhaustively binds
 the variable to every `InstanceRef`; structural walkers expand those bindings
 only for reference/applicability analysis. Bound fields outside a quantifier
-and quantifiers over unregistered scopes are structural errors. There is no
-`Count` or create/delete yet.
+or aggregate and binders over unregistered scopes are structural errors.
+`Count(bound, predicate)` and `Sum/Min/Max(bound, operand)` are arithmetic
+AST nodes, so they compose with field math and may be used in predicates and
+effect right-hand sides. There is no create/delete yet.
 
 ### Auto-populate Spec (engine.py)
 
@@ -168,7 +171,7 @@ and quantifiers over unregistered scopes are structural errors. There is no
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (154)
+uv run pytest                          # run all tests (163)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

@@ -29,8 +29,13 @@ from analint.models.predicate import (
 from analint.models.quantifier import (
     Bound,
     BoundField,
+    _Count,
     _Exists,
     _ForAll,
+    _Max,
+    _Min,
+    _Sum,
+    bind_operand,
     bind_predicate,
 )
 from analint.models.root import Spec
@@ -501,11 +506,14 @@ def _check_pred_nodes(
         else:
             findings.extend(_check_pred_nodes(pred.predicate, loc, bound | {pred.variable}))
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
-        findings.extend(_check_bound_operands([pred.left, pred.right], bound, loc))
+        findings.extend(_check_operand_nodes(pred.left, bound, loc))
+        findings.extend(_check_operand_nodes(pred.right, bound, loc))
     elif isinstance(pred, _In):
-        findings.extend(_check_bound_operands([pred.operand, *pred.values], bound, loc))
+        findings.extend(_check_operand_nodes(pred.operand, bound, loc))
+        for value in pred.values:
+            findings.extend(_check_operand_nodes(value, bound, loc))
     elif isinstance(pred, (_IsNull, _IsNotNull)):
-        findings.extend(_check_bound_operands([pred.operand], bound, loc))
+        findings.extend(_check_operand_nodes(pred.operand, bound, loc))
     return findings
 
 
@@ -549,31 +557,49 @@ def _check_pred_refs(
     return findings
 
 
-def _check_bound_operands(
-    operands: Sequence[Any],
+def _check_operand_nodes(
+    operand: Any,
     bound: frozenset[Bound],
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
-    for operand in operands:
-        for field in _operand_bound_fields(operand):
-            if field.variable not in bound:
-                findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        loc,
-                        f"'{field!r}' uses Bound '{field.variable.name}' outside ForAll/Exists",
-                    )
-                )
-    return findings
-
-
-def _operand_bound_fields(operand: Any) -> list[BoundField]:
     if isinstance(operand, BoundField):
-        return [operand]
-    if isinstance(operand, Expr):
-        return _operand_bound_fields(operand.left) + _operand_bound_fields(operand.right)  # type: ignore[attr-defined]
-    return []
+        if operand.variable not in bound:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"'{operand!r}' uses Bound '{operand.variable.name}' "
+                    f"outside a quantifier or aggregate",
+                )
+            )
+    elif isinstance(operand, _Count):
+        if not isinstance(operand.variable, Bound):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"_Count variable must be Bound(...), got {operand.variable!r}",
+                )
+            )
+        else:
+            findings.extend(_check_pred_nodes(operand.predicate, loc, bound | {operand.variable}))
+    elif isinstance(operand, (_Sum, _Min, _Max)):
+        if not isinstance(operand.variable, Bound):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"{type(operand).__name__} variable must be Bound(...), "
+                    f"got {operand.variable!r}",
+                )
+            )
+        else:
+            findings.extend(_check_operand_nodes(operand.operand, bound | {operand.variable}, loc))
+    elif isinstance(operand, Expr):
+        findings.extend(_check_operand_nodes(operand.left, bound, loc))  # type: ignore[attr-defined]
+        findings.extend(_check_operand_nodes(operand.right, bound, loc))  # type: ignore[attr-defined]
+    return findings
 
 
 def _check_quantifier_scopes(
@@ -602,13 +628,64 @@ def _check_quantifier_scopes(
                 )
             )
         findings.extend(_check_quantifier_scopes(pred.predicate, spec_scopes, loc))
+    elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
+        findings.extend(_check_operand_scopes(pred.left, spec_scopes, loc))
+        findings.extend(_check_operand_scopes(pred.right, spec_scopes, loc))
+    elif isinstance(pred, _In):
+        findings.extend(_check_operand_scopes(pred.operand, spec_scopes, loc))
+        for value in pred.values:
+            findings.extend(_check_operand_scopes(value, spec_scopes, loc))
+    elif isinstance(pred, (_IsNull, _IsNotNull)):
+        findings.extend(_check_operand_scopes(pred.operand, spec_scopes, loc))
     return findings
+
+
+def _check_operand_scopes(
+    operand: Any,
+    spec_scopes: Sequence[Any],
+    loc: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    if isinstance(operand, _Count):
+        if operand.variable.scope not in spec_scopes:
+            findings.append(_unregistered_bound_scope(operand.variable, loc))
+        findings.extend(_check_quantifier_scopes(operand.predicate, spec_scopes, loc))
+    elif isinstance(operand, (_Sum, _Min, _Max)):
+        if operand.variable.scope not in spec_scopes:
+            findings.append(_unregistered_bound_scope(operand.variable, loc))
+        findings.extend(_check_operand_scopes(operand.operand, spec_scopes, loc))
+    elif isinstance(operand, Expr):
+        findings.extend(_check_operand_scopes(operand.left, spec_scopes, loc))  # type: ignore[attr-defined]
+        findings.extend(_check_operand_scopes(operand.right, spec_scopes, loc))  # type: ignore[attr-defined]
+    return findings
+
+
+def _unregistered_bound_scope(variable: Bound, loc: str) -> Finding:
+    return Finding(
+        Severity.ERROR,
+        loc,
+        f"Bound '{variable.name}' uses Scope "
+        f"'{variable.scope.id or variable.scope.entity_cls.__name__}' "
+        f"not registered in spec.scopes",
+    )
 
 
 def _operand_refs(operand: Any) -> list[FieldDescriptor | InstanceField]:
     """Field references inside an operand: a descriptor or an expression tree."""
     if is_field_ref(operand):
         return [operand]
+    if isinstance(operand, _Count):
+        refs: list[FieldDescriptor | InstanceField] = []
+        for instance in operand.variable.scope:
+            refs.extend(
+                _collect_field_refs(bind_predicate(operand.predicate, operand.variable, instance))
+            )
+        return refs
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        refs = []
+        for instance in operand.variable.scope:
+            refs.extend(_operand_refs(bind_operand(operand.operand, operand.variable, instance)))
+        return refs
     if isinstance(operand, Expr):
         return _operand_refs(operand.left) + _operand_refs(operand.right)  # type: ignore[attr-defined]
     return []
@@ -686,6 +763,13 @@ def _describe_operand(op: Any) -> str:
         return repr(op)
     if is_field_ref(op):
         return repr(op)
+    if isinstance(op, _Count):
+        scope = op.variable.scope.id or op.variable.scope.entity_cls.__name__
+        return f"COUNT {op.variable.name} IN {scope}: {_describe(op.predicate)}"
+    if isinstance(op, (_Sum, _Min, _Max)):
+        scope = op.variable.scope.id or op.variable.scope.entity_cls.__name__
+        name = type(op).__name__[1:].upper()
+        return f"{name} {op.variable.name} IN {scope}: {_describe_operand(op.operand)}"
     if isinstance(op, Expr):
         return (
             f"({_describe_operand(op.left)} {expr_op(op)} "  # type: ignore[attr-defined]

@@ -19,7 +19,16 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
-from analint.models.quantifier import Bound, BoundField, _Exists, _ForAll
+from analint.models.quantifier import (
+    Bound,
+    BoundField,
+    _Count,
+    _Exists,
+    _ForAll,
+    _Max,
+    _Min,
+    _Sum,
+)
 from analint.models.scope import field_context_key, is_field_ref
 
 Context = dict[Any, Any]
@@ -57,6 +66,22 @@ def resolve(
         return resolve(operand.left, context, bindings) - resolve(operand.right, context, bindings)
     if isinstance(operand, _MulExpr):
         return resolve(operand.left, context, bindings) * resolve(operand.right, context, bindings)
+    if isinstance(operand, _Count):
+        results = [
+            evaluate(operand.predicate, context, {**bindings, operand.variable: instance})
+            for instance in operand.variable.scope
+        ]
+        return sum(results)
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        values = [
+            resolve(operand.operand, context, {**bindings, operand.variable: instance})
+            for instance in operand.variable.scope
+        ]
+        if isinstance(operand, _Sum):
+            return sum(values)
+        if isinstance(operand, _Min):
+            return min(values)
+        return max(values)
     return operand
 
 

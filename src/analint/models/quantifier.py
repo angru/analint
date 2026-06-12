@@ -120,6 +120,30 @@ class _Exists(Predicate):
     predicate: Predicate
 
 
+@dataclass(eq=False)
+class _Count(Expr):
+    variable: Bound
+    predicate: Predicate
+
+
+@dataclass(eq=False)
+class _Sum(Expr):
+    variable: Bound
+    operand: Any
+
+
+@dataclass(eq=False)
+class _Min(Expr):
+    variable: Bound
+    operand: Any
+
+
+@dataclass(eq=False)
+class _Max(Expr):
+    variable: Bound
+    operand: Any
+
+
 def ForAll(variable: Bound, predicate: Predicate) -> _ForAll:
     """The predicate must hold for every instance in the variable's Scope."""
     if not isinstance(variable, Bound):
@@ -136,6 +160,42 @@ def Exists(variable: Bound, predicate: Predicate) -> _Exists:
     if not isinstance(predicate, Predicate):
         raise TypeError("Exists body must be a Predicate")
     return _Exists(variable=variable, predicate=predicate)
+
+
+def Count(variable: Bound, predicate: Predicate) -> _Count:
+    """Count instances in the variable's Scope for which predicate holds."""
+    if not isinstance(variable, Bound):
+        raise TypeError("Count variable must be Bound(...)")
+    if not isinstance(predicate, Predicate):
+        raise TypeError("Count body must be a Predicate")
+    return _Count(variable=variable, predicate=predicate)
+
+
+def Sum(variable: Bound, operand: Any) -> _Sum:
+    """Sum an operand over every instance in the variable's Scope."""
+    if not isinstance(variable, Bound):
+        raise TypeError("Sum variable must be Bound(...)")
+    if isinstance(operand, Predicate):
+        raise TypeError("Sum body must be a value expression; use Count for predicates")
+    return _Sum(variable=variable, operand=operand)
+
+
+def Min(variable: Bound, operand: Any) -> _Min:
+    """Return the minimum operand value over a non-empty bounded Scope."""
+    if not isinstance(variable, Bound):
+        raise TypeError("Min variable must be Bound(...)")
+    if isinstance(operand, Predicate):
+        raise TypeError("Min body must be a value expression; use Count for predicates")
+    return _Min(variable=variable, operand=operand)
+
+
+def Max(variable: Bound, operand: Any) -> _Max:
+    """Return the maximum operand value over a non-empty bounded Scope."""
+    if not isinstance(variable, Bound):
+        raise TypeError("Max variable must be Bound(...)")
+    if isinstance(operand, Predicate):
+        raise TypeError("Max body must be a value expression; use Count for predicates")
+    return _Max(variable=variable, operand=operand)
 
 
 def bind_predicate(pred: Predicate, variable: Bound, instance: InstanceRef) -> Predicate:
@@ -175,6 +235,20 @@ def bind_operand(operand: Any, variable: Bound, instance: InstanceRef) -> Any:
     if isinstance(operand, BoundField) and operand.variable is variable:
         field: InstanceField = getattr(instance, operand.field_name)
         return field
+    if isinstance(operand, _Count):
+        if operand.variable is variable:
+            return operand
+        return _Count(
+            variable=operand.variable,
+            predicate=bind_predicate(operand.predicate, variable, instance),
+        )
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        if operand.variable is variable:
+            return operand
+        return type(operand)(
+            variable=operand.variable,
+            operand=bind_operand(operand.operand, variable, instance),
+        )
     if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
         return type(operand)(
             bind_operand(operand.left, variable, instance),

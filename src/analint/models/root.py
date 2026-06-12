@@ -45,6 +45,13 @@ class Spec(BaseModel):
     queries: list[Query] = Field(default_factory=list)
 
     def model_post_init(self, __context: Any) -> None:
+        # Parameterized actions expand into concrete instances here, so the
+        # runner, the explorer and the queries only ever see bound actions.
+        from analint.models.param import expand_action
+
+        if any(a.params for a in self.actions):
+            self.actions = [bound for a in self.actions for bound in expand_action(a)]
+
         if self.lifecycles:
             return
         self.lifecycles = [

@@ -31,6 +31,7 @@ src/analint/
     scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
+    param.py                ← Param/ParamField + expansion of parameterized actions
     root.py                 ← Spec (top-level aggregate)
 
   validator/
@@ -185,5 +186,8 @@ shared by the CLI and MCP.
 - Do not import `predicate.py` at the top of `entity.py` — circular import
 - Do not mutate `scenario.given` instances — effects work on copies
 - Do not load spec files with `spec_from_file_location` per file — that resurrects the double-import bug; everything goes through the entry point
+- Do not generate model elements with host-language factory functions — that
+  is the signal for a missing language abstraction; use `Param`/`params=` for
+  families of actions. Named predicates and test-data helpers are fine.
 - Do not create `.md` documentation files unless explicitly asked
 - Do not add error handling for scenarios that can't happen — let Python raise naturally

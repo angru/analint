@@ -206,6 +206,31 @@ checkout = Action(
 | `Subtract(field, amount)` | field becomes field − amount |
 | `Add(field, amount)` | field becomes field + amount |
 
+#### Parameterized actions
+
+A family of similar transitions is one declaration over finite domains —
+never a host-language loop:
+
+```python
+from analint import Param
+
+src    = Param("src", AliceCoins, BobCoins, EveCoins)
+dst    = Param("dst", AliceCoins, BobCoins, EveCoins)
+amount = Param("amount", 1, 2, 3)
+
+send = Action(
+    params=[src, dst, amount],
+    where=[src != dst],
+    pre=[src.coins >= amount, dst.coins <= MAX_BALANCE - amount],
+    effect=[Subtract(src.coins, amount), Add(dst.coins, amount)],
+)
+```
+
+The engine expands every binding that satisfies `where` into a concrete
+action (`send(src=AliceCoins, dst=BobCoins, amount=2)`); traces and reports
+use the parametric names. A scenario picks one binding:
+`action=send.bind(src=BobCoins, dst=EveCoins, amount=2)`.
+
 ### Actor
 
 Who can trigger an action. Subclass `Actor` to define a role:

@@ -275,7 +275,9 @@ def test_coin_translation_reproduces_quint_lesson_violation():
     by_id = {qr.query_id: qr for qr in result.query_results}
     overflow = by_id["supply_never_overflows"]
     assert overflow.status == "FAIL"  # the Quint lesson's teaching moment
-    assert overflow.trace is not None and len(overflow.trace) == 6  # minimal counterexample
+    # minimal counterexample: two mints of 3 already break the supply bound
+    assert overflow.trace is not None and len(overflow.trace) == 2
+    assert all(step.startswith("mint(") for step in overflow.trace)
     assert by_id["everyone_can_get_paid"].status == "PASS"
     assert by_id["every_method_callable"].status == "PASS"
     assert result.failed_count == 0  # all translated Quint tests pass

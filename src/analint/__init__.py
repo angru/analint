@@ -6,6 +6,7 @@ from analint.models.event import Event
 from analint.models.flow import Assert, Emitted, Flow
 from analint.models.invariant import Invariant
 from analint.models.lifecycle import Lifecycle, Transition
+from analint.models.param import Param
 from analint.models.predicate import (
     And,
     Implies,
@@ -46,6 +47,7 @@ __all__ = [
     "IsNotNull",
     # transitions
     "Action",
+    "Param",
     "Effect",
     "Set",
     "Subtract",

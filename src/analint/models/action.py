@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -8,6 +8,9 @@ from analint.models.actor import Actor
 from analint.models.effect import Effect
 from analint.models.event import Event
 from analint.models.predicate import Predicate
+
+if TYPE_CHECKING:
+    from analint.models.param import Param
 
 
 class Action(BaseModel):
@@ -42,7 +45,13 @@ class Action(BaseModel):
     on: list[type[Event]] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
-    @field_validator("on", "emits", "pre", "post", "effect", mode="before")
+    # Parameterized actions (research/15): one declaration over finite domains,
+    # expanded into concrete instances when the Spec is built.
+    params: list[Param] = Field(default_factory=list)
+    where: list[Predicate] = Field(default_factory=list)
+    family: str = ""  # the parameterized action this instance was expanded from
+
+    @field_validator("on", "emits", "pre", "post", "effect", "params", "where", mode="before")
     @classmethod
     def _listify(cls, v: Any) -> Any:
         if v is None:
@@ -51,5 +60,20 @@ class Action(BaseModel):
             return [v]
         return v
 
+    def bind(self, **binding: Any) -> Action:
+        """A concrete instance of this parameterized action for one binding.
+
+        Memoized: the same binding always returns the same object, so a
+        scenario's `action=send.bind(src=…)` is identical to the instance
+        the Spec expansion registers.
+        """
+        from analint.models.param import bind_action
+
+        return bind_action(self, binding)
+
+
+# after the class definition: param.py needs nothing from this module at
+# import time, and pydantic needs the real Param class for model_rebuild
+from analint.models.param import Param  # noqa: E402
 
 Action.model_rebuild()

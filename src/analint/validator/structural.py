@@ -179,8 +179,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
             effect_targets.add(target)
 
-        if not any(sc.action.id == action.id for sc in spec.scenarios):
-            findings.append(warn(loc, "has no scenarios"))
+    # Scenario coverage is per family: one example for any binding of a
+    # parameterized action covers the whole declaration.
+    covered_families = {sc.action.family or sc.action.id for sc in spec.scenarios}
+    warned_families: set[str] = set()
+    for action in spec.actions:
+        fam = action.family or action.id
+        if fam in covered_families or fam in warned_families:
+            continue
+        warned_families.add(fam)
+        findings.append(warn(f"action:{fam}", "has no scenarios"))
 
     # Lifecycles
     for lc in spec.lifecycles:

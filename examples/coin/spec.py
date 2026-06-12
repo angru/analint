@@ -8,15 +8,15 @@ can overflow even though every individual balance is range-checked — the
 teaching moment of the Quint lesson, reproduced here.
 
 Deliberate translation choices (the comparison is the point — research/15):
-- Quint's `balances: Addr -> UInt` map → three fixed account entities.
-  analint has no collections: one parameterized Quint action `send(sender,
-  receiver, amount)` becomes 6 concrete actions, built by a factory.
-- Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → a unit denomination
-  (every transfer moves 1 coin). Same state space shape, smaller.
+- Quint's `balances: Addr -> UInt` map → three fixed account entities;
+  Quint's parameterized `send(sender, receiver, amount)` → one parameterized
+  analint Action over `Param` domains, expanded by the engine.
+- Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → `Param("amount", 1, 2, 3)`
+  (we explore explicitly, so the domain is small and finite).
 - Quint's `totalSupply` fold over the map → a denormalized Ledger counter
   (analint has no arithmetic aggregates — yet).
-- Quint's `require(sender == minter)` → encoded structurally: only the
-  mint_to_* actions exist, and they carry `by=Minter`.
+- Quint's `require(sender == minter)` → encoded structurally: minting is a
+  separate action carrying `by=Minter`.
 
 This example is DELIBERATELY RED, like trollbridge: `supply_never_overflows`
 fails with a counterexample trace — the same violation the Quint lesson
@@ -33,6 +33,7 @@ from analint import (
     Entity,
     Expect,
     Field,
+    Param,
     Reachable,
     Scenario,
     Spec,
@@ -79,47 +80,35 @@ class Ledger(Entity):
     total_supply: int = Field(0, ge=0, le=3 * MAX_BALANCE)
 
 
-_ACCOUNTS = {"alice": AliceCoins, "bob": BobCoins, "eve": EveCoins}
-
-
 # ── Actions (Quint: parameterized mint/send + nondet step) ────────────────────
-# The factory is the host-language functional layer — it constructs ordinary
-# analint nodes, mirroring Quint's `pure def` section.
+# `Param` is the analint counterpart of Quint's action parameters and
+# `nondet x = oneOf(...)`: one declaration over finite domains, expanded by
+# the engine into concrete bound actions.
 
+receiver = Param("receiver", AliceCoins, BobCoins, EveCoins)
+src = Param("src", AliceCoins, BobCoins, EveCoins)
+dst = Param("dst", AliceCoins, BobCoins, EveCoins)
+amount = Param("amount", 1, 2, 3)
 
-def _mint(name: str, receiver: type) -> Action:
-    return Action(
-        id=f"mint_to_{name}",
-        name=f"Minter issues 1 coin to {name}",
-        by=Minter,
-        pre=[receiver.coins < MAX_BALANCE],  # require(isUInt(newBal))
-        effect=[Add(receiver.coins, 1), Add(Ledger.total_supply, 1)],
-    )
+mint = Action(
+    name="Minter issues coins to a holder",
+    by=Minter,
+    params=[receiver, amount],
+    pre=[receiver.coins <= MAX_BALANCE - amount],  # require(isUInt(newBal))
+    effect=[Add(receiver.coins, amount), Add(Ledger.total_supply, amount)],
+)
 
-
-def _send(src_name: str, src: type, dst_name: str, dst: type) -> Action:
-    return Action(
-        id=f"send_{src_name}_to_{dst_name}",
-        name=f"{src_name} sends 1 coin to {dst_name}",
-        by=Holder,
-        pre=[
-            src.coins >= 1,  # require(not(amount > balances.get(sender)))
-            dst.coins < MAX_BALANCE,  # require(isUInt(newReceiverBal))
-        ],
-        effect=[Subtract(src.coins, 1), Add(dst.coins, 1)],
-    )
-
-
-mint_to_alice = _mint("alice", AliceCoins)
-mint_to_bob = _mint("bob", BobCoins)
-mint_to_eve = _mint("eve", EveCoins)
-
-send_alice_to_bob = _send("alice", AliceCoins, "bob", BobCoins)
-send_alice_to_eve = _send("alice", AliceCoins, "eve", EveCoins)
-send_bob_to_alice = _send("bob", BobCoins, "alice", AliceCoins)
-send_bob_to_eve = _send("bob", BobCoins, "eve", EveCoins)
-send_eve_to_alice = _send("eve", EveCoins, "alice", AliceCoins)
-send_eve_to_bob = _send("eve", EveCoins, "bob", BobCoins)
+send = Action(
+    name="A holder pays another holder",
+    by=Holder,
+    params=[src, dst, amount],
+    where=[src != dst],  # Quint allows self-sends as no-ops; we skip them
+    pre=[
+        src.coins >= amount,  # require(not(amount > balances.get(sender)))
+        dst.coins <= MAX_BALANCE - amount,  # require(isUInt(newReceiverBal))
+    ],
+    effect=[Subtract(src.coins, amount), Add(dst.coins, amount)],
+)
 
 
 # ── Scenarios (Quint: `run …Test` blocks) ─────────────────────────────────────
@@ -137,7 +126,7 @@ def _world(alice: int = 0, bob: int = 0, eve: int = 0) -> list:
 # Quint: run sendWithoutMintTest = init.then(send(minter, "bob", 5)).fail()
 sc_send_without_mint = Scenario(
     name="Sending before any minting is rejected",
-    action=send_alice_to_bob,
+    action=send.bind(src=AliceCoins, dst=BobCoins, amount=3),
     given=_world(),
     expected=Expect.FAIL,
 )
@@ -145,30 +134,37 @@ sc_send_without_mint = Scenario(
 # Quint: run mintSendTest = init.then(mint(minter, "bob", 10))
 #            .then(send("bob", "eve", 4)) … assert(bob == 6, eve == 4)
 # analint scenarios run a single action, so the post-mint state goes into
-# `given` (scaled to the unit denomination: bob has 2, sends 1).
+# `given` (scaled down: bob was minted 5, sends 2).
 sc_mint_then_send = Scenario(
     name="A minted holder can pay another holder",
-    action=send_bob_to_eve,
-    given=_world(bob=2),
+    action=send.bind(src=BobCoins, dst=EveCoins, amount=2),
+    given=_world(bob=5),
     then=[
-        Assert(BobCoins.coins == 1),
-        Assert(EveCoins.coins == 1),
-        Assert(Ledger.total_supply == 2),  # transfers do not change the supply
+        Assert(BobCoins.coins == 3),
+        Assert(EveCoins.coins == 2),
+        Assert(Ledger.total_supply == 5),  # transfers do not change the supply
     ],
 )
 
 sc_no_overdraft = Scenario(
     name="A holder cannot send more than the balance",
-    action=send_eve_to_alice,
+    action=send.bind(src=EveCoins, dst=AliceCoins, amount=1),
     given=_world(bob=3),  # eve has nothing
     expected=Expect.FAIL,
 )
 
 sc_receiver_overflow_blocked = Scenario(
     name="A transfer into a full balance is rejected",
-    action=send_bob_to_alice,
+    action=send.bind(src=BobCoins, dst=AliceCoins, amount=1),
     given=_world(alice=MAX_BALANCE, bob=1),
     expected=Expect.FAIL,
+)
+
+sc_minting_works = Scenario(
+    name="The minter issues coins out of thin air",
+    action=mint.bind(receiver=AliceCoins, amount=3),
+    given=_world(),
+    then=[Assert(AliceCoins.coins == 3), Assert(Ledger.total_supply == 3)],
 )
 
 

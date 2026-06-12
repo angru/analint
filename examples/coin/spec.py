@@ -11,7 +11,7 @@ Deliberate translation choices (the comparison is the point — research/15):
 - Quint's `balances: Addr -> UInt` map → three fixed account entities;
   Quint's parameterized `send(sender, receiver, amount)` → one parameterized
   analint Action over `Param` domains, expanded by the engine.
-- Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → `Param("amount", 1, 2, 3)`
+- Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → `Param("amount", ge=1, le=3)`
   (we explore explicitly, so the domain is small and finite).
 - Quint's `totalSupply` fold over the map → a named arithmetic expression
   over the fixed accounts (`AliceCoins.coins + BobCoins.coins + …`).
@@ -84,7 +84,7 @@ total_supply = AliceCoins.coins + BobCoins.coins + EveCoins.coins
 receiver = Param("receiver", AliceCoins, BobCoins, EveCoins)
 src = Param("src", AliceCoins, BobCoins, EveCoins)
 dst = Param("dst", AliceCoins, BobCoins, EveCoins)
-amount = Param("amount", 1, 2, 3)
+amount = Param("amount", ge=1, le=3)
 
 mint = Action(
     name="Minter issues coins to a holder",

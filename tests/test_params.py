@@ -126,3 +126,42 @@ def test_reachability_explores_all_bindings():
     assert result.status == "PASS"
     assert result.trace is not None
     assert any(step.startswith("transfer(") for step in result.trace)
+
+
+def test_param_range_domain_matches_field_vocabulary():
+    p = Param("amount", ge=1, le=3)
+    assert p.domain == [1, 2, 3]
+
+
+def test_param_enum_class_expands_to_members():
+    from enum import StrEnum
+
+    class Room(StrEnum):
+        FOYER = "foyer"
+        BAR = "bar"
+
+    p = Param("room", Room)
+    assert p.domain == [Room.FOYER, Room.BAR]
+
+
+def test_param_bool_expands():
+    p = Param("flag", bool)
+    assert p.domain == [False, True]
+
+
+def test_param_rejects_bare_int_and_mixed_forms():
+    try:
+        Param("n", int)
+        raise AssertionError("should have raised")
+    except TypeError as e:
+        assert "infinite domain" in str(e)
+    try:
+        Param("n", 1, 2, ge=1, le=3)
+        raise AssertionError("should have raised")
+    except TypeError as e:
+        assert "not both" in str(e)
+    try:
+        Param("n", ge=5, le=1)
+        raise AssertionError("should have raised")
+    except TypeError as e:
+        assert "greater than" in str(e)

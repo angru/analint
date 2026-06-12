@@ -224,7 +224,7 @@ from analint import Param
 
 src    = Param("src", AliceCoins, BobCoins, EveCoins)
 dst    = Param("dst", AliceCoins, BobCoins, EveCoins)
-amount = Param("amount", 1, 2, 3)
+amount = Param("amount", ge=1, le=3)   # integer range — same vocabulary as Field
 
 send = Action(
     params=[src, dst, amount],

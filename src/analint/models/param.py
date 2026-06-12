@@ -4,13 +4,16 @@ A `Param` ranges over a finite domain — entity classes or plain values:
 
     src    = Param("src", AliceCoins, BobCoins, EveCoins)
     dst    = Param("dst", AliceCoins, BobCoins, EveCoins)
-    amount = Param("amount", 1, 2, 3)
+    amount = Param("amount", ge=1, le=3)
 
     send = Action(
         params=[src, dst, amount],
         where=[src != dst],
         pre=[src.coins >= amount, dst.coins <= MAX_BALANCE - amount],
-        effect=[Subtract(src.coins, amount), Add(dst.coins, amount)],
+        effect=[
+            Set(src.coins, src.coins - amount),
+            Set(dst.coins, dst.coins + amount),
+        ],
     )
 
 Expansion happens when the Spec is built: every binding that satisfies the
@@ -54,15 +57,55 @@ Binding = dict[str, Any]
 
 
 class Param:
-    """A named finite domain: entity classes or plain values."""
+    """A named finite domain.
 
-    def __init__(self, name: str, *domain: Any) -> None:
+    Three ways to declare the domain, by intent:
+
+        Param("src", Alice, Bob, Eve)   # explicit enumeration (classes/values)
+        Param("amount", ge=1, le=3)     # integer range — same vocabulary as Field
+        Param("room", Room)             # an Enum class → all its members
+        Param("flag", bool)             # → False, True
+    """
+
+    def __init__(
+        self, name: str, *domain: Any, ge: int | None = None, le: int | None = None
+    ) -> None:
         if not name:
             raise TypeError("Param needs a name: Param('src', …)")
-        if not domain:
+        if domain and (ge is not None or le is not None):
+            raise TypeError(
+                f"Param '{name}': use either an explicit domain or ge=/le= bounds, not both"
+            )
+        if ge is not None or le is not None:
+            if ge is None or le is None:
+                raise TypeError(f"Param '{name}': a range needs both ge= and le=")
+            if not isinstance(ge, int) or not isinstance(le, int):
+                raise TypeError(f"Param '{name}': ge=/le= bounds must be integers")
+            if ge > le:
+                raise TypeError(f"Param '{name}': ge={ge} is greater than le={le}")
+            self.name = name
+            self.domain: list[Any] = list(range(ge, le + 1))
+            return
+
+        from enum import Enum
+
+        expanded: list[Any] = []
+        for entry in domain:
+            if entry is bool:
+                expanded.extend([False, True])
+            elif entry in (int, float, str):
+                raise TypeError(
+                    f"Param '{name}': bare {entry.__name__} is an infinite domain — "
+                    f"use ge=/le= bounds or enumerate the values"
+                )
+            elif isinstance(entry, type) and issubclass(entry, Enum):
+                expanded.extend(entry)
+            else:
+                expanded.append(entry)
+        if not expanded:
             raise TypeError(f"Param '{name}' needs a non-empty domain")
         self.name = name
-        self.domain = list(domain)
+        self.domain = expanded
 
     # attribute access builds field references for entity-class params
     def __getattr__(self, item: str) -> ParamField:

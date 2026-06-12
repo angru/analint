@@ -695,15 +695,16 @@ Rust или HTTP/BPMN adapters.
 
 Порядок:
 
-1. typed arithmetic/derived expression AST;
-2. parameterized actions;
-3. bounded multiplicity;
-4. `ForAll/Exists/Count`;
+1. ✅ typed arithmetic/derived expression AST;
+2. ✅ parameterized actions;
+3. ✅ bounded multiplicity (`Scope` + stable instance refs);
+4. ✅ `ForAll/Exists`; следующий срез — `Count` и агрегаты;
 5. create/delete в bounded universe;
 6. composition of specs / explicit contracts.
 
-После multiplicity нужен отдельный эксперимент со state explosion, а не
-немедленная перепись на Rust.
+Перевод Coin на один `Account` scope сохранил прежние 216 достижимых
+состояний; это первый baseline state explosion. Следующий эксперимент должен
+увеличить scope и плотность связей, а не немедленно вести к переписи на Rust.
 
 ### P5. Event semantics
 

@@ -4,7 +4,8 @@
 агентская поверхность +
 reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
 Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root и
-первая ступень bounded multiplicity. 146 тестов. Фазы v0.9, v0.10 и v1.0
+bounded multiplicity и конечные `ForAll/Exists`. 154 теста. Фазы v0.9,
+v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
 
@@ -160,8 +161,10 @@ snapshot-режима).
 - ✅ Bounded multiplicity, ступень 1: `Scope(Entity, keys=[...])`, стабильные
   `InstanceRef`, адресуемые поля экземпляров, `Param` по экземплярам,
   scenario runner и explorer над несколькими объектами одного типа
-- `ForAll/Exists/Count` над bounded scope; затем declarative initial relation
-  и create/delete внутри фиксированного universe (путь Alloy; research/01, 06,
+- ✅ `Bound` + конечные `ForAll/Exists` над bounded scope: явные AST-узлы,
+  вложенные кванторы, использование в invariants/actions/scenarios/queries
+- `Count` и агрегаты над scope; затем declarative initial relation и
+  create/delete внутри фиксированного universe (путь Alloy; research/01, 06,
   14, 16)
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),

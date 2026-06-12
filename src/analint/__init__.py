@@ -17,6 +17,7 @@ from analint.models.predicate import (
     Or,
     Predicate,
 )
+from analint.models.quantifier import Bound, Exists, ForAll
 from analint.models.query import (
     AlwaysHolds,
     DeadActions,
@@ -41,6 +42,9 @@ __all__ = [
     # constraints
     "Predicate",
     "Invariant",
+    "Bound",
+    "ForAll",
+    "Exists",
     "And",
     "Or",
     "Not",

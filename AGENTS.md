@@ -32,6 +32,7 @@ src/analint/
     flow.py                 ← Flow, Assert, Emitted dataclasses
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
     param.py                ← Param/ParamField + expansion of parameterized actions
+    quantifier.py           ← Bound/BoundField + finite ForAll/Exists AST
     scope.py                ← bounded multiplicity: Scope/InstanceRef/InstanceField
     root.py                 ← Spec (top-level aggregate)
 
@@ -81,6 +82,7 @@ context = {instance_context_key(inst): inst for inst in scenario.given}
 # singleton key = entity/event type; scoped key = InstanceRef
 resolve(FieldDescriptor, context) → getattr(context[desc.entity_cls], desc.field_name)
 resolve(InstanceField, context) → getattr(context[field.instance], field.field_name)
+resolve(BoundField, context, bindings) → current quantified instance field
 evaluate(_Gte(a, b), context) → resolve(a) >= resolve(b)
 ```
 
@@ -137,7 +139,15 @@ has a stable `InstanceRef`; `ref.field` is an `InstanceField`, and
 `ref(field=value)` creates an identified snapshot for `given`. `Param` accepts
 a Scope as its domain and expands actions over instance refs. Class-level
 `Entity.field` is structurally rejected for scoped entity types because it is
-ambiguous. There are no quantifiers or create/delete yet.
+ambiguous.
+
+`Bound("item", scope)` introduces a finite quantifier variable.
+`ForAll(bound, predicate)` and `Exists(bound, predicate)` are explicit
+predicate AST nodes, not Python callbacks. The evaluator exhaustively binds
+the variable to every `InstanceRef`; structural walkers expand those bindings
+only for reference/applicability analysis. Bound fields outside a quantifier
+and quantifiers over unregistered scopes are structural errors. There is no
+`Count` or create/delete yet.
 
 ### Auto-populate Spec (engine.py)
 
@@ -158,7 +168,7 @@ ambiguous. There are no quantifiers or create/delete yet.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (146)
+uv run pytest                          # run all tests (154)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

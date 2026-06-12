@@ -26,6 +26,13 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
+from analint.models.quantifier import (
+    Bound,
+    BoundField,
+    _Exists,
+    _ForAll,
+    bind_predicate,
+)
 from analint.models.root import Spec
 from analint.models.scope import (
     InstanceField,
@@ -118,7 +125,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
     # Invariants: expressions reference registered entities and existing fields
     for inv in spec.invariants:
         findings.extend(
-            _check_pred_refs(inv.expression, spec.entities, spec.events, f"invariant:{inv.id}")
+            _check_pred_refs(
+                inv.expression,
+                spec.entities,
+                spec.events,
+                f"invariant:{inv.id}",
+                spec.scopes,
+            )
         )
         findings.extend(
             _check_scoped_refs(
@@ -140,7 +153,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         loc = f"action:{action.id}"
 
         for pred in list(action.pre) + list(action.post):
-            findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc))
+            findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes))
             findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
 
         if action.by is not None:
@@ -277,7 +290,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for assertion in sc.then:
             if isinstance(assertion, Assert):
                 findings.extend(
-                    _check_pred_refs(assertion.predicate, spec.entities, spec.events, loc)
+                    _check_pred_refs(
+                        assertion.predicate,
+                        spec.entities,
+                        spec.events,
+                        loc,
+                        spec.scopes,
+                    )
                 )
                 findings.extend(
                     _check_scoped_refs(
@@ -316,7 +335,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
     for query in spec.queries:
         pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
         if pred is not None:
-            findings.extend(_check_pred_refs(pred, spec.entities, spec.events, f"query:{query.id}"))
+            findings.extend(
+                _check_pred_refs(
+                    pred,
+                    spec.entities,
+                    spec.events,
+                    f"query:{query.id}",
+                    spec.scopes,
+                )
+            )
             findings.extend(
                 _check_scoped_refs(_collect_field_refs(pred), scoped_entities, f"query:{query.id}")
             )
@@ -434,7 +461,11 @@ def _check_event_template(
     return findings
 
 
-def _check_pred_nodes(pred: Any, loc: str) -> list[Finding]:
+def _check_pred_nodes(
+    pred: Any,
+    loc: str,
+    bound: frozenset[Bound] = frozenset(),
+) -> list[Finding]:
     """Every node of a predicate tree must be a known analint node.
 
     A foreign object would otherwise reach the evaluator and raise (or, worse,
@@ -452,12 +483,29 @@ def _check_pred_nodes(pred: Any, loc: str) -> list[Finding]:
         ]
     if isinstance(pred, (_And, _Or)):
         for e in pred.exprs:
-            findings.extend(_check_pred_nodes(e, loc))
+            findings.extend(_check_pred_nodes(e, loc, bound))
     elif isinstance(pred, _Not):
-        findings.extend(_check_pred_nodes(pred.expr, loc))
+        findings.extend(_check_pred_nodes(pred.expr, loc, bound))
     elif isinstance(pred, _Implies):
-        findings.extend(_check_pred_nodes(pred.left, loc))
-        findings.extend(_check_pred_nodes(pred.right, loc))
+        findings.extend(_check_pred_nodes(pred.left, loc, bound))
+        findings.extend(_check_pred_nodes(pred.right, loc, bound))
+    elif isinstance(pred, (_ForAll, _Exists)):
+        if not isinstance(pred.variable, Bound):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"{type(pred).__name__} variable must be Bound(...), got {pred.variable!r}",
+                )
+            )
+        else:
+            findings.extend(_check_pred_nodes(pred.predicate, loc, bound | {pred.variable}))
+    elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
+        findings.extend(_check_bound_operands([pred.left, pred.right], bound, loc))
+    elif isinstance(pred, _In):
+        findings.extend(_check_bound_operands([pred.operand, *pred.values], bound, loc))
+    elif isinstance(pred, (_IsNull, _IsNotNull)):
+        findings.extend(_check_bound_operands([pred.operand], bound, loc))
     return findings
 
 
@@ -466,10 +514,12 @@ def _check_pred_refs(
     spec_entities: Sequence[type],
     spec_events: Sequence[type],
     loc: str,
+    spec_scopes: Sequence[Any] = (),
 ) -> list[Finding]:
     findings = _check_pred_nodes(pred, loc)
     if findings:
         return findings
+    findings.extend(_check_quantifier_scopes(pred, spec_scopes, loc))
     known_names = {e.__name__ for e in spec_entities} | {e.__name__ for e in spec_events}
     for ref in _collect_field_refs(pred):
         cls = ref.entity_cls
@@ -499,6 +549,62 @@ def _check_pred_refs(
     return findings
 
 
+def _check_bound_operands(
+    operands: Sequence[Any],
+    bound: frozenset[Bound],
+    loc: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for operand in operands:
+        for field in _operand_bound_fields(operand):
+            if field.variable not in bound:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"'{field!r}' uses Bound '{field.variable.name}' outside ForAll/Exists",
+                    )
+                )
+    return findings
+
+
+def _operand_bound_fields(operand: Any) -> list[BoundField]:
+    if isinstance(operand, BoundField):
+        return [operand]
+    if isinstance(operand, Expr):
+        return _operand_bound_fields(operand.left) + _operand_bound_fields(operand.right)  # type: ignore[attr-defined]
+    return []
+
+
+def _check_quantifier_scopes(
+    pred: Predicate,
+    spec_scopes: Sequence[Any],
+    loc: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    if isinstance(pred, (_And, _Or)):
+        for expr in pred.exprs:
+            findings.extend(_check_quantifier_scopes(expr, spec_scopes, loc))
+    elif isinstance(pred, _Not):
+        findings.extend(_check_quantifier_scopes(pred.expr, spec_scopes, loc))
+    elif isinstance(pred, _Implies):
+        findings.extend(_check_quantifier_scopes(pred.left, spec_scopes, loc))
+        findings.extend(_check_quantifier_scopes(pred.right, spec_scopes, loc))
+    elif isinstance(pred, (_ForAll, _Exists)):
+        if pred.variable.scope not in spec_scopes:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Bound '{pred.variable.name}' uses Scope "
+                    f"'{pred.variable.scope.id or pred.variable.scope.entity_cls.__name__}' "
+                    f"not registered in spec.scopes",
+                )
+            )
+        findings.extend(_check_quantifier_scopes(pred.predicate, spec_scopes, loc))
+    return findings
+
+
 def _operand_refs(operand: Any) -> list[FieldDescriptor | InstanceField]:
     """Field references inside an operand: a descriptor or an expression tree."""
     if is_field_ref(operand):
@@ -518,10 +624,19 @@ def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor | InstanceField
     elif isinstance(pred, _Implies):
         refs.extend(_collect_field_refs(pred.left))
         refs.extend(_collect_field_refs(pred.right))
+    elif isinstance(pred, (_ForAll, _Exists)):
+        for instance in pred.variable.scope:
+            refs.extend(
+                _collect_field_refs(bind_predicate(pred.predicate, pred.variable, instance))
+            )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         refs.extend(_operand_refs(pred.left))
         refs.extend(_operand_refs(pred.right))
-    elif isinstance(pred, (_In, _IsNull, _IsNotNull)):
+    elif isinstance(pred, _In):
+        refs.extend(_operand_refs(pred.operand))
+        for value in pred.values:
+            refs.extend(_operand_refs(value))
+    elif isinstance(pred, (_IsNull, _IsNotNull)):
         refs.extend(_operand_refs(pred.operand))
     return refs
 
@@ -567,6 +682,8 @@ def _check_requires_cycles(
 
 
 def _describe_operand(op: Any) -> str:
+    if isinstance(op, BoundField):
+        return repr(op)
     if is_field_ref(op):
         return repr(op)
     if isinstance(op, Expr):
@@ -602,8 +719,15 @@ def _describe(pred: Predicate) -> str:
         return f"NOT({_describe(pred.expr)})"
     if isinstance(pred, _Implies):
         return f"IF {_describe(pred.left)} THEN {_describe(pred.right)}"
+    if isinstance(pred, _ForAll):
+        scope = pred.variable.scope.id or pred.variable.scope.entity_cls.__name__
+        return f"FORALL {pred.variable.name} IN {scope}: {_describe(pred.predicate)}"
+    if isinstance(pred, _Exists):
+        scope = pred.variable.scope.id or pred.variable.scope.entity_cls.__name__
+        return f"EXISTS {pred.variable.name} IN {scope}: {_describe(pred.predicate)}"
     if isinstance(pred, _In):
-        return f"{_describe_operand(pred.operand)} in {pred.values!r}"
+        values = ", ".join(_describe_operand(value) for value in pred.values)
+        return f"{_describe_operand(pred.operand)} in [{values}]"
     if isinstance(pred, _IsNull):
         return f"{_describe_operand(pred.operand)} is None"
     if isinstance(pred, _IsNotNull):

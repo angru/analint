@@ -49,6 +49,7 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
+from analint.models.quantifier import _Exists, _ForAll
 from analint.models.scope import InstanceRef, Scope
 
 if TYPE_CHECKING:
@@ -225,6 +226,8 @@ def _subst_pred(pred: Predicate, binding: Binding) -> Predicate:
         return _Implies(
             left=_subst_pred(pred.left, binding), right=_subst_pred(pred.right, binding)
         )
+    if isinstance(pred, (_ForAll, _Exists)):
+        return type(pred)(variable=pred.variable, predicate=_subst_pred(pred.predicate, binding))
     if isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         return type(pred)(left=_resolve(pred.left, binding), right=_resolve(pred.right, binding))
     if isinstance(pred, _In):

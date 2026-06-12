@@ -271,7 +271,30 @@ alice_pays_bob = Scenario(
 ```
 
 The universe is fixed: `Scope` supports multiple existing instances, while
-`ForAll/Exists/Count` and create/delete are later layers.
+create/delete remains a later layer.
+
+#### Finite quantifiers
+
+`Bound` introduces a named variable over a `Scope`; `ForAll` and `Exists`
+remain explicit predicate AST nodes and work in invariants, action guards,
+scenario assertions, and reachability queries:
+
+```python
+from analint import Bound, Exists, ForAll
+
+account = Bound("account", accounts)
+
+all_balances_valid = AlwaysHolds(
+    ForAll(account, account.balance >= 0)
+)
+
+someone_is_full = Reachable(
+    Exists(account, account.balance == 5)
+)
+```
+
+Quantifiers are finite and exhaustive over the registered scope. `Count` and
+collection aggregates are the next language layer.
 
 ### Actor
 

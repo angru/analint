@@ -8,13 +8,13 @@ can overflow even though every individual balance is range-checked — the
 teaching moment of the Quint lesson, reproduced here.
 
 Deliberate translation choices (the comparison is the point — research/15):
-- Quint's `balances: Addr -> UInt` map → three fixed account entities;
+- Quint's `balances: Addr -> UInt` map → one bounded `Account` scope;
   Quint's parameterized `send(sender, receiver, amount)` → one parameterized
   analint Action over `Param` domains, expanded by the engine.
 - Quint's `nondet amount = 0.to(MAX_UINT).oneOf()` → `Param("amount", ge=1, le=3)`
   (we explore explicitly, so the domain is small and finite).
 - Quint's `totalSupply` fold over the map → a named arithmetic expression
-  over the fixed accounts (`AliceCoins.coins + BobCoins.coins + …`).
+  over the three bounded account refs.
 - Quint's `require(sender == minter)` → encoded structurally: minting is a
   separate action carrying `by=Minter`.
 
@@ -27,14 +27,18 @@ from analint import (
     Action,
     Actor,
     AlwaysHolds,
+    And,
     Assert,
+    Bound,
     DeadActions,
     Entity,
     Expect,
     Field,
+    ForAll,
     Param,
     Reachable,
     Scenario,
+    Scope,
     Set,
     Spec,
 )
@@ -59,21 +63,20 @@ class Holder(Actor):
 # ── State (Quint: `var balances: Addr -> UInt` over a fixed address set) ──────
 
 
-class AliceCoins(Entity):
+class Account(Entity):
     coins: int = Field(0, ge=0, le=MAX_BALANCE)
 
 
-class BobCoins(Entity):
-    coins: int = Field(0, ge=0, le=MAX_BALANCE)
-
-
-class EveCoins(Entity):
-    coins: int = Field(0, ge=0, le=MAX_BALANCE)
+accounts = Scope(Account, keys=["alice", "bob", "eve"])
+alice = accounts["alice"]
+bob = accounts["bob"]
+eve = accounts["eve"]
+account = Bound("account", accounts)
 
 
 # Quint: val totalSupply = ADDR.fold(0, (sum, a) => sum + balances.get(a))
 # A named expression over the fixed accounts — no denormalized counter needed.
-total_supply = AliceCoins.coins + BobCoins.coins + EveCoins.coins
+total_supply = alice.coins + bob.coins + eve.coins
 
 
 # ── Actions (Quint: parameterized mint/send + nondet step) ────────────────────
@@ -81,9 +84,9 @@ total_supply = AliceCoins.coins + BobCoins.coins + EveCoins.coins
 # `nondet x = oneOf(...)`: one declaration over finite domains, expanded by
 # the engine into concrete bound actions.
 
-receiver = Param("receiver", AliceCoins, BobCoins, EveCoins)
-src = Param("src", AliceCoins, BobCoins, EveCoins)
-dst = Param("dst", AliceCoins, BobCoins, EveCoins)
+receiver = Param("receiver", accounts)
+src = Param("src", accounts)
+dst = Param("dst", accounts)
 amount = Param("amount", ge=1, le=3)
 
 mint = Action(
@@ -116,13 +119,17 @@ send = Action(
 
 
 def _world(alice: int = 0, bob: int = 0, eve: int = 0) -> list:
-    return [AliceCoins(coins=alice), BobCoins(coins=bob), EveCoins(coins=eve)]
+    return [
+        accounts["alice"](coins=alice),
+        accounts["bob"](coins=bob),
+        accounts["eve"](coins=eve),
+    ]
 
 
 # Quint: run sendWithoutMintTest = init.then(send(minter, "bob", 5)).fail()
 sc_send_without_mint = Scenario(
     name="Sending before any minting is rejected",
-    action=send.bind(src=AliceCoins, dst=BobCoins, amount=3),
+    action=send.bind(src=alice, dst=bob, amount=3),
     given=_world(),
     expected=Expect.FAIL,
 )
@@ -133,43 +140,49 @@ sc_send_without_mint = Scenario(
 # `given` (scaled down: bob was minted 5, sends 2).
 sc_mint_then_send = Scenario(
     name="A minted holder can pay another holder",
-    action=send.bind(src=BobCoins, dst=EveCoins, amount=2),
+    action=send.bind(src=bob, dst=eve, amount=2),
     given=_world(bob=5),
     then=[
-        Assert(BobCoins.coins == 3),
-        Assert(EveCoins.coins == 2),
+        Assert(bob.coins == 3),
+        Assert(eve.coins == 2),
         Assert(total_supply == 5),  # transfers do not change the supply
     ],
 )
 
 sc_no_overdraft = Scenario(
     name="A holder cannot send more than the balance",
-    action=send.bind(src=EveCoins, dst=AliceCoins, amount=1),
+    action=send.bind(src=eve, dst=alice, amount=1),
     given=_world(bob=3),  # eve has nothing
     expected=Expect.FAIL,
 )
 
 sc_receiver_overflow_blocked = Scenario(
     name="A transfer into a full balance is rejected",
-    action=send.bind(src=BobCoins, dst=AliceCoins, amount=1),
+    action=send.bind(src=bob, dst=alice, amount=1),
     given=_world(alice=MAX_BALANCE, bob=1),
     expected=Expect.FAIL,
 )
 
 sc_minting_works = Scenario(
     name="The minter issues coins out of thin air",
-    action=mint.bind(receiver=AliceCoins, amount=3),
+    action=mint.bind(receiver=alice, amount=3),
     given=_world(),
-    then=[Assert(AliceCoins.coins == 3), Assert(total_supply == 3)],
+    then=[Assert(alice.coins == 3), Assert(total_supply == 3)],
 )
 
 
 # ── Properties (Quint: invariants + temporal) ─────────────────────────────────
 
 # Quint: val balancesRangeInv = ADDR.forall(a => isUInt(balances.get(a)))
-# In analint this is not a separate invariant: Field(ge=0, le=MAX_BALANCE)
-# already enforces the range at construction, in every scenario post-state,
-# and as the engine's bounds.
+# Field already enforces this structurally, but the original theorem now also
+# translates literally through a finite quantifier.
+balances_stay_in_range = AlwaysHolds(
+    ForAll(
+        account,
+        And(account.coins >= 0, account.coins <= MAX_BALANCE),
+    ),
+    label="every bounded account balance remains in range",
+)
 
 # Quint: temporal NoSupplyOverflow = always(totalSupplyDoesNotOverflowInv)
 # — and the lesson's point: this property is VIOLABLE, because every balance
@@ -181,7 +194,7 @@ supply_never_overflows = AlwaysHolds(
 )
 
 everyone_can_get_paid = Reachable(
-    EveCoins.coins > 0,
+    eve.coins > 0,
     label="coins can actually reach a regular holder",
 )
 

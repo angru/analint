@@ -12,11 +12,14 @@ class Reachable:
 
     The initial state is built from entity field defaults; `given` overrides
     or supplies instances (required for entities without full defaults).
+    `given_any=[[...], [...]]` declares a finite SET of admissible initial
+    states — the verdict then quantifies over every one of them (research/16).
     Passing produces a witness trace — the sequence of actions leading there.
     """
 
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
+    given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
     max_states: int = 10_000
@@ -32,6 +35,7 @@ class Unreachable:
 
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
+    given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
     max_states: int = 10_000
@@ -44,6 +48,7 @@ class AlwaysHolds:
 
     predicate: Predicate
     given: list[Any] = field(default_factory=list)
+    given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
     max_states: int = 10_000
@@ -59,6 +64,7 @@ class NoDeadEnd:
 
     goal: Predicate
     given: list[Any] = field(default_factory=list)
+    given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
     max_states: int = 10_000
@@ -69,6 +75,7 @@ class DeadActions:
     """Report actions that are never enabled in any reachable state."""
 
     given: list[Any] = field(default_factory=list)
+    given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
     max_states: int = 10_000

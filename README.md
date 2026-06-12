@@ -363,7 +363,7 @@ QUERIES
 
 The softlock above is invisible to every scenario in the spec — nobody writes a test for a situation they didn't think of. The explorer finds it in milliseconds with the shortest trace.
 
-- The **initial state** is built from entity field defaults; `given=[...]` supplies or overrides instances.
+- The **initial state** is built from entity field defaults; `given=[...]` supplies or overrides instances. `given_any=[[...], [...]]` declares a finite **set** of admissible initial states — the verdict then quantifies over every one of them, and traces name the originating configuration (`init #2 ⊢ …`).
 - Numeric `Field(ge=..., le=...)` constraints keep the state space finite.
   Driving a field out of range is an error with a trace; `saturate=True`
   clamps instead, for counters where only thresholds matter.

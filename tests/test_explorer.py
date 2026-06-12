@@ -281,3 +281,92 @@ def test_coin_translation_reproduces_quint_lesson_violation():
     assert by_id["everyone_can_get_paid"].status == "PASS"
     assert by_id["every_method_callable"].status == "PASS"
     assert result.failed_count == 0  # all translated Quint tests pass
+
+
+# ── Initial-state sets (research/16) ──────────────────────────────────────────
+
+
+def test_given_any_quantifies_over_all_roots():
+    class Door(Entity):
+        locked: bool = True
+        open: bool = False
+
+    push = Action(
+        id="push",
+        pre=[Door.locked == False, Door.open == False],  # noqa: E712
+        effect=[Set(Door.open, True)],
+    )
+    spec = Spec(id="s", name="S", entities=[Door], actions=[push])
+
+    # from the default (locked) root alone the door never opens…
+    one = run_query(Reachable(Door.open == True, id="q1"), spec, cache={})  # noqa: E712
+    assert one.status == "FAIL"
+
+    # …but over the set of admissible initials it does — and the verdict
+    # names the originating configuration
+    many = run_query(
+        Reachable(
+            Door.open == True,  # noqa: E712
+            id="q2",
+            given_any=[[Door(locked=True)], [Door(locked=False)]],
+        ),
+        spec,
+        cache={},
+    )
+    assert many.status == "PASS"
+    assert any("init #2" in f.message for f in many.findings)
+
+
+def test_always_holds_must_survive_every_root():
+    class Tank(Entity):
+        fuel: int = 5
+
+    spec = Spec(id="s", name="S", entities=[Tank], actions=[])
+    result = run_query(
+        AlwaysHolds(
+            Tank.fuel >= 3,
+            id="q",
+            given_any=[[Tank(fuel=5)], [Tank(fuel=1)]],  # breaks in root #2
+        ),
+        spec,
+        cache={},
+    )
+    assert result.status == "FAIL"
+    assert any("init #2" in f.message for f in result.findings)
+
+
+def test_given_and_given_any_together_is_an_error():
+    class Tank(Entity):
+        fuel: int = 5
+
+    spec = Spec(id="s", name="S", entities=[Tank], actions=[])
+    result = run_query(
+        Reachable(Tank.fuel == 5, id="q", given=[Tank()], given_any=[[Tank()]]),
+        spec,
+        cache={},
+    )
+    assert result.status == "FAIL"
+    assert any("not both" in f.message for f in result.findings)
+
+
+def test_duplicate_roots_merge():
+    class Tank(Entity):
+        fuel: int = 5
+
+    spec = Spec(id="s", name="S", entities=[Tank], actions=[])
+    result = run_query(
+        Reachable(Tank.fuel == 5, id="q", given_any=[[Tank(fuel=5)], [Tank(fuel=5)]]),
+        spec,
+        cache={},
+    )
+    assert result.status == "PASS"
+    assert result.states_explored == 1
+
+
+def test_mafia_theorem_quantifies_over_role_assignments():
+    result = validate(Path(__file__).parent.parent / "examples" / "mafia")
+    assert not result.has_errors
+    by_id = {qr.query_id: qr for qr in result.query_results}
+    assert by_id["citizens_cannot_win"].status == "PASS"
+    assert by_id["mafia_can_win"].status == "PASS"
+    assert by_id["mafia_can_win"].states_explored == 36  # 12 states × 3 assignments

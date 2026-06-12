@@ -48,6 +48,7 @@ class Exploration:
     order: list = dc_field(default_factory=list)  # keys in BFS order
     edges: list = dc_field(default_factory=list)  # (key, action_id, key)
     parents: dict = dc_field(default_factory=dict)  # key → (prev_key, action_id)
+    roots: dict = dc_field(default_factory=dict)  # root key → 1-based initial index
     fired: set = dc_field(default_factory=set)  # action ids ever enabled
     findings: list = dc_field(default_factory=list)  # violations met en route
     excluded: dict = dc_field(default_factory=dict)  # action id → why it is not explorable
@@ -69,6 +70,23 @@ class Exploration:
                 return list(reversed(steps))
             steps.append(action_id)
             key = prev
+
+    def root_of(self, key: StateKey) -> StateKey:
+        while True:
+            prev, _ = self.parents[key]
+            if prev is None:
+                return key
+            key = prev
+
+    def origin(self, key: StateKey) -> str:
+        """A trace prefix naming the initial state, when there are several.
+
+        A counterexample over an initial-state SET is ambiguous without its
+        root (research/16): 'init #2 ⊢ vote(...)' pins the configuration.
+        """
+        if len(self.roots) <= 1:
+            return ""
+        return f"init #{self.roots[self.root_of(key)]} ⊢ "
 
 
 # ── State helpers ──────────────────────────────────────────────────────────────
@@ -159,7 +177,7 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
 # ── Exploration ────────────────────────────────────────────────────────────────
 
 
-def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
+def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploration:
     # Field constraints double as the engine's bounds (research/13)
     bounds_map = {
         (cls, fname): desc.spec
@@ -194,13 +212,19 @@ def explore(spec: Spec, initial_ctx: dict, max_states: int) -> Exploration:
                 f"excluded from exploration: {exp.excluded[action.id]}",
             )
 
-    key0 = state_key(initial_ctx)
-    exp.states[key0] = initial_ctx
-    exp.order.append(key0)
-    exp.parents[key0] = (None, None)
-    _report_invariant_violations(spec, initial_ctx, key0, exp)
-
-    queue = [key0]
+    # Seed the BFS with every admissible initial state; identical roots merge
+    # naturally through the state key (research/16: multi-root exploration).
+    queue: list[StateKey] = []
+    for index, ctx in enumerate(initial_ctxs, start=1):
+        key0 = state_key(ctx)
+        if key0 in exp.states:
+            continue
+        exp.states[key0] = ctx
+        exp.order.append(key0)
+        exp.parents[key0] = (None, None)
+        exp.roots[key0] = index
+        _report_invariant_violations(spec, ctx, key0, exp)
+        queue.append(key0)
     while queue:
         if len(exp.states) >= max_states:
             exp.capped = True
@@ -399,8 +423,7 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
-    initial, error = build_initial(spec, query.given)
-    if initial is None:
+    if query.given and query.given_any:
         return QueryResult(
             query_id=qid,
             kind=kind,
@@ -409,14 +432,33 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
                 Finding(
                     Severity.ERROR,
                     f"query:{qid}",
-                    error or "could not build the initial state",
+                    "use either given= (one initial state) or given_any= "
+                    "(a set of admissible initial states), not both",
                 )
             ],
         )
 
-    cache_key = (state_key(initial), query.max_states)
+    initials: list[dict] = []
+    for given in query.given_any or [query.given]:
+        initial, error = build_initial(spec, given)
+        if initial is None:
+            return QueryResult(
+                query_id=qid,
+                kind=kind,
+                status="FAIL",
+                findings=[
+                    Finding(
+                        Severity.ERROR,
+                        f"query:{qid}",
+                        error or "could not build the initial state",
+                    )
+                ],
+            )
+        initials.append(initial)
+
+    cache_key = (tuple(sorted(state_key(ctx) for ctx in initials)), query.max_states)
     if cache_key not in cache:
-        cache[cache_key] = explore(spec, initial, query.max_states)
+        cache[cache_key] = explore(spec, initials, query.max_states)
     exp = cache[cache_key]
 
     if isinstance(query, Reachable):
@@ -513,6 +555,7 @@ def _eval_reachable(
 
     if found is not None:
         trace = exp.trace_to(found)
+        origin = exp.origin(found)
         if expect_reachable:
             return QueryResult(
                 query_id=qid,
@@ -522,8 +565,11 @@ def _eval_reachable(
                 trace=trace,
                 findings=[
                     Finding(
-                        Severity.INFO, f"query:{qid}", f"'{text}' reachable: {_trace_str(trace)}"
-                    )
+                        Severity.INFO,
+                        f"query:{qid}",
+                        f"'{text}' reachable: {origin}{_trace_str(trace)}",
+                    ),
+                    *_origin_findings(exp, found, qid),
                 ],
             )
         return QueryResult(
@@ -536,8 +582,9 @@ def _eval_reachable(
                 Finding(
                     Severity.ERROR,
                     f"query:{qid}",
-                    f"'{text}' must be unreachable, but: {_trace_str(trace)}",
-                )
+                    f"'{text}' must be unreachable, but: {origin}{_trace_str(trace)}",
+                ),
+                *_origin_findings(exp, found, qid),
             ],
         )
 
@@ -589,9 +636,10 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
                     Finding(
                         Severity.ERROR,
                         f"query:{qid}",
-                        f"'{text}' breaks: {_trace_str(trace)} ⇒ "
+                        f"'{text}' breaks: {exp.origin(key)}{_trace_str(trace)} ⇒ "
                         f"{_offending_values(query.predicate, ctx)}",
-                    )
+                    ),
+                    *_origin_findings(exp, key, qid),
                 ],
             )
     if errors:
@@ -667,9 +715,10 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                     Finding(
                         Severity.ERROR,
                         f"query:{qid}",
-                        f"dead end: after {_trace_str(trace)} the goal "
+                        f"dead end: after {exp.origin(key)}{_trace_str(trace)} the goal "
                         f"'{text}' can no longer be reached",
-                    )
+                    ),
+                    *_origin_findings(exp, key, qid),
                 ],
             )
     return QueryResult(
@@ -730,6 +779,15 @@ def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
             )
         ],
     )
+
+
+def _origin_findings(exp: Exploration, key: StateKey, qid: str) -> list[Finding]:
+    """Describe the initial configuration a trace starts from (multi-root only)."""
+    if len(exp.roots) <= 1:
+        return []
+    root = exp.root_of(key)
+    rendered = ", ".join(f"{k}={v}" for k, v in render_state(exp.states[root]).items())
+    return [Finding(Severity.INFO, f"query:{qid}", f"init #{exp.roots[root]}: {rendered}")]
 
 
 def _offending_values(predicate: Predicate, ctx: dict) -> str:

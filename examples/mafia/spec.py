@@ -3,11 +3,17 @@
 Original:
 https://github.com/quint-co/quint/blob/main/examples/games/mafia_werewolf/play_mafia.qnt
 
-Quint models players as maps and chooses every role assignment nondeterministically
-in ``init``. analint explores one instance per entity type, so this translation
-fixes the example table to the classic three-player setup: Mahtab is Mafia;
-Gabriela and Max are Citizens. Quint's nondeterministic player choices become
-finite ``Param`` action families.
+Quint models players as maps and chooses every role assignment
+nondeterministically in ``init``. analint explores one instance per entity
+type, so the three players are fixed entities — but the role assignment is
+NOT fixed: the queries quantify over the finite set of admissible initial
+states via ``given_any`` (research/16), and the actions are role-generic
+``Param`` families, never naming the mafia player. Quint's nondeterministic
+player choices become finite ``Param`` bindings; Quint's nondeterministic
+``init`` becomes the initial-state set.
+
+The headline theorem: in the 3-player night-first game the citizens cannot
+win — under EVERY role assignment, not just a convenient one.
 """
 
 from enum import StrEnum
@@ -86,6 +92,8 @@ class Game(Entity):
     )
 
 
+_PLAYERS = [Mahtab, Gabriela, Max]
+
 # A dead player need not vote; every living player must vote before resolution.
 all_voted = And(
     Implies(Mahtab.alive == True, Mahtab.voted == True),  # noqa: E712
@@ -93,96 +101,85 @@ all_voted = And(
     Implies(Max.alive == True, Max.voted == True),  # noqa: E712
 )
 
+# Role-generic world facts (the quantifier expanded by hand over the three
+# fixed players — the multiplicity wall, measured again).
+mafia_is_dead = And(
+    Implies(Mahtab.role == Role.MAFIA, Mahtab.alive == False),  # noqa: E712
+    Implies(Gabriela.role == Role.MAFIA, Gabriela.alive == False),  # noqa: E712
+    Implies(Max.role == Role.MAFIA, Max.alive == False),  # noqa: E712
+)
+mafia_is_alive = Or(
+    And(Mahtab.role == Role.MAFIA, Mahtab.alive == True),  # noqa: E712
+    And(Gabriela.role == Role.MAFIA, Gabriela.alive == True),  # noqa: E712
+    And(Max.role == Role.MAFIA, Max.alive == True),  # noqa: E712
+)
+all_citizens_dead = And(
+    Implies(Mahtab.role == Role.CITIZEN, Mahtab.alive == False),  # noqa: E712
+    Implies(Gabriela.role == Role.CITIZEN, Gabriela.alive == False),  # noqa: E712
+    Implies(Max.role == Role.CITIZEN, Max.alive == False),  # noqa: E712
+)
+some_citizen_alive = Or(
+    And(Mahtab.role == Role.CITIZEN, Mahtab.alive == True),  # noqa: E712
+    And(Gabriela.role == Role.CITIZEN, Gabriela.alive == True),  # noqa: E712
+    And(Max.role == Role.CITIZEN, Max.alive == True),  # noqa: E712
+)
+
 correct_game_status = Invariant(
     And(
-        Implies(
-            Game.status == GameStatus.CITIZENS_WON,
-            Mahtab.alive == False,  # noqa: E712
-        ),
-        Implies(
-            Game.status == GameStatus.MAFIA_WON,
-            And(
-                Gabriela.alive == False,  # noqa: E712
-                Max.alive == False,  # noqa: E712
-            ),
-        ),
-        Implies(
-            Game.status == GameStatus.PENDING,
-            And(
-                Mahtab.alive == True,  # noqa: E712
-                Or(
-                    Gabriela.alive == True,  # noqa: E712
-                    Max.alive == True,  # noqa: E712
-                ),
-            ),
-        ),
+        Implies(Game.status == GameStatus.CITIZENS_WON, mafia_is_dead),
+        Implies(Game.status == GameStatus.MAFIA_WON, all_citizens_dead),
+        Implies(Game.status == GameStatus.PENDING, And(mafia_is_alive, some_citizen_alive)),
     ),
     label="Game status matches the surviving roles",
 )
 
 
-# Night: the Mafia kills one living Citizen. The last Citizen's death ends the
-# game; otherwise play moves to the Day phase.
-mafia_kills_gabriela = Action(
+# ── Night: the Mafia kills one living Citizen ─────────────────────────────────
+# Role-generic: killer/victim/bystander are parameters; the role guards live
+# in `pre`, so the same declarations work for every role assignment.
+
+killer = Param("killer", *_PLAYERS)
+victim = Param("victim", *_PLAYERS)
+bystander = Param("bystander", *_PLAYERS)
+
+_night = [Game.phase == Phase.NIGHT, Game.status == GameStatus.PENDING]
+_distinct3 = [killer != victim, killer != bystander, victim != bystander]
+
+mafia_kills = Action(
+    name="Mafia kills a citizen; another citizen survives",
+    params=[killer, victim, bystander],
+    where=_distinct3,
     pre=[
-        Game.phase == Phase.NIGHT,
-        Game.status == GameStatus.PENDING,
-        Mahtab.alive == True,  # noqa: E712
-        Gabriela.alive == True,  # noqa: E712
-        Max.alive == True,  # noqa: E712
+        *_night,
+        killer.role == Role.MAFIA,
+        killer.alive == True,  # noqa: E712
+        victim.role == Role.CITIZEN,
+        victim.alive == True,  # noqa: E712
+        bystander.alive == True,  # noqa: E712
     ],
-    effect=[
-        Set(Gabriela.alive, False),
-        Set(Game.phase, Phase.DAY),
-    ],
+    effect=[Set(victim.alive, False), Set(Game.phase, Phase.DAY)],
 )
 
-mafia_kills_max = Action(
+mafia_kills_last_citizen = Action(
+    name="Mafia kills the last citizen — game over",
+    params=[killer, victim, bystander],
+    where=_distinct3,
     pre=[
-        Game.phase == Phase.NIGHT,
-        Game.status == GameStatus.PENDING,
-        Mahtab.alive == True,  # noqa: E712
-        Max.alive == True,  # noqa: E712
-        Gabriela.alive == True,  # noqa: E712
+        *_night,
+        killer.role == Role.MAFIA,
+        killer.alive == True,  # noqa: E712
+        victim.role == Role.CITIZEN,
+        victim.alive == True,  # noqa: E712
+        bystander.alive == False,  # noqa: E712
     ],
-    effect=[
-        Set(Max.alive, False),
-        Set(Game.phase, Phase.DAY),
-    ],
-)
-
-mafia_kills_last_gabriela = Action(
-    pre=[
-        Game.phase == Phase.NIGHT,
-        Game.status == GameStatus.PENDING,
-        Mahtab.alive == True,  # noqa: E712
-        Gabriela.alive == True,  # noqa: E712
-        Max.alive == False,  # noqa: E712
-    ],
-    effect=[
-        Set(Gabriela.alive, False),
-        Set(Game.status, GameStatus.MAFIA_WON),
-    ],
-)
-
-mafia_kills_last_max = Action(
-    pre=[
-        Game.phase == Phase.NIGHT,
-        Game.status == GameStatus.PENDING,
-        Mahtab.alive == True,  # noqa: E712
-        Max.alive == True,  # noqa: E712
-        Gabriela.alive == False,  # noqa: E712
-    ],
-    effect=[
-        Set(Max.alive, False),
-        Set(Game.status, GameStatus.MAFIA_WON),
-    ],
+    effect=[Set(victim.alive, False), Set(Game.status, GameStatus.MAFIA_WON)],
 )
 
 
-# Day: every living player chooses one other living player.
-voter = Param("voter", Mahtab, Gabriela, Max)
-target = Param("target", Mahtab, Gabriela, Max)
+# ── Day: every living player votes for another living player ─────────────────
+
+voter = Param("voter", *_PLAYERS)
+target = Param("target", *_PLAYERS)
 
 vote = Action(
     params=[voter, target],
@@ -194,10 +191,7 @@ vote = Action(
         target.alive == True,  # noqa: E712
         voter.voted == False,  # noqa: E712
     ],
-    effect=[
-        Set(voter.voted, True),
-        Add(target.votes, 1),
-    ],
+    effect=[Set(voter.voted, True), Add(target.votes, 1)],
 )
 
 
@@ -210,97 +204,60 @@ reset_ballot = [
     Set(Max.votes, 0),
 ]
 
+# ── Day resolution: hang whoever holds a unique vote maximum ──────────────────
 
-mahtab_has_unique_max = And(
-    Mahtab.votes > Gabriela.votes,
-    Mahtab.votes > Max.votes,
-)
-gabriela_has_unique_max = And(
-    Gabriela.votes > Mahtab.votes,
-    Gabriela.votes > Max.votes,
-)
-max_has_unique_max = And(
-    Max.votes > Mahtab.votes,
-    Max.votes > Gabriela.votes,
-)
+hanged = Param("hanged", *_PLAYERS)
+other_a = Param("other_a", *_PLAYERS)
+other_b = Param("other_b", *_PLAYERS)
 
-hang_mahtab = Action(
+_day = [Game.phase == Phase.DAY, Game.status == GameStatus.PENDING, all_voted]
+_distinct_hang = [hanged != other_a, hanged != other_b, other_a != other_b]
+_unique_max = [hanged.votes > other_a.votes, hanged.votes > other_b.votes]
+
+hang_mafia = Action(
+    name="The town hangs the mafia — citizens win",
+    params=[hanged, other_a, other_b],
+    where=_distinct_hang,
     pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        Mahtab.alive == True,  # noqa: E712
-        mahtab_has_unique_max,
+        *_day,
+        hanged.alive == True,  # noqa: E712
+        hanged.role == Role.MAFIA,
+        *_unique_max,
     ],
-    effect=[
-        Set(Mahtab.alive, False),
-        Set(Game.status, GameStatus.CITIZENS_WON),
-        *reset_ballot,
-    ],
+    effect=[Set(hanged.alive, False), Set(Game.status, GameStatus.CITIZENS_WON), *reset_ballot],
 )
 
-hang_gabriela = Action(
+hang_citizen = Action(
+    name="The town hangs a citizen; the game goes on",
+    params=[hanged, other_a, other_b],
+    where=_distinct_hang,
     pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        Gabriela.alive == True,  # noqa: E712
-        Max.alive == True,  # noqa: E712
-        gabriela_has_unique_max,
+        *_day,
+        hanged.alive == True,  # noqa: E712
+        hanged.role == Role.CITIZEN,
+        *_unique_max,
+        # another citizen is still alive
+        Or(
+            And(other_a.role == Role.CITIZEN, other_a.alive == True),  # noqa: E712
+            And(other_b.role == Role.CITIZEN, other_b.alive == True),  # noqa: E712
+        ),
     ],
-    effect=[
-        Set(Gabriela.alive, False),
-        Set(Game.phase, Phase.NIGHT),
-        *reset_ballot,
-    ],
+    effect=[Set(hanged.alive, False), Set(Game.phase, Phase.NIGHT), *reset_ballot],
 )
 
-hang_max = Action(
+hang_last_citizen = Action(
+    name="The town hangs the last citizen — mafia wins",
+    params=[hanged, other_a, other_b],
+    where=_distinct_hang,
     pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        Max.alive == True,  # noqa: E712
-        Gabriela.alive == True,  # noqa: E712
-        max_has_unique_max,
+        *_day,
+        hanged.alive == True,  # noqa: E712
+        hanged.role == Role.CITIZEN,
+        *_unique_max,
+        Implies(other_a.role == Role.CITIZEN, other_a.alive == False),  # noqa: E712
+        Implies(other_b.role == Role.CITIZEN, other_b.alive == False),  # noqa: E712
     ],
-    effect=[
-        Set(Max.alive, False),
-        Set(Game.phase, Phase.NIGHT),
-        *reset_ballot,
-    ],
-)
-
-hang_last_gabriela = Action(
-    pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        Gabriela.alive == True,  # noqa: E712
-        Max.alive == False,  # noqa: E712
-        gabriela_has_unique_max,
-    ],
-    effect=[
-        Set(Gabriela.alive, False),
-        Set(Game.status, GameStatus.MAFIA_WON),
-        *reset_ballot,
-    ],
-)
-
-hang_last_max = Action(
-    pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        Max.alive == True,  # noqa: E712
-        Gabriela.alive == False,  # noqa: E712
-        max_has_unique_max,
-    ],
-    effect=[
-        Set(Max.alive, False),
-        Set(Game.status, GameStatus.MAFIA_WON),
-        *reset_ballot,
-    ],
+    effect=[Set(hanged.alive, False), Set(Game.status, GameStatus.MAFIA_WON), *reset_ballot],
 )
 
 top_vote_is_tied = Or(
@@ -310,145 +267,111 @@ top_vote_is_tied = Or(
 )
 
 votes_tied = Action(
-    pre=[
-        Game.phase == Phase.DAY,
-        Game.status == GameStatus.PENDING,
-        all_voted,
-        top_vote_is_tied,
-    ],
-    effect=[
-        Set(Game.phase, Phase.NIGHT),
-        *reset_ballot,
-    ],
+    name="No unique maximum — nobody hangs, night falls",
+    pre=[*_day, top_vote_is_tied],
+    effect=[Set(Game.phase, Phase.NIGHT), *reset_ballot],
 )
+
+
+# ── Worlds ─────────────────────────────────────────────────────────────────────
 
 
 def _world(
     *,
+    mafia: type = Mahtab,
     phase: Phase = Phase.NIGHT,
     status: GameStatus = GameStatus.PENDING,
-    mahtab_alive: bool = True,
-    gabriela_alive: bool = True,
-    max_alive: bool = True,
-    mahtab_voted: bool = False,
-    gabriela_voted: bool = False,
-    max_voted: bool = False,
-    mahtab_votes: int = 0,
-    gabriela_votes: int = 0,
-    max_votes: int = 0,
+    alive: dict | None = None,
+    voted: dict | None = None,
+    votes: dict | None = None,
 ) -> list:
-    return [
-        Mahtab(alive=mahtab_alive, voted=mahtab_voted, votes=mahtab_votes),
-        Gabriela(alive=gabriela_alive, voted=gabriela_voted, votes=gabriela_votes),
-        Max(alive=max_alive, voted=max_voted, votes=max_votes),
-        Game(phase=phase, status=status),
-    ]
+    alive = alive or {}
+    voted = voted or {}
+    votes = votes or {}
+    world: list = [Game(phase=phase, status=status)]
+    for player in _PLAYERS:
+        world.append(
+            player(
+                role=Role.MAFIA if player is mafia else Role.CITIZEN,
+                alive=alive.get(player, True),
+                voted=voted.get(player, False),
+                votes=votes.get(player, 0),
+            )
+        )
+    return world
 
 
-sc_mafia_kills_gabriela = Scenario(
-    action=mafia_kills_gabriela,
+# Quint's nondeterministic init, as a finite set of admissible initial states:
+# any of the three players may be the mafia.
+any_role_assignment = [_world(mafia=player) for player in _PLAYERS]
+
+
+# ── Scenarios (one binding each; the queries cover the rest) ──────────────────
+
+sc_night_kill = Scenario(
+    action=mafia_kills.bind(killer=Mahtab, victim=Gabriela, bystander=Max),
     given=_world(),
-    then=[
-        Assert(Gabriela.alive == False),  # noqa: E712
-        Assert(Game.phase == Phase.DAY),
-    ],
+    then=[Assert(Gabriela.alive == False), Assert(Game.phase == Phase.DAY)],  # noqa: E712
 )
 
-sc_mafia_kills_max = Scenario(
-    action=mafia_kills_max,
-    given=_world(),
-    then=[Assert(Max.alive == False), Assert(Game.phase == Phase.DAY)],  # noqa: E712
+sc_citizen_cannot_kill = Scenario(
+    name="A citizen has no night kill",
+    action=mafia_kills.bind(killer=Gabriela, victim=Max, bystander=Mahtab),
+    given=_world(),  # Gabriela is a citizen here
+    expected=Expect.FAIL,
 )
 
-sc_mafia_wins_by_killing_gabriela = Scenario(
-    action=mafia_kills_last_gabriela,
-    given=_world(max_alive=False),
+sc_kill_last_citizen_ends_game = Scenario(
+    action=mafia_kills_last_citizen.bind(killer=Mahtab, victim=Gabriela, bystander=Max),
+    given=_world(alive={Max: False}),
     then=[Assert(Game.status == GameStatus.MAFIA_WON)],
 )
 
-sc_mafia_wins_by_killing_max = Scenario(
-    action=mafia_kills_last_max,
-    given=_world(gabriela_alive=False),
-    then=[Assert(Game.status == GameStatus.MAFIA_WON)],
-)
-
-sc_living_player_votes = Scenario(
+sc_vote = Scenario(
     action=vote.bind(voter=Gabriela, target=Mahtab),
     given=_world(phase=Phase.DAY),
-    then=[
-        Assert(Gabriela.voted == True),  # noqa: E712
-        Assert(Mahtab.votes == 1),
-    ],
+    then=[Assert(Mahtab.votes == 1), Assert(Gabriela.voted == True)],  # noqa: E712
 )
 
 sc_player_cannot_vote_twice = Scenario(
     action=vote.bind(voter=Gabriela, target=Mahtab),
-    given=_world(phase=Phase.DAY, gabriela_voted=True),
+    given=_world(phase=Phase.DAY, voted={Gabriela: True}),
     expected=Expect.FAIL,
 )
 
-sc_citizens_hang_mafia = Scenario(
-    action=hang_mahtab,
+sc_dead_player_cannot_vote = Scenario(
+    action=vote.bind(voter=Max, target=Mahtab),
+    given=_world(phase=Phase.DAY, alive={Max: False}),
+    expected=Expect.FAIL,
+)
+
+sc_town_hangs_the_mafia = Scenario(
+    action=hang_mafia.bind(hanged=Mahtab, other_a=Gabriela, other_b=Max),
     given=_world(
         phase=Phase.DAY,
-        mahtab_voted=True,
-        gabriela_voted=True,
-        max_voted=True,
-        mahtab_votes=2,
-        gabriela_votes=1,
+        voted={Mahtab: True, Gabriela: True, Max: True},
+        votes={Mahtab: 2, Gabriela: 1},
     ),
     then=[Assert(Game.status == GameStatus.CITIZENS_WON)],
 )
 
-sc_hang_gabriela = Scenario(
-    action=hang_gabriela,
+sc_town_hangs_a_citizen = Scenario(
+    action=hang_citizen.bind(hanged=Gabriela, other_a=Mahtab, other_b=Max),
     given=_world(
         phase=Phase.DAY,
-        mahtab_voted=True,
-        gabriela_voted=True,
-        max_voted=True,
-        gabriela_votes=2,
-        max_votes=1,
+        voted={Mahtab: True, Gabriela: True, Max: True},
+        votes={Gabriela: 2, Mahtab: 1},
     ),
-    then=[
-        Assert(Gabriela.alive == False),  # noqa: E712
-        Assert(Game.phase == Phase.NIGHT),
-    ],
+    then=[Assert(Game.phase == Phase.NIGHT), Assert(Game.status == GameStatus.PENDING)],
 )
 
-sc_hang_max = Scenario(
-    action=hang_max,
+sc_hanging_last_citizen_ends_game = Scenario(
+    action=hang_last_citizen.bind(hanged=Max, other_a=Mahtab, other_b=Gabriela),
     given=_world(
         phase=Phase.DAY,
-        mahtab_voted=True,
-        gabriela_voted=True,
-        max_voted=True,
-        max_votes=2,
-        gabriela_votes=1,
-    ),
-    then=[Assert(Max.alive == False), Assert(Game.phase == Phase.NIGHT)],  # noqa: E712
-)
-
-sc_mafia_wins_when_last_gabriela_is_hanged = Scenario(
-    action=hang_last_gabriela,
-    given=_world(
-        phase=Phase.DAY,
-        max_alive=False,
-        mahtab_voted=True,
-        gabriela_voted=True,
-        gabriela_votes=1,
-    ),
-    then=[Assert(Game.status == GameStatus.MAFIA_WON)],
-)
-
-sc_mafia_wins_when_last_max_is_hanged = Scenario(
-    action=hang_last_max,
-    given=_world(
-        phase=Phase.DAY,
-        gabriela_alive=False,
-        mahtab_voted=True,
-        max_voted=True,
-        max_votes=1,
+        alive={Gabriela: False},
+        voted={Mahtab: True, Max: True},
+        votes={Max: 1},
     ),
     then=[Assert(Game.status == GameStatus.MAFIA_WON)],
 )
@@ -457,52 +380,43 @@ sc_tie_skips_hanging = Scenario(
     action=votes_tied,
     given=_world(
         phase=Phase.DAY,
-        mahtab_voted=True,
-        gabriela_voted=True,
-        max_voted=True,
-        mahtab_votes=1,
-        gabriela_votes=1,
-        max_votes=1,
+        voted={Mahtab: True, Gabriela: True, Max: True},
+        votes={Mahtab: 1, Gabriela: 1, Max: 1},
     ),
-    then=[
-        Assert(Game.phase == Phase.NIGHT),
-        Assert(Mahtab.alive == True),  # noqa: E712
-        Assert(Mahtab.votes == 0),
-    ],
+    then=[Assert(Game.phase == Phase.NIGHT)],
 )
 
 
-citizens_cannot_win_from_this_setup = Unreachable(
-    Game.status == GameStatus.CITIZENS_WON,
-    label="Night-first play with three players prevents a Citizen win",
-)
+# ── Queries — quantified over EVERY admissible role assignment ────────────────
 
 mafia_can_win = Reachable(
     Game.status == GameStatus.MAFIA_WON,
-    label="Mafia can eliminate both Citizens",
+    given_any=any_role_assignment,
+    label="Mafia can eliminate the citizens",
+)
+
+citizens_cannot_win = Unreachable(
+    Game.status == GameStatus.CITIZENS_WON,
+    given_any=any_role_assignment,
+    label="citizens never win the 3-player night-first game — under every role assignment",
 )
 
 status_is_always_correct = AlwaysHolds(
     And(
-        Implies(
-            Game.status == GameStatus.CITIZENS_WON,
-            Mahtab.alive == False,  # noqa: E712
-        ),
-        Implies(
-            Game.status == GameStatus.MAFIA_WON,
-            And(
-                Gabriela.alive == False,  # noqa: E712
-                Max.alive == False,  # noqa: E712
-            ),
-        ),
+        Implies(Game.status == GameStatus.CITIZENS_WON, mafia_is_dead),
+        Implies(Game.status == GameStatus.MAFIA_WON, all_citizens_dead),
     ),
-    label="A declared winner really eliminated the opposing role",
+    given_any=any_role_assignment,
+    label="the verdict always matches the surviving roles",
 )
+
+
+# ── Spec ───────────────────────────────────────────────────────────────────────
 
 spec = Spec(
     id="mafia",
     name="Mafia / Werewolf (Quint translation)",
     version="1.0.0",
-    description="A fixed three-player Mafia game translated from Quint's "
-    "play_mafia.qnt, with parameterized voting and bounded exploration",
+    description="Quint's play_mafia.qnt with role-generic Param actions and "
+    "the role assignment quantified as an initial-state set",
 )

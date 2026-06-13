@@ -10,10 +10,13 @@ from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.models.scope import (
+    Absent,
+    InstanceRef,
     context_key_label,
     field_context_key,
     instance_context_key,
     is_field_ref,
+    is_present,
 )
 from analint.reporter.base import Finding, ScenarioResult, Severity
 from analint.validator.rule_checker import evaluate, resolve
@@ -23,6 +26,9 @@ from analint.validator.structural import _collect_field_refs, _describe
 def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     findings: list[Finding] = []
     context = {instance_context_key(inst): inst for inst in scenario.given}
+    for scope in spec.scopes:
+        for ref in scope:
+            context.setdefault(ref, Absent(ref))
     action = scenario.action
 
     relevant_invariants = [
@@ -41,9 +47,11 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
             f"invariant:{inv.id}",
         )
     for pred in action.pre:
-        _check(findings, pred, context, "PRE", _describe(pred), f"action:{action.id}")
+        if not _check(findings, pred, context, "PRE", _describe(pred), f"action:{action.id}"):
+            break
 
     _check_terminal_states(findings, scenario, spec, context)
+    _check_absent_effect_targets(findings, scenario, context)
 
     # Pre-execution rejection is the only thing Expect.FAIL may legitimise;
     # anything that breaks after the effects ran is a model defect (research/14 §7.3)
@@ -156,12 +164,15 @@ def _check(
     label: str,
     text: str,
     loc: str,
-) -> None:
+) -> bool:
     try:
         if not evaluate(pred, context):
             findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
+            return False
+        return True
     except Exception as exc:
         findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
+        return False
 
 
 def _referenced_keys(pred: Predicate) -> set[Any]:
@@ -226,6 +237,21 @@ def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, conte
                         f"the entity cannot be modified",
                     )
                 )
+
+
+def _check_absent_effect_targets(findings: list, scenario: Scenario, context: dict) -> None:
+    for effect in scenario.action.effect:
+        if not isinstance(effect, (Set, Subtract, Add)) or not is_field_ref(effect.field):
+            continue
+        key = field_context_key(effect.field)
+        if isinstance(key, InstanceRef) and not is_present(context, key):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"action:{scenario.action.id}",
+                    f"cannot modify absent entity {key!r} with Set/Add/Subtract",
+                )
+            )
 
 
 def _apply_effects(effects: list, context: dict) -> dict:

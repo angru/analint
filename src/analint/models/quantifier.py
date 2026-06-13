@@ -120,6 +120,11 @@ class _Exists(Predicate):
     predicate: Predicate
 
 
+@dataclass
+class _Present(Predicate):
+    target: Any
+
+
 @dataclass(eq=False)
 class _Count(Expr):
     variable: Bound
@@ -160,6 +165,16 @@ def Exists(variable: Bound, predicate: Predicate) -> _Exists:
     if not isinstance(predicate, Predicate):
         raise TypeError("Exists body must be a Predicate")
     return _Exists(variable=variable, predicate=predicate)
+
+
+def Present(target: Any) -> _Present:
+    """The scoped instance currently exists in the bounded universe."""
+    if not isinstance(target, (Bound, InstanceRef)):
+        from analint.models.param import Param
+
+        if not isinstance(target, Param):
+            raise TypeError("Present needs an InstanceRef, Bound, or instance Param")
+    return _Present(target=target)
 
 
 def Count(variable: Bound, predicate: Predicate) -> _Count:
@@ -216,6 +231,10 @@ def bind_predicate(pred: Predicate, variable: Bound, instance: InstanceRef) -> P
             variable=pred.variable,
             predicate=bind_predicate(pred.predicate, variable, instance),
         )
+    if isinstance(pred, _Present):
+        if pred.target is variable:
+            return _Present(target=instance)
+        return pred
     if isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         return type(pred)(
             left=bind_operand(pred.left, variable, instance),

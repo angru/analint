@@ -49,7 +49,7 @@ from analint.models.predicate import (
     _Not,
     _Or,
 )
-from analint.models.quantifier import _Count, _Exists, _ForAll, _Max, _Min, _Sum
+from analint.models.quantifier import _Count, _Exists, _ForAll, _Max, _Min, _Present, _Sum
 from analint.models.scope import InstanceRef, Scope
 
 if TYPE_CHECKING:
@@ -238,6 +238,8 @@ def _subst_pred(pred: Predicate, binding: Binding) -> Predicate:
         )
     if isinstance(pred, (_ForAll, _Exists)):
         return type(pred)(variable=pred.variable, predicate=_subst_pred(pred.predicate, binding))
+    if isinstance(pred, _Present):
+        return _Present(target=_resolve(pred.target, binding))
     if isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         return type(pred)(left=_resolve(pred.left, binding), right=_resolve(pred.right, binding))
     if isinstance(pred, _In):
@@ -289,7 +291,45 @@ _BIND_MEMO: dict[tuple, Action] = {}
 def _where_holds(action: Action, binding: Binding) -> bool:
     from analint.validator.rule_checker import evaluate
 
-    return all(evaluate(_subst_pred(w, binding), {}) for w in action.where)
+    predicates = [_subst_pred(where, binding) for where in action.where]
+    if any(_contains_present(predicate) for predicate in predicates):
+        raise TypeError(
+            f"action '{action.id or action.name}': Present(...) is state-dependent "
+            f"and cannot be used in where=; put it in pre="
+        )
+    return all(evaluate(predicate, {}) for predicate in predicates)
+
+
+def _contains_present(pred: Predicate) -> bool:
+    if isinstance(pred, _Present):
+        return True
+    if isinstance(pred, (_And, _Or)):
+        return any(_contains_present(expr) for expr in pred.exprs)
+    if isinstance(pred, _Not):
+        return _contains_present(pred.expr)
+    if isinstance(pred, _Implies):
+        return _contains_present(pred.left) or _contains_present(pred.right)
+    if isinstance(pred, (_ForAll, _Exists)):
+        return _contains_present(pred.predicate)
+    if isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
+        return _operand_contains_present(pred.left) or _operand_contains_present(pred.right)
+    if isinstance(pred, _In):
+        return _operand_contains_present(pred.operand) or any(
+            _operand_contains_present(value) for value in pred.values
+        )
+    if isinstance(pred, (_IsNull, _IsNotNull)):
+        return _operand_contains_present(pred.operand)
+    return False
+
+
+def _operand_contains_present(operand: Any) -> bool:
+    if isinstance(operand, _Count):
+        return _contains_present(operand.predicate)
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        return _operand_contains_present(operand.operand)
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+        return _operand_contains_present(operand.left) or _operand_contains_present(operand.right)
+    return False
 
 
 def bind_action(action: Action, binding: Binding) -> Action:

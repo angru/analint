@@ -34,7 +34,7 @@ src/analint/
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
     param.py                ← Param/ParamField + expansion of parameterized actions
     quantifier.py           ← Bound fields + finite quantifier/aggregate AST
-    scope.py                ← bounded multiplicity: Scope/InstanceRef/InstanceField
+    scope.py                ← Scope refs/fields + Absent snapshots/presence helpers
     root.py                 ← Spec (top-level aggregate)
 
   validator/
@@ -151,7 +151,16 @@ only for reference/applicability analysis. Bound fields outside a quantifier
 or aggregate and binders over unregistered scopes are structural errors.
 `Count(bound, predicate)` and `Sum/Min/Max(bound, operand)` are arithmetic
 AST nodes, so they compose with field math and may be used in predicates and
-effect right-hand sides. There is no create/delete yet.
+effect right-hand sides.
+
+Presence is membership in the fixed bounded universe. `ref(...)` snapshots are
+present; `Absent(ref)` creates an absent snapshot; `Present(ref/bound/param)`
+is a predicate AST node. Quantifiers and aggregates range only over present
+slots. Empty-domain semantics: ForAll=true, Exists=false, Count/Sum=0,
+Min/Max=evaluation error. Scenario slots omitted from `given` are absent;
+explorer defaults remain present for backwards compatibility. Reading or
+modifying an absent slot is rejected. `Present` is state-dependent and is
+allowed in `pre`, not static `where`. There are no `Create/Delete` effects yet.
 
 ### Declarative initial relations
 
@@ -183,7 +192,7 @@ use only one of `given`, `given_any`, or `initial`.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (171)
+uv run pytest                          # run all tests (180)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

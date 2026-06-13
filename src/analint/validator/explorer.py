@@ -26,7 +26,7 @@ from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.initial import Initial
 from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import Predicate
-from analint.models.quantifier import BoundField
+from analint.models.quantifier import BoundField, _Present
 from analint.models.query import (
     AlwaysHolds,
     DeadActions,
@@ -42,6 +42,7 @@ from analint.models.scope import (
     field_context_key,
     instance_context_key,
     is_field_ref,
+    is_present,
 )
 from analint.reporter.base import Finding, QueryResult, Severity
 from analint.validator.rule_checker import evaluate
@@ -109,6 +110,11 @@ def state_key(ctx: dict) -> tuple:
     for key in sorted(ctx, key=context_key_label):
         inst = ctx[key]
         cls = type(inst)
+        if isinstance(key, InstanceRef):
+            present = is_present(ctx, key)
+            items.append((context_key_label(key), "@present", present))
+            if not present:
+                continue
         for f in sorted(all_fields(cls)):
             items.append((context_key_label(key), f, inst.__dict__.get(f)))
     return tuple(items)
@@ -118,6 +124,11 @@ def render_state(ctx: dict) -> dict:
     out = {}
     for key in sorted(ctx, key=context_key_label):
         inst = ctx[key]
+        if isinstance(key, InstanceRef):
+            present = is_present(ctx, key)
+            out[f"{context_key_label(key)}.@present"] = _value_str(present)
+            if not present:
+                continue
         for f in sorted(all_fields(type(inst))):
             out[f"{context_key_label(key)}.{f}"] = _value_str(inst.__dict__.get(f))
     return out
@@ -197,6 +208,8 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
     # the explored state must be hashable — reject unsupported field domains
     # up front instead of crashing inside state_key
     for context_key, inst in ctx.items():
+        if isinstance(context_key, InstanceRef) and not is_present(ctx, context_key):
+            continue
         for fname in all_fields(type(inst)):
             value = inst.__dict__.get(fname)
             try:
@@ -269,6 +282,11 @@ def build_initial_relation(
                 return None, (
                     f"Initial varies {context_key_label(key)}.{ref.field_name}, "
                     f"but that entity is absent from the initial state"
+                )
+            if isinstance(key, InstanceRef) and not is_present(ctx, key):
+                return None, (
+                    f"Initial cannot vary field {context_key_label(key)}.{ref.field_name} "
+                    f"because the entity is absent"
                 )
             setattr(instance, ref.field_name, value)
 
@@ -479,6 +497,8 @@ def _enabled(
         for e in action.effect
         if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
     }
+    if any(isinstance(target, InstanceRef) and not is_present(ctx, target) for target in touched):
+        return False
     for lc in lifecycles:
         if not lc.terminal:
             continue
@@ -991,6 +1011,8 @@ def _origin_findings(exp: Exploration, key: StateKey, qid: str) -> list[Finding]
 
 
 def _offending_values(predicate: Predicate, ctx: dict) -> str:
+    if isinstance(predicate, _Present) and isinstance(predicate.target, InstanceRef):
+        return f"{predicate.target!r}.@present={is_present(ctx, predicate.target)!r}"
     parts = []
     for ref in _collect_field_refs(predicate):
         key = field_context_key(ref)

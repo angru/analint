@@ -14,14 +14,25 @@ from analint.models.predicate import (
     Or,
     Predicate,
 )
-from analint.models.quantifier import Bound, BoundField, Count, Exists, ForAll, Max, Min, Sum
+from analint.models.quantifier import (
+    Bound,
+    BoundField,
+    Count,
+    Exists,
+    ForAll,
+    Max,
+    Min,
+    Present,
+    Sum,
+)
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
-from analint.models.scope import InstanceField, InstanceRef, Scope
+from analint.models.scope import Absent, InstanceField, InstanceRef, Scope
 
 __all__ = [
     "Action",
     "Add",
+    "Absent",
     "And",
     "Bound",
     "BoundField",
@@ -47,6 +58,7 @@ __all__ = [
     "Not",
     "Or",
     "Predicate",
+    "Present",
     "Scenario",
     "Scope",
     "Set",

@@ -44,7 +44,8 @@ mint/send с require-охранами, оба инварианта, темпор
    `Scope(Account, keys=["alice", "bob", "eve"])`; `Param` перебирает
    `InstanceRef`, а `ForAll` квантифицируется по ним. После миграции граф
    остался прежним: 216 достижимых состояний. Динамические ключи,
-   create/delete пока не поддерживаются.
+   Presence внутри fixed universe уже выражается через `Absent/Present`;
+   переходы `Create/Delete` пока не поддерживаются.
 2. **Нет арифметического AST.** ~~`totalSupply = fold(+)` невыразим~~ —
    **решено**: реализованы выражения над полями
    (`total_supply = Sum(account, account.coins)` — именованное

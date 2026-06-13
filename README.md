@@ -247,7 +247,7 @@ type. Instance refs work in predicates and effects, and can be a `Param`
 domain:
 
 ```python
-from analint import Scope
+from analint import Absent, Present, Scope
 
 class Account(Entity):
     balance: int = Field(0, ge=0, le=5)
@@ -267,12 +267,22 @@ transfer = Action(
 
 alice_pays_bob = Scenario(
     action=transfer.bind(src=alice, dst=accounts["bob"]),
-    given=[alice(balance=3), accounts["bob"](balance=0)],
+    given=[
+        alice(balance=3),
+        accounts["bob"](balance=0),
+        Absent(accounts["eve"]),
+    ],
 )
+
+alice_exists = Present(alice)
 ```
 
-The universe is fixed: `Scope` supports multiple existing instances, while
-create/delete remains a later layer.
+The universe is fixed, but membership is explicit. A normal scoped snapshot is
+present; `Absent(ref)` marks an allocated slot as absent; `Present(ref)` is a
+predicate usable in guards and queries. In scenarios, omitted scoped slots are
+also absent. Reachability defaults every scoped slot to present unless
+`given=[Absent(ref)]` says otherwise. Field reads and ordinary effects on an
+absent slot are rejected. `Create/Delete` effects are the next layer.
 
 #### Finite quantifiers
 
@@ -298,11 +308,12 @@ nonempty_accounts = Count(account, account.balance > 0)
 balance_range = Max(account, account.balance) - Min(account, account.balance)
 ```
 
-Quantifiers and aggregates are finite and exhaustive over the registered
-scope. Aggregate nodes are ordinary arithmetic expressions: they can be
-compared, composed with field math, used in effect right-hand sides, and
-checked by the reachability engine. A `Scope` is always non-empty, so
-`Min`/`Max` are defined for every valid scope.
+Quantifiers and aggregates are finite and exhaustive over the **present**
+instances in the registered scope. Aggregate nodes are ordinary arithmetic
+expressions: they can be compared, composed with field math, used in effect
+right-hand sides, and checked by the reachability engine. Over an empty
+present set, `ForAll` is true, `Exists` is false, `Count` and `Sum` are zero,
+while `Min`/`Max` report an evaluation error.
 
 ### Actor
 

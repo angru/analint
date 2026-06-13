@@ -34,6 +34,7 @@ from analint.models.quantifier import (
     _ForAll,
     _Max,
     _Min,
+    _Present,
     _Sum,
     bind_operand,
     bind_predicate,
@@ -157,6 +158,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     for action in spec.actions:
         loc = f"action:{action.id}"
+
+        if action.where and not action.params:
+            findings.append(
+                err(
+                    loc,
+                    "where= only filters parameterized action bindings; "
+                    "use pre= for state-dependent conditions",
+                )
+            )
 
         for pred in list(action.pre) + list(action.post):
             findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes))
@@ -434,15 +444,62 @@ def _needed_keys(action: Action) -> set[Any]:
     """Entity/Event context keys an action's predicates and effects reference."""
     keys: set[Any] = set()
     for pred in list(action.pre) + list(action.post):
-        for ref in _collect_field_refs(pred):
+        for ref in _required_field_refs(pred):
             keys.add(field_context_key(ref))
     for effect in action.effect:
         if isinstance(effect, (Set, Subtract, Add)):
             if is_field_ref(effect.field):
                 keys.add(field_context_key(effect.field))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
-            keys.update(field_context_key(ref) for ref in _operand_refs(rhs))
+            keys.update(field_context_key(ref) for ref in _required_operand_refs(rhs))
     return keys
+
+
+def _required_field_refs(
+    pred: Predicate,
+    bound: frozenset[Bound] = frozenset(),
+) -> list[FieldDescriptor | InstanceField]:
+    refs: list[FieldDescriptor | InstanceField] = []
+    if isinstance(pred, (_And, _Or)):
+        for expr in pred.exprs:
+            refs.extend(_required_field_refs(expr, bound))
+    elif isinstance(pred, _Not):
+        refs.extend(_required_field_refs(pred.expr, bound))
+    elif isinstance(pred, _Implies):
+        refs.extend(_required_field_refs(pred.left, bound))
+        refs.extend(_required_field_refs(pred.right, bound))
+    elif isinstance(pred, (_ForAll, _Exists)):
+        refs.extend(_required_field_refs(pred.predicate, bound | {pred.variable}))
+    elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
+        refs.extend(_required_operand_refs(pred.left, bound))
+        refs.extend(_required_operand_refs(pred.right, bound))
+    elif isinstance(pred, _In):
+        refs.extend(_required_operand_refs(pred.operand, bound))
+        for value in pred.values:
+            refs.extend(_required_operand_refs(value, bound))
+    elif isinstance(pred, (_IsNull, _IsNotNull)):
+        refs.extend(_required_operand_refs(pred.operand, bound))
+    return refs
+
+
+def _required_operand_refs(
+    operand: Any,
+    bound: frozenset[Bound] = frozenset(),
+) -> list[FieldDescriptor | InstanceField]:
+    if is_field_ref(operand):
+        return [operand]
+    if isinstance(operand, BoundField):
+        return []
+    if isinstance(operand, _Count):
+        return _required_field_refs(operand.predicate, bound | {operand.variable})
+    if isinstance(operand, (_Sum, _Min, _Max)):
+        return _required_operand_refs(operand.operand, bound | {operand.variable})
+    if isinstance(operand, Expr):
+        return _required_operand_refs(operand.left, bound) + _required_operand_refs(  # type: ignore[attr-defined]
+            operand.right,
+            bound,  # type: ignore[attr-defined]
+        )
+    return []
 
 
 def _check_scoped_refs(
@@ -560,6 +617,25 @@ def _check_pred_nodes(
             )
         else:
             findings.extend(_check_pred_nodes(pred.predicate, loc, bound | {pred.variable}))
+    elif isinstance(pred, _Present):
+        if isinstance(pred.target, Bound):
+            if pred.target not in bound:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"Present({pred.target.name}) uses Bound '{pred.target.name}' "
+                        f"outside a quantifier",
+                    )
+                )
+        elif not isinstance(pred.target, InstanceRef):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Present target must resolve to an InstanceRef, got {pred.target!r}",
+                )
+            )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         findings.extend(_check_operand_nodes(pred.left, bound, loc))
         findings.extend(_check_operand_nodes(pred.right, bound, loc))
@@ -683,6 +759,19 @@ def _check_quantifier_scopes(
                 )
             )
         findings.extend(_check_quantifier_scopes(pred.predicate, spec_scopes, loc))
+    elif isinstance(pred, _Present):
+        target_scope = pred.target.scope
+        if target_scope not in spec_scopes:
+            name = pred.target.name if isinstance(pred.target, Bound) else repr(pred.target)
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Present target '{name}' uses Scope "
+                    f"'{target_scope.id or target_scope.entity_cls.__name__}' "
+                    f"not registered in spec.scopes",
+                )
+            )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         findings.extend(_check_operand_scopes(pred.left, spec_scopes, loc))
         findings.extend(_check_operand_scopes(pred.right, spec_scopes, loc))
@@ -770,6 +859,8 @@ def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor | InstanceField
             refs.extend(_operand_refs(value))
     elif isinstance(pred, (_IsNull, _IsNotNull)):
         refs.extend(_operand_refs(pred.operand))
+    elif isinstance(pred, _Present):
+        pass
     return refs
 
 
@@ -864,6 +955,8 @@ def _describe(pred: Predicate) -> str:
     if isinstance(pred, _Exists):
         scope = pred.variable.scope.id or pred.variable.scope.entity_cls.__name__
         return f"EXISTS {pred.variable.name} IN {scope}: {_describe(pred.predicate)}"
+    if isinstance(pred, _Present):
+        return f"PRESENT({pred.target!r})"
     if isinstance(pred, _In):
         values = ", ".join(_describe_operand(value) for value in pred.values)
         return f"{_describe_operand(pred.operand)} in [{values}]"

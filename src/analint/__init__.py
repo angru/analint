@@ -18,7 +18,7 @@ from analint.models.predicate import (
     Or,
     Predicate,
 )
-from analint.models.quantifier import Bound, Count, Exists, ForAll, Max, Min, Sum
+from analint.models.quantifier import Bound, Count, Exists, ForAll, Max, Min, Present, Sum
 from analint.models.query import (
     AlwaysHolds,
     DeadActions,
@@ -28,7 +28,7 @@ from analint.models.query import (
 )
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
-from analint.models.scope import InstanceRef, Scope
+from analint.models.scope import Absent, InstanceRef, Scope
 
 __version__ = "1.0.1"
 
@@ -38,6 +38,7 @@ __all__ = [
     "Field",
     "Scope",
     "InstanceRef",
+    "Absent",
     "Actor",
     "Event",
     # constraints
@@ -51,6 +52,7 @@ __all__ = [
     "Sum",
     "Min",
     "Max",
+    "Present",
     "And",
     "Or",
     "Not",

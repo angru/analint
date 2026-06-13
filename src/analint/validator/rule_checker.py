@@ -27,9 +27,10 @@ from analint.models.quantifier import (
     _ForAll,
     _Max,
     _Min,
+    _Present,
     _Sum,
 )
-from analint.models.scope import field_context_key, is_field_ref
+from analint.models.scope import field_context_key, is_field_ref, is_present, present_instances
 
 Context = dict[Any, Any]
 
@@ -48,9 +49,12 @@ def resolve(
 ) -> Any:
     bindings = bindings or {}
     if is_field_ref(operand):
-        entity = context.get(field_context_key(operand))
+        key = field_context_key(operand)
+        entity = context.get(key)
         if entity is None:
-            raise KeyError(f"Entity '{field_context_key(operand)!r}' not in scenario given")
+            raise KeyError(f"Entity '{key!r}' not in scenario given")
+        if not is_present(context, key):
+            raise KeyError(f"Entity '{key!r}' is absent")
         return getattr(entity, operand.field_name)
     if isinstance(operand, BoundField):
         instance = bindings.get(operand.variable)
@@ -59,6 +63,8 @@ def resolve(
         entity = context.get(instance)
         if entity is None:
             raise KeyError(f"Entity '{instance!r}' not in scenario given")
+        if not is_present(context, instance):
+            raise KeyError(f"Entity '{instance!r}' is absent")
         return getattr(entity, operand.field_name)
     if isinstance(operand, _AddExpr):
         return resolve(operand.left, context, bindings) + resolve(operand.right, context, bindings)
@@ -69,16 +75,23 @@ def resolve(
     if isinstance(operand, _Count):
         results = [
             evaluate(operand.predicate, context, {**bindings, operand.variable: instance})
-            for instance in operand.variable.scope
+            for instance in present_instances(operand.variable.scope, context)
         ]
         return sum(results)
     if isinstance(operand, (_Sum, _Min, _Max)):
         values = [
             resolve(operand.operand, context, {**bindings, operand.variable: instance})
-            for instance in operand.variable.scope
+            for instance in present_instances(operand.variable.scope, context)
         ]
         if isinstance(operand, _Sum):
             return sum(values)
+        if not values:
+            name = type(operand).__name__[1:]
+            scope = operand.variable.scope
+            raise ValueError(
+                f"{name} over Scope '{scope.id or scope.entity_cls.__name__}' "
+                f"has no present instances"
+            )
         if isinstance(operand, _Min):
             return min(values)
         return max(values)
@@ -121,16 +134,21 @@ def evaluate(
         return resolve(pred.operand, context, bindings) is None
     if isinstance(pred, _IsNotNull):
         return resolve(pred.operand, context, bindings) is not None
+    if isinstance(pred, _Present):
+        target = bindings.get(pred.target) if isinstance(pred.target, Bound) else pred.target
+        if target is None:
+            raise KeyError(f"Bound variable '{pred.target.name}' has no quantifier binding")
+        return is_present(context, target)
     if isinstance(pred, _ForAll):
         results = [
             evaluate(pred.predicate, context, {**bindings, pred.variable: instance})
-            for instance in pred.variable.scope
+            for instance in present_instances(pred.variable.scope, context)
         ]
         return all(results)
     if isinstance(pred, _Exists):
         results = [
             evaluate(pred.predicate, context, {**bindings, pred.variable: instance})
-            for instance in pred.variable.scope
+            for instance in present_instances(pred.variable.scope, context)
         ]
         return any(results)
     raise UnsupportedPredicateError(

@@ -83,6 +83,7 @@ class InstanceRef:
         """Create an entity snapshot carrying this instance identity."""
         instance = self.entity_cls(**fields)
         instance.__dict__["_analint_instance_ref"] = self
+        instance.__dict__["_analint_present"] = True
         return instance
 
     def __hash__(self) -> int:
@@ -198,6 +199,31 @@ def field_context_key(field: FieldRef) -> ContextKey:
 
 def instance_context_key(instance: Any) -> ContextKey:
     return instance.__dict__.get("_analint_instance_ref", type(instance))
+
+
+def Absent(instance: InstanceRef) -> Entity:
+    """Create an absent snapshot for one slot in a bounded Scope."""
+    if not isinstance(instance, InstanceRef):
+        raise TypeError("Absent needs an InstanceRef from a Scope")
+    snapshot = object.__new__(instance.entity_cls)
+    for field_name in all_fields(instance.entity_cls):
+        snapshot.__dict__[field_name] = None
+    snapshot.__dict__["_analint_instance_ref"] = instance
+    snapshot.__dict__["_analint_present"] = False
+    return snapshot
+
+
+def is_present(context: dict[Any, Any], key: ContextKey) -> bool:
+    entity = context.get(key)
+    if entity is None:
+        return False
+    if isinstance(key, InstanceRef):
+        return entity.__dict__.get("_analint_present", True)
+    return True
+
+
+def present_instances(scope: Scope, context: dict[Any, Any]) -> list[InstanceRef]:
+    return [instance for instance in scope if is_present(context, instance)]
 
 
 def context_key_label(key: ContextKey) -> str:

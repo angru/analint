@@ -228,17 +228,17 @@ snapshot-режима).
 
 - ✅ `INCONCLUSIVE` даёт общий трёхзначный `verdict` и non-zero exit (код 4),
   никогда `passed: true` (research/18 §2.2); fail-closed агрегация статусов
-- ⏳ explorer проверяет `Action.post` для effectful actions; до kernel закрыть
-  effectless fast path (research/18 §2.1, research/20)
+- ✅ explorer проверяет `Action.post`, включая effectless actions (research/18
+  §2.1, review 584d819)
 - ⏳ остальное расхождение scenario↔explorer (lifecycle-переход в scenario,
-  `Delete` в terminal guard, emitted payload) — через единый transition kernel
-- scenario и explorer одинаково проверяют pre/effect/post, Field constraints,
-  Lifecycle transitions, terminal/presence guards и invariants
-- один внутренний `step(action, context)` используется обоими путями и будущим
-  executable Flow
-- тест-матрица на каждое публичное поле `Action`
-- перед refactor: semantic conformance matrix + normalized graph/trace
-  characterization; текущий snapshot counts/states — только smoke baseline
+  `Delete`/terminal, emitted payload) — через единый transition kernel
+- ✅ пре-kernel gate готов: semantic conformance matrix
+  (`tests/test_transition_conformance.py`, xfail на расхождениях = acceptance
+  spec) + усиленный characterization (per-scenario, graph hashes) + список
+  ожидаемых delta (`tests/snapshots/README.md`)
+- один внутренний `step(action, context)` для scenario, explorer и будущего
+  executable Flow: одинаковый pre/effect/post, Field, Lifecycle,
+  terminal/presence guards, invariants, единый ordering
 
 #### P1. Canonical model и verification policy
 

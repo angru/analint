@@ -21,9 +21,13 @@ Outcome semantics (research/18, research/20; gated by
 - ``ACCEPTED`` — a legal transition with a materialised ``post_context``.
 
 Ordering: pre guards → presence/terminal guards → effects → ``Field``
-clamp/constraints → lifecycle transition → post. ``post_context`` is populated
-only when the candidate next state was fully materialised (effects + field +
-lifecycle + post all passed); the explorer keys its graph decisions off that.
+clamp/constraints → lifecycle transition → post → emitted payload
+materialisation. ``post_context`` is populated only when the candidate next
+state was fully materialised (effects, Field, lifecycle, post and emissions all
+passed); the explorer keys its graph decisions off that. Emission is the last
+transition phase: an unmaterialisable payload is a transition DEFECT with no
+candidate state, so — unlike a state-level invariant violation — it leaves no
+witness edge (review 535ecb8).
 """
 
 from __future__ import annotations

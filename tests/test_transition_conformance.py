@@ -12,17 +12,24 @@ run once expecting PASS and once expecting FAIL — ACCEPTED passes the first on
 REJECTED passes the second only (Expect.FAIL legitimises pre-execution rejection
 only), DEFECT passes neither.
 
-Target ordering for the shared ``step`` implementation:
+The semantics are two-layered (review 535ecb8). The kernel ``step`` decides the
+transition itself, in this order:
 
-    pre-state invariants -> pre/terminal/presence guards -> effects
-    -> Field clamp/constraints -> Lifecycle transition -> post
-    -> post-state invariants -> emitted payload materialisation
+    pre/terminal/presence guards -> effects -> Field clamp/constraints
+    -> Lifecycle transition -> post -> emitted payload materialisation
+
+Invariants are deliberately NOT a ``step`` phase — they are a predicate over a
+*state*, applied by each caller to the resulting state (every root/successor in
+the explorer, the pre- and post-state in a scenario). So state legality is the
+second layer, checked after a transition is accepted.
 
 Evaluation errors and invariant violations are DEFECT, never REJECTED. Accepted
-cases additionally assert the observable post-state in both paths. A DEFECT
-before a legal successor exists creates no graph edge; a post-state invariant
-violation may retain the candidate post-state/edge as a counterexample witness,
-but that state must not be expanded.
+cases additionally assert the observable post-state in both paths. The witness
+contract follows the layering: a transition-level DEFECT (a guard error, a bad
+effect/Field/lifecycle/post, an unmaterialisable emission) produces no candidate
+state and no graph edge; only a *state*-level invariant violation on an
+otherwise-accepted transition retains the candidate post-state/edge as a
+counterexample witness — and that state is still never expanded.
 
 The shared internal result (``kernel.TransitionResult``) carries, at minimum:
 

@@ -231,10 +231,11 @@ snapshot-режима).
   никогда `passed: true` (research/18 §2.2); fail-closed агрегация статусов
 - ✅ explorer проверяет `Action.post`, включая effectless actions (research/18
   §2.1, review 584d819)
-- ✅ pre-kernel gate готов: согласованные ветви + normative strict-xfail для
-  известных delta; accepted transitions сравниваются по post-state, а
-  characterization фиксирует graph, traces, findings, roots, fired/excluded и
-  completeness. XFAIL→XPASS останавливает suite до снятия исправленного marker
+- ✅ pre-kernel gate сыграл свою роль: normative strict-xfail фиксировали
+  известные delta до рефактора и снимались по мере их закрытия; сейчас
+  `test_transition_conformance` — чистый agreement-spec без xfail. Accepted
+  transitions сравниваются по post-state; characterization фиксирует graph,
+  traces, findings, roots, fired/excluded и completeness
 - ✅ единый `validator/kernel.py` `step(spec, action, context)` для scenario,
   explorer и будущего executable Flow: одинаковый pre/effect/post, Field,
   Lifecycle, terminal/presence guards, emitted-payload, единый ordering.
@@ -249,8 +250,9 @@ snapshot-режима).
   (review ca537a2): невалидный root/successor остаётся witness, но не
   разворачивается. `examples/taskboard` исправлен — активность исполнителя стала
   precondition `acting_user_is_active`, а не бутафорским мировым инвариантом
-- ✅ `test_transition_conformance` — чистый agreement-spec без strict-xfail;
-  регрессия, заново расщепляющая пути, падает там напрямую
+- ✅ прямые unit-тесты `step()`/`TransitionResult` (`tests/test_kernel.py`):
+  agreement двух callers не ловит общее сломанное поле, поэтому result
+  проверяется напрямую — outcome, post-context, changed_fields, emitted, entered
 
 #### P1. Canonical model и verification policy
 

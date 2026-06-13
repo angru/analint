@@ -83,6 +83,7 @@ assign_card = Action(
     name="Assign Card to Member",
     by=Member,
     pre=[
+        acting_user_is_active,
         board_is_active,
         membership_on_board,
         card_on_board,
@@ -147,7 +148,7 @@ send_notification = Action(
 read_notification = Action(
     name="Mark Notification as Read",
     by=Member,
-    pre=[notification_unread],
+    pre=[acting_user_is_active, notification_unread],
     effect=[Set(Notification.status, NotificationStatus.READ)],
     post=[Notification.status == NotificationStatus.READ],
     requires=[send_notification],

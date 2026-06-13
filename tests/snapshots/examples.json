@@ -768,12 +768,12 @@
       },
       "assign-card/not-a-member": {
         "status": "PASS",
-        "rules": 5,
+        "rules": 6,
         "findings_hash": "e5dbc737de748eb3"
       },
       "assign-card/happy": {
         "status": "PASS",
-        "rules": 5,
+        "rules": 6,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "add-comment/archived-card": {

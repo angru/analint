@@ -52,9 +52,10 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         post_defect = _check_then(findings, scenario, post) or post_defect
 
     # Only a genuine pre-execution rejection (a guard) legitimises Expect.FAIL;
-    # a model defect — including an illegal initial state — never does.
+    # a model defect — including an illegal initial state — never does, even when
+    # a precondition also happens to reject the action.
     if scenario.expected == Expect.FAIL:
-        passed = result.outcome is Outcome.REJECTED
+        passed = result.outcome is Outcome.REJECTED and not pre_invariant_violated
         if passed:
             findings.append(
                 Finding(

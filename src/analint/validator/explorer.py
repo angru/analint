@@ -466,6 +466,10 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
         try:
             ok = evaluate(inv.expression, ctx)
         except Exception as exc:
+            # an unevaluable invariant is a model defect, not a pass: mark the
+            # state illegal so it is kept as a witness but not expanded, matching
+            # how the scenario runner treats the same error
+            violated = True
             exp.report_once(
                 Severity.ERROR,
                 f"invariant:{inv.id}",

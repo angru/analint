@@ -58,6 +58,22 @@ class ValidationResult:
         )
 
     @property
+    def has_inconclusive(self) -> bool:
+        """A query that hit max_states proved nothing — it must not read as green."""
+        return any(qr.status == "INCONCLUSIVE" for qr in self.query_results)
+
+    @property
+    def verdict(self) -> str:
+        """Overall three-valued verdict. PASS only when everything was actually
+        checked and held; INCONCLUSIVE when a query ran out of budget without a
+        failure; FAIL otherwise."""
+        if self.has_errors:
+            return "FAIL"
+        if self.has_inconclusive:
+            return "INCONCLUSIVE"
+        return "PASS"
+
+    @property
     def passed_count(self) -> int:
         return sum(1 for sr in self.scenario_results if sr.passed)
 

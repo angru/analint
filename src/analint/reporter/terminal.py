@@ -116,4 +116,6 @@ def _print_summary(result: ValidationResult) -> None:
     if not parts:
         parts.append("[dim]0 scenarios[/dim]")
 
-    console.print(f"Results: {', '.join(parts)}\n")
+    verdict = result.verdict
+    vcolor = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}[verdict]
+    console.print(f"Results: {', '.join(parts)}  →  [{vcolor}]{verdict}[/{vcolor}]\n")

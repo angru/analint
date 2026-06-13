@@ -35,9 +35,11 @@ v0.10 и v1.0
 
 Топ-приоритеты (фаза v1.3 ниже):
 
-1. **Закрыть false-green:** `INCONCLUSIVE` не является PASS; explorer обязан
+1. **Закрыть false-green:** ✅ `INCONCLUSIVE` не является PASS (трёхзначный
+   `verdict`, JSON `passed`=PASS-only, exit-код 4); ⏳ explorer обязан
    проверять `Action.post`.
-2. **Единая transition semantics** для scenario, explorer и будущего Flow.
+2. **Единая transition semantics** для scenario, explorer и будущего Flow
+   (закрывает explorer-`post`, lifecycle-переход в scenario, `Delete` в terminal guard).
 3. **Canonical `Spec.initial`**, затем автоматическая проверка invariants.
 4. **Исполняемый многошаговый trace** с checkpoints, без рукописных state deltas.
 5. **Семантическая честность `by/on/requires/emits`**: поведение или явно metadata.
@@ -224,7 +226,8 @@ snapshot-режима).
 
 #### P0. False-green и единый transition kernel
 
-- `INCONCLUSIVE` даёт общий inconclusive/non-zero exit, никогда `passed: true`
+- ✅ `INCONCLUSIVE` даёт общий трёхзначный `verdict` и non-zero exit (код 4),
+  никогда `passed: true` (research/18 §2.2)
 - explorer проверяет `Action.post`
 - scenario и explorer одинаково проверяют pre/effect/post, Field constraints,
   Lifecycle transitions, terminal/presence guards и invariants

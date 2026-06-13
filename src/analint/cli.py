@@ -20,6 +20,7 @@ from analint.validator.engine import build_spec, validate
 #   1 — findings: structural errors, failed scenarios, or warnings with --strict
 #   2 — usage error (click default)
 #   3 — the spec could not be loaded
+#   4 — inconclusive: a query exhausted max_states without a verdict (proved nothing)
 
 
 class _DefaultToCheck(TyperGroup):
@@ -80,6 +81,8 @@ def check(
         raise typer.Exit(1)
     if strict and result.warning_count > 0:
         raise typer.Exit(1)
+    if result.has_inconclusive:
+        raise typer.Exit(4)
 
 
 @app.command()

@@ -14,7 +14,8 @@ def report_json(result: ValidationResult) -> None:
 def result_to_dict(result: ValidationResult) -> dict:
     return {
         "spec": {"id": result.spec_id, "name": result.spec_name},
-        "passed": not result.has_errors,
+        "verdict": result.verdict,
+        "passed": result.verdict == "PASS",
         "load_errors": result.load_errors,
         "structural": [
             {"severity": f.severity.value, "location": f.location, "message": f.message}
@@ -57,5 +58,8 @@ def result_to_dict(result: ValidationResult) -> dict:
             "warnings": result.warning_count,
             "queries_passed": sum(1 for q in result.query_results if q.status == "PASS"),
             "queries_failed": sum(1 for q in result.query_results if q.status == "FAIL"),
+            "queries_inconclusive": sum(
+                1 for q in result.query_results if q.status == "INCONCLUSIVE"
+            ),
         },
     }

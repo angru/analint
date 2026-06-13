@@ -511,9 +511,15 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
             ],
         )
 
+    # A query with no initial source of its own starts from the spec's canonical
+    # initial, so every check shares one state space unless it opts out.
+    effective_initial = query.initial
+    if initial_sources == 0 and spec.initial is not None:
+        effective_initial = spec.initial
+
     initials: list[dict]
-    if query.initial is not None:
-        built, error = build_initial_relation(spec, query.initial)
+    if effective_initial is not None:
+        built, error = build_initial_relation(spec, effective_initial)
         if built is None:
             return QueryResult(
                 query_id=qid,

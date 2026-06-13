@@ -618,3 +618,18 @@ def test_mafia_theorem_quantifies_over_role_assignments():
     assert by_id["citizens_cannot_win"].status == "PASS"
     assert by_id["mafia_can_win"].status == "PASS"
     assert by_id["mafia_can_win"].states_explored == 36  # 12 states × 3 assignments
+
+
+def test_query_without_a_source_starts_from_spec_initial():
+    """A query that names no given/given_any/initial uses the spec's canonical
+    initial, so checks share one state space unless they opt out."""
+
+    class Box(Entity):
+        n: int = Field(0, ge=0, le=3)
+
+    spec = Spec(id="s", name="S", entities=[Box], initial=Initial(vary=[Box.n]))
+
+    # spec.initial varies n over 0..3, so n == 3 is one of the roots
+    assert _run(Reachable(Box.n == 3), spec).status == "PASS"
+    # opting out with an explicit given falls back to the defaults-only root
+    assert _run(Reachable(Box.n == 3, given=[Box(n=0)]), spec).status == "FAIL"

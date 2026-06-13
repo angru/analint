@@ -167,6 +167,7 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         actions=_resolve(spec.actions, "actions"),
         scenarios=_resolve(spec.scenarios, "scenarios"),
         queries=_resolve(spec.queries, "queries"),
+        initial=spec.initial,
     )
 
 

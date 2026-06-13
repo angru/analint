@@ -10,6 +10,7 @@ from analint.models.contract import Contract
 from analint.models.entity import Entity, all_fields
 from analint.models.event import Event
 from analint.models.flow import Flow
+from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.lifecycle import Lifecycle
 from analint.models.query import (
@@ -48,6 +49,11 @@ class Spec(BaseModel):
     flows: list[Flow] = Field(default_factory=list)
     scenarios: list[Scenario] = Field(default_factory=list)
     queries: list[Query] = Field(default_factory=list)
+
+    # The canonical initial state(s) of the model: invariants are verified over
+    # the states reachable from here, and a query with no initial source of its
+    # own starts from it. None means "build a single root from entity defaults".
+    initial: Initial | None = None
 
     def model_post_init(self, __context: Any) -> None:
         content_fields = (

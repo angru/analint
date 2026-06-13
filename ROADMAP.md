@@ -6,7 +6,8 @@ reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActio
 Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root,
 bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
 declarative initial relations, presence semantics и `Create/Delete` в
-фиксированном universe, явные `Contract` и композиция спек. 204 теста. Фазы v0.9,
+фиксированном universe, явные `Contract` и композиция спек, единый transition
+kernel (`validator/kernel.py`). 250 тестов. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -230,17 +231,25 @@ snapshot-режима).
   никогда `passed: true` (research/18 §2.2); fail-closed агрегация статусов
 - ✅ explorer проверяет `Action.post`, включая effectless actions (research/18
   §2.1, review 584d819)
-- ⏳ остальное расхождение scenario↔explorer (lifecycle-переход в scenario,
-  `Delete`/terminal, emitted payload) — через единый transition kernel
-- ✅ pre-kernel gate готов: 18 согласованных ветвей + 5 normative strict-xfail
-  для известных delta; accepted transitions сравниваются по post-state, а
+- ✅ pre-kernel gate готов: согласованные ветви + normative strict-xfail для
+  известных delta; accepted transitions сравниваются по post-state, а
   characterization фиксирует graph, traces, findings, roots, fired/excluded и
   completeness. XFAIL→XPASS останавливает suite до снятия исправленного marker
-- один внутренний `step(action, context)` для scenario, explorer и будущего
-  executable Flow: одинаковый pre/effect/post, Field, Lifecycle,
-  terminal/presence guards, invariants, единый ordering
-- минимальный internal result: outcome (`ACCEPTED/REJECTED/DEFECT`),
-  post-context, findings, materialized events и changed fields/state diff
+- ✅ единый `validator/kernel.py` `step(spec, action, context)` для scenario,
+  explorer и будущего executable Flow: одинаковый pre/effect/post, Field,
+  Lifecycle, terminal/presence guards, emitted-payload, единый ordering.
+  Инварианты намеренно вне `step` — это предикат состояния, применяемый каждым
+  путём на уровне state (root/successor в explorer, pre/post в scenario), что
+  сохраняет post-invariant witness-edge
+- ✅ `TransitionResult`: outcome (`ACCEPTED/REJECTED/DEFECT`), post-context,
+  findings, materialized events, changed fields/state diff, `entered`
+- ✅ 4 из 5 расхождений scenario↔explorer закрыты: lifecycle-переход в
+  scenario, pre-eval-error → DEFECT, terminal `Delete`, emitted payload
+- ⏳ последнее расхождение — pre-state invariant: scenario пока трактует его как
+  pre-execution блокировку (legitimises `Expect.FAIL`), explorer репортит DEFECT
+  но создаёт witness-edge от невалидного root. Требует решения «illegal state →
+  нет исходящих рёбер» (review ca537a2) и правки `examples/taskboard`
+  (`invite-member` моделирует авторизацию через инвариант — должно быть pre)
 
 #### P1. Canonical model и verification policy
 

@@ -264,6 +264,31 @@ def test_explorer_accepts_action_whose_post_holds():
     assert result.status == "PASS"
 
 
+def test_effectless_action_still_checks_post():
+    # An action with no effect but a false post must be reported, not a silent
+    # self-loop (review 584d819 P1).
+    class Box(Entity):
+        n: int = Field(0, ge=0, le=3)
+
+    check = Action(id="check", post=[Box.n == 1])  # false at n=0, no effect
+    spec = Spec(id="s", name="S", entities=[Box], actions=[check])
+
+    cache: dict = {}
+    run_query(Reachable(Box.n == 0, id="q"), spec, cache)
+    exp = next(iter(cache.values()))
+    assert any("postcondition" in f.message and "check" in f.message for f in exp.findings)
+
+
+def test_effectless_action_with_true_post_is_a_clean_self_loop():
+    class Box(Entity):
+        n: int = Field(0, ge=0, le=3)
+
+    noop = Action(id="noop", post=[Box.n == 0])  # holds at n=0
+    spec = Spec(id="s", name="S", entities=[Box], actions=[noop])
+    result = run_query(Reachable(Box.n == 0, id="q"), spec, cache={})
+    assert result.status == "PASS"
+
+
 def test_initial_state_requires_given_for_entities_without_defaults():
     class Order(Entity):
         total: float  # required, no default

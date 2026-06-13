@@ -431,7 +431,10 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
                 continue
             exp.fired.add(action.id)
             if not action.effect:
-                exp.edges.append((key, action.id, key))
+                # an effectless action still asserts its post over the unchanged
+                # state — a false post is a model defect, not a silent self-loop
+                if _check_post(action, ctx, key, exp):
+                    exp.edges.append((key, action.id, key))
                 continue
             try:
                 post = _apply_effects(action.effect, ctx)

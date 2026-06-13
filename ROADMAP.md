@@ -36,8 +36,8 @@ v0.10 и v1.0
 Топ-приоритеты (фаза v1.3 ниже):
 
 1. **Закрыть false-green:** ✅ `INCONCLUSIVE` не является PASS (трёхзначный
-   `verdict`, JSON `passed`=PASS-only, exit-код 4); ⏳ explorer проверяет
-   `Action.post` для effectful actions, но effectless fast path ещё обходит post.
+   `verdict`, JSON `passed`=PASS-only, exit-код 4); ✅ explorer проверяет
+   `Action.post`, включая effectless actions (review 584d819 P1).
 2. **Единая transition semantics** для scenario, explorer и будущего Flow
    (закрывает explorer-`post`, lifecycle-переход в scenario, `Delete` в terminal guard).
 3. **Canonical `Spec.initial`**, затем автоматическая проверка invariants.

@@ -223,14 +223,16 @@ uv run analint check . --what-if /tmp/hypothesis.py   # hypothesis without editi
 uv run python scripts/bench.py         # indicative timing + state counts per example (not a gate)
 ```
 
-`tests/test_characterization.py` is the behavioural regression oracle: a
+`tests/test_characterization.py` is the coarse behavioural regression oracle: a
 committed golden snapshot (`tests/snapshots/examples.json`) of every example's
-verdict, scenario counts and per-query `states_explored` — including the
-intentionally-failing coin/trollbridge. Refactors (e.g. the transition kernel)
-must reproduce it. Regenerate after an intended change:
-`UPDATE_SNAPSHOT=1 uv run pytest tests/test_characterization.py`. Timing is
-deliberately excluded from the snapshot (hardware-dependent) — use
-`scripts/bench.py` for that.
+verdict, per-scenario id→status, and per-query status/states/edges plus stable
+hashes of the state set and edge multiset (so a graph that changes shape at a
+constant state count is still caught) — including the intentionally-failing
+coin/trollbridge. See `tests/snapshots/README.md` for the regen rule (never
+mechanical) and the kernel's expected deltas. Timing is deliberately excluded
+(hardware-dependent) — use `scripts/bench.py`. The fine-grained gate for the
+transition kernel is the semantic conformance matrix (research/20 §1), which
+runs one action through both scenario and explorer and asserts agreement.
 
 Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load · 4 inconclusive (a query exhausted its exploration budget — proved nothing). JSON carries a three-valued `verdict` (PASS/FAIL/INCONCLUSIVE); `passed` is true only on an effective PASS (and honours `--strict`).
 

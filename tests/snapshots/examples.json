@@ -639,7 +639,7 @@
       "sc_no_act_when_dead": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "d3f746a7865e92a3"
+        "findings_hash": "607cd4618f67504e"
       },
       "sc_slay": {
         "status": "PASS",
@@ -759,7 +759,7 @@
       "archive-card/already-archived": {
         "status": "PASS",
         "rules": 7,
-        "findings_hash": "054ecf23c2f93f4a"
+        "findings_hash": "edf6372fd42725b5"
       },
       "archive-card/happy": {
         "status": "PASS",
@@ -779,7 +779,7 @@
       "add-comment/archived-card": {
         "status": "PASS",
         "rules": 7,
-        "findings_hash": "125480cf904b3308"
+        "findings_hash": "8ea31d9032a6e64a"
       },
       "add-comment/happy": {
         "status": "PASS",
@@ -789,7 +789,7 @@
       "create-card/archived-board": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "8a621d3a707cb5c1"
+        "findings_hash": "a4669aa00faf635d"
       },
       "create-card/happy": {
         "status": "PASS",
@@ -819,7 +819,7 @@
       "move-card/already-archived": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "16fb37e5d3f624a7"
+        "findings_hash": "78185221302eaec7"
       },
       "move-card/happy": {
         "status": "PASS",
@@ -829,7 +829,7 @@
       "send-notification/already-read": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "212dcde8d6706cbf"
+        "findings_hash": "1e51783c8466b28b"
       },
       "send-notification/happy": {
         "status": "PASS",

@@ -364,13 +364,9 @@ def test_post_over_deleted_entity_is_defect():
     )
 
 
-# ── known divergences — the kernel must remove these (then drop the xfail) ────────
+# ── unified by the kernel (formerly scenario↔explorer divergences) ───────────────
 
 
-@pytest.mark.xfail(
-    reason="scenario runner does not yet validate lifecycle transitions; kernel unifies",
-    strict=True,
-)
 def test_lifecycle_undeclared_transition_is_defect_in_both():
     a = Action(id="go", pre=[Doc.state == Status.A], effect=[Set(Doc.state, Status.C)])
     _assert_agree(
@@ -382,13 +378,12 @@ def test_lifecycle_undeclared_transition_is_defect_in_both():
     )
 
 
-@pytest.mark.xfail(
-    reason="Expect.FAIL still legitimises a precondition evaluation error",
-    strict=True,
-)
 def test_pre_evaluation_error_is_defect_in_both():
     a = Action(id="go", pre=[Flag.n > "bad"], effect=[Set(Flag.n, 1)])
     _assert_agree(_flag_spec(a), a, [Flag()], "DEFECT", expected_edge=False)
+
+
+# ── known divergences — the kernel must remove these (then drop the xfail) ────────
 
 
 @pytest.mark.xfail(

@@ -1,30 +1,27 @@
 from __future__ import annotations
 
-import copy
 from typing import Any
 
-from analint.models.action import Action
-from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.flow import Assert, Emitted
 from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
-from analint.models.scope import (
-    Absent,
-    InstanceRef,
-    context_key_label,
-    field_context_key,
-    instance_context_key,
-    is_field_ref,
-    is_present,
-    present_snapshot,
-)
+from analint.models.scope import Absent, field_context_key, instance_context_key
 from analint.reporter.base import Finding, ScenarioResult, Severity
-from analint.validator.rule_checker import evaluate, resolve
+from analint.validator.kernel import Outcome, step
+from analint.validator.rule_checker import evaluate
 from analint.validator.structural import _collect_field_refs, _describe
 
 
 def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
+    """Run one scenario through the shared transition kernel.
+
+    The kernel decides the transition; this wrapper layers the scenario's own
+    concerns on top: the *pre-state* must be a legal world (invariants hold),
+    the *post-state* must keep holding them, and any ``then`` assertions must be
+    satisfied. ``Expect.FAIL`` is honoured only for a genuine pre-execution
+    block — never for a model defect.
+    """
     findings: list[Finding] = []
     context = {instance_context_key(inst): inst for inst in scenario.given}
     for scope in spec.scopes:
@@ -37,102 +34,30 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     ]
     checks_count = len(relevant_invariants) + len(action.pre) + len(action.post)
 
-    # Phase 1: world invariants and preconditions against the pre-state
-    for inv in relevant_invariants:
-        _check(
-            findings,
-            inv.expression,
-            context,
-            "INVARIANT",
-            inv.label or _describe(inv.expression),
-            f"invariant:{inv.id}",
-        )
-    for pred in action.pre:
-        if not _check(findings, pred, context, "PRE", _describe(pred), f"action:{action.id}"):
-            break
+    # The pre-state's world invariants. A violation here blocks the action
+    # before it runs, which Expect.FAIL legitimises — exactly as before. (The
+    # kernel is set to tighten this to a model defect; that change is gated by
+    # test_transition_conformance and is not part of this migration.)
+    pre_invariant_violated = _check_invariants(findings, relevant_invariants, context, "INVARIANT")
 
-    _check_terminal_states(findings, scenario, spec, context)
-    _check_absent_effect_targets(findings, scenario, context)
+    # The transition itself: pre/presence/terminal guards, effects, Field,
+    # lifecycle and postconditions all live in the kernel now.
+    result = step(spec, action, context)
+    findings.extend(result.findings)
 
-    # Pre-execution rejection is the only thing Expect.FAIL may legitimise;
-    # anything that breaks after the effects ran is a model defect (research/14 §7.3)
-    pre_errors = any(f.severity == Severity.ERROR for f in findings)
-    post_findings: list[Finding] = []
+    post_defect = False
+    if result.outcome is Outcome.ACCEPTED and not pre_invariant_violated:
+        post = result.post_context
+        assert post is not None
+        post_defect = _check_invariants(findings, relevant_invariants, post, "INVARIANT (post)")
+        post_defect = _check_then(findings, scenario, post) or post_defect
 
-    # Phase 2: effects — simultaneous facts about the next state
-    if not pre_errors:
-        try:
-            post_context = _apply_effects(action.effect, context)
-        except Exception as exc:
-            post_findings.append(
-                Finding(Severity.ERROR, f"action:{action.id}", f"effect evaluation error: {exc}")
-            )
-            post_context = context
-    else:
-        post_context = context
-
-    if not pre_errors and not post_findings:
-        # Phase 3: postconditions, invariants, and field constraints (post-state)
-        _check_field_constraints(post_findings, action, post_context)
-        for pred in action.post:
-            _check(
-                post_findings, pred, post_context, "POST", _describe(pred), f"action:{action.id}"
-            )
-        for inv in relevant_invariants:
-            _check(
-                post_findings,
-                inv.expression,
-                post_context,
-                "INVARIANT (post)",
-                inv.label or _describe(inv.expression),
-                f"invariant:{inv.id}",
-            )
-
-        # Phase 4: then assertions (Assert / Emitted)
-        emitted_names = {(e if isinstance(e, type) else type(e)).__name__ for e in action.emits}
-        for assertion in scenario.then:
-            if isinstance(assertion, Assert):
-                try:
-                    if not evaluate(assertion.predicate, post_context):
-                        post_findings.append(
-                            Finding(
-                                Severity.ERROR,
-                                f"scenario:{scenario.id}",
-                                f"then: {_describe(assertion.predicate)} — not satisfied",
-                            )
-                        )
-                except Exception as exc:
-                    post_findings.append(
-                        Finding(
-                            Severity.ERROR,
-                            f"scenario:{scenario.id}",
-                            f"then evaluation error: {exc}",
-                        )
-                    )
-            elif isinstance(assertion, Emitted):
-                if assertion.event_cls.__name__ not in emitted_names:
-                    post_findings.append(
-                        Finding(
-                            Severity.ERROR,
-                            f"scenario:{scenario.id}",
-                            f"then: event '{assertion.event_cls.__name__}' not in action.emits",
-                        )
-                    )
-            else:
-                post_findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"scenario:{scenario.id}",
-                        f"then entry '{assertion!r}' is not Assert(...) or Emitted(...)",
-                    )
-                )
-
-    post_errors = any(f.severity == Severity.ERROR for f in post_findings)
-    findings.extend(post_findings)
+    # A pre-execution block — a guard rejection or a failed pre-state invariant —
+    # is the only thing Expect.FAIL may legitimise; a model defect never is.
+    pre_block = result.outcome is Outcome.REJECTED or pre_invariant_violated
 
     if scenario.expected == Expect.FAIL:
-        # passes only when the action was rejected BEFORE its effects ran
-        passed = pre_errors
+        passed = pre_block
         if passed:
             findings.append(
                 Finding(
@@ -143,11 +68,13 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
             )
         else:
             message = "expected the action to be blocked, but every precondition passed"
-            if post_errors:
-                message += " — the post-state failures above are a model defect, not a rejection"
+            if result.outcome is Outcome.DEFECT or post_defect:
+                message += " — the failures above are a model defect, not a rejection"
             findings.append(Finding(Severity.ERROR, f"scenario:{scenario.id}", message))
     else:
-        passed = not (pre_errors or post_errors)
+        passed = (
+            result.outcome is Outcome.ACCEPTED and not pre_invariant_violated and not post_defect
+        )
 
     return ScenarioResult(
         scenario_id=scenario.id,
@@ -158,190 +85,70 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     )
 
 
-def _check(
-    findings: list[Finding],
-    pred: Predicate,
-    context: dict,
-    label: str,
-    text: str,
-    loc: str,
-) -> bool:
-    try:
-        if not evaluate(pred, context):
-            findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
-            return False
-        return True
-    except Exception as exc:
-        findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
-        return False
+def _check_invariants(findings: list[Finding], invariants: list, context: dict, label: str) -> bool:
+    """Evaluate world invariants over one state; True if any is violated."""
+    violated = False
+    for inv in invariants:
+        text = inv.label or _describe(inv.expression)
+        loc = f"invariant:{inv.id}"
+        try:
+            if not evaluate(inv.expression, context):
+                findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
+                violated = True
+        except Exception as exc:
+            findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
+            violated = True
+    return violated
+
+
+def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool:
+    """Evaluate the scenario's ``then`` assertions over the next state."""
+    emitted_names = {
+        (e if isinstance(e, type) else type(e)).__name__ for e in scenario.action.emits
+    }
+    failed = False
+    for assertion in scenario.then:
+        if isinstance(assertion, Assert):
+            try:
+                if not evaluate(assertion.predicate, post):
+                    findings.append(
+                        Finding(
+                            Severity.ERROR,
+                            f"scenario:{scenario.id}",
+                            f"then: {_describe(assertion.predicate)} — not satisfied",
+                        )
+                    )
+                    failed = True
+            except Exception as exc:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"scenario:{scenario.id}",
+                        f"then evaluation error: {exc}",
+                    )
+                )
+                failed = True
+        elif isinstance(assertion, Emitted):
+            if assertion.event_cls.__name__ not in emitted_names:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"scenario:{scenario.id}",
+                        f"then: event '{assertion.event_cls.__name__}' not in action.emits",
+                    )
+                )
+                failed = True
+        else:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"scenario:{scenario.id}",
+                    f"then entry '{assertion!r}' is not Assert(...) or Emitted(...)",
+                )
+            )
+            failed = True
+    return failed
 
 
 def _referenced_keys(pred: Predicate) -> set[Any]:
     return {field_context_key(ref) for ref in _collect_field_refs(pred)}
-
-
-def _check_field_constraints(findings: list, action: Action, post: dict) -> None:
-    """Effects must not drive a field outside its declared Field(...) range
-    (saturating fields clamp instead)."""
-    from analint.models.entity import all_fields
-
-    for effect in action.effect:
-        if isinstance(effect, Create):
-            inst = post.get(effect.target)
-            if inst is None:
-                continue
-            for desc in all_fields(effect.target.entity_cls).values():
-                if desc.spec is None or not desc.spec.has_constraints():
-                    continue
-                value = inst.__dict__.get(desc.field_name)
-                problem = desc.spec.violation(value)
-                if problem is None:
-                    continue
-                if desc.spec.saturate:
-                    inst.__dict__[desc.field_name] = desc.spec.clamp(value)
-                    continue
-                findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"action:{action.id}",
-                        f"field constraint violated: created {effect.target!r}."
-                        f"{desc.field_name} {problem}",
-                    )
-                )
-            continue
-        if not isinstance(effect, (Set, Subtract, Add)):
-            continue
-        cls = effect.field.entity_cls
-        key = field_context_key(effect.field)
-        inst = post.get(key)
-        if inst is None:
-            continue
-        desc = all_fields(cls).get(effect.field.field_name)
-        if desc is None or desc.spec is None or not desc.spec.has_constraints():
-            continue
-        value = inst.__dict__.get(effect.field.field_name)
-        problem = desc.spec.violation(value)
-        if problem is None:
-            continue
-        if desc.spec.saturate:
-            inst.__dict__[effect.field.field_name] = desc.spec.clamp(value)
-            continue
-        findings.append(
-            Finding(
-                Severity.ERROR,
-                f"action:{action.id}",
-                f"field constraint violated: {cls.__name__}.{effect.field.field_name} {problem}",
-            )
-        )
-
-
-def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, context: dict) -> None:
-    """An entity whose lifecycle field is in a terminal state cannot be modified."""
-    touched = {
-        field_context_key(e.field)
-        for e in scenario.action.effect
-        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
-    }
-    for lc in spec.lifecycles:
-        if not lc.terminal:
-            continue
-        for key in touched:
-            if _key_entity_cls(key) is not lc.entity_cls:
-                continue
-            inst = context.get(key)
-            if inst is None:
-                continue
-            value = getattr(inst, lc.field_name, None)
-            if value in lc.terminal:
-                findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"lifecycle:{lc.id}",
-                        f"{context_key_label(key)}.{lc.field_name}={value!r} is terminal — "
-                        f"the entity cannot be modified",
-                    )
-                )
-
-
-def _check_absent_effect_targets(findings: list, scenario: Scenario, context: dict) -> None:
-    action = scenario.action
-    for effect in action.effect:
-        if isinstance(effect, (Set, Subtract, Add)) and is_field_ref(effect.field):
-            key = field_context_key(effect.field)
-            if isinstance(key, InstanceRef) and not is_present(context, key):
-                findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"action:{action.id}",
-                        f"cannot modify absent entity {key!r} with Set/Add/Subtract",
-                    )
-                )
-        elif isinstance(effect, Create) and is_present(context, effect.target):
-            findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"cannot create already-present entity {effect.target!r}",
-                )
-            )
-        elif isinstance(effect, Delete) and not is_present(context, effect.target):
-            findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"cannot delete absent entity {effect.target!r}",
-                )
-            )
-
-
-def _apply_effects(effects: list, context: dict) -> dict:
-    """Return a new context with entity copies modified by effects.
-
-    Effects are simultaneous facts about the next state: every right-hand side
-    is resolved against the pre-state, so the order of the list carries no
-    meaning and effects never observe each other.
-    """
-    updates: list[tuple[Any, str, Any]] = []
-    for effect in effects:
-        if not isinstance(effect, (Set, Subtract, Add)):
-            continue
-        target = field_context_key(effect.field) if is_field_ref(effect.field) else None
-        if target not in context:
-            continue  # target entity absent from given — structural validation warns about this
-        if isinstance(effect, Set):
-            updates.append((target, effect.field.field_name, resolve(effect.value, context)))
-        elif isinstance(effect, Subtract):
-            current = resolve(effect.field, context)
-            updates.append(
-                (
-                    target,
-                    effect.field.field_name,
-                    current - resolve(effect.amount, context),
-                )
-            )
-        elif isinstance(effect, Add):
-            current = resolve(effect.field, context)
-            updates.append(
-                (
-                    target,
-                    effect.field.field_name,
-                    current + resolve(effect.amount, context),
-                )
-            )
-
-    post = {cls: copy.copy(inst) for cls, inst in context.items()}
-    for key, field_name, value in updates:
-        entity = post.get(key)
-        if entity is not None:
-            entity.__dict__[field_name] = value
-    for effect in effects:
-        if isinstance(effect, Create):
-            resolved = {name: resolve(value, context) for name, value in effect.fields.items()}
-            post[effect.target] = present_snapshot(effect.target, resolved)
-        elif isinstance(effect, Delete):
-            post[effect.target] = Absent(effect.target)
-    return post
-
-
-def _key_entity_cls(key: Any) -> type:
-    return key.entity_cls if hasattr(key, "entity_cls") else key

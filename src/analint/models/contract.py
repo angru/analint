@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from analint.models.action import Action
 from analint.models.actor import Actor
-from analint.models.contract import Contract
 from analint.models.entity import Entity, all_fields
 from analint.models.event import Event
 from analint.models.flow import Flow
@@ -25,18 +24,19 @@ from analint.models.scope import Scope
 Query = Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
 
 
-class Spec(BaseModel):
-    """Root aggregate. With empty lists (the default) everything is discovered
-    automatically from the modules imported by the spec entry point; a non-empty
-    list is used as-is. When imports are present, composition is fully explicit:
-    only contract contents and directly listed local objects are included."""
+class Contract(BaseModel):
+    """An explicit, reusable public fragment imported by a root Spec.
+
+    Every exported object is listed directly. This keeps composition from
+    depending on which implementation modules happened to be imported.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
     id: str
-    name: str
+    name: str = ""
     version: str = "0.1.0"
     description: str = ""
-    imports: list[Contract] = Field(default_factory=list)
 
     entities: list[type[Entity]] = Field(default_factory=list)
     scopes: list[Scope] = Field(default_factory=list)
@@ -50,30 +50,6 @@ class Spec(BaseModel):
     queries: list[Query] = Field(default_factory=list)
 
     def model_post_init(self, __context: Any) -> None:
-        content_fields = (
-            "entities",
-            "scopes",
-            "actors",
-            "events",
-            "invariants",
-            "actions",
-            "lifecycles",
-            "flows",
-            "scenarios",
-            "queries",
-        )
-        for field_name in content_fields:
-            imported = [obj for contract in self.imports for obj in getattr(contract, field_name)]
-            local = getattr(self, field_name)
-            setattr(self, field_name, _deduplicate_by_identity([*imported, *local]))
-
-        # Parameterized actions expand into concrete instances here, so the
-        # runner, the explorer and the queries only ever see bound actions.
-        from analint.models.param import expand_action
-
-        if any(a.params for a in self.actions):
-            self.actions = [bound for a in self.actions for bound in expand_action(a)]
-
         if self.lifecycles:
             return
         self.lifecycles = [
@@ -84,15 +60,4 @@ class Spec(BaseModel):
         ]
 
 
-Spec.model_rebuild()
-
-
-def _deduplicate_by_identity(objects: list[Any]) -> list[Any]:
-    seen: set[int] = set()
-    result: list[Any] = []
-    for obj in objects:
-        marker = id(obj)
-        if marker not in seen:
-            seen.add(marker)
-            result.append(obj)
-    return result
+Contract.model_rebuild()

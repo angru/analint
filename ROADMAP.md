@@ -6,7 +6,7 @@ reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActio
 Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root,
 bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
 declarative initial relations, presence semantics и `Create/Delete` в
-фиксированном universe. 197 тестов. Фазы v0.9,
+фиксированном universe, явные `Contract` и композиция спек. 204 теста. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -177,6 +177,10 @@ snapshot-режима).
   одновременности (двойной flip присутствия, presence+field на одном слоте),
   Field-ограничения и saturation на созданных инстансах, участие в
   reachability/quantifiers/aggregates
+- ✅ Композиция спек через явные версионированные `Contract`: один root
+  `Spec(imports=[...])`, identity-dedup, строгие коллизии id, без утечки
+  приватных объектов из import graph; несколько `Spec` больше не сливаются
+  неявно; `show contract` и `--what-if` работают поверх composed model
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)

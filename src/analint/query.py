@@ -113,6 +113,14 @@ def spec_overview(spec: Spec) -> dict:
             "version": spec.version,
             "description": spec.description,
         },
+        "contracts": [
+            {
+                "id": contract.id,
+                "name": contract.name,
+                "version": contract.version,
+            }
+            for contract in spec.imports
+        ],
         "entities": [e.__name__ for e in spec.entities],
         "scopes": [
             {
@@ -146,11 +154,35 @@ def describe(spec: Spec, kind: str, name: str) -> dict:
         "lifecycle": _describe_lifecycle,
         "flow": _describe_flow,
         "scenario": _describe_scenario,
+        "contract": _describe_contract,
     }
     fn = dispatch.get(kind)
     if fn is None:
         return {"error": f"unknown kind '{kind}'", "kinds": sorted(dispatch)}
     return fn(spec, name)
+
+
+def _describe_contract(spec: Spec, name: str) -> dict:
+    contract = next((item for item in spec.imports if item.id == name), None)
+    if contract is None:
+        return _not_found("contract", name, [item.id for item in spec.imports])
+    return {
+        "kind": "contract",
+        "id": contract.id,
+        "name": contract.name,
+        "version": contract.version,
+        "description": contract.description,
+        "entities": [entity.__name__ for entity in contract.entities],
+        "scopes": [scope.id for scope in contract.scopes],
+        "actors": [actor.__name__ for actor in contract.actors],
+        "events": [event.__name__ for event in contract.events],
+        "invariants": [invariant.id for invariant in contract.invariants],
+        "actions": [action.id for action in contract.actions],
+        "lifecycles": [lifecycle.id for lifecycle in contract.lifecycles],
+        "flows": [flow.id for flow in contract.flows],
+        "scenarios": [scenario.id for scenario in contract.scenarios],
+        "queries": [query.id for query in contract.queries],
+    }
 
 
 def _not_found(kind: str, name: str, known: list[str]) -> dict:

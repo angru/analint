@@ -1,4 +1,5 @@
 from analint.models.action import Action
+from analint.models.contract import Contract
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import Entity, Field, FieldDescriptor
 from analint.models.initial import Initial
@@ -37,6 +38,7 @@ __all__ = [
     "Bound",
     "BoundField",
     "Count",
+    "Contract",
     "Create",
     "Delete",
     "Effect",

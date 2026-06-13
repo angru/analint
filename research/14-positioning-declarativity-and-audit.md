@@ -702,7 +702,7 @@ Rust или HTTP/BPMN adapters.
 5. ✅ declarative initial relation (`Initial(vary, where)`);
 6. ✅ presence semantics (`Absent`, `Present`, active quantifier domains);
 7. ✅ `Create/Delete` effects в bounded universe;
-8. composition of specs / explicit contracts.
+8. ✅ composition of specs / explicit contracts.
 
 Перевод Coin на один `Account` scope сохранил прежние 216 достижимых
 состояний; это первый baseline state explosion. Следующий эксперимент должен

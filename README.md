@@ -498,6 +498,46 @@ spec = Spec(id="ecommerce", name="E-commerce Platform")
 
 Everything else is discovered from the modules your entry point imports. Explicit lists (`entities=[...]`, `actions=[...]`) are supported when precision matters; a non-empty list is used as-is.
 
+### Composition
+
+Reusable model fragments expose an explicit `Contract`; one root `Spec`
+imports those contracts:
+
+```python
+# payments.py
+from analint import Contract
+
+payments_api = Contract(
+    id="payments",
+    version="1.0.0",
+    entities=[Payment],
+    events=[PaymentCaptured],
+    invariants=[payment_amount_is_positive],
+    actions=[capture_payment],
+)
+
+# spec.py
+from analint import Spec
+from .payments import payments_api
+
+spec = Spec(
+    id="checkout",
+    name="Checkout",
+    imports=[payments_api],
+    scenarios=[capture_payment_happy],
+)
+```
+
+Composition is deliberately explicit: when `imports=` is present,
+auto-discovery is disabled for the root. Only contract contents and objects
+listed directly on `Spec` are included, so private implementation actions do
+not leak through Python's import graph. Duplicate ids and incomplete contract
+surfaces are reported by structural validation. Multiple `Spec` objects in one
+import graph are a load error rather than being merged implicitly.
+
+`analint show contract payments -p .` reports the exact exported surface.
+`--what-if` still adds hypothesis objects on top of the composed model.
+
 ---
 
 ## Project layout
@@ -544,6 +584,7 @@ analint check [PATH]              # validate: structural checks + scenario runs
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind
+  analint show contract payments -p . # exact imported contract surface
   analint show action checkout -p .  # pre/effect/post/emits/scenarios of one action
   analint show lifecycle Order.status -p .      # transitions, terminal, unreachable states
 

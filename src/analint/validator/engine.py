@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from pathlib import Path
-from typing import TypeVar
+from types import ModuleType
 
 from analint.loader.discovery import discover_files
 from analint.loader.python_loader import (
@@ -10,13 +9,12 @@ from analint.loader.python_loader import (
     _import_standalone,
     collect_from_modules,
     load_path,
+    resolve_entry,
 )
 from analint.models.root import Spec
 from analint.reporter.base import Finding, Severity, ValidationResult
 from analint.validator.scenario_runner import run_scenario
 from analint.validator.structural import validate_structural
-
-T = TypeVar("T")
 
 
 def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
@@ -27,6 +25,7 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
     files. It is imported after the spec, so it can import the spec's modules.
     """
     specs, modules, load_errors = load_path(path)
+    patch = None
     if extra is not None:
         try:
             patch = _import_standalone(Path(extra).resolve())
@@ -37,8 +36,19 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
     if not specs:
         return None, modules, load_errors
     if len(specs) == 1:
-        return _auto_populate(specs[0], modules), modules, load_errors
-    return _merge_specs(specs), modules, load_errors
+        return _auto_populate(specs[0], modules, patch), modules, load_errors
+    try:
+        entry = resolve_entry(path)
+    except LoadError as exc:
+        return None, modules, [*load_errors, exc]
+    error = LoadError(
+        entry,
+        ValueError(
+            "multiple Spec objects found in the import graph; declare one root Spec "
+            "and compose reusable fragments through Contract + Spec(imports=[...])"
+        ),
+    )
+    return None, modules, [*load_errors, error]
 
 
 def validate(
@@ -118,7 +128,7 @@ def _unloaded_file_warnings(path: Path, modules: list) -> list[Finding]:
     return findings
 
 
-def _auto_populate(spec: Spec, modules: list) -> Spec:
+def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -> Spec:
     """Fill empty list fields from auto-discovered instances.
 
     If a field is explicitly set (non-empty), it is used as-is.
@@ -126,6 +136,16 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
     This lets users write Spec(id=..., name=...) and get everything for free,
     while still allowing explicit lists when precision matters.
     """
+    # Composition is an explicit mode: importing implementation modules must
+    # not make their private objects part of the root model by accident.
+    if spec.imports:
+        # Keep the loader's variable-name id derivation without using the
+        # collected contents to populate the composed root.
+        collect_from_modules(modules)
+        if patch is not None:
+            _extend_composed_spec(spec, collect_from_modules([patch]))
+        return spec
+
     collected = collect_from_modules(modules)
 
     def _resolve(explicit: list, key: str) -> list:
@@ -136,6 +156,7 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
         name=spec.name,
         version=spec.version,
         description=spec.description,
+        imports=spec.imports,
         entities=_resolve(spec.entities, "entities"),
         scopes=_resolve(spec.scopes, "scopes"),
         actors=_resolve(spec.actors, "actors"),
@@ -149,38 +170,37 @@ def _auto_populate(spec: Spec, modules: list) -> Spec:
     )
 
 
-def _merge_specs(specs: list[Spec]) -> Spec:
-    if len(specs) == 1:
-        return specs[0]
+def _extend_composed_spec(spec: Spec, collected: dict) -> None:
+    """Add only a what-if module's objects to an explicitly composed root."""
+    from analint.models.param import expand_action
 
-    first = specs[0]
-    merged = Spec(
-        id=first.id, name=first.name, version=first.version, description=first.description
-    )
-    seen_classes: set = set()
-    seen_instances: list = []
+    for field_name in (
+        "entities",
+        "scopes",
+        "actors",
+        "events",
+        "lifecycles",
+        "flows",
+        "invariants",
+        "scenarios",
+        "queries",
+    ):
+        setattr(
+            spec,
+            field_name,
+            _deduplicate_by_identity([*getattr(spec, field_name), *collected[field_name]]),
+        )
 
-    def append_classes(source: Sequence[T], target: list[T]) -> None:
-        for cls in source:
-            if cls not in seen_classes:
-                seen_classes.add(cls)
-                target.append(cls)
+    added_actions = [bound for action in collected["actions"] for bound in expand_action(action)]
+    spec.actions = _deduplicate_by_identity([*spec.actions, *added_actions])
 
-    def append_instances(source: list, target: list) -> None:
-        for obj in source:
-            if id(obj) not in seen_instances:
-                seen_instances.append(id(obj))
-                target.append(obj)
 
-    for spec in specs:
-        append_classes(spec.entities, merged.entities)
-        append_instances(spec.scopes, merged.scopes)
-        append_classes(spec.actors, merged.actors)
-        append_classes(spec.events, merged.events)
-        append_instances(spec.lifecycles, merged.lifecycles)
-        append_instances(spec.flows, merged.flows)
-        append_instances(spec.invariants, merged.invariants)
-        append_instances(spec.actions, merged.actions)
-        append_instances(spec.scenarios, merged.scenarios)
-        append_instances(spec.queries, merged.queries)
-    return merged
+def _deduplicate_by_identity(objects: list) -> list:
+    seen: set[int] = set()
+    result: list = []
+    for obj in objects:
+        marker = id(obj)
+        if marker not in seen:
+            seen.add(marker)
+            result.append(obj)
+    return result

@@ -60,6 +60,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
     def warn(loc: str, msg: str) -> Finding:
         return Finding(Severity.WARNING, loc, msg)
 
+    seen_contracts: set[str] = set()
+    for contract in spec.imports:
+        loc = f"contract:{contract.id or '?'}"
+        if not contract.id:
+            findings.append(err(loc, "contract has no id"))
+        elif contract.id in seen_contracts:
+            findings.append(err(loc, f"duplicate imported contract id '{contract.id}'"))
+        seen_contracts.add(contract.id)
+
     # Missing and duplicate ids
     for kind, objs in [
         ("invariant", spec.invariants),

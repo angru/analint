@@ -20,6 +20,7 @@ src/analint/
   mcp_server.py             ← MCP stdio server (optional `mcp` extra)
 
   models/
+    contract.py            ← Contract: explicit reusable public spec fragment
     entity.py               ← Entity, Field constraints, EntityMeta, FieldDescriptor
     actor.py                ← Actor base class (role markers)
     event.py                ← Event base class (same metaclass as Entity)
@@ -105,6 +106,11 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 - standalone files are imported under a synthetic unique name (nothing imports the entry itself)
 - the import closure is cached per entry path (`_CLOSURE_CACHE`) so repeated loads in one process reuse identities
 - `collect_from_modules` walks the loaded modules, collects instances, and **fills empty `id` fields from variable names**
+- `Contract(...)` exposes an explicit reusable fragment; `Spec(imports=[...])`
+  disables root auto-population so private component objects do not leak from
+  the import graph
+- multiple `Spec` objects in one import graph are a load error; use one root
+  `Spec` plus imported contracts instead of implicit merging
 - a `.py` file in the directory not reachable from the entry point → warning (engine.`_unloaded_file_warnings`)
 
 ### Reachability engine (explorer.py)
@@ -204,7 +210,7 @@ use only one of `given`, `given_any`, or `initial`.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (180)
+uv run pytest                          # run all tests (204)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

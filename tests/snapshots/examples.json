@@ -607,6 +607,151 @@
       }
     }
   },
+  "sunless_crypt": {
+    "verdict": "PASS",
+    "warnings": 13,
+    "scenarios": {
+      "sc_barehanded_bleeds": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_dark_hurts": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_death": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_escape": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_key_needs_dead_guardian": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "058812dd5d381c81"
+      },
+      "sc_no_act_when_dead": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "d3f746a7865e92a3"
+      },
+      "sc_slay": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_take_torch": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_vault_needs_key": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "c2307825a5400caf"
+      }
+    },
+    "queries": {
+      "death_is_reachable": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": [
+          "enter_hall",
+          "enter_crypt_dark",
+          "fight_barehanded",
+          "fight_barehanded",
+          "succumb"
+        ],
+        "findings_hash": "d789a6cf21732a8a"
+      },
+      "every_action_playable": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "no_softlock": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "stamina_never_negative": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "win_is_reachable": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": [
+          "enter_hall",
+          "enter_armory",
+          "take_sword",
+          "leave_armory",
+          "enter_crypt_dark",
+          "slay_guardian",
+          "take_key",
+          "unlock_vault",
+          "enter_vault",
+          "take_amulet",
+          "leave_vault",
+          "leave_crypt",
+          "enter_altar",
+          "place_amulet"
+        ],
+        "findings_hash": "44d68e71e1ebbf67"
+      }
+    },
+    "explorations": {
+      "cecd38a80333849c": {
+        "states": 716,
+        "edges": 1669,
+        "states_hash": "cbf8491c2928259b",
+        "edges_hash": "e6c998d33e161a31",
+        "roots": 1,
+        "roots_hash": "3162d599087f2e94",
+        "findings_hash": "e3b0c44298fc1c14",
+        "fired": [
+          "back_to_entrance",
+          "enter_altar",
+          "enter_armory",
+          "enter_crypt_dark",
+          "enter_crypt_lit",
+          "enter_hall",
+          "enter_vault",
+          "fight_barehanded",
+          "leave_altar",
+          "leave_armory",
+          "leave_crypt",
+          "leave_vault",
+          "light_torch",
+          "place_amulet",
+          "slay_guardian",
+          "succumb",
+          "take_amulet",
+          "take_key",
+          "take_sword",
+          "take_torch",
+          "unlock_vault"
+        ],
+        "excluded": {},
+        "incomplete": []
+      }
+    }
+  },
   "taskboard": {
     "verdict": "PASS",
     "warnings": 3,

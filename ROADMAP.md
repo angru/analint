@@ -36,8 +36,8 @@ v0.10 и v1.0
 Топ-приоритеты (фаза v1.3 ниже):
 
 1. **Закрыть false-green:** ✅ `INCONCLUSIVE` не является PASS (трёхзначный
-   `verdict`, JSON `passed`=PASS-only, exit-код 4); ✅ explorer проверяет
-   `Action.post` (ложный post — model defect, ребро отбрасывается).
+   `verdict`, JSON `passed`=PASS-only, exit-код 4); ⏳ explorer проверяет
+   `Action.post` для effectful actions, но effectless fast path ещё обходит post.
 2. **Единая transition semantics** для scenario, explorer и будущего Flow
    (закрывает explorer-`post`, lifecycle-переход в scenario, `Delete` в terminal guard).
 3. **Canonical `Spec.initial`**, затем автоматическая проверка invariants.
@@ -228,7 +228,8 @@ snapshot-режима).
 
 - ✅ `INCONCLUSIVE` даёт общий трёхзначный `verdict` и non-zero exit (код 4),
   никогда `passed: true` (research/18 §2.2); fail-closed агрегация статусов
-- ✅ explorer проверяет `Action.post` (research/18 §2.1)
+- ⏳ explorer проверяет `Action.post` для effectful actions; до kernel закрыть
+  effectless fast path (research/18 §2.1, research/20)
 - ⏳ остальное расхождение scenario↔explorer (lifecycle-переход в scenario,
   `Delete` в terminal guard, emitted payload) — через единый transition kernel
 - scenario и explorer одинаково проверяют pre/effect/post, Field constraints,
@@ -236,6 +237,8 @@ snapshot-режима).
 - один внутренний `step(action, context)` используется обоими путями и будущим
   executable Flow
 - тест-матрица на каждое публичное поле `Action`
+- перед refactor: semantic conformance matrix + normalized graph/trace
+  characterization; текущий snapshot counts/states — только smoke baseline
 
 #### P1. Canonical model и verification policy
 
@@ -273,6 +276,9 @@ snapshot-режима).
 - провести несколько последовательных изменений требований; измерить объём
   модели, время авторинга, diff/review, найденные дефекты, качество traces,
   стоимость изменения и пользу `Contract/show/affects/what-if`
+- первый внешний change-oriented candidate: GitHub protected pull-request policy
+  (approvals, stale reviews, status checks, code owners, bypass/merge queue);
+  реализовать после transition kernel, не блокировать им refactor (research/20)
 - event pool, time/concurrency primitives, Computed и domain profiles — только
   по результатам этих моделей
 - если change workflow не лучше Quint/FizzBee, рассмотреть analint как domain
@@ -287,6 +293,9 @@ snapshot-режима).
   statistics, Mermaid/DOT для Lifecycle/action dependencies
 - Interactive explorer (enabled/disabled actions, fork/rewind, failed guards) —
   после executable traces; полный state graph только для малых/агрегированных моделей
+- Performance: parameterized synthetic families (counter grid, conserved
+  transfers, workflow product) с 10²–10⁵ states; timing не CI gate. Текущие
+  examples (максимум 216 states) остаются smoke, не scaling benchmark
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 

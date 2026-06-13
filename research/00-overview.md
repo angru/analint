@@ -26,6 +26,7 @@
 | [17-engine-audit-and-realignment.md](17-engine-audit-and-realignment.md) | Эмпирический аудит движка и первый разворот от IR/bridge/Rust к engine completeness |
 | [18-critical-audit-of-v1.3-direction.md](18-critical-audit-of-v1.3-direction.md) | Errata к 17: пропущенные false-green, canonical Init, `Action.by`, executable traces и исправленный порядок |
 | [19-visualization-backends-and-positioning.md](19-visualization-backends-and-positioning.md) | Визуализация как diagnostics, границы IR/backends, Numba и честная ниша относительно Quint/FizzBee |
+| [20-benchmark-strategy-before-transition-kernel.md](20-benchmark-strategy-before-transition-kernel.md) | Четыре разных benchmark-слоя: semantic conformance, graph characterization, synthetic scaling и внешний GitHub policy case |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.

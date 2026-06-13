@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, TypeGuard
 
-from analint.models.entity import Entity, FieldDescriptor, all_fields
+from analint.models.entity import _MISSING, Entity, FieldDescriptor, all_fields
 
 if TYPE_CHECKING:
     from analint.models.predicate import Predicate
@@ -210,6 +210,28 @@ def Absent(instance: InstanceRef) -> Entity:
         snapshot.__dict__[field_name] = None
     snapshot.__dict__["_analint_instance_ref"] = instance
     snapshot.__dict__["_analint_present"] = False
+    return snapshot
+
+
+def present_snapshot(instance: InstanceRef, fields: dict[str, Any]) -> Entity:
+    """Build a present snapshot for ``Create`` without eager Field validation.
+
+    Unspecified fields take their declared defaults. Range and saturation are
+    deferred to the effect constraint checks, so a created instance travels the
+    same validation path as a Set/Add/Subtract target.
+    """
+    if not isinstance(instance, InstanceRef):
+        raise TypeError("Create needs an InstanceRef from a Scope")
+    snapshot = object.__new__(instance.entity_cls)
+    for field_name, descriptor in all_fields(instance.entity_cls).items():
+        if field_name in fields:
+            snapshot.__dict__[field_name] = fields[field_name]
+        elif descriptor.default is not _MISSING:
+            snapshot.__dict__[field_name] = descriptor.default
+        else:
+            raise TypeError(f"Create({instance!r}) must set required field '{field_name}'")
+    snapshot.__dict__["_analint_instance_ref"] = instance
+    snapshot.__dict__["_analint_present"] = True
     return snapshot
 
 

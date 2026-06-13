@@ -30,7 +30,7 @@ from __future__ import annotations
 from itertools import product
 from typing import TYPE_CHECKING, Any
 
-from analint.models.effect import Add, Effect, Set, Subtract
+from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
 from analint.models.predicate import (
@@ -261,6 +261,13 @@ def _subst_effect(effect: Effect, binding: Binding) -> Effect:
         )
     if isinstance(effect, Add):
         return Add(field=_resolve(effect.field, binding), amount=_resolve(effect.amount, binding))
+    if isinstance(effect, Create):
+        return Create(
+            _resolve(effect.target, binding),
+            **{name: _resolve(value, binding) for name, value in effect.fields.items()},
+        )
+    if isinstance(effect, Delete):
+        return Delete(_resolve(effect.target, binding))
     return effect
 
 

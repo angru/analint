@@ -214,6 +214,7 @@ checkout = Action(
 |---|---|
 | `Set(field, value)` | field becomes the value — a literal, an enum, or an **expression over the pre-state**: `Set(src.coins, src.coins - amount)` is the canonical form |
 | `Subtract(field, amount)` / `Add(field, amount)` | sugar for `Set(field, field ∓ amount)` |
+| `Create(ref, **fields)` / `Delete(ref)` | a slot in a `Scope` becomes present / absent — presence as a next-state fact (see [Bounded multiplicity](#bounded-multiplicity)) |
 
 #### Parameterized actions
 
@@ -282,7 +283,25 @@ present; `Absent(ref)` marks an allocated slot as absent; `Present(ref)` is a
 predicate usable in guards and queries. In scenarios, omitted scoped slots are
 also absent. Reachability defaults every scoped slot to present unless
 `given=[Absent(ref)]` says otherwise. Field reads and ordinary effects on an
-absent slot are rejected. `Create/Delete` effects are the next layer.
+absent slot are rejected.
+
+`Create(ref, **fields)` and `Delete(ref)` change that membership as next-state
+facts, symmetric to `Set` over a value:
+
+```python
+from analint import Create, Delete
+
+open_account = Action(effect=[Create(accounts["eve"], balance=0)])  # eve must be absent
+close_account = Action(effect=[Delete(alice)])                       # alice must be present
+```
+
+`Create` requires the slot absent and makes it present (unspecified fields take
+their defaults); `Delete` requires it present and makes it absent. The
+mismatched pre-state is rejected before any effect runs, so `Expect.FAIL`
+covers it. A slot's presence may change at most once per action, and the same
+slot may not be both (de)allocated and written by `Set`/`Add`/`Subtract`. The
+key universe stays fixed, so reachability, quantifiers and aggregates simply
+range over whichever slots are present in each state.
 
 #### Finite quantifiers
 

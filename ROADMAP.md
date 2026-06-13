@@ -4,8 +4,9 @@
 агентская поверхность +
 reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
 Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root,
-bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max` и
-declarative initial relations, presence semantics. 180 тестов. Фазы v0.9,
+bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
+declarative initial relations, presence semantics и `Create/Delete` в
+фиксированном universe. 197 тестов. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -170,8 +171,12 @@ snapshot-режима).
   домены из bool/Enum/Field, коррелированные predicates, bounded expansion
 - ✅ Presence в фиксированном universe: `Absent(ref)` snapshots,
   `Present(ref/bound/param)`, quantifiers/aggregates только по present slots
-- `Create/Delete` effects внутри фиксированного universe (путь Alloy;
-  research/01, 06, 14, 16)
+- ✅ `Create/Delete` effects внутри фиксированного universe (путь Alloy;
+  research/01, 06, 14, 16): next-state факты о присутствии слота, симметричные
+  `Set`; pre-state guards (absent для Create, present для Delete), конфликты
+  одновременности (двойной flip присутствия, presence+field на одном слоте),
+  Field-ограничения и saturation на созданных инстансах, участие в
+  reachability/quantifiers/aggregates
 - `Computed(...)` — производные поля; guards на переходах Lifecycle
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)

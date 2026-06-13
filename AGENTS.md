@@ -27,7 +27,7 @@ src/analint/
     invariant.py            ← Invariant dataclass (world-level constraint)
     initial.py              ← Initial relation over finite field domains
     action.py               ← Action (pre / effect / post / emits / on / requires / by)
-    effect.py               ← Set, Subtract, Add effect dataclasses
+    effect.py               ← Set, Subtract, Add, Create, Delete effects
     lifecycle.py            ← Lifecycle (with terminal states), Transition
     scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
@@ -160,7 +160,19 @@ slots. Empty-domain semantics: ForAll=true, Exists=false, Count/Sum=0,
 Min/Max=evaluation error. Scenario slots omitted from `given` are absent;
 explorer defaults remain present for backwards compatibility. Reading or
 modifying an absent slot is rejected. `Present` is state-dependent and is
-allowed in `pre`, not static `where`. There are no `Create/Delete` effects yet.
+allowed in `pre`, not static `where`.
+
+`Create(ref, **fields)` and `Delete(ref)` are next-state facts about a slot's
+presence, symmetric to `Set` over a field value. `Create` requires the slot
+absent in the pre-state and makes it present (unspecified fields take defaults,
+range/saturation checked like a `Set` target); `Delete` requires it present and
+makes it absent. Both reject the mismatched pre-state before effects, so
+`Expect.FAIL` covers them. A slot's presence may change at most once per action,
+and a slot under `Create`/`Delete` may not also be a `Set`/`Add`/`Subtract`
+target (simultaneous-fact conflicts, structural errors). Targets accept an
+instance `Param`, bound at expansion. In the explorer presence is part of the
+state key, so creation and deletion participate in reachability, quantifiers and
+aggregates; the universe of keys stays fixed.
 
 ### Declarative initial relations
 

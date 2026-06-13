@@ -4,7 +4,7 @@ import copy
 from typing import Any
 
 from analint.models.action import Action
-from analint.models.effect import Add, Set, Subtract
+from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.flow import Assert, Emitted
 from analint.models.predicate import Predicate
 from analint.models.root import Spec
@@ -17,6 +17,7 @@ from analint.models.scope import (
     instance_context_key,
     is_field_ref,
     is_present,
+    present_snapshot,
 )
 from analint.reporter.base import Finding, ScenarioResult, Severity
 from analint.validator.rule_checker import evaluate, resolve
@@ -185,6 +186,29 @@ def _check_field_constraints(findings: list, action: Action, post: dict) -> None
     from analint.models.entity import all_fields
 
     for effect in action.effect:
+        if isinstance(effect, Create):
+            inst = post.get(effect.target)
+            if inst is None:
+                continue
+            for desc in all_fields(effect.target.entity_cls).values():
+                if desc.spec is None or not desc.spec.has_constraints():
+                    continue
+                value = inst.__dict__.get(desc.field_name)
+                problem = desc.spec.violation(value)
+                if problem is None:
+                    continue
+                if desc.spec.saturate:
+                    inst.__dict__[desc.field_name] = desc.spec.clamp(value)
+                    continue
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"action:{action.id}",
+                        f"field constraint violated: created {effect.target!r}."
+                        f"{desc.field_name} {problem}",
+                    )
+                )
+            continue
         if not isinstance(effect, (Set, Subtract, Add)):
             continue
         cls = effect.field.entity_cls
@@ -240,16 +264,32 @@ def _check_terminal_states(findings: list, scenario: Scenario, spec: Spec, conte
 
 
 def _check_absent_effect_targets(findings: list, scenario: Scenario, context: dict) -> None:
-    for effect in scenario.action.effect:
-        if not isinstance(effect, (Set, Subtract, Add)) or not is_field_ref(effect.field):
-            continue
-        key = field_context_key(effect.field)
-        if isinstance(key, InstanceRef) and not is_present(context, key):
+    action = scenario.action
+    for effect in action.effect:
+        if isinstance(effect, (Set, Subtract, Add)) and is_field_ref(effect.field):
+            key = field_context_key(effect.field)
+            if isinstance(key, InstanceRef) and not is_present(context, key):
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"action:{action.id}",
+                        f"cannot modify absent entity {key!r} with Set/Add/Subtract",
+                    )
+                )
+        elif isinstance(effect, Create) and is_present(context, effect.target):
             findings.append(
                 Finding(
                     Severity.ERROR,
-                    f"action:{scenario.action.id}",
-                    f"cannot modify absent entity {key!r} with Set/Add/Subtract",
+                    f"action:{action.id}",
+                    f"cannot create already-present entity {effect.target!r}",
+                )
+            )
+        elif isinstance(effect, Delete) and not is_present(context, effect.target):
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"cannot delete absent entity {effect.target!r}",
                 )
             )
 
@@ -263,8 +303,10 @@ def _apply_effects(effects: list, context: dict) -> dict:
     """
     updates: list[tuple[Any, str, Any]] = []
     for effect in effects:
+        if not isinstance(effect, (Set, Subtract, Add)):
+            continue
         target = field_context_key(effect.field) if is_field_ref(effect.field) else None
-        if isinstance(effect, (Set, Subtract, Add)) and target not in context:
+        if target not in context:
             continue  # target entity absent from given — structural validation warns about this
         if isinstance(effect, Set):
             updates.append((target, effect.field.field_name, resolve(effect.value, context)))
@@ -292,6 +334,12 @@ def _apply_effects(effects: list, context: dict) -> dict:
         entity = post.get(key)
         if entity is not None:
             entity.__dict__[field_name] = value
+    for effect in effects:
+        if isinstance(effect, Create):
+            resolved = {name: resolve(value, context) for name, value in effect.fields.items()}
+            post[effect.target] = present_snapshot(effect.target, resolved)
+        elif isinstance(effect, Delete):
+            post[effect.target] = Absent(effect.target)
     return post
 
 

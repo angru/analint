@@ -5,8 +5,8 @@ from typing import Any
 
 from analint.models.action import Action
 from analint.models.actor import Actor
-from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import FieldDescriptor
+from analint.models.effect import Add, Create, Delete, Set, Subtract
+from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
 from analint.models.expr import Expr, expr_op
 from analint.models.flow import Assert, Emitted
@@ -214,11 +214,51 @@ def validate_structural(spec: Spec) -> list[Finding]:
             elif event_cls.__name__ not in spec_event_names:
                 findings.append(err(loc, f"on event '{event_cls.__name__}' not in spec.events"))
 
-        # effects: registered targets, no two effects on the same field
+        # effects: registered targets, no two facts about the same field or slot
         effect_targets: set[tuple[Any, str]] = set()
+        presence_targets: set[Any] = set()  # slots a Create/Delete makes (dis)appear
+        field_slots: set[Any] = set()  # slots whose fields a Set/Add/Subtract writes
         for effect in action.effect:
+            if isinstance(effect, (Create, Delete)):
+                target = effect.target
+                if not isinstance(target, InstanceRef):
+                    findings.append(
+                        err(
+                            loc,
+                            f"{type(effect).__name__} target must be an InstanceRef from a "
+                            f"Scope, got {target!r}",
+                        )
+                    )
+                    continue
+                if scoped_entities.get(target.entity_cls) is not target.scope:
+                    findings.append(
+                        err(loc, f"{target!r} belongs to a Scope not registered in spec.scopes")
+                    )
+                if isinstance(effect, Create):
+                    known = all_fields(target.entity_cls)
+                    for name in effect.fields:
+                        if name not in known:
+                            findings.append(
+                                err(
+                                    loc,
+                                    f"Create({target!r}) sets unknown field "
+                                    f"'{name}' on {target.entity_cls.__name__}",
+                                )
+                            )
+                if target in presence_targets:
+                    findings.append(
+                        err(
+                            loc,
+                            f"two effects change the presence of {target!r} — effects are "
+                            f"simultaneous, a slot can appear or disappear only once",
+                        )
+                    )
+                presence_targets.add(target)
+                continue
             if not isinstance(effect, (Set, Subtract, Add)):
-                findings.append(err(loc, f"effect entry '{effect!r}' is not Set/Add/Subtract"))
+                findings.append(
+                    err(loc, f"effect entry '{effect!r}' is not Set/Add/Subtract/Create/Delete")
+                )
                 continue
             if not is_field_ref(effect.field):
                 findings.append(err(loc, "effect field must be a field reference"))
@@ -231,6 +271,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             findings.extend(_check_scoped_refs([effect.field], scoped_entities, loc))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
             findings.extend(_check_scoped_refs(_operand_refs(rhs), scoped_entities, loc))
+            field_slots.add(field_context_key(effect.field))
             target = (field_context_key(effect.field), effect.field.field_name)
             if target in effect_targets:
                 findings.append(
@@ -242,6 +283,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     )
                 )
             effect_targets.add(target)
+
+        for slot in sorted(presence_targets & field_slots, key=context_key_label):
+            findings.append(
+                err(
+                    loc,
+                    f"{slot!r} is both created/deleted and modified by Set/Add/Subtract in the "
+                    f"same action — these next-state facts conflict",
+                )
+            )
 
     # Scenario coverage is per family: one example for any binding of a
     # parameterized action covers the whole declaration.
@@ -452,6 +502,8 @@ def _needed_keys(action: Action) -> set[Any]:
                 keys.add(field_context_key(effect.field))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
             keys.update(field_context_key(ref) for ref in _required_operand_refs(rhs))
+        elif isinstance(effect, (Create, Delete)) and isinstance(effect.target, InstanceRef):
+            keys.add(effect.target)
     return keys
 
 

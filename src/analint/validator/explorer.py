@@ -21,7 +21,7 @@ from math import prod
 from typing import Any
 
 from analint.models.action import Action
-from analint.models.effect import Add, Set, Subtract
+from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.initial import Initial
 from analint.models.lifecycle import Lifecycle
@@ -499,6 +499,11 @@ def _enabled(
     }
     if any(isinstance(target, InstanceRef) and not is_present(ctx, target) for target in touched):
         return False
+    for effect in action.effect:
+        if isinstance(effect, Create) and is_present(ctx, effect.target):
+            return False  # cannot create a slot that is already present
+        if isinstance(effect, Delete) and not is_present(ctx, effect.target):
+            return False  # cannot delete a slot that is already absent
     for lc in lifecycles:
         if not lc.terminal:
             continue
@@ -521,6 +526,32 @@ def _check_bounds(
 ) -> bool:
     """Clamp saturating fields; report and prune on hard constraint violations."""
     for effect in action.effect:
+        if isinstance(effect, Create):
+            inst = post.get(effect.target)
+            if inst is None:
+                continue
+            for fname, descriptor in all_fields(effect.target.entity_cls).items():
+                spec = descriptor.spec
+                if spec is None:
+                    continue
+                value = inst.__dict__.get(fname)
+                problem = spec.violation(value)
+                if problem is None:
+                    continue
+                if spec.saturate:
+                    inst.__dict__[fname] = spec.clamp(value)
+                    continue
+                exp.findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        f"action:{action.id}",
+                        f"'{action.id}' creates {effect.target!r}.{fname} "
+                        f"out of its declared range: {problem} "
+                        f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
+                    )
+                )
+                return False
+            continue
         if not isinstance(effect, (Set, Subtract, Add)):
             continue
         context_key = field_context_key(effect.field)
@@ -565,6 +596,10 @@ def _check_lifecycle_transitions(
                 continue
             inst_post = post.get(context_key)
             if inst_post is None:
+                continue
+            # a created/deleted slot's lifecycle field is an initial assignment
+            # or a teardown, not a declared transition
+            if not is_present(ctx, context_key) or not is_present(post, context_key):
                 continue
             old = getattr(inst_pre, lc.field_name, None)
             new = getattr(inst_post, lc.field_name, None)

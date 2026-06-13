@@ -20,11 +20,9 @@ from itertools import product
 from math import prod
 from typing import Any
 
-from analint.models.action import Action
-from analint.models.effect import Add, Create, Delete, Set, Subtract
+from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.initial import Initial
-from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import Predicate
 from analint.models.quantifier import BoundField, _Present
 from analint.models.query import (
@@ -45,8 +43,8 @@ from analint.models.scope import (
     is_present,
 )
 from analint.reporter.base import Finding, QueryResult, Severity
+from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
-from analint.validator.scenario_runner import _apply_effects
 from analint.validator.structural import _collect_field_refs, _describe
 
 StateKey = tuple[Any, ...]
@@ -370,15 +368,6 @@ def _field_annotation(entity_cls: type, field_name: str) -> Any:
 
 
 def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploration:
-    # Field constraints double as the engine's bounds (research/13)
-    bounds_map = {
-        (cls, fname): desc.spec
-        for cls in spec.entities
-        for fname, desc in all_fields(cls).items()
-        if desc.spec is not None and desc.spec.has_constraints()
-    }
-    lifecycles = list(spec.lifecycles)
-
     exp = Exploration()
 
     # Actions whose preconditions reference event payloads are not explorable:
@@ -427,33 +416,22 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
         for action in spec.actions:
             if action.id in exp.excluded:
                 continue
-            if not _enabled(action, ctx, lifecycles, exp, key):
+            result = step(spec, action, ctx, trace=exp.trace_to(key))
+            if result.entered:
+                exp.fired.add(action.id)
+            if result.outcome is Outcome.REJECTED:
+                continue  # a guard disabled the action; its reason is a scenario concern
+            if result.outcome is Outcome.DEFECT:
+                for finding in result.findings:
+                    exp.report_once(finding.severity, finding.location, finding.message)
                 continue
-            exp.fired.add(action.id)
+
+            post = result.post_context
             if not action.effect:
-                # an effectless action still asserts its post over the unchanged
-                # state — a false post is a model defect, not a silent self-loop
-                if _check_post(action, ctx, key, exp):
-                    exp.edges.append((key, action.id, key))
+                # an accepted effectless action is a self-loop with its post held true
+                exp.edges.append((key, action.id, key))
                 continue
-            try:
-                post = _apply_effects(action.effect, ctx)
-            except Exception as exc:
-                exp.report_once(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"effect evaluation error during exploration: {exc} "
-                    f"[after: {_trace_str(exp.trace_to(key))}]",
-                )
-                continue
-
-            if not _check_bounds(action, ctx, post, bounds_map, key, exp):
-                continue
-            if not _check_lifecycle_transitions(action, ctx, post, lifecycles, key, exp):
-                continue
-            if not _check_post(action, post, key, exp):
-                continue
-
+            assert post is not None
             try:
                 k2 = state_key(post)
             except TypeError as exc:
@@ -475,190 +453,6 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
             queue.append(k2)
 
     return exp
-
-
-def _enabled(
-    action: Action, ctx: dict, lifecycles: list[Lifecycle], exp: Exploration, key: StateKey
-) -> bool:
-    for pred in action.pre:
-        refs = _collect_field_refs(pred)
-        if any(field_context_key(r) not in ctx for r in refs):
-            return False  # entity intentionally absent from this state
-        try:
-            if not evaluate(pred, ctx):
-                return False
-        except Exception as exc:
-            # a model/type error is never "the action is just disabled"
-            exp.report_once(
-                Severity.ERROR,
-                f"action:{action.id}",
-                f"pre evaluation error: {exc} (predicate: {_describe(pred)}) "
-                f"[at: {_trace_str(exp.trace_to(key))}]",
-            )
-            return False
-
-    touched = {
-        field_context_key(e.field)
-        for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
-    }
-    if any(isinstance(target, InstanceRef) and not is_present(ctx, target) for target in touched):
-        return False
-    for effect in action.effect:
-        if isinstance(effect, Create) and is_present(ctx, effect.target):
-            return False  # cannot create a slot that is already present
-        if isinstance(effect, Delete) and not is_present(ctx, effect.target):
-            return False  # cannot delete a slot that is already absent
-    for lc in lifecycles:
-        if not lc.terminal:
-            continue
-        for target in touched:
-            if _key_entity_cls(target) is not lc.entity_cls:
-                continue
-            inst = ctx.get(target)
-            if inst is not None and getattr(inst, lc.field_name, None) in lc.terminal:
-                return False
-    return True
-
-
-def _check_bounds(
-    action: Action,
-    ctx: dict,
-    post: dict,
-    bounds_map: dict,
-    key: StateKey,
-    exp: Exploration,
-) -> bool:
-    """Clamp saturating fields; report and prune on hard constraint violations."""
-    for effect in action.effect:
-        if isinstance(effect, Create):
-            inst = post.get(effect.target)
-            if inst is None:
-                continue
-            for fname, descriptor in all_fields(effect.target.entity_cls).items():
-                spec = descriptor.spec
-                if spec is None:
-                    continue
-                value = inst.__dict__.get(fname)
-                problem = spec.violation(value)
-                if problem is None:
-                    continue
-                if spec.saturate:
-                    inst.__dict__[fname] = spec.clamp(value)
-                    continue
-                exp.findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"action:{action.id}",
-                        f"'{action.id}' creates {effect.target!r}.{fname} "
-                        f"out of its declared range: {problem} "
-                        f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
-                    )
-                )
-                return False
-            continue
-        if not isinstance(effect, (Set, Subtract, Add)):
-            continue
-        context_key = field_context_key(effect.field)
-        target = (effect.field.entity_cls, effect.field.field_name)
-        spec = bounds_map.get(target)
-        if spec is None or context_key not in post:
-            continue
-        inst = post[context_key]
-        value = inst.__dict__.get(target[1])
-        problem = spec.violation(value)
-        if problem is None:
-            continue
-        if spec.saturate:
-            inst.__dict__[target[1]] = spec.clamp(value)
-            continue
-        exp.findings.append(
-            Finding(
-                Severity.ERROR,
-                f"action:{action.id}",
-                f"'{action.id}' drives {context_key_label(context_key)}.{target[1]} "
-                f"out of its "
-                f"declared range: {problem} "
-                f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
-            )
-        )
-        return False
-    return True
-
-
-def _check_lifecycle_transitions(
-    action: Action,
-    ctx: dict,
-    post: dict,
-    lifecycles: list[Lifecycle],
-    key: StateKey,
-    exp: Exploration,
-) -> bool:
-    """A Set on a lifecycle field must follow a declared transition."""
-    for lc in lifecycles:
-        for context_key, inst_pre in ctx.items():
-            if type(inst_pre) is not lc.entity_cls:
-                continue
-            inst_post = post.get(context_key)
-            if inst_post is None:
-                continue
-            # a created/deleted slot's lifecycle field is an initial assignment
-            # or a teardown, not a declared transition
-            if not is_present(ctx, context_key) or not is_present(post, context_key):
-                continue
-            old = getattr(inst_pre, lc.field_name, None)
-            new = getattr(inst_post, lc.field_name, None)
-            if old == new:
-                continue
-            allowed: set = set()
-            for t in lc.transitions:
-                if t.from_state == old:
-                    allowed.update(t.to_states)
-            if new not in allowed:
-                exp.findings.append(
-                    Finding(
-                        Severity.ERROR,
-                        f"action:{action.id}",
-                        f"'{action.id}' performs {context_key_label(context_key)}."
-                        f"{lc.field_name} {_value_str(old)} → {_value_str(new)}, "
-                        f"not declared in lifecycle '{lc.id}' "
-                        f"[after: {_trace_str([*exp.trace_to(key), action.id])}]",
-                    )
-                )
-                return False
-    return True
-
-
-def _check_post(action: Action, post: dict, key: StateKey, exp: Exploration) -> bool:
-    """An action whose declared `post` is false after its effects is a model
-    defect — without this, such a transition stayed a valid BFS edge and a query
-    could read PASS (research/18 §2.1)."""
-    after = _trace_str([*exp.trace_to(key), action.id])
-    for pred in action.post:
-        refs = _collect_field_refs(pred)
-        if any(field_context_key(r) not in post for r in refs):
-            continue  # references an entity absent from this state — not applicable
-        try:
-            ok = evaluate(pred, post)
-        except Exception as exc:
-            exp.findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"post evaluation error: {exc} (predicate: {_describe(pred)}) [after: {after}]",
-                )
-            )
-            return False
-        if not ok:
-            exp.findings.append(
-                Finding(
-                    Severity.ERROR,
-                    f"action:{action.id}",
-                    f"'{action.id}' violates its postcondition {_describe(pred)} [after: {after}]",
-                )
-            )
-            return False
-    return True
 
 
 def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Exploration) -> bool:

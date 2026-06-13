@@ -413,6 +413,18 @@ def test_delete_terminal_entity_is_rejected_in_both():
     )
 
 
+class Raised(Event):
+    value: int
+
+
+def test_emitted_payload_evaluation_error_is_defect():
+    act = Action(id="raise", emits=[Raised(value=Flag.n + "bad")])
+    scenario = Scenario(id="s", name="S", action=act, given=[Flag()])
+    spec = Spec(id="s", name="S", entities=[Flag], events=[Raised], actions=[act])
+    result = run_scenario(scenario, spec)
+    assert not result.passed
+
+
 # ── known divergences — the kernel must remove these (then drop the xfail) ────────
 
 
@@ -425,19 +437,3 @@ def test_invalid_initial_invariant_is_defect_in_both():
     invariant = Invariant(Flag.n == 1, id="initial_is_valid")
     spec = Spec(id="s", name="S", entities=[Flag], actions=[a], invariants=[invariant])
     _assert_agree(spec, a, [Flag(n=0)], "DEFECT", expected_edge=False)
-
-
-class Raised(Event):
-    value: int
-
-
-@pytest.mark.xfail(
-    reason="emitted payload templates are not materialised by either execution path",
-    strict=True,
-)
-def test_emitted_payload_evaluation_error_is_defect():
-    act = Action(id="raise", emits=[Raised(value=Flag.n + "bad")])
-    scenario = Scenario(id="s", name="S", action=act, given=[Flag()])
-    spec = Spec(id="s", name="S", entities=[Flag], events=[Raised], actions=[act])
-    result = run_scenario(scenario, spec)
-    assert not result.passed

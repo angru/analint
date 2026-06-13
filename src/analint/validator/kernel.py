@@ -171,33 +171,38 @@ def step(
     # Past the guards: the action executes, so every outcome from here counts as
     # having entered, whether it accepts or turns out to be a defect.
 
-    # ── effectless action: its post asserts over the unchanged state ──────────
+    # ── effects: simultaneous facts about the next state (effectless: unchanged) ─
     if not action.effect:
-        defect = _check_post(action, context, trace)
-        if defect is not None:
-            return _entered(defect)
-        return TransitionResult(Outcome.ACCEPTED, post_context=context, entered=True)
+        post = context
+    else:
+        try:
+            post = _apply_effects(action.effect, context)
+        except Exception as exc:
+            return _entered(
+                _defect(action, f"effect evaluation error: {exc}{_after(action, trace)}")
+            )
+        # ── Field clamp / hard constraints, then lifecycle ────────────────────
+        field_defect = _check_field_constraints(action, post, trace)
+        if field_defect is not None:
+            return _entered(field_defect)
+        lifecycle_defect = _check_lifecycle_transitions(action, context, post, lifecycles, trace)
+        if lifecycle_defect is not None:
+            return _entered(lifecycle_defect)
 
-    # ── effects: simultaneous facts about the next state ──────────────────────
-    try:
-        post = _apply_effects(action.effect, context)
-    except Exception as exc:
-        return _entered(_defect(action, f"effect evaluation error: {exc}{_after(action, trace)}"))
-
-    # ── Field clamp / hard constraints, then lifecycle, then post ─────────────
-    field_defect = _check_field_constraints(action, post, trace)
-    if field_defect is not None:
-        return _entered(field_defect)
-    lifecycle_defect = _check_lifecycle_transitions(action, context, post, lifecycles, trace)
-    if lifecycle_defect is not None:
-        return _entered(lifecycle_defect)
+    # ── post (an effectless action still asserts it over the unchanged state) ──
     post_defect = _check_post(action, post, trace)
     if post_defect is not None:
         return _entered(post_defect)
 
+    # ── emitted payload materialisation: the final phase ──────────────────────
+    emitted, emit_defect = _materialize_emitted(action, post, trace)
+    if emit_defect is not None:
+        return _entered(emit_defect)
+
     return TransitionResult(
         Outcome.ACCEPTED,
         post_context=post,
+        emitted=emitted,
         changed_fields=_state_diff(context, post),
         entered=True,
     )
@@ -372,6 +377,32 @@ def _check_post(action: Action, post: dict, trace: list[str] | None) -> Transiti
                 f"violates its postcondition {_describe(pred)}{_after(action, trace)}",
             )
     return None
+
+
+def _materialize_emitted(
+    action: Action, post: dict, trace: list[str] | None
+) -> tuple[list, TransitionResult | None]:
+    """Resolve each emitted event's payload templates against the next state.
+
+    A bare ``Event`` class carries no payload and passes through unchanged. An
+    ``Event`` instance whose field templates cannot be resolved (a type error, a
+    reference to an absent entity) is a model defect, not a silent emission."""
+    materialized: list = []
+    for event in action.emits:
+        if isinstance(event, type):
+            materialized.append(event)
+            continue
+        cls = type(event)
+        try:
+            values = {fname: resolve(event.__dict__.get(fname), post) for fname in all_fields(cls)}
+        except Exception as exc:
+            return [], _defect(
+                action,
+                f"emitted payload evaluation error: {exc} "
+                f"(event: {cls.__name__}){_after(action, trace)}",
+            )
+        materialized.append(cls(**values))
+    return materialized, None
 
 
 def _state_diff(pre: dict, post: dict) -> dict:

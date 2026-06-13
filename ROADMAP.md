@@ -17,7 +17,7 @@ v0.10 и v1.0
 приоритетов (что было → что стало → когда → почему → как откатиться) —
 в research/17 §3; критический аудит и errata — research/18.
 
-Этот роадмап выведен из исследования в `research/` (файлы 00–18). Краткая
+Этот роадмап выведен из исследования в `research/` (файлы 00–19). Краткая
 логика: ядро DSL удачное (≈ планировочный домен STRIPS), узкие места —
 многословность поверхности, отсутствие движка поиска по состояниям и
 отсутствие интерфейса для AI-агентов, которые признаны главным сценарием
@@ -247,6 +247,8 @@ snapshot-режима).
 - post-state шага становится pre-state следующего через общий transition kernel
 - «слои» как arbitrary snapshot deltas не добавлять: они обходят preconditions и
   reachability; prefix/checkpoint reuse — только если после P2 останется boilerplate
+- определить exploration result artifact: roots/nodes/edges/findings/traces,
+  completeness и summary; это основа CLI/MCP/визуализации, не model IR
 
 #### P3. Семантическая честность словаря
 
@@ -263,18 +265,23 @@ snapshot-режима).
 
 - две модели существующих систем, не придуманных под analint
 - один и тот же case в analint и Quint или FizzBee
-- измерить объём модели, время авторинга, найденные дефекты, качество traces и
-  стоимость изменения
+- провести несколько последовательных изменений требований; измерить объём
+  модели, время авторинга, diff/review, найденные дефекты, качество traces,
+  стоимость изменения и пользу `Contract/show/affects/what-if`
 - event pool, time/concurrency primitives, Computed и domain profiles — только
   по результатам этих моделей
+- если change workflow не лучше Quint/FizzBee, рассмотреть analint как domain
+  frontend/analysis layer над существующим verifier вместо расширения своего
 
 ### Параллельная дорожка — экосистема
 
 - **После v0.9** (имена стабильны): публикация на GitHub, PyPI, лицензия,
   CONTRIBUTING, CI самого analint
 - Документация-сайт (mkdocs) после v0.10 — когда есть что показывать агентам
-- Mermaid-экспорт (stateDiagram из Lifecycle, графы действий) — дёшево,
-  эффектно для README и для ревью модели человеком
+- После P0/P1: CLI-first diagnostics из exploration artifact — state diff traces,
+  statistics, Mermaid/DOT для Lifecycle/action dependencies
+- Interactive explorer (enabled/disabled actions, fork/rewind, failed guards) —
+  после executable traces; полный state graph только для малых/агрегированных моделей
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 
@@ -286,12 +293,22 @@ snapshot-режима).
 
 Замороженный план:
 
-- движок принимает не Python-объекты, а **IR** — сериализованную модель
-  (JSON: сущности, домены полей, действия, предикаты); Python-DSL компилируется
-  в IR одним модулем;
-- затем Rust-движок (PyO3 или отдельный бинарь), читающий тот же IR; поверхность
-  не меняется: люди и агенты пишут Python, JSON-IR — машинный обмен;
+- сначала различить internal normalized semantic model, backend-specific
+  execution plan, exploration result artifact и внешний wire format
+- второй in-process backend не требует публичного JSON; внешний JSON-IR
+  появляется только с реальным external consumer/second frontend/remote cache
+- движок принимает не произвольные Python-объекты, а закрытую нормализованную
+  модель; Python-DSL компилируется в неё одним модулем
+- затем, только при подтверждённой необходимости, native backend: PyO3 может
+  читать внутреннюю модель, отдельный бинарь потребует версионированный wire
+  format; поверхность не меняется — люди и агенты пишут Python
 - прецеденты «Python-фасад, Rust-ядро»: ruff, pydantic-core, polars.
+
+Numba не является отдельным roadmap item: текущий object-heavy explorer для
+него не подходит. После профиля реальной модели и lowering в integer
+slots/opcodes сравнить optimized Python, Numba, Rust и другие варианты.
+Сначала нужны algorithmic fixes/reductions; ускорение не устраняет
+экспоненциальный state explosion (research/19).
 
 ---
 

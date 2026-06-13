@@ -219,6 +219,51 @@ def test_invariant_violation_found_during_exploration():
     assert any("No overdraft" in f.message and "spend" in f.message for f in exp.findings)
 
 
+def test_explorer_rejects_action_whose_post_is_false():
+    # The effect sets PAID, but the declared post lies (CANCELLED). The explorer
+    # must report it and prune the edge, not accept the transition (research/18 §2.1).
+    class S(Enum):
+        PENDING = "pending"
+        PAID = "paid"
+        CANCELLED = "cancelled"
+
+    class Order(Entity):
+        status: S = Field(S.PENDING)
+
+    pay = Action(
+        id="pay",
+        pre=[Order.status == S.PENDING],
+        effect=[Set(Order.status, S.PAID)],
+        post=[Order.status == S.CANCELLED],  # contradicts the effect
+    )
+    spec = Spec(id="s", name="S", entities=[Order], actions=[pay])
+
+    cache: dict = {}
+    result = run_query(Reachable(Order.status == S.PAID, id="q"), spec, cache)
+    assert result.status == "FAIL"  # PAID edge is pruned by the post violation
+    exp = next(iter(cache.values()))
+    assert any("postcondition" in f.message and "pay" in f.message for f in exp.findings)
+
+
+def test_explorer_accepts_action_whose_post_holds():
+    class S(Enum):
+        PENDING = "pending"
+        PAID = "paid"
+
+    class Order(Entity):
+        status: S = Field(S.PENDING)
+
+    pay = Action(
+        id="pay",
+        pre=[Order.status == S.PENDING],
+        effect=[Set(Order.status, S.PAID)],
+        post=[Order.status == S.PAID],  # honest
+    )
+    spec = Spec(id="s", name="S", entities=[Order], actions=[pay])
+    result = run_query(Reachable(Order.status == S.PAID, id="q"), spec, cache={})
+    assert result.status == "PASS"
+
+
 def test_initial_state_requires_given_for_entities_without_defaults():
     class Order(Entity):
         total: float  # required, no default

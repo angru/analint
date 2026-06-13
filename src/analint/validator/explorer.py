@@ -448,6 +448,8 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
                 continue
             if not _check_lifecycle_transitions(action, ctx, post, lifecycles, key, exp):
                 continue
+            if not _check_post(action, post, key, exp):
+                continue
 
             try:
                 k2 = state_key(post)
@@ -621,6 +623,38 @@ def _check_lifecycle_transitions(
                     )
                 )
                 return False
+    return True
+
+
+def _check_post(action: Action, post: dict, key: StateKey, exp: Exploration) -> bool:
+    """An action whose declared `post` is false after its effects is a model
+    defect — without this, such a transition stayed a valid BFS edge and a query
+    could read PASS (research/18 §2.1)."""
+    after = _trace_str([*exp.trace_to(key), action.id])
+    for pred in action.post:
+        refs = _collect_field_refs(pred)
+        if any(field_context_key(r) not in post for r in refs):
+            continue  # references an entity absent from this state — not applicable
+        try:
+            ok = evaluate(pred, post)
+        except Exception as exc:
+            exp.findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"post evaluation error: {exc} (predicate: {_describe(pred)}) [after: {after}]",
+                )
+            )
+            return False
+        if not ok:
+            exp.findings.append(
+                Finding(
+                    Severity.ERROR,
+                    f"action:{action.id}",
+                    f"'{action.id}' violates its postcondition {_describe(pred)} [after: {after}]",
+                )
+            )
+            return False
     return True
 
 

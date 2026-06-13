@@ -607,7 +607,7 @@ analint affects TARGET -p PATH    # impact analysis before changing something (J
 analint PATH                      # shorthand for `analint check PATH`
 ```
 
-Exit codes: `0` ok · `1` findings (errors, failed scenarios, warnings with `--strict`) · `2` usage error · `3` spec could not be loaded.
+Exit codes: `0` ok · `1` findings (errors, failed scenarios, warnings with `--strict`) · `2` usage error · `3` spec could not be loaded · `4` inconclusive (a query exhausted its exploration budget without a verdict). JSON output carries a three-valued `verdict` (`PASS`/`FAIL`/`INCONCLUSIVE`); `passed` is `true` only on an effective `PASS` and reflects `--strict`.
 
 ### What-if: check a hypothesis without touching the spec
 

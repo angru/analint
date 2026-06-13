@@ -67,3 +67,44 @@ def test_inconclusive_spec_end_to_end_is_not_green():
 def test_cli_exit_code_4_on_inconclusive():
     res = runner.invoke(app, ["check", str(INCONCLUSIVE)])
     assert res.exit_code == 4, res.output
+
+
+# ── fail-closed aggregation (review e76b3ce, P1) ─────────────────────────────────
+
+
+def test_not_checked_is_not_a_silent_pass():
+    r = _result(query_results=[QueryResult(query_id="q", kind="X", status="NOT_CHECKED")])
+    assert r.verdict == "INCONCLUSIVE"
+    assert not r.is_successful
+
+
+def test_unknown_status_fails_closed():
+    for status in ("TYPO", "maybe", ""):
+        r = _result(query_results=[QueryResult(query_id="q", kind="X", status=status)])
+        assert r.verdict == "FAIL", status
+        assert not r.is_successful
+
+
+def test_is_successful_only_on_clean_pass():
+    assert _result(query_results=[QueryResult(query_id="q", kind="X", status="PASS")]).is_successful
+    assert not _result(
+        query_results=[QueryResult(query_id="q", kind="X", status="INCONCLUSIVE")]
+    ).is_successful
+
+
+# ── --strict consistency: JSON verdict and exit code must agree (review P2) ──────
+
+
+def test_strict_warning_makes_json_and_exit_agree():
+    taskboard = Path(__file__).parent.parent / "examples" / "taskboard"
+    # taskboard has warnings (e.g. uncovered action families); without --strict it passes.
+    result = validate(taskboard)
+    if result.warning_count == 0:
+        return  # nothing to assert on this example
+    plain = result_to_dict(result, strict=False)
+    strict = result_to_dict(result, strict=True)
+    assert plain["passed"] is True
+    assert strict["passed"] is False
+    assert strict["verdict"] == "FAIL"
+    res = runner.invoke(app, ["check", str(taskboard), "--strict"])
+    assert res.exit_code == 1

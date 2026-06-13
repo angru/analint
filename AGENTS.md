@@ -222,7 +222,7 @@ uv run analint affects Board.card_count -p examples/taskboard/
 uv run analint check . --what-if /tmp/hypothesis.py   # hypothesis without editing files
 ```
 
-Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load.
+Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load · 4 inconclusive (a query exhausted its exploration budget — proved nothing). JSON carries a three-valued `verdict` (PASS/FAIL/INCONCLUSIVE); `passed` is true only on an effective PASS (and honours `--strict`).
 
 ## Working on a spec as an agent (the intended loop)
 

@@ -7,7 +7,7 @@ from analint.reporter.base import QueryResult, ScenarioResult, Severity, Validat
 console = Console()
 
 
-def report_terminal(result: ValidationResult) -> None:
+def report_terminal(result: ValidationResult, strict: bool = False) -> None:
     from importlib.metadata import version as _ver
 
     try:
@@ -34,7 +34,7 @@ def report_terminal(result: ValidationResult) -> None:
             console.print(f"  [yellow]WARN[/yellow]   [{f.location}] {f.message}")
         if errors:
             console.print("\n  [red]Structural errors found — scenario validation skipped[/red]")
-            _print_summary(result)
+            _print_summary(result, strict)
             return
 
     console.print()
@@ -61,7 +61,7 @@ def report_terminal(result: ValidationResult) -> None:
             _print_query(qr)
 
     console.print()
-    _print_summary(result)
+    _print_summary(result, strict)
 
 
 def _print_query(qr: QueryResult) -> None:
@@ -91,7 +91,7 @@ def _print_scenario(sr: ScenarioResult) -> None:
             console.print(f"         [dim]↳[/dim] [{f.location}] {f.message}")
 
 
-def _print_summary(result: ValidationResult) -> None:
+def _print_summary(result: ValidationResult, strict: bool = False) -> None:
     passed = result.passed_count
     failed = result.failed_count
     warnings = result.warning_count
@@ -116,6 +116,6 @@ def _print_summary(result: ValidationResult) -> None:
     if not parts:
         parts.append("[dim]0 scenarios[/dim]")
 
-    verdict = result.verdict
+    verdict = result.effective_verdict(strict)
     vcolor = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}[verdict]
     console.print(f"Results: {', '.join(parts)}  →  [{vcolor}]{verdict}[/{vcolor}]\n")

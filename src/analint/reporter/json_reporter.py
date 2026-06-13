@@ -6,16 +6,17 @@ import sys
 from analint.reporter.base import ValidationResult
 
 
-def report_json(result: ValidationResult) -> None:
-    json.dump(result_to_dict(result), sys.stdout, ensure_ascii=False, indent=2)
+def report_json(result: ValidationResult, strict: bool = False) -> None:
+    json.dump(result_to_dict(result, strict), sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
 
 
-def result_to_dict(result: ValidationResult) -> dict:
+def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
+    verdict = result.effective_verdict(strict)
     return {
         "spec": {"id": result.spec_id, "name": result.spec_name},
-        "verdict": result.verdict,
-        "passed": result.verdict == "PASS",
+        "verdict": verdict.value,
+        "passed": verdict == "PASS",
         "load_errors": result.load_errors,
         "structural": [
             {"severity": f.severity.value, "location": f.location, "message": f.message}

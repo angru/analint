@@ -71,17 +71,16 @@ def check(
     result = validate(path, scenario_ids=scenario or None, tags=tag or None, extra=what_if)
 
     if format == "json":
-        report_json(result)
+        report_json(result, strict)
     else:
-        report_terminal(result)
+        report_terminal(result, strict)
 
     if result.load_errors or result.spec_id == "__empty__":
         raise typer.Exit(3)
-    if result.has_errors:
+    verdict = result.effective_verdict(strict)
+    if verdict == "FAIL":
         raise typer.Exit(1)
-    if strict and result.warning_count > 0:
-        raise typer.Exit(1)
-    if result.has_inconclusive:
+    if verdict == "INCONCLUSIVE":
         raise typer.Exit(4)
 
 

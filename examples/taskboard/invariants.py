@@ -1,5 +1,3 @@
-from analint import Invariant
-
 from .entities import (
     Board,
     BoardStatus,
@@ -14,15 +12,12 @@ from .entities import (
     User,
 )
 
-# ── World invariants — hold in every state ─────────────────────────────────────
-
-user_is_active = Invariant(
-    User.is_active == True,  # noqa: E712
-    label="User must be active",
-)
-
 # ── Reusable predicates — plain expressions shared by actions ──────────────────
 
+# An inactive user cannot act. This is a guard on the acting user, not a world
+# invariant: the world legitimately contains inactive users, so "every user is
+# active" is false as an invariant — it would make any such state illegal.
+acting_user_is_active = User.is_active == True  # noqa: E712
 board_is_active = Board.status == BoardStatus.ACTIVE
 membership_on_board = Membership.board_id == Board.id
 acting_membership = Membership.user_id == User.id

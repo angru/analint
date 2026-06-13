@@ -243,13 +243,14 @@ snapshot-режима).
   сохраняет post-invariant witness-edge
 - ✅ `TransitionResult`: outcome (`ACCEPTED/REJECTED/DEFECT`), post-context,
   findings, materialized events, changed fields/state diff, `entered`
-- ✅ 4 из 5 расхождений scenario↔explorer закрыты: lifecycle-переход в
-  scenario, pre-eval-error → DEFECT, terminal `Delete`, emitted payload
-- ⏳ последнее расхождение — pre-state invariant: scenario пока трактует его как
-  pre-execution блокировку (legitimises `Expect.FAIL`), explorer репортит DEFECT
-  но создаёт witness-edge от невалидного root. Требует решения «illegal state →
-  нет исходящих рёбер» (review ca537a2) и правки `examples/taskboard`
-  (`invite-member` моделирует авторизацию через инвариант — должно быть pre)
+- ✅ все 5 расхождений scenario↔explorer закрыты: lifecycle-переход в scenario,
+  pre-eval-error → DEFECT, terminal `Delete`, emitted payload, и pre-state
+  invariant → DEFECT. Принято решение «illegal state → нет исходящих рёбер»
+  (review ca537a2): невалидный root/successor остаётся witness, но не
+  разворачивается. `examples/taskboard` исправлен — активность исполнителя стала
+  precondition `acting_user_is_active`, а не бутафорским мировым инвариантом
+- ✅ `test_transition_conformance` — чистый agreement-spec без strict-xfail;
+  регрессия, заново расщепляющая пути, падает там напрямую
 
 #### P1. Canonical model и verification policy
 

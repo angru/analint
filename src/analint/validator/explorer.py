@@ -404,8 +404,10 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
         exp.order.append(key0)
         exp.parents[key0] = (None, None)
         exp.roots[key0] = index
-        _report_invariant_violations(spec, ctx, key0, exp)
-        queue.append(key0)
+        # An initial state that already violates an invariant is illegal: keep it
+        # as a witness but do not explore from it, exactly as for any successor.
+        if not _report_invariant_violations(spec, ctx, key0, exp):
+            queue.append(key0)
     while queue:
         if len(exp.states) >= max_states:
             exp.capped = True

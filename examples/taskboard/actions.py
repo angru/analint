@@ -21,6 +21,7 @@ from .events import (
 from .invariants import (
     acting_as_owner,
     acting_membership,
+    acting_user_is_active,
     assignee_is_member,
     board_is_active,
     card_not_archived,
@@ -34,14 +35,26 @@ from .invariants import (
 invite_member = Action(
     name="Invite Member to Board",
     by=Owner,
-    pre=[board_is_active, membership_on_board, acting_membership, acting_as_owner],
+    pre=[
+        acting_user_is_active,
+        board_is_active,
+        membership_on_board,
+        acting_membership,
+        acting_as_owner,
+    ],
     emits=[MemberInvited(board_id=Board.id, user_id=Membership.user_id, role=Membership.role)],
 )
 
 create_card = Action(
     name="Create Card",
     by=Member,
-    pre=[board_is_active, membership_on_board, acting_membership, column_on_board],
+    pre=[
+        acting_user_is_active,
+        board_is_active,
+        membership_on_board,
+        acting_membership,
+        column_on_board,
+    ],
     effect=[Add(Board.card_count, 1)],
     post=[Board.card_count > 0],
     emits=[CardCreated(card_id=Card.id, board_id=Board.id, creator_id=Card.creator_id)],
@@ -50,7 +63,14 @@ create_card = Action(
 move_card = Action(
     name="Move Card to Column",
     by=Member,
-    pre=[board_is_active, membership_on_board, acting_membership, card_on_board, card_not_archived],
+    pre=[
+        acting_user_is_active,
+        board_is_active,
+        membership_on_board,
+        acting_membership,
+        card_on_board,
+        card_not_archived,
+    ],
     effect=[
         Set(Card.column_id, Column.id),
         Set(Card.status, CardStatus.IN_PROGRESS),
@@ -78,6 +98,7 @@ add_comment = Action(
     name="Add Comment to Card",
     by=Member,
     pre=[
+        acting_user_is_active,
         board_is_active,
         membership_on_board,
         acting_membership,
@@ -93,7 +114,14 @@ add_comment = Action(
 archive_card = Action(
     name="Archive Card",
     by=Member,
-    pre=[board_is_active, membership_on_board, acting_membership, card_on_board, card_not_archived],
+    pre=[
+        acting_user_is_active,
+        board_is_active,
+        membership_on_board,
+        acting_membership,
+        card_on_board,
+        card_not_archived,
+    ],
     effect=[
         Set(Card.status, CardStatus.ARCHIVED),
         Subtract(Board.card_count, 1),

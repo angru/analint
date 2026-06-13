@@ -768,12 +768,12 @@
       },
       "assign-card/not-a-member": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 5,
         "findings_hash": "e5dbc737de748eb3"
       },
       "assign-card/happy": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 5,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "add-comment/archived-card": {
@@ -804,7 +804,7 @@
       "invite-member/inactive-user": {
         "status": "PASS",
         "rules": 5,
-        "findings_hash": "98b2836f5c898217"
+        "findings_hash": "fbacadf0ab51c5f3"
       },
       "invite-member/not-owner": {
         "status": "PASS",

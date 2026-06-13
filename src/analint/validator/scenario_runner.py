@@ -34,10 +34,9 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     ]
     checks_count = len(relevant_invariants) + len(action.pre) + len(action.post)
 
-    # The pre-state's world invariants. A violation here blocks the action
-    # before it runs, which Expect.FAIL legitimises — exactly as before. (The
-    # kernel is set to tighten this to a model defect; that change is gated by
-    # test_transition_conformance and is not part of this migration.)
+    # The pre-state must itself be a legal world. A scenario that starts from a
+    # state violating an invariant is a model defect, not a rejection — the world
+    # it describes is already illegal, so Expect.FAIL cannot legitimise it.
     pre_invariant_violated = _check_invariants(findings, relevant_invariants, context, "INVARIANT")
 
     # The transition itself: pre/presence/terminal guards, effects, Field,
@@ -52,12 +51,10 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
         post_defect = _check_invariants(findings, relevant_invariants, post, "INVARIANT (post)")
         post_defect = _check_then(findings, scenario, post) or post_defect
 
-    # A pre-execution block — a guard rejection or a failed pre-state invariant —
-    # is the only thing Expect.FAIL may legitimise; a model defect never is.
-    pre_block = result.outcome is Outcome.REJECTED or pre_invariant_violated
-
+    # Only a genuine pre-execution rejection (a guard) legitimises Expect.FAIL;
+    # a model defect — including an illegal initial state — never does.
     if scenario.expected == Expect.FAIL:
-        passed = pre_block
+        passed = result.outcome is Outcome.REJECTED
         if passed:
             findings.append(
                 Finding(
@@ -68,7 +65,7 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
             )
         else:
             message = "expected the action to be blocked, but every precondition passed"
-            if result.outcome is Outcome.DEFECT or post_defect:
+            if result.outcome is Outcome.DEFECT or pre_invariant_violated or post_defect:
                 message += " — the failures above are a model defect, not a rejection"
             findings.append(Finding(Severity.ERROR, f"scenario:{scenario.id}", message))
     else:

@@ -24,21 +24,18 @@ before a legal successor exists creates no graph edge; a post-state invariant
 violation may retain the candidate post-state/edge as a counterexample witness,
 but that state must not be expanded.
 
-The future internal result is expected to carry, at minimum:
+The shared internal result (``kernel.TransitionResult``) carries, at minimum:
 
     outcome, post_context, findings, emitted events, changed fields/state diff
 
-Cases where the two paths are known to disagree today are marked
-``xfail(strict=True)``: while they diverge the test is an expected failure; once
-the kernel unifies them the assertion passes, strict-xfail flips to a failure,
-and that forces the marker (and the divergence) to be removed. So this file is
+All five originally-frozen divergences are now unified by the kernel, so every
+case is a plain agreement assertion — there are no strict-xfails left. A future
+regression that re-splits the two paths fails here directly. This file remains
 the kernel's acceptance spec (research/20 §1, review ca537a2).
 """
 
 from enum import StrEnum
 from typing import Any
-
-import pytest
 
 from analint import (
     Absent,
@@ -425,13 +422,6 @@ def test_emitted_payload_evaluation_error_is_defect():
     assert not result.passed
 
 
-# ── known divergences — the kernel must remove these (then drop the xfail) ────────
-
-
-@pytest.mark.xfail(
-    reason="pre-state invariant failure is still treated as action rejection in scenarios",
-    strict=True,
-)
 def test_invalid_initial_invariant_is_defect_in_both():
     a = Action(id="go", effect=[Set(Flag.done, True)])
     invariant = Invariant(Flag.n == 1, id="initial_is_valid")

@@ -8,7 +8,9 @@ transition kernel). It pins, per example:
   results would otherwise hide);
 - each query's status and reachable-state count, plus the edge count and stable
   hashes of the canonical state set and edge multiset — so a graph that changes
-  shape while keeping the same state count is still caught (review 584d819 P1).
+  shape while keeping the same state count is still caught;
+- traces, normalized findings, roots, fired/excluded actions and explicit
+  completeness reasons (review ca537a2).
 
 Intentionally failing examples (coin overflow, trollbridge) are part of the
 baseline. Timing is NOT asserted (hardware-dependent, research/18 §7) — see
@@ -41,17 +43,44 @@ def _digest(items) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
-def _query_fingerprint(spec, query) -> dict:
+def _finding_digest(findings) -> str:
+    return _digest((str(f.severity), f.location, f.message) for f in findings)
+
+
+def _query_fingerprint(spec, query) -> tuple[dict, str, dict]:
     cache: dict = {}
     qr = run_query(query, spec, cache)
     exp = next(iter(cache.values()))
-    return {
+    incomplete = []
+    if exp.capped:
+        incomplete.append("capped")
+    if exp.excluded:
+        incomplete.append("excluded-semantics")
+    states_hash = _digest(exp.states)
+    edges_hash = _digest(exp.edges)
+    roots_hash = _digest(exp.roots.items())
+    findings_hash = _finding_digest(exp.findings)
+    exploration_fingerprint = {
+        "states": len(exp.states),
+        "edges": len(exp.edges),
+        "states_hash": states_hash,
+        "edges_hash": edges_hash,
+        "roots": len(exp.roots),
+        "roots_hash": roots_hash,
+        "findings_hash": findings_hash,
+        "fired": sorted(exp.fired),
+        "excluded": dict(sorted(exp.excluded.items())),
+        "incomplete": incomplete,
+    }
+    exploration_id = _digest(exploration_fingerprint.items())
+    query_fingerprint = {
         "status": str(qr.status),
         "states": qr.states_explored,
-        "edges": len(exp.edges),
-        "states_hash": _digest(exp.states),
-        "edges_hash": _digest(exp.edges),
+        "exploration": exploration_id,
+        "trace": qr.trace,
+        "findings_hash": _finding_digest(qr.findings),
     }
+    return query_fingerprint, exploration_id, exploration_fingerprint
 
 
 def _characterize(path: Path) -> dict:
@@ -59,18 +88,31 @@ def _characterize(path: Path) -> dict:
     result = validate(path)
     spec = build_spec(path)[0]
     assert spec is not None
+    queries = {}
+    explorations = {}
+    for query in spec.queries:
+        query_fingerprint, exploration_id, exploration_fingerprint = _query_fingerprint(spec, query)
+        queries[query.id] = query_fingerprint
+        explorations.setdefault(exploration_id, exploration_fingerprint)
     return {
         "verdict": str(result.verdict),
         "warnings": result.warning_count,
         "scenarios": {
-            sr.scenario_id: ("PASS" if sr.passed else "FAIL") for sr in result.scenario_results
+            sr.scenario_id: {
+                "status": "PASS" if sr.passed else "FAIL",
+                "rules": sr.rules_count,
+                "findings_hash": _finding_digest(sr.findings),
+            }
+            for sr in result.scenario_results
         },
-        "queries": {q.id: _query_fingerprint(spec, q) for q in spec.queries},
+        "queries": queries,
+        "explorations": explorations,
     }
 
 
 def _example_dirs() -> list[str]:
-    return sorted(p.name for p in EXAMPLES.iterdir() if p.is_dir())
+    # an example is a directory with a spec.py (skips __pycache__ and the runner)
+    return sorted(p.name for p in EXAMPLES.iterdir() if p.is_dir() and (p / "spec.py").exists())
 
 
 def test_update_snapshot_when_requested():

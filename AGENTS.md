@@ -225,14 +225,14 @@ uv run python scripts/bench.py         # indicative timing + state counts per ex
 
 `tests/test_characterization.py` is the coarse behavioural regression oracle: a
 committed golden snapshot (`tests/snapshots/examples.json`) of every example's
-verdict, per-scenario id→status, and per-query status/states/edges plus stable
-hashes of the state set and edge multiset (so a graph that changes shape at a
-constant state count is still caught) — including the intentionally-failing
-coin/trollbridge. See `tests/snapshots/README.md` for the regen rule (never
-mechanical) and the kernel's expected deltas. Timing is deliberately excluded
-(hardware-dependent) — use `scripts/bench.py`. The fine-grained gate for the
-transition kernel is the semantic conformance matrix (research/20 §1), which
-runs one action through both scenario and explorer and asserts agreement.
+verdict, per-scenario status/rules/findings, and per-query graph hashes, traces,
+findings, roots, fired/excluded actions and completeness — including the
+intentionally-failing coin/trollbridge. See `tests/snapshots/README.md` for the
+regen rule (never mechanical) and the kernel's expected deltas. Timing is
+deliberately excluded (hardware-dependent) — use `scripts/bench.py`. The
+fine-grained kernel gate is `tests/test_transition_conformance.py`: agreed
+semantics stay green; known target changes are `xfail(strict=True)`, so fixing
+one produces XPASS/failure until its marker is deliberately removed.
 
 Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load · 4 inconclusive (a query exhausted its exploration budget — proved nothing). JSON carries a three-valued `verdict` (PASS/FAIL/INCONCLUSIVE); `passed` is true only on an effective PASS (and honours `--strict`).
 

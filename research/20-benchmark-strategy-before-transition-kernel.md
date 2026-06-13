@@ -222,6 +222,28 @@ payment states, confirm/capture/cancel и events. Он дополняет GitHub
 - не задерживать kernel до завершения внешнего evidence model;
 - не оптимизировать известные расходящиеся semantics.
 
+---
+
+## Результат pre-kernel gate
+
+Реализовано 13 июня 2026:
+
+- `tests/test_transition_conformance.py` фиксирует target ordering и минимальный
+  `TransitionResult`: outcome, post-context, findings, materialized events и
+  state diff;
+- 18 согласованных ветвей проверяются через scenario и explorer, включая
+  simultaneous effects, saturation, Create/Delete и accepted post-state;
+- 5 известных изменений зафиксированы как `xfail(strict=True)`: undeclared
+  lifecycle transition, pre evaluation error, invalid initial invariant,
+  terminal Delete и emitted payload materialization;
+- strict xfail используется как migration gate: исправление превращает test в
+  XPASS и требует удалить marker осознанно;
+- characterization snapshot фиксирует не только state/edge hashes, но и traces,
+  normalized findings, roots, fired/excluded actions и incompleteness reasons.
+
+После этого transition kernel можно выделять. Большой внешний benchmark для
+начала refactor не требуется.
+
 ## Источники
 
 - GitHub protected branches: reviews, stale approvals, status checks, code

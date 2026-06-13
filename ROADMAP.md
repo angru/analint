@@ -232,13 +232,15 @@ snapshot-режима).
   §2.1, review 584d819)
 - ⏳ остальное расхождение scenario↔explorer (lifecycle-переход в scenario,
   `Delete`/terminal, emitted payload) — через единый transition kernel
-- ✅ пре-kernel gate готов: semantic conformance matrix
-  (`tests/test_transition_conformance.py`, xfail на расхождениях = acceptance
-  spec) + усиленный characterization (per-scenario, graph hashes) + список
-  ожидаемых delta (`tests/snapshots/README.md`)
+- ✅ pre-kernel gate готов: 18 согласованных ветвей + 5 normative strict-xfail
+  для известных delta; accepted transitions сравниваются по post-state, а
+  characterization фиксирует graph, traces, findings, roots, fired/excluded и
+  completeness. XFAIL→XPASS останавливает suite до снятия исправленного marker
 - один внутренний `step(action, context)` для scenario, explorer и будущего
   executable Flow: одинаковый pre/effect/post, Field, Lifecycle,
   terminal/presence guards, invariants, единый ordering
+- минимальный internal result: outcome (`ACCEPTED/REJECTED/DEFECT`),
+  post-context, findings, materialized events и changed fields/state diff
 
 #### P1. Canonical model и verification policy
 

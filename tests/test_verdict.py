@@ -96,15 +96,15 @@ def test_is_successful_only_on_clean_pass():
 
 
 def test_strict_warning_makes_json_and_exit_agree():
-    taskboard = Path(__file__).parent.parent / "examples" / "taskboard"
-    # taskboard has warnings (e.g. uncovered action families); without --strict it passes.
-    result = validate(taskboard)
-    if result.warning_count == 0:
-        return  # nothing to assert on this example
+    # Dedicated fixture with a guaranteed warning, so the test does not silently
+    # lose coverage if an example is cleaned up (review 584d819 P3).
+    warns = Path(__file__).parent / "fixtures" / "warns"
+    result = validate(warns)
+    assert result.warning_count >= 1
     plain = result_to_dict(result, strict=False)
     strict = result_to_dict(result, strict=True)
     assert plain["passed"] is True
     assert strict["passed"] is False
     assert strict["verdict"] == "FAIL"
-    res = runner.invoke(app, ["check", str(taskboard), "--strict"])
-    assert res.exit_code == 1
+    assert runner.invoke(app, ["check", str(warns)]).exit_code == 0
+    assert runner.invoke(app, ["check", str(warns), "--strict"]).exit_code == 1

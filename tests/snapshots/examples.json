@@ -1,0 +1,153 @@
+{
+  "cloak": {
+    "verdict": "PASS",
+    "scenarios_passed": 11,
+    "scenarios_failed": 0,
+    "warnings": 0,
+    "queries": {
+      "cloak_invariant_holds_everywhere": {
+        "status": "PASS",
+        "states": 27
+      },
+      "every_action_playable": {
+        "status": "PASS",
+        "states": 27
+      },
+      "game_can_always_end": {
+        "status": "PASS",
+        "states": 27
+      },
+      "lose_is_reachable": {
+        "status": "PASS",
+        "states": 27
+      },
+      "win_is_reachable": {
+        "status": "PASS",
+        "states": 27
+      }
+    }
+  },
+  "coin": {
+    "verdict": "FAIL",
+    "scenarios_passed": 5,
+    "scenarios_failed": 0,
+    "warnings": 0,
+    "queries": {
+      "balances_stay_in_range": {
+        "status": "PASS",
+        "states": 216
+      },
+      "every_method_callable": {
+        "status": "PASS",
+        "states": 216
+      },
+      "everyone_can_get_paid": {
+        "status": "PASS",
+        "states": 216
+      },
+      "supply_never_overflows": {
+        "status": "FAIL",
+        "states": 216
+      }
+    }
+  },
+  "ecommerce": {
+    "verdict": "PASS",
+    "scenarios_passed": 4,
+    "scenarios_failed": 0,
+    "warnings": 1,
+    "queries": {
+      "paid_is_reachable": {
+        "status": "PASS",
+        "states": 2
+      }
+    }
+  },
+  "fulfillment": {
+    "verdict": "PASS",
+    "scenarios_passed": 19,
+    "scenarios_failed": 0,
+    "warnings": 0,
+    "queries": {
+      "every_step_used": {
+        "status": "PASS",
+        "states": 34
+      },
+      "happy_path_exists": {
+        "status": "PASS",
+        "states": 34
+      },
+      "no_free_goods": {
+        "status": "PASS",
+        "states": 34
+      },
+      "no_money_for_nothing": {
+        "status": "PASS",
+        "states": 34
+      },
+      "refund_path_exists": {
+        "status": "PASS",
+        "states": 34
+      },
+      "saga_always_settles": {
+        "status": "PASS",
+        "states": 34
+      }
+    }
+  },
+  "mafia": {
+    "verdict": "PASS",
+    "scenarios_passed": 10,
+    "scenarios_failed": 0,
+    "warnings": 0,
+    "queries": {
+      "citizens_cannot_win": {
+        "status": "PASS",
+        "states": 36
+      },
+      "mafia_can_win": {
+        "status": "PASS",
+        "states": 36
+      },
+      "status_is_always_correct": {
+        "status": "PASS",
+        "states": 36
+      }
+    }
+  },
+  "taskboard": {
+    "verdict": "PASS",
+    "scenarios_passed": 16,
+    "scenarios_failed": 0,
+    "warnings": 3,
+    "queries": {}
+  },
+  "trollbridge": {
+    "verdict": "FAIL",
+    "scenarios_passed": 6,
+    "scenarios_failed": 0,
+    "warnings": 0,
+    "queries": {
+      "bridge_is_reachable": {
+        "status": "PASS",
+        "states": 9
+      },
+      "every_action_playable": {
+        "status": "PASS",
+        "states": 9
+      },
+      "hp_never_negative": {
+        "status": "FAIL",
+        "states": 9
+      },
+      "no_gold_from_thin_air": {
+        "status": "PASS",
+        "states": 9
+      },
+      "no_softlock": {
+        "status": "FAIL",
+        "states": 9
+      }
+    }
+  }
+}

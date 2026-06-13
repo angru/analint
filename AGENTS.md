@@ -210,7 +210,7 @@ use only one of `given`, `given_any`, or `initial`.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (204)
+uv run pytest                          # run all tests (225)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green
@@ -220,7 +220,17 @@ uv run analint check . -f json         # machine-readable validation
 uv run analint show action create_card -p examples/taskboard/
 uv run analint affects Board.card_count -p examples/taskboard/
 uv run analint check . --what-if /tmp/hypothesis.py   # hypothesis without editing files
+uv run python scripts/bench.py         # indicative timing + state counts per example (not a gate)
 ```
+
+`tests/test_characterization.py` is the behavioural regression oracle: a
+committed golden snapshot (`tests/snapshots/examples.json`) of every example's
+verdict, scenario counts and per-query `states_explored` — including the
+intentionally-failing coin/trollbridge. Refactors (e.g. the transition kernel)
+must reproduce it. Regenerate after an intended change:
+`UPDATE_SNAPSHOT=1 uv run pytest tests/test_characterization.py`. Timing is
+deliberately excluded from the snapshot (hardware-dependent) — use
+`scripts/bench.py` for that.
 
 Exit codes: 0 ok · 1 findings · 2 usage · 3 spec failed to load · 4 inconclusive (a query exhausted its exploration budget — proved nothing). JSON carries a three-valued `verdict` (PASS/FAIL/INCONCLUSIVE); `passed` is true only on an effective PASS (and honours `--strict`).
 

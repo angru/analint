@@ -184,14 +184,16 @@ An invariant is skipped in scenarios whose `given` does not include the entities
 
 ### Action
 
-A state transition: who performs it, what must hold before (`pre`), what changes (`effect`), what must hold after (`post`), what it emits.
+A state transition: what must hold before (`pre`), what changes (`effect`),
+what must hold after (`post`), plus optional documentation about actor,
+ordering and events.
 
 ```python
 from analint import Action, Set, Subtract
 
 checkout = Action(
     name="Customer Checkout",
-    by=Customer,                                   # Actor subclass
+    by=Customer,                                   # Actor metadata (not an auth guard)
     pre=[
         Wallet.balance >= Order.total,
         Product.stock > 0,
@@ -204,11 +206,16 @@ checkout = Action(
     ],
     post=[Order.status == OrderStatus.PAID],       # optional double-entry check
     emits=[OrderPlaced(order_id=Order.id, total=Order.total, customer_id=Order.customer_id)],
-    requires=[login],                              # actions that must precede this one
+    requires=[login],                              # Flow-ordering documentation
 )
 ```
 
 **Effects are simultaneous facts, not a program.** Every right-hand side is evaluated against the *pre*-state; the order of the list carries no meaning; two effects on the same field are a structural error.
+
+Current semantic boundary: `by` does not affect enabledness, `requires` is
+checked only against declared `Flow` order, and `on` does not create an event
+queue or gate exploration. Authorization belongs in explicit parameters and
+`pre`; operational event semantics is a planned design decision.
 
 | Effect | Next-state fact |
 |---|---|
@@ -365,7 +372,9 @@ notify_vip = Action(
 )
 ```
 
-The linter validates payload bindings (fields exist, types match) and warns when an emitted event never triggers any action — an unfired Chekhov's gun.
+The linter validates payload bindings (fields exist, types match) and warns when
+an emitted event is not referenced by any action's `on` metadata. `on` does not
+yet define executable event-delivery semantics.
 
 ### Lifecycle
 
@@ -413,7 +422,9 @@ sc_happy = Scenario(
 
 `expected=Expect.FAIL` documents a blocked path: the scenario is **correct** when at least one rule rejects the data.
 
-For actions triggered by events, put the event instance in `given` — its payload is then visible to `pre`:
+For an event-payload scenario, put the event instance in `given` — its payload
+is then visible to `pre`. This checks one local transition; `on=` itself is not
+an operational trigger:
 
 ```python
 Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Manager(alerts=0)])
@@ -421,7 +432,8 @@ Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Mana
 
 ### Flow
 
-An ordered user journey. The linter verifies the step order satisfies every `requires`.
+An ordered journey declaration. It is currently structural documentation: the
+linter verifies `requires` order, but does not execute state through the steps.
 
 ```python
 from analint import Flow
@@ -590,7 +602,7 @@ analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
 
 analint affects TARGET -p PATH    # impact analysis before changing something (JSON)
   analint affects Wallet.balance -p .   # who reads/writes the field, invariants, lifecycles
-  analint affects checkout -p .         # what the action touches + downstream triggers
+  analint affects checkout -p .         # what the action touches + event-linked actions
 
 analint PATH                      # shorthand for `analint check PATH`
 ```

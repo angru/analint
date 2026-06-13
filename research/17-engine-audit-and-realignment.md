@@ -2,6 +2,10 @@
 
 Дата исследования: 13 июня 2026.
 
+Статус: **частично superseded** критическим аудитом research/18. Разворот от
+IR/bridge/Rust сохранён, но ближайший порядок исправлен: сначала пропущенные
+false-green, единая transition semantics и canonical `Spec.initial`.
+
 Контекст: после закрытия всей дорожки выразительности (P4 из research/14 —
 арифметика, параметры, multiplicity, кванторы/агрегаты, initial relation,
 presence, Create/Delete, композиция через `Contract`) проведён эмпирический

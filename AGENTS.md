@@ -8,7 +8,7 @@ analint is a **Python DSL for declaring and verifying system behaviour**: domain
 
 The central idea: constraints are predicate expressions over entity fields (`Wallet.balance >= Order.total`), actions declare pre/effect/post, scenarios provide concrete instances, and the validator evaluates everything against that data.
 
-`research/` holds the design research (universal DSL, declarative semantics, reachability roadmap, AI-agent use case). **`ROADMAP.md` is the single source of truth for status and priorities** — research files are dated rationale it links to. Current phase is v1.3 (engine completeness: verification-by-default, executed multi-step scenarios, event semantics); the priority pivot of 13 Jun 2026 (deprioritising IR / code-bridge / Rust) is recorded in research/17 §3.
+`research/` holds the design research (universal DSL, declarative semantics, reachability roadmap, AI-agent use case). **`ROADMAP.md` is the single source of truth for status and priorities** — research files are dated rationale it links to. Current phase is v1.3 (semantic core: false-green fixes, one transition kernel, canonical `Spec.initial`, executable traces); the priority pivot is recorded in research/17 and critically corrected in research/18.
 
 ## Repository layout
 

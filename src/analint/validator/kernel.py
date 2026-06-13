@@ -141,11 +141,16 @@ def step(
         if isinstance(effect, Delete) and not is_present(context, effect.target):
             return _rejected(action, f"cannot delete absent entity {effect.target!r}")
 
-    # ── terminal-state lock: an entity in a terminal lifecycle state is frozen ─
+    # ── terminal-state lock: an entity in a terminal lifecycle state is frozen,
+    # against field changes and against deletion alike (a Create targets an
+    # absent slot, which has no terminal state, so it is exempt) ──────────────
+    frozen_targets = touched | {
+        effect.target for effect in action.effect if isinstance(effect, Delete)
+    }
     for lc in lifecycles:
         if not lc.terminal:
             continue
-        for target in touched:
+        for target in frozen_targets:
             if _key_entity_cls(target) is not lc.entity_cls:
                 continue
             inst = context.get(target)
@@ -158,7 +163,7 @@ def step(
                             f"lifecycle:{lc.id}",
                             f"{context_key_label(target)}.{lc.field_name}="
                             f"{getattr(inst, lc.field_name)!r} is terminal — "
-                            f"the entity cannot be modified",
+                            f"the entity cannot be modified or deleted",
                         )
                     ],
                 )

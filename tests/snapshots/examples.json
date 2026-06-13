@@ -11,7 +11,7 @@
       "sc_game_already_over": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "92c6f9c3c54d997e"
+        "findings_hash": "b8a74a19ef41a77f"
       },
       "sc_grope": {
         "status": "PASS",

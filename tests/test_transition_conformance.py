@@ -383,20 +383,6 @@ def test_pre_evaluation_error_is_defect_in_both():
     _assert_agree(_flag_spec(a), a, [Flag()], "DEFECT", expected_edge=False)
 
 
-# ── known divergences — the kernel must remove these (then drop the xfail) ────────
-
-
-@pytest.mark.xfail(
-    reason="pre-state invariant failure is still treated as action rejection in scenarios",
-    strict=True,
-)
-def test_invalid_initial_invariant_is_defect_in_both():
-    a = Action(id="go", effect=[Set(Flag.done, True)])
-    invariant = Invariant(Flag.n == 1, id="initial_is_valid")
-    spec = Spec(id="s", name="S", entities=[Flag], actions=[a], invariants=[invariant])
-    _assert_agree(spec, a, [Flag(n=0)], "DEFECT", expected_edge=False)
-
-
 class TerminalAccount(Entity):
     state: Status = Lifecycle(
         initial=Status.A,
@@ -409,10 +395,6 @@ terminal_accounts = Scope(TerminalAccount, keys=["a"], id="terminal_accounts")
 terminal_ref = terminal_accounts["a"]
 
 
-@pytest.mark.xfail(
-    reason="terminal guards ignore Delete in both current execution paths",
-    strict=True,
-)
 def test_delete_terminal_entity_is_rejected_in_both():
     act = Action(id="close", effect=[Delete(terminal_ref)])
     spec = Spec(
@@ -429,6 +411,20 @@ def test_delete_terminal_entity_is_rejected_in_both():
         "REJECTED",
         expected_edge=False,
     )
+
+
+# ── known divergences — the kernel must remove these (then drop the xfail) ────────
+
+
+@pytest.mark.xfail(
+    reason="pre-state invariant failure is still treated as action rejection in scenarios",
+    strict=True,
+)
+def test_invalid_initial_invariant_is_defect_in_both():
+    a = Action(id="go", effect=[Set(Flag.done, True)])
+    invariant = Invariant(Flag.n == 1, id="initial_is_valid")
+    spec = Spec(id="s", name="S", entities=[Flag], actions=[a], invariants=[invariant])
+    _assert_agree(spec, a, [Flag(n=0)], "DEFECT", expected_edge=False)
 
 
 class Raised(Event):

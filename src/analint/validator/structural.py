@@ -439,14 +439,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
             )
             findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
 
-    # Flows: steps registered; requires order respected
+    # Flows: action steps registered; requires order respected; checkpoints and
+    # given validated; checkpoints without a given would never run.
     for flow in spec.flows:
         loc = f"flow:{flow.id}"
-        for step in flow.steps:
+        action_steps = [s for s in flow.steps if isinstance(s, Action)]
+        for step in action_steps:
             if step.id not in action_ids:
                 findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
         seen_steps: set[str] = set()
-        for step in flow.steps:
+        for step in action_steps:
             for req in step.requires:
                 if req.id not in seen_steps:
                     findings.append(
@@ -457,6 +459,37 @@ def validate_structural(spec: Spec) -> list[Finding]:
                         )
                     )
             seen_steps.add(step.id)
+
+        has_checkpoints = False
+        for step in flow.steps:
+            if isinstance(step, Assert):
+                has_checkpoints = True
+                findings.extend(
+                    _check_pred_refs(step.predicate, spec.entities, spec.events, loc, spec.scopes)
+                )
+                findings.extend(
+                    _check_scoped_refs(_collect_field_refs(step.predicate), scoped_entities, loc)
+                )
+            elif isinstance(step, Emitted):
+                has_checkpoints = True
+                if not (isinstance(step.event_cls, type) and issubclass(step.event_cls, Event)):
+                    findings.append(
+                        err(loc, f"Emitted(...) needs an Event class, got {step.event_cls!r}")
+                    )
+            elif not isinstance(step, Action):
+                findings.append(
+                    err(loc, f"flow step '{step!r}' is not an Action, Assert(...) or Emitted(...)")
+                )
+
+        findings.extend(_validate_given_snapshots(flow.given, spec, scoped_entities, loc, "given"))
+        if has_checkpoints and not flow.given:
+            findings.append(
+                warn(
+                    loc,
+                    "flow has checkpoints but no given — it is not executed, so the "
+                    "checkpoints never run; add given= to run it",
+                )
+            )
 
     return findings
 
@@ -575,12 +608,24 @@ def _validate_initial(
 
     # given= snapshots seed the canonical roots, so validate them as strictly as
     # scenario givens: registered type, registered InstanceRef/Scope, no dup keys.
+    findings.extend(
+        _validate_given_snapshots(initial.given, spec, scoped_entities, loc, "Initial.given")
+    )
+    return findings
+
+
+def _validate_given_snapshots(
+    given: list, spec: Spec, scoped_entities: dict[type, Any], loc: str, label: str
+) -> list[Finding]:
+    """Validate a list of seed snapshots (a scenario/flow/Initial ``given``):
+    registered entity type, registered ``InstanceRef``/Scope, no duplicate keys."""
+    findings: list[Finding] = []
     given_keys: set[Any] = set()
-    for inst in initial.given:
+    for inst in given:
         key = instance_context_key(inst)
         if key in given_keys:
             findings.append(
-                Finding(Severity.ERROR, loc, f"Initial.given lists {context_key_label(key)} twice")
+                Finding(Severity.ERROR, loc, f"{label} lists {context_key_label(key)} twice")
             )
         given_keys.add(key)
         scope = scoped_entities.get(type(inst))
@@ -613,7 +658,7 @@ def _validate_initial(
                 Finding(
                     Severity.ERROR,
                     loc,
-                    f"Initial.given includes '{type(inst).__name__}', not in spec.entities",
+                    f"{label} includes '{type(inst).__name__}', not in spec.entities",
                 )
             )
     return findings

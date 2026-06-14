@@ -142,7 +142,8 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
-    }
+    },
+    "flows": {}
   },
   "coin": {
     "verdict": "FAIL",
@@ -251,7 +252,8 @@
         "incomplete": []
       }
     },
-    "invariants": {}
+    "invariants": {},
+    "flows": {}
   },
   "ecommerce": {
     "verdict": "PASS",
@@ -305,7 +307,8 @@
         "incomplete": []
       }
     },
-    "invariants": {}
+    "invariants": {},
+    "flows": {}
   },
   "fulfillment": {
     "verdict": "PASS",
@@ -504,7 +507,8 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
-    }
+    },
+    "flows": {}
   },
   "mafia": {
     "verdict": "PASS",
@@ -631,7 +635,8 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
-    }
+    },
+    "flows": {}
   },
   "sunless_crypt": {
     "verdict": "PASS",
@@ -777,7 +782,8 @@
         "incomplete": []
       }
     },
-    "invariants": {}
+    "invariants": {},
+    "flows": {}
   },
   "taskboard": {
     "verdict": "PASS",
@@ -866,7 +872,18 @@
     },
     "queries": {},
     "explorations": {},
-    "invariants": {}
+    "invariants": {},
+    "flows": {
+      "board-onboarding": {
+        "passed": true,
+        "steps_run": 2,
+        "trace": [
+          "invite_member",
+          "create_card"
+        ],
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    }
   },
   "trollbridge": {
     "verdict": "FAIL",
@@ -977,6 +994,7 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
-    }
+    },
+    "flows": {}
   }
 }

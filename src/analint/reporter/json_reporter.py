@@ -67,6 +67,19 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             }
             for ir in result.invariant_results
         ],
+        "flows": [
+            {
+                "id": fr.flow_id,
+                "passed": fr.passed,
+                "steps_run": fr.steps_run,
+                "trace": fr.trace,
+                "findings": [
+                    {"severity": f.severity.value, "location": f.location, "message": f.message}
+                    for f in fr.findings
+                ],
+            }
+            for fr in result.flow_results
+        ],
         "summary": {
             "passed": result.passed_count,
             "failed": result.failed_count,
@@ -81,5 +94,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             "invariants_unchecked": sum(
                 1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED")
             ),
+            "flows_passed": sum(1 for fr in result.flow_results if fr.passed),
+            "flows_failed": sum(1 for fr in result.flow_results if not fr.passed),
         },
     }

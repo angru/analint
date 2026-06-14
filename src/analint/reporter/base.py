@@ -76,6 +76,19 @@ class InvariantResult:
 
 
 @dataclass
+class FlowResult:
+    """An executed multi-step flow: a journey of actions and checkpoints run
+    through the transition kernel. ``passed`` is True only when every action was
+    accepted and every checkpoint held; ``trace`` is the action ids that ran."""
+
+    flow_id: str
+    passed: bool
+    findings: list[Finding] = field(default_factory=list)
+    steps_run: int = 0
+    trace: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ValidationResult:
     spec_id: str
     spec_name: str
@@ -83,6 +96,7 @@ class ValidationResult:
     scenario_results: list[ScenarioResult] = field(default_factory=list)
     query_results: list[QueryResult] = field(default_factory=list)
     invariant_results: list[InvariantResult] = field(default_factory=list)
+    flow_results: list[FlowResult] = field(default_factory=list)
     exploration_findings: list[Finding] = field(default_factory=list)
     load_errors: list[str] = field(default_factory=list)
 
@@ -95,6 +109,7 @@ class ValidationResult:
             or any(not sr.passed for sr in self.scenario_results)
             or any(qr.status == "FAIL" for qr in self.query_results)
             or any(ir.status == "FAIL" for ir in self.invariant_results)
+            or any(not fr.passed for fr in self.flow_results)
             or any(f.severity == Severity.ERROR for f in self.exploration_findings)
             or bool(self.load_errors)
         )
@@ -166,6 +181,7 @@ class ValidationResult:
             + sum(_warns(sr.findings) for sr in self.scenario_results)
             + sum(_warns(qr.findings) for qr in self.query_results)
             + sum(_warns(ir.findings) for ir in self.invariant_results)
+            + sum(_warns(fr.findings) for fr in self.flow_results)
         )
 
 

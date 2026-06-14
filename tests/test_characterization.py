@@ -118,6 +118,15 @@ def _characterize(path: Path) -> dict:
             }
             for ir in result.invariant_results
         },
+        "flows": {
+            fr.flow_id: {
+                "passed": fr.passed,
+                "steps_run": fr.steps_run,
+                "trace": fr.trace,
+                "findings_hash": _finding_digest(fr.findings),
+            }
+            for fr in result.flow_results
+        },
     }
 
 

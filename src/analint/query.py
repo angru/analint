@@ -13,6 +13,7 @@ from analint.models.action import Action
 from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import _MISSING
 from analint.models.event import Event
+from analint.models.flow import Assert, Emitted
 from analint.models.root import Spec
 from analint.models.scope import is_field_ref
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
@@ -279,7 +280,7 @@ def _describe_action(spec: Spec, name: str) -> dict:
         "on": [e.__name__ for e in action.on if isinstance(e, type)],
         "requires": [r.id for r in action.requires],
         "required_by": [a.id for a in spec.actions if any(r.id == action.id for r in a.requires)],
-        "flows": [f.id for f in spec.flows if any(s.id == action.id for s in f.steps)],
+        "flows": [f.id for f in spec.flows if _flow_uses(f, action.id)],
         "scenarios": _scenarios_of(spec, action.id),
         "tags": list(action.tags),
     }
@@ -316,8 +317,23 @@ def _describe_flow(spec: Spec, name: str) -> dict:
         "kind": "flow",
         "id": flow.id,
         "description": flow.description,
-        "steps": [s.id for s in flow.steps],
+        "executable": bool(flow.given),
+        "steps": [_flow_step_str(s) for s in flow.steps],
     }
+
+
+def _flow_uses(flow: Any, action_id: str) -> bool:
+    return any(isinstance(s, Action) and s.id == action_id for s in flow.steps)
+
+
+def _flow_step_str(step: Any) -> str:
+    if isinstance(step, Action):
+        return step.id
+    if isinstance(step, Assert):
+        return f"assert: {_describe(step.predicate)}"
+    if isinstance(step, Emitted):
+        return f"emitted: {step.event_cls.__name__}"
+    return repr(step)
 
 
 def _describe_scenario(spec: Spec, name: str) -> dict:
@@ -417,6 +433,6 @@ def _affects_action(spec: Spec, action_id: str) -> dict:
         "emits": [_emit_str(e) for e in action.emits],
         "triggers_downstream": downstream,
         "required_by": [a.id for a in spec.actions if any(r.id == action_id for r in a.requires)],
-        "flows": [f.id for f in spec.flows if any(s.id == action_id for s in f.steps)],
+        "flows": [f.id for f in spec.flows if _flow_uses(f, action_id)],
         "scenarios": _scenarios_of(spec, action_id),
     }

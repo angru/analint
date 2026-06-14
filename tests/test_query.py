@@ -179,3 +179,24 @@ def test_each_excluded_action_surfaces_its_own_finding(tmp_path):
     result = validate(tmp_path)
     locations = {f.location for f in result.exploration_findings if "excluded" in f.message}
     assert locations == {"action:a", "action:b"}
+
+
+def test_executable_flow_runs_and_failing_one_fails_the_run(tmp_path):
+    """A flow with given is executed through the kernel; a failed checkpoint
+    fails the overall run, a flow without given stays documentation."""
+    (tmp_path / "spec.py").write_text(
+        "from analint import Action, Add, Assert, Entity, Field, Flow, Spec\n\n"
+        "class Counter(Entity):\n"
+        "    n: int = Field(0, ge=0, le=5)\n\n"
+        "bump = Action(id='bump', pre=[Counter.n < 5], effect=[Add(Counter.n, 1)])\n"
+        "good = Flow(id='good', given=[Counter(n=0)], steps=[bump, Assert(Counter.n == 1)])\n"
+        "bad = Flow(id='bad', given=[Counter(n=0)], steps=[bump, Assert(Counter.n == 2)])\n"
+        "doc = Flow(id='doc', steps=[bump])\n"
+        "spec = Spec(id='s', name='S', entities=[Counter], actions=[bump], flows=[good, bad, doc])\n"
+    )
+    result = validate(tmp_path)
+    by_id = {fr.flow_id: fr for fr in result.flow_results}
+    assert by_id["good"].passed
+    assert not by_id["bad"].passed
+    assert "doc" not in by_id  # no given -> not executed
+    assert result.verdict.value == "FAIL"

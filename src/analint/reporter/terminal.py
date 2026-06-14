@@ -3,6 +3,7 @@ from __future__ import annotations
 from rich.console import Console
 
 from analint.reporter.base import (
+    FlowResult,
     InvariantResult,
     QueryResult,
     ScenarioResult,
@@ -60,6 +61,12 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
             color = "red" if f.severity == Severity.ERROR else "yellow"
             console.print(f"  [{color}]{f.severity.value:<5}[/{color}]  [{f.location}] {f.message}")
 
+    if result.flow_results:
+        console.print()
+        console.print("[bold]FLOWS[/bold]")
+        for fr in result.flow_results:
+            _print_flow(fr)
+
     if result.invariant_results:
         console.print()
         console.print("[bold]INVARIANTS[/bold]")
@@ -88,6 +95,17 @@ def _print_query(qr: QueryResult) -> None:
             console.print(f"         [yellow]↳[/yellow] {f.message}")
         else:
             console.print(f"         [dim]↳[/dim] {f.message}")
+
+
+def _print_flow(fr: FlowResult) -> None:
+    status = "[green]PASS[/green]" if fr.passed else "[red]FAIL[/red]"
+    meta = f"({fr.steps_run} steps run)"
+    console.print(f"  {status}  {fr.flow_id:<40} {meta}")
+    if fr.trace:
+        console.print(f"         [dim]↳ {' → '.join(fr.trace)}[/dim]")
+    for f in fr.findings:
+        fcolor = "red" if f.severity == Severity.ERROR else "yellow"
+        console.print(f"         [{fcolor}]↳[/{fcolor}] {f.message}")
 
 
 def _print_invariant(ir: InvariantResult) -> None:
@@ -123,6 +141,8 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
     i_passed = sum(1 for i in result.invariant_results if i.status == "PASS")
     i_failed = sum(1 for i in result.invariant_results if i.status == "FAIL")
     i_open = sum(1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED"))
+    f_passed = sum(1 for fr in result.flow_results if fr.passed)
+    f_failed = sum(1 for fr in result.flow_results if not fr.passed)
 
     parts = []
     if passed:
@@ -143,6 +163,11 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
         if i_open:
             i_parts.append(f"[yellow]{i_open} unchecked[/yellow]")
         parts.append(f"invariants: {', '.join(i_parts)}")
+    if f_passed or f_failed:
+        f_parts = [f"[green]{f_passed} ok[/green]"]
+        if f_failed:
+            f_parts.append(f"[red]{f_failed} failed[/red]")
+        parts.append(f"flows: {', '.join(f_parts)}")
     if warnings:
         parts.append(f"[yellow]{warnings} warnings[/yellow]")
     if not parts:

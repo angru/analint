@@ -93,6 +93,15 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
+    # Flows with an initial state are executed; a flow with only steps and no
+    # given stays a documented journey (validated structurally, not run).
+    executable_flows = [flow for flow in spec.flows if flow.given]
+    if executable_flows:
+        from analint.validator.flow_runner import run_flow
+
+        for flow in executable_flows:
+            result.flow_results.append(run_flow(flow, spec))
+
     # Findings from different explorations of the same state space overlap, so
     # deduplicate across them — but by their full identity, not message alone:
     # two actions excluded for the same reason carry the same message at

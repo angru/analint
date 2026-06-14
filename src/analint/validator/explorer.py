@@ -581,8 +581,10 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
 def build_canonical_initials(spec: Spec) -> tuple[list[dict] | None, str | None]:
     """The model's canonical initial states: ``spec.initial`` expanded, or a
     single defaults-built root when it is None. Returns ``(None, error)`` when
-    the relation cannot be built. Built once per run and reused by both
-    invariant verification and default-source queries."""
+    the relation cannot be built. Built once per run for canonical-initial
+    validation and invariant verification. (Default-source queries currently
+    rebuild their own equivalent roots in ``run_query``; sharing this build with
+    them is a deferred optimization, not a correctness concern.)"""
     if spec.initial is not None:
         return build_initial_relation(spec, spec.initial)
     root, error = build_initial(spec, [])

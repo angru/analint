@@ -7,7 +7,8 @@ Field-границы, трассы-контрпримеры), Param, arithmetic 
 bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
 declarative initial relations, presence semantics и `Create/Delete` в
 фиксированном universe, явные `Contract` и композиция спек, единый transition
-kernel (`validator/kernel.py`). 250 тестов. Фазы v0.9,
+kernel (`validator/kernel.py`), canonical model с `Spec.initial` и
+авто-верификацией инвариантов. 268 тестов. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -39,9 +40,11 @@ v0.10 и v1.0
 1. **Закрыть false-green:** ✅ `INCONCLUSIVE` не является PASS (трёхзначный
    `verdict`, JSON `passed`=PASS-only, exit-код 4); ✅ explorer проверяет
    `Action.post`, включая effectless actions (review 584d819 P1).
-2. **Единая transition semantics** для scenario, explorer и будущего Flow
-   (закрывает explorer-`post`, lifecycle-переход в scenario, `Delete` в terminal guard).
-3. **Canonical `Spec.initial`**, затем автоматическая проверка invariants.
+2. ✅ **Единая transition semantics** — `validator/kernel.py` `step()` для
+   scenario, explorer и будущего Flow (закрыты explorer-`post`, lifecycle-переход
+   в scenario, `Delete` в terminal guard, emitted payload, pre-state invariant).
+3. ✅ **Canonical `Spec.initial`** + автоматическая проверка invariants по
+   reachable states (секция `InvariantResult`, NOT_CHECKED вместо silent pass).
 4. **Исполняемый многошаговый trace** с checkpoints, без рукописных state deltas.
 5. **Семантическая честность `by/on/requires/emits`**: поведение или явно metadata.
 6. **Внешние реальные модели** как gate для дальнейшего расширения языка.
@@ -254,14 +257,23 @@ snapshot-режима).
   agreement двух callers не ловит общее сломанное поле, поэтому result
   проверяется напрямую — outcome, post-context, changed_fields, emitted, entered
 
-#### P1. Canonical model и verification policy
+#### P1. Canonical model и verification policy ✅
 
-- spec-level `initial=Initial(...)` (query может явно override для эксперимента)
-- invariants автоматически проверяются по reachable states canonical model
-- verdicts различают `PASS / FAIL / INCONCLUSIVE / NOT_CHECKED`
-- `NoDeadEnd` остаётся явным: без `goal` softlock определить невозможно
-- dead actions / недостижимые lifecycle edges — audit warnings, не универсальные
-  hard requirements
+- ✅ spec-level `Spec.initial: Initial | None` — канонический initial state(s);
+  query без собственного источника (given/given_any/initial) падает на него,
+  `None` = single root из defaults. `_auto_populate` сохраняет его
+- ✅ invariants автоматически проверяются по reachable states canonical model
+  (`verify_invariants`): отдельная секция `InvariantResult` со статусом
+  PASS / FAIL+trace / INCONCLUSIVE (cap) / NOT_CHECKED (нельзя построить
+  canonical state space или инвариант нигде не вычислялся) — не зависит от
+  наличия `AlwaysHolds` query; mafia демонстрирует проверку под каждой
+  расстановкой ролей
+- ✅ verdicts различают `PASS / FAIL / INCONCLUSIVE / NOT_CHECKED`; секция
+  инвариантов влита в fail-closed агрегацию, terminal/JSON репортеры и
+  characterization
+- ✅ `NoDeadEnd` остаётся явным: без `goal` softlock определить невозможно
+- ✅ dead actions / недостижимые lifecycle edges — explicit queries, не
+  универсальные hard requirements
 
 #### P2. Исполняемый многошаговый trace
 

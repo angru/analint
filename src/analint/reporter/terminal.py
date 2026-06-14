@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from rich.console import Console
 
-from analint.reporter.base import QueryResult, ScenarioResult, Severity, ValidationResult
+from analint.reporter.base import (
+    InvariantResult,
+    QueryResult,
+    ScenarioResult,
+    Severity,
+    ValidationResult,
+)
 
 console = Console()
 
@@ -54,6 +60,12 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
             color = "red" if f.severity == Severity.ERROR else "yellow"
             console.print(f"  [{color}]{f.severity.value:<5}[/{color}]  [{f.location}] {f.message}")
 
+    if result.invariant_results:
+        console.print()
+        console.print("[bold]INVARIANTS[/bold]")
+        for ir in result.invariant_results:
+            _print_invariant(ir)
+
     if result.query_results:
         console.print()
         console.print("[bold]QUERIES[/bold]")
@@ -78,6 +90,16 @@ def _print_query(qr: QueryResult) -> None:
             console.print(f"         [dim]↳[/dim] {f.message}")
 
 
+def _print_invariant(ir: InvariantResult) -> None:
+    colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow", "NOT_CHECKED": "yellow"}
+    color = colors.get(ir.status, "white")
+    meta = f"({ir.states_explored} states)"
+    console.print(f"  [{color}]{ir.status:<11}[/{color}] {ir.label:<40} {meta}")
+    for f in ir.findings:
+        fcolor = "red" if f.severity == Severity.ERROR else "yellow"
+        console.print(f"         [{fcolor}]↳[/{fcolor}] {f.message}")
+
+
 def _print_scenario(sr: ScenarioResult) -> None:
     status = "[green]PASS[/green]" if sr.passed else "[red]FAIL[/red]"
     meta = f"({sr.rules_count} rules)"
@@ -98,6 +120,9 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
     q_passed = sum(1 for q in result.query_results if q.status == "PASS")
     q_failed = sum(1 for q in result.query_results if q.status == "FAIL")
     q_open = sum(1 for q in result.query_results if q.status == "INCONCLUSIVE")
+    i_passed = sum(1 for i in result.invariant_results if i.status == "PASS")
+    i_failed = sum(1 for i in result.invariant_results if i.status == "FAIL")
+    i_open = sum(1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED"))
 
     parts = []
     if passed:
@@ -111,6 +136,13 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
         if q_open:
             q_parts.append(f"[yellow]{q_open} inconclusive[/yellow]")
         parts.append(f"queries: {', '.join(q_parts)}")
+    if i_passed or i_failed or i_open:
+        i_parts = [f"[green]{i_passed} ok[/green]"]
+        if i_failed:
+            i_parts.append(f"[red]{i_failed} failed[/red]")
+        if i_open:
+            i_parts.append(f"[yellow]{i_open} unchecked[/yellow]")
+        parts.append(f"invariants: {', '.join(i_parts)}")
     if warnings:
         parts.append(f"[yellow]{warnings} warnings[/yellow]")
     if not parts:

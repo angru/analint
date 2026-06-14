@@ -23,6 +23,7 @@ from typing import Any
 from analint.models.effect import Add, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.initial import Initial
+from analint.models.invariant import Invariant
 from analint.models.predicate import Predicate
 from analint.models.quantifier import BoundField, _Present
 from analint.models.query import (
@@ -42,7 +43,7 @@ from analint.models.scope import (
     is_field_ref,
     is_present,
 )
-from analint.reporter.base import Finding, QueryResult, Severity
+from analint.reporter.base import Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.structural import _collect_field_refs, _describe
@@ -574,6 +575,119 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
         kind=kind,
         status="FAIL",
         findings=[Finding(Severity.ERROR, f"query:{qid}", f"unknown query type {kind}")],
+    )
+
+
+def verify_invariants(spec: Spec, max_states: int = 10_000) -> list[InvariantResult]:
+    """Verify every world invariant over the reachable states of the canonical
+    model (``spec.initial``, or a single defaults-built root when it is None).
+
+    This makes invariants a checked property of the model itself, not something
+    only asserted when a user happens to write an ``AlwaysHolds`` query.
+    """
+    if not spec.invariants:
+        return []
+
+    if spec.initial is not None:
+        initials, error = build_initial_relation(spec, spec.initial)
+    else:
+        root, error = build_initial(spec, [])
+        initials = None if root is None else [root]
+
+    if initials is None:
+        # No canonical state space to check against — never a silent pass.
+        return [
+            InvariantResult(
+                invariant_id=inv.id,
+                label=inv.label or _describe(inv.expression),
+                status=QueryStatus.NOT_CHECKED,
+                findings=[
+                    Finding(
+                        Severity.WARNING,
+                        f"invariant:{inv.id}",
+                        f"not checked: could not build the canonical initial state "
+                        f"({error}) — declare Spec(initial=...)",
+                    )
+                ],
+            )
+            for inv in spec.invariants
+        ]
+
+    exp = explore(spec, initials, max_states)
+    return [_verify_one_invariant(inv, exp) for inv in spec.invariants]
+
+
+def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
+    label = inv.label or _describe(inv.expression)
+    loc = f"invariant:{inv.id}"
+    refs = _collect_field_refs(inv.expression)
+    evaluated = False
+    for key in exp.order:
+        ctx = exp.states[key]
+        if any(field_context_key(r) not in ctx for r in refs):
+            continue  # not applicable in this state — its entities are absent
+        evaluated = True
+        try:
+            ok = evaluate(inv.expression, ctx)
+        except Exception as exc:
+            return InvariantResult(
+                invariant_id=inv.id,
+                label=label,
+                status=QueryStatus.FAIL,
+                states_explored=len(exp.states),
+                trace=exp.trace_to(key),
+                findings=[Finding(Severity.ERROR, loc, f"evaluation error: {exc}")],
+            )
+        if not ok:
+            return InvariantResult(
+                invariant_id=inv.id,
+                label=label,
+                status=QueryStatus.FAIL,
+                states_explored=len(exp.states),
+                trace=exp.trace_to(key),
+                findings=[
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"invariant '{label}' is violated: {exp.origin(key)}"
+                        f"{_trace_str(exp.trace_to(key))}",
+                    )
+                ],
+            )
+
+    if not evaluated:
+        return InvariantResult(
+            invariant_id=inv.id,
+            label=label,
+            status=QueryStatus.NOT_CHECKED,
+            states_explored=len(exp.states),
+            findings=[
+                Finding(
+                    Severity.WARNING,
+                    loc,
+                    "not checked: never evaluable over the canonical model "
+                    "(its entities are absent in every reachable state)",
+                )
+            ],
+        )
+
+    if exp.capped:
+        return InvariantResult(
+            invariant_id=inv.id,
+            label=label,
+            status=QueryStatus.INCONCLUSIVE,
+            states_explored=len(exp.states),
+            findings=[
+                Finding(
+                    Severity.WARNING,
+                    loc,
+                    "inconclusive: exploration hit max_states before the state space was exhausted",
+                )
+            ],
+        )
+
+    return InvariantResult(
+        invariant_id=inv.id, label=label, status=QueryStatus.PASS, states_explored=len(exp.states)
     )
 
 

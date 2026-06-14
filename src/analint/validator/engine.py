@@ -89,6 +89,11 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
+    if spec.invariants:
+        from analint.validator.explorer import verify_invariants
+
+        result.invariant_results = verify_invariants(spec)
+
     if spec.queries:
         from analint.validator.explorer import run_query
 

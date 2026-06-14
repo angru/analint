@@ -53,6 +53,20 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             }
             for qr in result.query_results
         ],
+        "invariants": [
+            {
+                "id": ir.invariant_id,
+                "label": ir.label,
+                "status": ir.status,
+                "states_explored": ir.states_explored,
+                "trace": ir.trace,
+                "findings": [
+                    {"severity": f.severity.value, "location": f.location, "message": f.message}
+                    for f in ir.findings
+                ],
+            }
+            for ir in result.invariant_results
+        ],
         "summary": {
             "passed": result.passed_count,
             "failed": result.failed_count,
@@ -61,6 +75,11 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             "queries_failed": sum(1 for q in result.query_results if q.status == "FAIL"),
             "queries_inconclusive": sum(
                 1 for q in result.query_results if q.status == "INCONCLUSIVE"
+            ),
+            "invariants_passed": sum(1 for i in result.invariant_results if i.status == "PASS"),
+            "invariants_failed": sum(1 for i in result.invariant_results if i.status == "FAIL"),
+            "invariants_unchecked": sum(
+                1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED")
             ),
         },
     }

@@ -60,12 +60,29 @@ class QueryResult:
 
 
 @dataclass
+class InvariantResult:
+    """A world invariant verified over the reachable states of the canonical
+    model. PASS — held everywhere it could be evaluated; FAIL — a reachable
+    state violates it (with a trace); INCONCLUSIVE — the canonical exploration
+    hit its budget; NOT_CHECKED — no canonical state space to check it against,
+    or the invariant was never evaluable over it."""
+
+    invariant_id: str
+    label: str
+    status: str = QueryStatus.PASS  # one of QueryStatus; unknown values fail-closed
+    findings: list[Finding] = field(default_factory=list)
+    states_explored: int = 0
+    trace: list[str] | None = None  # action ids from the initial state to the violation
+
+
+@dataclass
 class ValidationResult:
     spec_id: str
     spec_name: str
     structural_findings: list[Finding] = field(default_factory=list)
     scenario_results: list[ScenarioResult] = field(default_factory=list)
     query_results: list[QueryResult] = field(default_factory=list)
+    invariant_results: list[InvariantResult] = field(default_factory=list)
     exploration_findings: list[Finding] = field(default_factory=list)
     load_errors: list[str] = field(default_factory=list)
 
@@ -77,6 +94,7 @@ class ValidationResult:
             any(f.severity == Severity.ERROR for f in self.structural_findings)
             or any(not sr.passed for sr in self.scenario_results)
             or any(qr.status == "FAIL" for qr in self.query_results)
+            or any(ir.status == "FAIL" for ir in self.invariant_results)
             or any(f.severity == Severity.ERROR for f in self.exploration_findings)
             or bool(self.load_errors)
         )
@@ -85,9 +103,9 @@ class ValidationResult:
     def has_inconclusive(self) -> bool:
         """A query that hit max_states or could not be assessed proved nothing —
         it must not read as green."""
-        return any(
-            qr.status in (QueryStatus.INCONCLUSIVE, QueryStatus.NOT_CHECKED)
-            for qr in self.query_results
+        open_statuses = (QueryStatus.INCONCLUSIVE, QueryStatus.NOT_CHECKED)
+        return any(qr.status in open_statuses for qr in self.query_results) or any(
+            ir.status in open_statuses for ir in self.invariant_results
         )
 
     @property
@@ -103,7 +121,10 @@ class ValidationResult:
         if self.has_errors:
             return Verdict.FAIL
         known = {QueryStatus.PASS, QueryStatus.INCONCLUSIVE, QueryStatus.NOT_CHECKED}
-        if any(qr.status not in known for qr in self.query_results):
+        unknown_status = any(qr.status not in known for qr in self.query_results) or any(
+            ir.status not in known for ir in self.invariant_results
+        )
+        if unknown_status:
             return Verdict.FAIL  # an unrecognised status is never a silent PASS
         if self.has_inconclusive:
             return Verdict.INCONCLUSIVE

@@ -10,7 +10,9 @@ transition kernel). It pins, per example:
   hashes of the canonical state set and edge multiset — so a graph that changes
   shape while keeping the same state count is still caught;
 - traces, normalized findings, roots, fired/excluded actions and explicit
-  completeness reasons (review ca537a2).
+  completeness reasons (review ca537a2);
+- each world invariant verified over the canonical model -> status, state count,
+  trace and normalized findings.
 
 Intentionally failing examples (coin overflow, trollbridge) are part of the
 baseline. Timing is NOT asserted (hardware-dependent, research/18 §7) — see
@@ -107,6 +109,15 @@ def _characterize(path: Path) -> dict:
         },
         "queries": queries,
         "explorations": explorations,
+        "invariants": {
+            ir.invariant_id: {
+                "status": str(ir.status),
+                "states": ir.states_explored,
+                "trace": ir.trace,
+                "findings_hash": _finding_digest(ir.findings),
+            }
+            for ir in result.invariant_results
+        },
     }
 
 

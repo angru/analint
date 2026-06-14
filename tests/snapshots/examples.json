@@ -134,6 +134,14 @@
         "excluded": {},
         "incomplete": []
       }
+    },
+    "invariants": {
+      "cloak_in_one_place": {
+        "status": "PASS",
+        "states": 27,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
     }
   },
   "coin": {
@@ -242,7 +250,8 @@
         "excluded": {},
         "incomplete": []
       }
-    }
+    },
+    "invariants": {}
   },
   "ecommerce": {
     "verdict": "PASS",
@@ -295,7 +304,8 @@
         "excluded": {},
         "incomplete": []
       }
-    }
+    },
+    "invariants": {}
   },
   "fulfillment": {
     "verdict": "PASS",
@@ -486,6 +496,14 @@
         "excluded": {},
         "incomplete": []
       }
+    },
+    "invariants": {
+      "delivered_means_paid": {
+        "status": "PASS",
+        "states": 34,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
     }
   },
   "mafia": {
@@ -604,6 +622,14 @@
         ],
         "excluded": {},
         "incomplete": []
+      }
+    },
+    "invariants": {
+      "correct_game_status": {
+        "status": "PASS",
+        "states": 12,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     }
   },
@@ -750,7 +776,8 @@
         "excluded": {},
         "incomplete": []
       }
-    }
+    },
+    "invariants": {}
   },
   "taskboard": {
     "verdict": "PASS",
@@ -838,7 +865,8 @@
       }
     },
     "queries": {},
-    "explorations": {}
+    "explorations": {},
+    "invariants": {}
   },
   "trollbridge": {
     "verdict": "FAIL",
@@ -940,6 +968,14 @@
         ],
         "excluded": {},
         "incomplete": []
+      }
+    },
+    "invariants": {
+      "gold_not_negative": {
+        "status": "PASS",
+        "states": 9,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     }
   }

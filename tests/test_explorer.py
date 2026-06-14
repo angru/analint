@@ -23,7 +23,7 @@ from analint import (
     Unreachable,
 )
 from analint.validator.engine import validate
-from analint.validator.explorer import build_initial, run_query
+from analint.validator.explorer import build_initial, run_query, verify_invariants
 from analint.validator.structural import validate_structural
 
 TROLLBRIDGE = Path(__file__).parent.parent / "examples" / "trollbridge"
@@ -633,3 +633,47 @@ def test_query_without_a_source_starts_from_spec_initial():
     assert _run(Reachable(Box.n == 3), spec).status == "PASS"
     # opting out with an explicit given falls back to the defaults-only root
     assert _run(Reachable(Box.n == 3, given=[Box(n=0)]), spec).status == "FAIL"
+
+
+# ── canonical invariant verification ────────────────────────────────────────────
+
+
+class _Counter(Entity):
+    n: int = Field(0, ge=0, le=3)
+
+
+def _counter_spec(invariant):
+    bump = Action(id="bump", pre=[_Counter.n < 3], effect=[Add(_Counter.n, 1)])
+    return Spec(id="s", name="S", entities=[_Counter], actions=[bump], invariants=[invariant])
+
+
+def test_invariant_pass_over_canonical_model():
+    spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
+    (res,) = verify_invariants(spec)
+    assert res.status == "PASS"
+    assert res.states_explored == 4  # n = 0..3
+
+
+def test_invariant_fail_reports_a_trace_to_the_violating_state():
+    spec = _counter_spec(Invariant(_Counter.n <= 1, id="small"))
+    (res,) = verify_invariants(spec)
+    assert res.status == "FAIL"
+    assert res.trace == ["bump", "bump"]  # reaches n == 2, the first violation
+
+
+def test_invariant_inconclusive_when_exploration_is_capped():
+    spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
+    (res,) = verify_invariants(spec, max_states=2)
+    assert res.status == "INCONCLUSIVE"
+
+
+def test_invariant_not_checked_when_canonical_state_cannot_be_built():
+    class Need(Entity):
+        id: str  # no default, so a defaults-only root cannot be built
+
+    spec = Spec(
+        id="s", name="S", entities=[Need], invariants=[Invariant(Need.id != "", id="has_id")]
+    )
+    (res,) = verify_invariants(spec)
+    assert res.status == "NOT_CHECKED"
+    assert any("could not build" in f.message for f in res.findings)

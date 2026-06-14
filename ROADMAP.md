@@ -8,7 +8,7 @@ bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
 declarative initial relations, presence semantics и `Create/Delete` в
 фиксированном universe, явные `Contract` и композиция спек, единый transition
 kernel (`validator/kernel.py`), canonical model с `Spec.initial` и
-авто-верификацией инвариантов. 268 тестов. Фазы v0.9,
+авто-верификацией инвариантов, исполняемые `Flow`. 281 тест. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
@@ -46,7 +46,9 @@ v0.10 и v1.0
 3. ✅ **Canonical `Spec.initial`** + автоматическая проверка invariants по
    reachable states (секция `InvariantResult`; статус проверки четырёхзначен,
    общий verdict трёхзначен; NOT_CHECKED/INCONCLUSIVE вместо silent pass).
-4. **Исполняемый многошаговый trace** с checkpoints, без рукописных state deltas.
+4. ✅ **Исполняемый многошаговый trace** — `Flow` с `given` + смешанными
+   checkpoints через общий kernel, без рукописных state deltas (artifact —
+   follow-up).
 5. **Семантическая честность `by/on/requires/emits`**: поведение или явно metadata.
 6. **Внешние реальные модели** как gate для дальнейшего расширения языка.
 
@@ -284,12 +286,16 @@ snapshot-режима).
 
 #### P2. Исполняемый многошаговый trace
 
-- оживить `Flow` или расширить `Scenario`: initial state → actions → checkpoints
-- post-state шага становится pre-state следующего через общий transition kernel
-- «слои» как arbitrary snapshot deltas не добавлять: они обходят preconditions и
-  reachability; prefix/checkpoint reuse — только если после P2 останется boilerplate
-- определить exploration result artifact: roots/nodes/edges/findings/traces,
-  completeness и summary; это основа CLI/MCP/визуализации, не model IR
+- ✅ `Flow` оживлён: `given` (initial state) + смешанный `steps` (Action |
+  Assert | Emitted). Каждый шаг-Action идёт через общий `kernel.step`,
+  post→pre; первый rejected/defect action или ложный checkpoint валит flow с
+  трассой. Flow без `given` остаётся документацией. `FlowResult` влит в verdict,
+  warning-агрегацию, terminal/JSON репортеры и characterization; `validator/flow_runner`
+- ✅ post-state шага становится pre-state следующего через общий transition kernel
+- ✅ «слои» как arbitrary snapshot deltas НЕ добавлены: только реальные действия
+  через kernel (preconditions всегда соблюдены)
+- ⏳ exploration result artifact (roots/nodes/edges/findings/traces, completeness,
+  summary) как основа CLI/MCP/визуализации — отдельный follow-up, не model IR
 
 #### P3. Семантическая честность словаря
 

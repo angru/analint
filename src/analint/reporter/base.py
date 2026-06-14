@@ -154,7 +154,19 @@ class ValidationResult:
 
     @property
     def warning_count(self) -> int:
-        return sum(1 for f in self.structural_findings if f.severity == Severity.WARNING)
+        """Every WARNING the run surfaced, across all sections — so the summary,
+        ``--strict`` and the shown findings agree (not just structural ones)."""
+
+        def _warns(findings: list[Finding]) -> int:
+            return sum(1 for f in findings if f.severity == Severity.WARNING)
+
+        return (
+            _warns(self.structural_findings)
+            + _warns(self.exploration_findings)
+            + sum(_warns(sr.findings) for sr in self.scenario_results)
+            + sum(_warns(qr.findings) for qr in self.query_results)
+            + sum(_warns(ir.findings) for ir in self.invariant_results)
+        )
 
 
 class Reporter(Protocol):

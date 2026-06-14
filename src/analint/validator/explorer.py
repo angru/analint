@@ -578,15 +578,21 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     )
 
 
-def verify_invariants(spec: Spec, max_states: int = 10_000) -> list[InvariantResult]:
+def verify_invariants(
+    spec: Spec, max_states: int = 10_000
+) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
     model (``spec.initial``, or a single defaults-built root when it is None).
 
-    This makes invariants a checked property of the model itself, not something
-    only asserted when a user happens to write an ``AlwaysHolds`` query.
+    Returns the per-invariant results AND the canonical ``Exploration`` (None
+    when it could not be built), so the caller can surface the same transition
+    defects the exploration found — dropping them would hide a model defect
+    behind a green invariant. This makes invariants a checked property of the
+    model itself, not something only asserted when a user happens to write an
+    ``AlwaysHolds`` query.
     """
     if not spec.invariants:
-        return []
+        return [], None
 
     if spec.initial is not None:
         initials, error = build_initial_relation(spec, spec.initial)
@@ -596,7 +602,7 @@ def verify_invariants(spec: Spec, max_states: int = 10_000) -> list[InvariantRes
 
     if initials is None:
         # No canonical state space to check against — never a silent pass.
-        return [
+        results = [
             InvariantResult(
                 invariant_id=inv.id,
                 label=inv.label or _describe(inv.expression),
@@ -612,9 +618,10 @@ def verify_invariants(spec: Spec, max_states: int = 10_000) -> list[InvariantRes
             )
             for inv in spec.invariants
         ]
+        return results, None
 
     exp = explore(spec, initials, max_states)
-    return [_verify_one_invariant(inv, exp) for inv in spec.invariants]
+    return [_verify_one_invariant(inv, exp) for inv in spec.invariants], exp
 
 
 def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
@@ -682,6 +689,27 @@ def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
                     Severity.WARNING,
                     loc,
                     "inconclusive: exploration hit max_states before the state space was exhausted",
+                )
+            ],
+        )
+
+    if exp.excluded:
+        # Some actions were not explorable (e.g. event-payload preconditions are
+        # outside the engine's state model). A no-counterexample run over a
+        # partial transition relation cannot claim PASS.
+        excluded = ", ".join(sorted(exp.excluded))
+        return InvariantResult(
+            invariant_id=inv.id,
+            label=label,
+            status=QueryStatus.INCONCLUSIVE,
+            states_explored=len(exp.states),
+            findings=[
+                Finding(
+                    Severity.WARNING,
+                    loc,
+                    f"inconclusive: held in every explored state, but actions "
+                    f"[{excluded}] were excluded from exploration, so the "
+                    f"transition relation is incomplete",
                 )
             ],
         )

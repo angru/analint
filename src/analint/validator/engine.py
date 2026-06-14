@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 from analint.loader.discovery import discover_files
 from analint.loader.python_loader import (
@@ -15,6 +16,9 @@ from analint.models.root import Spec
 from analint.reporter.base import Finding, Severity, ValidationResult
 from analint.validator.scenario_runner import run_scenario
 from analint.validator.structural import validate_structural
+
+if TYPE_CHECKING:
+    from analint.validator.explorer import Exploration
 
 
 def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
@@ -89,10 +93,24 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
+    seen_messages: set[str] = set()
+
+    def _merge_exploration_findings(exploration: Exploration) -> None:
+        for finding in exploration.findings:
+            if finding.message not in seen_messages:
+                seen_messages.add(finding.message)
+                result.exploration_findings.append(finding)
+
     if spec.invariants:
         from analint.validator.explorer import verify_invariants
 
-        result.invariant_results = verify_invariants(spec)
+        result.invariant_results, canonical_exp = verify_invariants(
+            spec, max_states=spec.max_states
+        )
+        # Surface the transition defects the canonical exploration found — a
+        # broken action there must fail the run, not hide behind a green invariant.
+        if canonical_exp is not None:
+            _merge_exploration_findings(canonical_exp)
 
     if spec.queries:
         from analint.validator.explorer import run_query
@@ -100,12 +118,8 @@ def validate(
         explorations: dict = {}
         for query in spec.queries:
             result.query_results.append(run_query(query, spec, explorations))
-        seen_messages: set[str] = set()
         for exp in explorations.values():
-            for finding in exp.findings:
-                if finding.message not in seen_messages:
-                    seen_messages.add(finding.message)
-                    result.exploration_findings.append(finding)
+            _merge_exploration_findings(exp)
 
     return result
 
@@ -173,6 +187,7 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         scenarios=_resolve(spec.scenarios, "scenarios"),
         queries=_resolve(spec.queries, "queries"),
         initial=spec.initial,
+        max_states=spec.max_states,
     )
 
 

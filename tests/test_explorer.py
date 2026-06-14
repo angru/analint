@@ -9,6 +9,7 @@ from analint import (
     Count,
     DeadActions,
     Entity,
+    Event,
     Field,
     Initial,
     Invariant,
@@ -22,6 +23,7 @@ from analint import (
     Transition,
     Unreachable,
 )
+from analint.reporter.base import Severity
 from analint.validator.engine import validate
 from analint.validator.explorer import build_initial, run_query, verify_invariants
 from analint.validator.structural import validate_structural
@@ -649,21 +651,21 @@ def _counter_spec(invariant):
 
 def test_invariant_pass_over_canonical_model():
     spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
-    (res,) = verify_invariants(spec)
+    (res,), _ = verify_invariants(spec)
     assert res.status == "PASS"
     assert res.states_explored == 4  # n = 0..3
 
 
 def test_invariant_fail_reports_a_trace_to_the_violating_state():
     spec = _counter_spec(Invariant(_Counter.n <= 1, id="small"))
-    (res,) = verify_invariants(spec)
+    (res,), _ = verify_invariants(spec)
     assert res.status == "FAIL"
     assert res.trace == ["bump", "bump"]  # reaches n == 2, the first violation
 
 
 def test_invariant_inconclusive_when_exploration_is_capped():
     spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
-    (res,) = verify_invariants(spec, max_states=2)
+    (res,), _ = verify_invariants(spec, max_states=2)
     assert res.status == "INCONCLUSIVE"
 
 
@@ -674,6 +676,65 @@ def test_invariant_not_checked_when_canonical_state_cannot_be_built():
     spec = Spec(
         id="s", name="S", entities=[Need], invariants=[Invariant(Need.id != "", id="has_id")]
     )
-    (res,) = verify_invariants(spec)
+    (res,), _ = verify_invariants(spec)
     assert res.status == "NOT_CHECKED"
     assert any("could not build" in f.message for f in res.findings)
+
+
+def test_canonical_verification_surfaces_transition_defects():
+    """A broken action during canonical verification must reach the result, not
+    be hidden behind a green invariant (review 67be4f8, P1#1)."""
+
+    class Box(Entity):
+        value: int = 0
+
+    broken = Action(id="broken", effect=[Set(Box.value, Box.value + "bad")])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Box],
+        actions=[broken],
+        invariants=[Invariant(Box.value >= 0, id="non_negative")],
+    )
+    _results, exp = verify_invariants(spec)
+    assert exp is not None
+    assert any(f.severity == Severity.ERROR for f in exp.findings)  # not discarded
+
+
+def test_spec_initial_is_structurally_validated():
+    """Spec.initial is part of the model, so a foreign vary field is an error
+    even with no queries (review 67be4f8, P1#2)."""
+
+    class Registered(Entity):
+        enabled: bool = False
+
+    class Foreign(Entity):
+        enabled: bool = False
+
+    spec = Spec(id="s", name="S", entities=[Registered], initial=Initial(vary=[Foreign.enabled]))
+    findings = validate_structural(spec)
+    assert any("Foreign" in f.message and "not in spec.entities" in f.message for f in findings)
+
+
+def test_invariant_inconclusive_when_an_action_is_excluded():
+    """An invariant with no counterexample cannot claim PASS while part of the
+    transition relation is unexplorable (review 67be4f8, P1#3)."""
+
+    class Signal(Event):
+        ok: bool
+
+    class Box(Entity):
+        value: int = 0
+
+    event_step = Action(id="ev", on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 1)])  # noqa: E712
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Box],
+        events=[Signal],
+        actions=[event_step],
+        invariants=[Invariant(Box.value == 0, id="stays_zero")],
+    )
+    (res,), _ = verify_invariants(spec)
+    assert res.status == "INCONCLUSIVE"
+    assert any("excluded" in f.message for f in res.findings)

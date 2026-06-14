@@ -54,6 +54,9 @@ class Spec(BaseModel):
     # the states reachable from here, and a query with no initial source of its
     # own starts from it. None means "build a single root from entity defaults".
     initial: Initial | None = None
+    # Exploration budget for automatic invariant verification over the canonical
+    # model. A finite model larger than this reports INCONCLUSIVE; raise it here.
+    max_states: int = 10_000
 
     def model_post_init(self, __context: Any) -> None:
         content_fields = (

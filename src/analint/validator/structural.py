@@ -406,6 +406,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
                         )
                     )
 
+    # The canonical initial is validated even with no queries — it is part of
+    # the model, so a foreign or malformed Spec.initial is never silently dead.
+    if spec.initial is not None:
+        findings.extend(_validate_initial(spec.initial, spec, scoped_entities, f"spec:{spec.id}"))
+
     # Queries: predicates reference registered entities
     for query in spec.queries:
         loc = f"query:{query.id}"
@@ -419,50 +424,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             )
 
         if query.initial is not None:
-            initial_refs: list[FieldDescriptor | InstanceField] = []
-            initial_markers: set[tuple[Any, str]] = set()
-            for item in query.initial.vary:
-                if isinstance(item, BoundField):
-                    if item.variable.scope not in spec.scopes:
-                        findings.append(_unregistered_bound_scope(item.variable, loc))
-                        continue
-                    initial_refs.extend(
-                        getattr(ref, item.field_name) for ref in item.variable.scope
-                    )
-                elif is_field_ref(item):
-                    initial_refs.append(item)
-                else:
-                    findings.append(
-                        err(
-                            loc,
-                            f"Initial vary entry '{item!r}' is not a field "
-                            f"reference or Bound field",
-                        )
-                    )
-            for ref in initial_refs:
-                marker = (field_context_key(ref), ref.field_name)
-                if marker in initial_markers:
-                    findings.append(
-                        err(
-                            loc,
-                            f"Initial varies {context_key_label(marker[0])}.{marker[1]} twice",
-                        )
-                    )
-                initial_markers.add(marker)
-                if ref.entity_cls not in spec.entities:
-                    findings.append(
-                        err(
-                            loc,
-                            f"Initial varies entity '{ref.entity_cls.__name__}' "
-                            f"not in spec.entities",
-                        )
-                    )
-            findings.extend(_check_scoped_refs(initial_refs, scoped_entities, loc))
-            for pred in query.initial.where:
-                findings.extend(
-                    _check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes)
-                )
-                findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
+            findings.extend(_validate_initial(query.initial, spec, scoped_entities, loc))
 
         pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
         if pred is not None:
@@ -561,6 +523,56 @@ def _required_operand_refs(
             bound,  # type: ignore[attr-defined]
         )
     return []
+
+
+def _validate_initial(
+    initial: Any, spec: Spec, scoped_entities: dict[type, Any], loc: str
+) -> list[Finding]:
+    """Validate one ``Initial`` relation — shared by ``Spec.initial`` and every
+    ``query.initial`` so a canonical initial is checked even with no queries."""
+    findings: list[Finding] = []
+    initial_refs: list[FieldDescriptor | InstanceField] = []
+    initial_markers: set[tuple[Any, str]] = set()
+    for item in initial.vary:
+        if isinstance(item, BoundField):
+            if item.variable.scope not in spec.scopes:
+                findings.append(_unregistered_bound_scope(item.variable, loc))
+                continue
+            initial_refs.extend(getattr(ref, item.field_name) for ref in item.variable.scope)
+        elif is_field_ref(item):
+            initial_refs.append(item)
+        else:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Initial vary entry '{item!r}' is not a field reference or Bound field",
+                )
+            )
+    for ref in initial_refs:
+        marker = (field_context_key(ref), ref.field_name)
+        if marker in initial_markers:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Initial varies {context_key_label(marker[0])}.{marker[1]} twice",
+                )
+            )
+        initial_markers.add(marker)
+        if ref.entity_cls not in spec.entities:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Initial varies entity '{ref.entity_cls.__name__}' not in spec.entities",
+                )
+            )
+    findings.extend(_check_scoped_refs(initial_refs, scoped_entities, loc))
+    for pred in initial.where:
+        findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes))
+        findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
+    return findings
 
 
 def _check_scoped_refs(

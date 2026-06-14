@@ -44,7 +44,8 @@ v0.10 и v1.0
    scenario, explorer и будущего Flow (закрыты explorer-`post`, lifecycle-переход
    в scenario, `Delete` в terminal guard, emitted payload, pre-state invariant).
 3. ✅ **Canonical `Spec.initial`** + автоматическая проверка invariants по
-   reachable states (секция `InvariantResult`, NOT_CHECKED вместо silent pass).
+   reachable states (секция `InvariantResult`; статус проверки четырёхзначен,
+   общий verdict трёхзначен; NOT_CHECKED/INCONCLUSIVE вместо silent pass).
 4. **Исполняемый многошаговый trace** с checkpoints, без рукописных state deltas.
 5. **Семантическая честность `by/on/requires/emits`**: поведение или явно metadata.
 6. **Внешние реальные модели** как gate для дальнейшего расширения языка.
@@ -268,9 +269,12 @@ snapshot-режима).
   canonical state space или инвариант нигде не вычислялся) — не зависит от
   наличия `AlwaysHolds` query; mafia демонстрирует проверку под каждой
   расстановкой ролей
-- ✅ verdicts различают `PASS / FAIL / INCONCLUSIVE / NOT_CHECKED`; секция
-  инвариантов влита в fail-closed агрегацию, terminal/JSON репортеры и
-  characterization
+- ✅ статус отдельной проверки (query/invariant) четырёхзначен —
+  `PASS / FAIL / INCONCLUSIVE / NOT_CHECKED`; общий `Verdict` остаётся
+  трёхзначным (`PASS / FAIL / INCONCLUSIVE`), куда NOT_CHECKED агрегируется как
+  INCONCLUSIVE. Секция инвариантов влита в fail-closed агрегацию, terminal/JSON
+  репортеры и characterization; canonical exploration findings (включая
+  transition defects) не теряются, а попадают в общий verdict
 - ✅ `NoDeadEnd` остаётся явным: без `goal` softlock определить невозможно
 - ✅ dead actions / недостижимые lifecycle edges — explicit queries, не
   универсальные hard requirements

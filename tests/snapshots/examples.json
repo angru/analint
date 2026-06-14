@@ -627,7 +627,7 @@
     "invariants": {
       "correct_game_status": {
         "status": "PASS",
-        "states": 12,
+        "states": 36,
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }

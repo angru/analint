@@ -1,6 +1,9 @@
 from enum import Enum
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from analint import (
     Action,
     Add,
@@ -25,7 +28,12 @@ from analint import (
 )
 from analint.reporter.base import Severity
 from analint.validator.engine import validate
-from analint.validator.explorer import build_initial, run_query, verify_invariants
+from analint.validator.explorer import (
+    build_canonical_initials,
+    build_initial,
+    run_query,
+    verify_invariants,
+)
 from analint.validator.structural import validate_structural
 
 TROLLBRIDGE = Path(__file__).parent.parent / "examples" / "trollbridge"
@@ -34,6 +42,11 @@ CLOAK = Path(__file__).parent.parent / "examples" / "cloak"
 
 def _run(query, spec):
     return run_query(query, spec, cache={})
+
+
+def _verify(spec, max_states=10_000):
+    initials, error = build_canonical_initials(spec)
+    return verify_invariants(spec, initials, build_error=error, max_states=max_states)
 
 
 # ── Reachable / Unreachable ────────────────────────────────────────────────────
@@ -651,21 +664,21 @@ def _counter_spec(invariant):
 
 def test_invariant_pass_over_canonical_model():
     spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
-    (res,), _ = verify_invariants(spec)
+    (res,), _ = _verify(spec)
     assert res.status == "PASS"
     assert res.states_explored == 4  # n = 0..3
 
 
 def test_invariant_fail_reports_a_trace_to_the_violating_state():
     spec = _counter_spec(Invariant(_Counter.n <= 1, id="small"))
-    (res,), _ = verify_invariants(spec)
+    (res,), _ = _verify(spec)
     assert res.status == "FAIL"
     assert res.trace == ["bump", "bump"]  # reaches n == 2, the first violation
 
 
 def test_invariant_inconclusive_when_exploration_is_capped():
     spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
-    (res,), _ = verify_invariants(spec, max_states=2)
+    (res,), _ = _verify(spec, max_states=2)
     assert res.status == "INCONCLUSIVE"
 
 
@@ -676,7 +689,7 @@ def test_invariant_not_checked_when_canonical_state_cannot_be_built():
     spec = Spec(
         id="s", name="S", entities=[Need], invariants=[Invariant(Need.id != "", id="has_id")]
     )
-    (res,), _ = verify_invariants(spec)
+    (res,), _ = _verify(spec)
     assert res.status == "NOT_CHECKED"
     assert any("could not build" in f.message for f in res.findings)
 
@@ -696,7 +709,7 @@ def test_canonical_verification_surfaces_transition_defects():
         actions=[broken],
         invariants=[Invariant(Box.value >= 0, id="non_negative")],
     )
-    _results, exp = verify_invariants(spec)
+    _results, exp = _verify(spec)
     assert exp is not None
     assert any(f.severity == Severity.ERROR for f in exp.findings)  # not discarded
 
@@ -735,6 +748,38 @@ def test_invariant_inconclusive_when_an_action_is_excluded():
         actions=[event_step],
         invariants=[Invariant(Box.value == 0, id="stays_zero")],
     )
-    (res,), _ = verify_invariants(spec)
+    (res,), _ = _verify(spec)
     assert res.status == "INCONCLUSIVE"
     assert any("excluded" in f.message for f in res.findings)
+
+
+def test_spec_initial_given_must_be_registered():
+    """given= snapshots seed canonical roots, so a foreign entity is an error
+    (review c893ca0, P2)."""
+
+    class Registered(Entity):
+        enabled: bool = False
+
+    class Foreign(Entity):
+        enabled: bool = False
+
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Registered],
+        initial=Initial(vary=[Registered.enabled], given=[Foreign()]),
+    )
+    findings = validate_structural(spec)
+    assert any("Foreign" in f.message and "not in spec.entities" in f.message for f in findings)
+
+
+def test_spec_max_states_must_be_positive():
+    """A non-positive budget is an invalid configuration, not an exhausted one
+    (review c893ca0, P2)."""
+
+    class Box(Entity):
+        n: int = 0
+
+    for bad in (0, -1):
+        with pytest.raises(ValidationError):
+            Spec(id="s", name="S", entities=[Box], max_states=bad)

@@ -93,19 +93,41 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
-    seen_messages: set[str] = set()
+    # Findings from different explorations of the same state space overlap, so
+    # deduplicate across them — but by their full identity, not message alone:
+    # two actions excluded for the same reason carry the same message at
+    # different locations and must both survive.
+    seen_findings: set[tuple[str, str, str]] = set()
 
     def _merge_exploration_findings(exploration: Exploration) -> None:
         for finding in exploration.findings:
-            if finding.message not in seen_messages:
-                seen_messages.add(finding.message)
+            key = (finding.severity.value, finding.location, finding.message)
+            if key not in seen_findings:
+                seen_findings.add(key)
                 result.exploration_findings.append(finding)
+
+    # The canonical initial is part of the model: build it once (reused below)
+    # and validate that it builds even when nothing consumes it.
+    from analint.validator.explorer import build_canonical_initials
+
+    canonical_initials: list | None = None
+    canonical_error: str | None = None
+    if spec.initial is not None or spec.invariants:
+        canonical_initials, canonical_error = build_canonical_initials(spec)
+    if spec.initial is not None and canonical_initials is None:
+        result.exploration_findings.append(
+            Finding(
+                Severity.ERROR,
+                f"spec:{spec.id}",
+                f"canonical initial cannot be built: {canonical_error}",
+            )
+        )
 
     if spec.invariants:
         from analint.validator.explorer import verify_invariants
 
         result.invariant_results, canonical_exp = verify_invariants(
-            spec, max_states=spec.max_states
+            spec, canonical_initials, build_error=canonical_error, max_states=spec.max_states
         )
         # Surface the transition defects the canonical exploration found — a
         # broken action there must fail the run, not hide behind a green invariant.

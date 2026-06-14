@@ -56,7 +56,7 @@ class Spec(BaseModel):
     initial: Initial | None = None
     # Exploration budget for automatic invariant verification over the canonical
     # model. A finite model larger than this reports INCONCLUSIVE; raise it here.
-    max_states: int = 10_000
+    max_states: int = Field(default=10_000, gt=0)
 
     def model_post_init(self, __context: Any) -> None:
         content_fields = (

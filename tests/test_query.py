@@ -145,3 +145,37 @@ def test_overview_includes_bounded_scopes():
             "instances": ["Account['alice']", "Account['bob']"],
         }
     ]
+
+
+def test_unbuildable_spec_initial_fails_without_consumers(tmp_path):
+    """Spec.initial is part of the model: an empty relation must fail the run
+    even with no invariants or queries to consume it (review c893ca0, P1)."""
+    (tmp_path / "spec.py").write_text(
+        "from analint import Entity, Field, Initial, Spec\n\n"
+        "class Box(Entity):\n"
+        "    n: int = Field(0, ge=0, le=1)\n\n"
+        "spec = Spec(id='s', name='S', entities=[Box],\n"
+        "            initial=Initial(vary=[Box.n], where=[Box.n != Box.n]))\n"
+    )
+    result = validate(tmp_path)
+    assert result.verdict.value == "FAIL"
+    assert any("canonical initial" in f.message for f in result.exploration_findings)
+
+
+def test_each_excluded_action_surfaces_its_own_finding(tmp_path):
+    """Two actions excluded for the same reason share a message but differ in
+    location — both must survive the cross-exploration merge (review c893ca0, P2)."""
+    (tmp_path / "spec.py").write_text(
+        "from analint import Action, Entity, Event, Invariant, Set, Spec\n\n"
+        "class Signal(Event):\n"
+        "    ok: bool\n\n"
+        "class Box(Entity):\n"
+        "    value: int = 0\n\n"
+        "a = Action(id='a', on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 1)])\n"
+        "b = Action(id='b', on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 2)])\n"
+        "spec = Spec(id='s', name='S', entities=[Box], events=[Signal], actions=[a, b],\n"
+        "            invariants=[Invariant(Box.value == 0, id='z')])\n"
+    )
+    result = validate(tmp_path)
+    locations = {f.location for f in result.exploration_findings if "excluded" in f.message}
+    assert locations == {"action:a", "action:b"}

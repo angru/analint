@@ -572,6 +572,50 @@ def _validate_initial(
     for pred in initial.where:
         findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes))
         findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
+
+    # given= snapshots seed the canonical roots, so validate them as strictly as
+    # scenario givens: registered type, registered InstanceRef/Scope, no dup keys.
+    given_keys: set[Any] = set()
+    for inst in initial.given:
+        key = instance_context_key(inst)
+        if key in given_keys:
+            findings.append(
+                Finding(Severity.ERROR, loc, f"Initial.given lists {context_key_label(key)} twice")
+            )
+        given_keys.add(key)
+        scope = scoped_entities.get(type(inst))
+        if scope is not None:
+            if not isinstance(key, InstanceRef):
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"{type(inst).__name__} has Scope '{scope.id}' — create the "
+                        f"snapshot through a registered InstanceRef",
+                    )
+                )
+            elif scope is not key.scope:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"{key!r} belongs to a Scope not registered in spec.scopes",
+                    )
+                )
+        elif isinstance(key, InstanceRef):
+            findings.append(
+                Finding(
+                    Severity.ERROR, loc, f"{key!r} belongs to a Scope not registered in spec.scopes"
+                )
+            )
+        elif type(inst) not in spec.entities:
+            findings.append(
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"Initial.given includes '{type(inst).__name__}', not in spec.entities",
+                )
+            )
     return findings
 
 

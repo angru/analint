@@ -262,7 +262,10 @@ snapshot-режима).
 
 - ✅ spec-level `Spec.initial: Initial | None` — канонический initial state(s);
   query без собственного источника (given/given_any/initial) падает на него,
-  `None` = single root из defaults. `_auto_populate` сохраняет его
+  `None` = single root из defaults. `_auto_populate` сохраняет его. Валидируется
+  и по форме (общий `_validate_initial` для vary/where/given), и по построимости
+  (строится один раз через `build_canonical_initials`, ошибка → `spec:<id>` ERROR
+  независимо от наличия consumers); `Spec.max_states` ограничивает бюджет (gt=0)
 - ✅ invariants автоматически проверяются по reachable states canonical model
   (`verify_invariants`): отдельная секция `InvariantResult` со статусом
   PASS / FAIL+trace / INCONCLUSIVE (cap) / NOT_CHECKED (нельзя построить

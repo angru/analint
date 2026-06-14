@@ -578,11 +578,27 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     )
 
 
+def build_canonical_initials(spec: Spec) -> tuple[list[dict] | None, str | None]:
+    """The model's canonical initial states: ``spec.initial`` expanded, or a
+    single defaults-built root when it is None. Returns ``(None, error)`` when
+    the relation cannot be built. Built once per run and reused by both
+    invariant verification and default-source queries."""
+    if spec.initial is not None:
+        return build_initial_relation(spec, spec.initial)
+    root, error = build_initial(spec, [])
+    return ([root] if root is not None else None), error
+
+
 def verify_invariants(
-    spec: Spec, max_states: int = 10_000
+    spec: Spec,
+    initials: list[dict] | None,
+    *,
+    build_error: str | None = None,
+    max_states: int = 10_000,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
-    model (``spec.initial``, or a single defaults-built root when it is None).
+    model. ``initials`` is the pre-built canonical state set (see
+    ``build_canonical_initials``); ``None`` means it could not be built.
 
     Returns the per-invariant results AND the canonical ``Exploration`` (None
     when it could not be built), so the caller can surface the same transition
@@ -594,14 +610,9 @@ def verify_invariants(
     if not spec.invariants:
         return [], None
 
-    if spec.initial is not None:
-        initials, error = build_initial_relation(spec, spec.initial)
-    else:
-        root, error = build_initial(spec, [])
-        initials = None if root is None else [root]
-
     if initials is None:
         # No canonical state space to check against — never a silent pass.
+        hint = " — declare Spec(initial=...)" if spec.initial is None else ""
         results = [
             InvariantResult(
                 invariant_id=inv.id,
@@ -612,7 +623,7 @@ def verify_invariants(
                         Severity.WARNING,
                         f"invariant:{inv.id}",
                         f"not checked: could not build the canonical initial state "
-                        f"({error}) — declare Spec(initial=...)",
+                        f"({build_error}){hint}",
                     )
                 ],
             )

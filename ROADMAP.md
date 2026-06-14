@@ -8,7 +8,7 @@ bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
 declarative initial relations, presence semantics и `Create/Delete` в
 фиксированном universe, явные `Contract` и композиция спек, единый transition
 kernel (`validator/kernel.py`), canonical model с `Spec.initial` и
-авто-верификацией инвариантов, исполняемые `Flow`. 281 тест. Фазы v0.9,
+авто-верификацией инвариантов, исполняемые `Flow`. 286 тестов. Фазы v0.9,
 v0.10 и v1.0
 ниже выполнены.
 Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.

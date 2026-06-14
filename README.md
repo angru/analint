@@ -454,9 +454,11 @@ purchase_flow = Flow(
 )
 ```
 
-Without `given=` (the default) a Flow stays a documented journey: the linter
-verifies `requires` order and shows it, but does not execute state through the
-steps.
+`given=` is a partial snapshot (the same one a scenario uses): only the listed
+entities are present, unspecified `Scope` slots are absent, and a step that
+needs an unlisted entity is rejected. Without `given=` (the default) a Flow
+stays a documented journey: the linter verifies `requires` order and shows it,
+but does not execute state through the steps.
 
 ```python
 purchase_journey = Flow(steps=[login, browse, checkout], description="...")

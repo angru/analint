@@ -116,8 +116,15 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     spec_entity_names = {e.__name__ for e in spec.entities}
     spec_actor_names = {a.__name__ for a in spec.actors}
-    spec_event_names = {e.__name__ for e in spec.events}
+    # Events are matched by class identity, not name: two classes can share a
+    # __name__ (especially across composed contracts), and a checkpoint/emit
+    # asserts the exact type.
+    registered_events = set(spec.events)
     action_ids = {a.id for a in spec.actions}
+    # Membership of an executable reference (requires / scenario.action / flow
+    # step) is by object identity: a foreign Action that merely shares a
+    # registered id must not pass as registered (explicit-composition contract).
+    registered_action_ids = {id(a) for a in spec.actions}
 
     scoped_entities: dict[type, Any] = {}
     for scope in spec.scopes:
@@ -159,11 +166,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
     action_by_id = {a.id: a for a in spec.actions}
     _check_requires_cycles(spec.actions, action_by_id, findings, err)
 
-    handled_event_names: set[str] = set()
+    handled_events: set = set()
     for action in spec.actions:
         for event_cls in action.on:
             if isinstance(event_cls, type):
-                handled_event_names.add(event_cls.__name__)
+                handled_events.add(event_cls)
 
     for action in spec.actions:
         loc = f"action:{action.id}"
@@ -188,8 +195,17 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 findings.append(err(loc, f"actor '{action.by.__name__}' not in spec.actors"))
 
         for req in action.requires:
-            if req.id not in action_ids:
-                findings.append(err(loc, f"required action '{req.id}' not in spec.actions"))
+            if id(req) not in registered_action_ids:
+                if req.id in action_ids:
+                    findings.append(
+                        err(
+                            loc,
+                            f"required action '{req.id}' is a different object than the "
+                            f"registered action with that id — reference the registered Action",
+                        )
+                    )
+                else:
+                    findings.append(err(loc, f"required action '{req.id}' not in spec.actions"))
 
         # emits: classes or payload templates (Event instances)
         for emitted in action.emits:
@@ -197,11 +213,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if not issubclass(event_cls, Event):
                 findings.append(err(loc, f"emits entry '{emitted!r}' is not an Event"))
                 continue
-            if event_cls.__name__ not in spec_event_names:
+            if event_cls not in registered_events:
                 findings.append(
                     err(loc, f"emitted event '{event_cls.__name__}' not in spec.events")
                 )
-            elif event_cls.__name__ not in handled_event_names:
+            elif event_cls not in handled_events:
                 findings.append(
                     warn(
                         loc, f"event '{event_cls.__name__}' is emitted but never triggers an action"
@@ -220,7 +236,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for event_cls in action.on:
             if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
                 findings.append(err(loc, f"on entry '{event_cls!r}' must be an Event class"))
-            elif event_cls.__name__ not in spec_event_names:
+            elif event_cls not in registered_events:
                 findings.append(err(loc, f"on event '{event_cls.__name__}' not in spec.events"))
 
         # effects: registered targets, no two facts about the same field or slot
@@ -334,8 +350,17 @@ def validate_structural(spec: Spec) -> list[Finding]:
     # Scenarios
     for sc in spec.scenarios:
         loc = f"scenario:{sc.id}"
-        if sc.action.id not in action_ids:
-            findings.append(err(loc, f"action '{sc.action.id}' not in spec.actions"))
+        if id(sc.action) not in registered_action_ids:
+            if sc.action.id in action_ids:
+                findings.append(
+                    err(
+                        loc,
+                        f"action '{sc.action.id}' is a different object than the registered "
+                        f"action with that id — reference the registered Action",
+                    )
+                )
+            else:
+                findings.append(err(loc, f"action '{sc.action.id}' not in spec.actions"))
             continue
 
         given_keys = {instance_context_key(inst) for inst in sc.given}
@@ -441,7 +466,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Flows: action steps registered; requires order respected; checkpoints and
     # given validated; checkpoints without a given would never run.
-    registered_action_ids = {id(a) for a in spec.actions}
     for flow in spec.flows:
         loc = f"flow:{flow.id}"
         action_steps = [s for s in flow.steps if isinstance(s, Action)]

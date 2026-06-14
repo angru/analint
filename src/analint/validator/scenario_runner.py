@@ -3,11 +3,14 @@ from __future__ import annotations
 from analint.models.flow import Assert, Emitted
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
-from analint.models.scope import Absent, instance_context_key
 from analint.reporter.base import Finding, ScenarioResult, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
-from analint.validator.state_checks import check_invariants, relevant_invariants
+from analint.validator.state_checks import (
+    applicable_invariants,
+    build_snapshot_context,
+    check_invariants,
+)
 from analint.validator.structural import _describe
 
 
@@ -21,19 +24,15 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     block — never for a model defect.
     """
     findings: list[Finding] = []
-    context = {instance_context_key(inst): inst for inst in scenario.given}
-    for scope in spec.scopes:
-        for ref in scope:
-            context.setdefault(ref, Absent(ref))
+    context = build_snapshot_context(spec, scenario.given)
     action = scenario.action
 
-    relevant = relevant_invariants(spec, context)
-    checks_count = len(relevant) + len(action.pre) + len(action.post)
+    checks_count = len(applicable_invariants(spec, context)) + len(action.pre) + len(action.post)
 
     # The pre-state must itself be a legal world. A scenario that starts from a
     # state violating an invariant is a model defect, not a rejection — the world
     # it describes is already illegal, so Expect.FAIL cannot legitimise it.
-    pre_inv_findings = check_invariants(relevant, context, "INVARIANT")
+    pre_inv_findings = check_invariants(spec, context, "INVARIANT")
     findings.extend(pre_inv_findings)
     pre_invariant_violated = bool(pre_inv_findings)
 
@@ -46,7 +45,9 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     if result.outcome is Outcome.ACCEPTED and not pre_invariant_violated:
         post = result.post_context
         assert post is not None
-        post_inv_findings = check_invariants(relevant, post, "INVARIANT (post)")
+        # Applicability is recomputed against the post-state: Create/Delete may
+        # have changed which invariants apply.
+        post_inv_findings = check_invariants(spec, post, "INVARIANT (post)")
         findings.extend(post_inv_findings)
         then_failed = _check_then(findings, scenario, post)
         post_defect = bool(post_inv_findings) or then_failed
@@ -85,9 +86,8 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
 
 def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool:
     """Evaluate the scenario's ``then`` assertions over the next state."""
-    emitted_names = {
-        (e if isinstance(e, type) else type(e)).__name__ for e in scenario.action.emits
-    }
+    # Match emitted events by class identity, not name (two events can share one).
+    emitted_classes = {e if isinstance(e, type) else type(e) for e in scenario.action.emits}
     failed = False
     for assertion in scenario.then:
         if isinstance(assertion, Assert):
@@ -111,7 +111,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                 )
                 failed = True
         elif isinstance(assertion, Emitted):
-            if assertion.event_cls.__name__ not in emitted_names:
+            if assertion.event_cls not in emitted_classes:
                 findings.append(
                     Finding(
                         Severity.ERROR,

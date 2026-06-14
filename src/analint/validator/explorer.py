@@ -462,8 +462,11 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
     violated = False
     for inv in spec.invariants:
         refs = _collect_field_refs(inv.expression)
-        if any(field_context_key(r) not in ctx for r in refs):
-            continue
+        keys = {field_context_key(r) for r in refs}
+        if not keys <= set(ctx):
+            continue  # a referenced entity is absent from this state's universe
+        if any(isinstance(k, InstanceRef) and not is_present(ctx, k) for k in keys):
+            continue  # a referenced Scope slot is absent here — invariant not applicable
         try:
             ok = evaluate(inv.expression, ctx)
         except Exception as exc:

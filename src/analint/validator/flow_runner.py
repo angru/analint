@@ -14,17 +14,16 @@ from __future__ import annotations
 from analint.models.action import Action
 from analint.models.flow import Assert, Emitted, Flow
 from analint.models.root import Spec
-from analint.models.scope import Absent, instance_context_key
 from analint.reporter.base import Finding, FlowResult, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
-from analint.validator.state_checks import check_invariants, relevant_invariants
+from analint.validator.state_checks import build_snapshot_context, check_invariants
 from analint.validator.structural import _describe
 
 
 def run_flow(flow: Flow, spec: Spec) -> FlowResult:
     loc = f"flow:{flow.id}"
-    context = _initial_context(flow, spec)
+    context = build_snapshot_context(spec, flow.given or [])
 
     findings: list[Finding] = []
     emitted_so_far: list = []
@@ -40,9 +39,9 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
             trace=list(trace),
         )
 
-    # The journey must start from a legal world and stay in one after every step.
-    relevant = relevant_invariants(spec, context)
-    inv_findings = check_invariants(relevant, context, "INVARIANT")
+    # The journey must start from a legal world and stay in one after every step
+    # (applicability is presence-aware and recomputed against each state).
+    inv_findings = check_invariants(spec, context, "INVARIANT")
     if inv_findings:
         findings.extend(inv_findings)
         return fail("the flow starts from a state that violates an invariant")
@@ -60,7 +59,7 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
             context = result.post_context
             emitted_so_far.extend(result.emitted)
             trace.append(entry.id)
-            post_inv = check_invariants(relevant, context, "INVARIANT (post)")
+            post_inv = check_invariants(spec, context, "INVARIANT (post)")
             if post_inv:
                 findings.extend(post_inv)
                 return fail(
@@ -94,25 +93,6 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
     return FlowResult(
         flow_id=flow.id, passed=True, findings=findings, actions_run=len(trace), trace=list(trace)
     )
-
-
-def _initial_context(flow: Flow, spec: Spec) -> dict:
-    """Seed the journey's state from ``given`` (which may be empty for a
-    defaults-built world): explicit snapshots, then default-constructible
-    non-scoped entities, then absent scope slots."""
-    context: dict = {instance_context_key(inst): inst for inst in (flow.given or [])}
-    scoped = {scope.entity_cls for scope in spec.scopes}
-    for cls in spec.entities:
-        if cls in scoped or cls in context:
-            continue
-        try:
-            context[cls] = cls()
-        except TypeError:
-            continue  # no full defaults — left absent; a step that needs it is rejected
-    for scope in spec.scopes:
-        for ref in scope:
-            context.setdefault(ref, Absent(ref))
-    return context
 
 
 def _trace_str(steps: list[str]) -> str:

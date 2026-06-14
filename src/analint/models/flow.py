@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dataclasses import field as dc_field
 from typing import Any
 
+from analint.models.action import Action
 from analint.models.event import Event
 from analint.models.predicate import Predicate
 
@@ -22,6 +23,10 @@ class Emitted:
     event_cls: type[Event]
 
 
+# The closed grammar of a flow step: an action interleaved with checkpoints.
+FlowEntry = Action | Assert | Emitted
+
+
 @dataclass
 class Flow:
     """An executable user journey: an initial state, then a sequence of actions
@@ -37,14 +42,13 @@ class Flow:
     ``given`` is the execution-mode switch, independent of how many snapshots the
     initial state needs: ``None`` (the default) is a documented journey —
     validated structurally and shown, but not run; a list (even empty) makes the
-    flow executable, with the initial state seeded from those snapshots plus
-    default-constructible entities.
+    flow executable. The initial state is a *partial snapshot* (the same builder a
+    scenario uses): only the listed entities are present and unspecified Scope
+    slots are absent — this is not the canonical defaults-built world, so a step
+    that needs an unlisted entity is rejected.
     """
 
-    # The closed grammar is ``Action | Assert | Emitted``, enforced by structural
-    # validation; the field stays ``list[Any]`` so pydantic neither re-validates
-    # nor copies the step objects (the flow runner relies on their identity).
-    steps: list[Any] = dc_field(default_factory=list)
+    steps: list[FlowEntry] = dc_field(default_factory=list)
     given: list[Any] | None = None  # None = documentation; a list = executable
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""

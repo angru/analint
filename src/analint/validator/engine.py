@@ -93,9 +93,9 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
-    # Flows with an initial state are executed; a flow with only steps and no
-    # given stays a documented journey (validated structurally, not run).
-    executable_flows = [flow for flow in spec.flows if flow.given]
+    # A flow with given=... (even []) is executed; given=None stays a documented
+    # journey (validated structurally, not run).
+    executable_flows = [flow for flow in spec.flows if flow.given is not None]
     if executable_flows:
         from analint.validator.flow_runner import run_flow
 

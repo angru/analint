@@ -99,7 +99,7 @@ def _print_query(qr: QueryResult) -> None:
 
 def _print_flow(fr: FlowResult) -> None:
     status = "[green]PASS[/green]" if fr.passed else "[red]FAIL[/red]"
-    meta = f"({fr.steps_run} steps run)"
+    meta = f"({fr.actions_run} actions run)"
     console.print(f"  {status}  {fr.flow_id:<40} {meta}")
     if fr.trace:
         console.print(f"         [dim]↳ {' → '.join(fr.trace)}[/dim]")

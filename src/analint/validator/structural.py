@@ -441,12 +441,24 @@ def validate_structural(spec: Spec) -> list[Finding]:
 
     # Flows: action steps registered; requires order respected; checkpoints and
     # given validated; checkpoints without a given would never run.
+    registered_action_ids = {id(a) for a in spec.actions}
     for flow in spec.flows:
         loc = f"flow:{flow.id}"
         action_steps = [s for s in flow.steps if isinstance(s, Action)]
         for step in action_steps:
-            if step.id not in action_ids:
-                findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
+            # Identity, not just a matching id string: the runner executes this
+            # very object, so a foreign Action sharing a registered id must fail.
+            if id(step) not in registered_action_ids:
+                if step.id in action_ids:
+                    findings.append(
+                        err(
+                            loc,
+                            f"step '{step.id}' is a different object than the registered "
+                            f"action with that id — reference the registered Action, not a copy",
+                        )
+                    )
+                else:
+                    findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
         seen_steps: set[str] = set()
         for step in action_steps:
             for req in step.requires:
@@ -476,19 +488,31 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     findings.append(
                         err(loc, f"Emitted(...) needs an Event class, got {step.event_cls!r}")
                     )
+                elif step.event_cls not in spec.events:
+                    # Identity, not name: a checkpoint asserts this exact Event type.
+                    findings.append(
+                        err(loc, f"Emitted event '{step.event_cls.__name__}' not in spec.events")
+                    )
             elif not isinstance(step, Action):
                 findings.append(
                     err(loc, f"flow step '{step!r}' is not an Action, Assert(...) or Emitted(...)")
                 )
 
-        findings.extend(_validate_given_snapshots(flow.given, spec, scoped_entities, loc, "given"))
-        if has_checkpoints and not flow.given:
-            findings.append(
-                warn(
-                    loc,
-                    "flow has checkpoints but no given — it is not executed, so the "
-                    "checkpoints never run; add given= to run it",
+        findings.extend(
+            _validate_given_snapshots(flow.given or [], spec, scoped_entities, loc, "given")
+        )
+        if flow.given is None:
+            if has_checkpoints:
+                findings.append(
+                    warn(
+                        loc,
+                        "flow has checkpoints but no given — it is not executed, so the "
+                        "checkpoints never run; add given= to run it",
+                    )
                 )
+        elif not action_steps:
+            findings.append(
+                warn(loc, "executable flow (given= set) has no action steps — it does nothing")
             )
 
     return findings

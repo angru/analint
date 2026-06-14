@@ -432,16 +432,34 @@ Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Mana
 
 ### Flow
 
-An ordered journey declaration. It is currently structural documentation: the
-linter verifies `requires` order, but does not execute state through the steps.
+An ordered journey. With `given=` it is **executed**: each action runs through
+the same transition kernel — its post-state feeds the next — and checkpoints
+(`Assert` / `Emitted`) interleaved in `steps` are checked against the state
+reached so far. The first rejected action or failed checkpoint fails the flow
+(and the run) with a trace; a reached state that breaks an invariant fails it too.
 
 ```python
-from analint import Flow
+from analint import Flow, Assert, Emitted
 
 purchase_flow = Flow(
-    steps=[login, browse, checkout],
+    given=[Cart(items=0), Wallet(balance=100)],
+    steps=[
+        add_item,
+        Assert(Cart.items == 1),
+        checkout,
+        Assert(Order.status == OrderStatus.PAID),
+        Emitted(OrderPaid),
+    ],
     description="Full customer purchase journey",
 )
+```
+
+Without `given=` (the default) a Flow stays a documented journey: the linter
+verifies `requires` order and shows it, but does not execute state through the
+steps.
+
+```python
+purchase_journey = Flow(steps=[login, browse, checkout], description="...")
 ```
 
 ### Reachability queries

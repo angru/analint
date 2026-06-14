@@ -34,12 +34,17 @@ class Flow:
     appear anywhere: run several actions, then assert once. Each action must be
     accepted; the first rejected/defective step fails the flow with a trace.
 
-    A flow with a non-empty ``given`` is executed; a flow with only steps and no
-    ``given`` stays a documented journey (validated structurally, shown, but not
-    run), preserving the original journey-documentation use.
+    ``given`` is the execution-mode switch, independent of how many snapshots the
+    initial state needs: ``None`` (the default) is a documented journey —
+    validated structurally and shown, but not run; a list (even empty) makes the
+    flow executable, with the initial state seeded from those snapshots plus
+    default-constructible entities.
     """
 
-    steps: list[Any] = dc_field(default_factory=list)  # Action | Assert | Emitted
-    given: list[Any] = dc_field(default_factory=list)  # Entity / InstanceRef snapshots
+    # The closed grammar is ``Action | Assert | Emitted``, enforced by structural
+    # validation; the field stays ``list[Any]`` so pydantic neither re-validates
+    # nor copies the step objects (the flow runner relies on their identity).
+    steps: list[Any] = dc_field(default_factory=list)
+    given: list[Any] | None = None  # None = documentation; a list = executable
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""

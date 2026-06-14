@@ -876,7 +876,7 @@
     "flows": {
       "board-onboarding": {
         "passed": true,
-        "steps_run": 2,
+        "actions_run": 2,
         "trace": [
           "invite_member",
           "create_card"

@@ -39,11 +39,14 @@ src/analint/
     root.py                 ← Spec (top-level aggregate)
 
   validator/
-    engine.py               ← orchestration: load → auto-populate → structural → scenarios → queries
+    engine.py               ← orchestration: load → auto-populate → structural → scenarios → flows → invariants → queries
     structural.py           ← static validation (refs, cycles, payload bindings, terminal)
-    scenario_runner.py      ← invariants → pre → effects (simultaneous) → post → then
+    kernel.py               ← step(spec, action, ctx): the one transition primitive (scenario + explorer + flow)
+    scenario_runner.py      ← one transition via kernel.step + invariants/then
+    flow_runner.py          ← executable Flow: a journey of actions + checkpoints via kernel.step
+    state_checks.py         ← shared invariant checks over a state (scenario + flow)
     rule_checker.py         ← evaluate(pred, context) and resolve(operand, context)
-    explorer.py             ← bounded reachability: BFS, traces, query evaluation
+    explorer.py             ← bounded reachability: BFS, traces, query + canonical invariant verification
 
   reporter/                 ← Finding/ScenarioResult/ValidationResult, terminal + JSON output
 

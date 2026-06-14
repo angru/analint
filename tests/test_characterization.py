@@ -121,7 +121,7 @@ def _characterize(path: Path) -> dict:
         "flows": {
             fr.flow_id: {
                 "passed": fr.passed,
-                "steps_run": fr.steps_run,
+                "actions_run": fr.actions_run,
                 "trace": fr.trace,
                 "findings_hash": _finding_digest(fr.findings),
             }

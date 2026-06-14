@@ -84,7 +84,7 @@ class FlowResult:
     flow_id: str
     passed: bool
     findings: list[Finding] = field(default_factory=list)
-    steps_run: int = 0
+    actions_run: int = 0  # actions executed (checkpoints are not counted)
     trace: list[str] = field(default_factory=list)
 
 

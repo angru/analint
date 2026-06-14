@@ -71,7 +71,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             {
                 "id": fr.flow_id,
                 "passed": fr.passed,
-                "steps_run": fr.steps_run,
+                "actions_run": fr.actions_run,
                 "trace": fr.trace,
                 "findings": [
                     {"severity": f.severity.value, "location": f.location, "message": f.message}

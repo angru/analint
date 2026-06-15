@@ -14,8 +14,13 @@ What is modelled (bounded for exhaustive BFS):
   matching `code_verifier` must be presented at redemption.
 - **Multiplicity (step 4):** two authorization-code slots and two token slots,
   two client identities (an honest client and an attacker). This is the real
-  composition + relational-identity experiment — the interception attack that
-  redirect binding and PKCE exist to defeat.
+  multiplicity + relational-identity experiment — the interception attack that
+  redirect binding and PKCE exist to defeat. (It is the first external green
+  evidence model with multiple scopes and relational provenance; `examples/coin`
+  already uses a single scope. Positive *explicit-composition* evidence — an
+  actual ``Contract`` split — is a separate no-semantic-change step, not this one.)
+- **Replay detection / revocation (step 5):** RFC 6749 §10.5 — a replayed code is
+  denied and its derived token revoked.
 
 Verified across every reachable action order:
 
@@ -70,6 +75,7 @@ from analint import (
     Flow,
     ForAll,
     Implies,
+    In,
     Lifecycle,
     Param,
     Reachable,
@@ -86,11 +92,13 @@ class CodeState(StrEnum):
     UNISSUED = "unissued"  # no code issued yet for this slot
     ISSUED = "issued"  # a single-use authorization code is outstanding
     REDEEMED = "redeemed"  # the code has been exchanged for a token (spent)
+    REPLAY_DETECTED = "replay_detected"  # a second use was detected (RFC 6749 §10.5)
 
 
 class TokenState(StrEnum):
     ABSENT = "absent"
     ACTIVE = "active"
+    REVOKED = "revoked"  # revoked after the code's replay was detected
 
 
 class Client(StrEnum):
@@ -125,8 +133,11 @@ class AuthCode(Entity):
         transitions=[
             Transition(CodeState.UNISSUED, [CodeState.ISSUED]),
             Transition(CodeState.ISSUED, [CodeState.REDEEMED]),
+            Transition(CodeState.REDEEMED, [CodeState.REPLAY_DETECTED]),
         ],
-        terminal=[CodeState.REDEEMED],  # a spent code is frozen — single-use
+        # Single-use still holds: redemption requires ISSUED, so a REDEEMED code
+        # can only progress to REPLAY_DETECTED, never be redeemed again.
+        terminal=[CodeState.REPLAY_DETECTED],
     )
     code_id: CodeId = Field(CodeId.C1)  # this slot's stable identity (set at issue)
     client: Client = Field(Client.HONEST)  # the client the code was issued to
@@ -137,8 +148,11 @@ class AuthCode(Entity):
 class Token(Entity):
     state: TokenState = Lifecycle(
         initial=TokenState.ABSENT,
-        transitions=[Transition(TokenState.ABSENT, [TokenState.ACTIVE])],
-        terminal=[TokenState.ACTIVE],
+        transitions=[
+            Transition(TokenState.ABSENT, [TokenState.ACTIVE]),
+            Transition(TokenState.ACTIVE, [TokenState.REVOKED]),
+        ],
+        terminal=[TokenState.REVOKED],
     )
     source_code: CodeId = Field(CodeId.C1)  # the code this token was minted from
     issued_to: Client = Field(Client.HONEST)  # the client that received the token
@@ -207,6 +221,29 @@ redeem_code = Action(
         Set(token.issued_to, as_client),
         Set(token.via_redirect, presented),
         Set(token.via_verifier, verifier),
+    ],
+)
+
+detect_replay_and_revoke = Action(
+    name="A replayed code is detected: deny re-use and revoke its derived token",
+    params=[code, code_id, token, as_client, presented, verifier],
+    where=_slot_is_its_id,
+    # RFC 6749 §10.5: if a code is used more than once, the server MUST deny the
+    # request and SHOULD revoke tokens previously issued from that code. The
+    # replay presents the same (valid) credentials for an already-redeemed code;
+    # the server revokes exactly the token derived from this code. No new token
+    # is minted.
+    pre=[
+        code.state == CodeState.REDEEMED,
+        as_client == code.client,
+        presented == code.redirect,
+        verifier == code.challenge,
+        token.state == TokenState.ACTIVE,
+        token.source_code == code_id,  # the token derived from THIS code
+    ],
+    effect=[
+        Set(code.state, CodeState.REPLAY_DETECTED),
+        Set(token.state, TokenState.REVOKED),
     ],
 )
 
@@ -307,6 +344,60 @@ sc_attacker_wrong_verifier = Scenario(
     expected=Expect.FAIL,
 )
 
+sc_replay_revokes_derived_token = Scenario(
+    name="Replaying a redeemed code is detected and revokes its derived token",
+    action=detect_replay_and_revoke.bind(
+        code=codes["c1"],
+        code_id=CodeId.C1,
+        token=tokens["t1"],
+        as_client=Client.HONEST,
+        presented=Redirect.A,
+        verifier=Pkce.V1,
+    ),
+    given=[
+        codes["c1"](
+            state=CodeState.REDEEMED,
+            code_id=CodeId.C1,
+            client=Client.HONEST,
+            redirect=Redirect.A,
+            challenge=Pkce.V1,
+        ),
+        codes["c2"](),
+        tokens["t1"](state=TokenState.ACTIVE, source_code=CodeId.C1, issued_to=Client.HONEST),
+        tokens["t2"](),
+    ],
+    then=[
+        Assert(codes["c1"].state == CodeState.REPLAY_DETECTED),
+        Assert(tokens["t1"].state == TokenState.REVOKED),
+    ],
+)
+
+sc_revoke_unrelated_token_blocked = Scenario(
+    name="Replay detection cannot revoke a token that did not come from this code",
+    action=detect_replay_and_revoke.bind(
+        code=codes["c1"],
+        code_id=CodeId.C1,
+        token=tokens["t1"],
+        as_client=Client.HONEST,
+        presented=Redirect.A,
+        verifier=Pkce.V1,
+    ),
+    given=[
+        codes["c1"](
+            state=CodeState.REDEEMED,
+            code_id=CodeId.C1,
+            client=Client.HONEST,
+            redirect=Redirect.A,
+            challenge=Pkce.V1,
+        ),
+        codes["c2"](),
+        # t1 is active but derived from a DIFFERENT code (C2) — must not be revoked.
+        tokens["t1"](state=TokenState.ACTIVE, source_code=CodeId.C2, issued_to=Client.HONEST),
+        tokens["t2"](),
+    ],
+    expected=Expect.FAIL,
+)
+
 
 # ── Flow — the executable happy path ─────────────────────────────────────────────
 flow_happy_path = Flow(
@@ -333,11 +424,47 @@ flow_happy_path = Flow(
     ],
 )
 
+# A replay of the redeemed code is detected and its token is revoked.
+flow_replay_revokes = Flow(
+    given=[codes["c1"](), codes["c2"](), tokens["t1"](), tokens["t2"]()],
+    steps=[
+        issue_code.bind(
+            code=codes["c1"],
+            code_id=CodeId.C1,
+            client=Client.HONEST,
+            redirect=Redirect.A,
+            challenge=Pkce.V1,
+        ),
+        redeem_code.bind(
+            code=codes["c1"],
+            code_id=CodeId.C1,
+            token=tokens["t1"],
+            as_client=Client.HONEST,
+            presented=Redirect.A,
+            verifier=Pkce.V1,
+        ),
+        Assert(tokens["t1"].state == TokenState.ACTIVE),
+        detect_replay_and_revoke.bind(
+            code=codes["c1"],
+            code_id=CodeId.C1,
+            token=tokens["t1"],
+            as_client=Client.HONEST,
+            presented=Redirect.A,
+            verifier=Pkce.V1,
+        ),
+        Assert(codes["c1"].state == CodeState.REPLAY_DETECTED),
+        Assert(tokens["t1"].state == TokenState.REVOKED),
+    ],
+)
+
 
 # ── Queries — properties across every reachable action order ──────────────────────
 honest_flow_reaches_token = Reachable(
-    Exists(token_q, token_q.state == TokenState.ACTIVE),
-    label="the honest authorization-code flow can obtain an access token",
+    Exists(
+        token_q,
+        And(token_q.state == TokenState.ACTIVE, token_q.issued_to == Client.HONEST),
+    ),
+    label="the honest client can obtain an access token",
 )
 
 # Relational provenance: every active token came from a redeemed code that was
@@ -347,18 +474,18 @@ every_token_traces_to_its_code = AlwaysHolds(
     ForAll(
         token_q,
         Implies(
-            token_q.state == TokenState.ACTIVE,
+            token_q.state != TokenState.ABSENT,  # active or revoked
             Exists(
                 code_q,
                 And(
-                    code_q.state == CodeState.REDEEMED,
+                    In(code_q.state, [CodeState.REDEEMED, CodeState.REPLAY_DETECTED]),
                     token_q.source_code == code_q.code_id,
                     token_q.issued_to == code_q.client,
                 ),
             ),
         ),
     ),
-    label="every active token came from a redeemed code issued to that same client",
+    label="every token (active or revoked) came from a spent code issued to that client",
 )
 
 no_token_to_wrong_client = Unreachable(
@@ -409,13 +536,54 @@ no_token_with_wrong_verifier = Unreachable(
     label="a token is never issued without the PKCE verifier matching the challenge",
 )
 
+# ── Step 5: replay detection / revocation properties ──────────────────────────────
+replay_can_reach_revocation = Reachable(
+    Exists(token_q, token_q.state == TokenState.REVOKED),
+    label="a replayed code can be detected and its derived token revoked",
+)
+
+only_replayed_codes_tokens_are_revoked = Unreachable(
+    Exists(
+        token_q,
+        Exists(
+            code_q,
+            And(
+                token_q.state == TokenState.REVOKED,
+                # its real source code (REDEEMED-but-not-yet-replay-detected) —
+                # constraining the code state avoids matching an unissued slot
+                # that still carries the default code_id.
+                code_q.state == CodeState.REDEEMED,
+                token_q.source_code == code_q.code_id,
+            ),
+        ),
+    ),
+    label="a token is only revoked when its source code's replay was detected",
+)
+
+replay_detected_code_has_no_active_token = Unreachable(
+    Exists(
+        token_q,
+        Exists(
+            code_q,
+            And(
+                code_q.state == CodeState.REPLAY_DETECTED,
+                token_q.source_code == code_q.code_id,
+                token_q.state == TokenState.ACTIVE,
+            ),
+        ),
+    ),
+    label="a code whose replay was detected has no still-active derived token",
+)
+
 
 spec = Spec(
     id="oauth",
     name="OAuth 2.0 authorization-code grant + PKCE (RFC 6749 §4.1, RFC 7636)",
-    version="0.4.0",
+    version="0.5.0",
     description="Two clients (honest + attacker), two code slots and two token "
     "slots: a code is issued bound to client/redirect/PKCE and redeemed exactly "
-    "once only when all three match. The interception attack redirect binding and "
-    "PKCE exist to defeat. Replay detection / revocation arrives next (research/24).",
+    "once only when all three match; a replayed code is detected and its derived "
+    "token revoked (RFC 6749 §10.5). Bounded and atomic: at most one token per "
+    "code; concurrent duplicate issuance across distributed endpoints is not "
+    "modelled. Next: a no-semantic-change Contract split, then a Quint/FizzBee port.",
 )

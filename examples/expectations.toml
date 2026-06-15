@@ -1,0 +1,149 @@
+# Example intent manifest (P4.0c, research/26).
+#
+# One entry per directory under examples/ that contains a spec.py. Each entry
+# records the INTENDED outcome of `analint check examples/<name>` so that a
+# behavioural regression is caught separately from the characterization snapshot
+# (tests/snapshots/examples.json keeps the exact graph/state details; this file
+# keeps the human-meaningful verdict).
+#
+# Fields:
+#   verdict           — expected effective verdict: "PASS" | "FAIL" | "INCONCLUSIVE"
+#   exit_code         — expected CLI exit code (PASS=0, FAIL=1, load-error=3, INCONCLUSIVE=4)
+#   broken            — true if the example is DELIBERATELY red (a teaching/demo failure)
+#   failed_scenarios  — scenario ids expected to fail (Expect.FAIL scenarios PASS, so are NOT listed)
+#   failed_queries    — query ids expected to report FAIL
+#   failed_invariants — invariant ids expected to report FAIL
+#   failed_flows      — flow ids expected to fail
+#   warning_locations — sorted, de-duplicated locations of expected WARNING findings
+#   source            — external system / research reference, if any
+#
+# When this file and the checker disagree, do NOT bless the new output: either fix
+# a regression, or update this entry with a reviewed explanation.
+
+[branch_protection]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "GitHub protected-branch / required pull-request policy (research/23)"
+
+[cloak]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "Cloak of Darkness interactive-fiction benchmark (research/06)"
+
+[coin]
+verdict = "FAIL"
+exit_code = 1
+broken = true
+failed_scenarios = []
+failed_queries = ["supply_never_overflows"]
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "Quint coin.qnt tutorial; the total-supply overflow lesson is reproduced (research/15)"
+
+[ecommerce]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = ["action:checkout"]
+source = ""
+
+[fulfillment]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = ""
+
+[mafia]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = ""
+
+[oauth]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "OAuth 2.0 Authorization Code + PKCE, RFC 6749 §4.1 / RFC 7636 (research/24)"
+
+[sunless_crypt]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = [
+    "action:back_to_entrance",
+    "action:enter_altar",
+    "action:enter_armory",
+    "action:enter_crypt_lit",
+    "action:enter_hall",
+    "action:enter_vault",
+    "action:leave_altar",
+    "action:leave_armory",
+    "action:leave_crypt",
+    "action:leave_vault",
+    "action:light_torch",
+    "action:take_amulet",
+    "action:take_sword",
+]
+source = ""
+
+[taskboard]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = [
+    "action:move_card",
+    "action:read_notification",
+    "action:send_notification",
+]
+source = ""
+
+[trollbridge]
+verdict = "FAIL"
+exit_code = 1
+broken = true
+failed_scenarios = []
+failed_queries = ["hp_never_negative", "no_softlock"]
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "Deliberately-red demo: a softlock and an HP-underflow are left in (research/06 family)"

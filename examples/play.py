@@ -3,14 +3,19 @@
     uv run python examples/play.py sunless_crypt
     uv run python examples/play.py sunless_crypt --choices 1,3,2,...   # scripted
 
-The framework has no executor — it describes and checks systems, it does not run
-them. This script lives entirely in the examples folder and treats analint as a
-library: it reads the model (entities, actions, lifecycles) and drives it.
+The framework describes and checks systems; it does not ship an executor. This
+script lives entirely in the examples folder and treats analint as a library: it
+reads the model (entities, actions, lifecycles) and drives it through the **same
+transition kernel the checker uses** — ``analint.validator.kernel.step`` — so a
+played move can never diverge from scenario/flow/explorer semantics. An action is
+offered as a choice exactly when ``step`` ACCEPTS it; the move's next state is the
+kernel's ``post_context``.
 
-It re-derives one "step" by hand from three framework internals —
-``evaluate`` (is a precondition true?), ``_apply_effects`` (next state) and the
-field ``clamp`` (saturating bounds) — which is precisely the seam the planned
-transition kernel will expose as a single reusable ``step()``.
+Scope: the runner enforces *transition legality* only (preconditions, effects,
+field bounds, lifecycle transitions and postconditions, all via ``step``). It does
+NOT additionally assert world ``Invariant``s — those are verified separately by
+``analint check``. So "playable" means "every move is a legal transition", and the
+invariants are someone else's (the checker's) job.
 
 Mechanics come entirely from the model. Prose does not: the game module supplies
 ``describe(ctx)`` / ``INTRO`` / ``ENDINGS`` as ordinary Python beside the spec.
@@ -23,15 +28,16 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any
 
-from analint.models.entity import all_fields
 from analint.validator.engine import build_spec
 from analint.validator.explorer import build_initial
-from analint.validator.rule_checker import evaluate
-from analint.validator.scenario_runner import _apply_effects
+from analint.validator.kernel import Outcome, step
 
 EXAMPLES = Path(__file__).parent
+
+# Bound to a name on purpose: ruff format 0.15.14 miscompiles an inline
+# `except (ValueError, EOFError):` into invalid `except ValueError, EOFError:`.
+_INPUT_ABORTED = (ValueError, EOFError)
 
 
 def _load_game(name: str):
@@ -46,24 +52,15 @@ def _load_game(name: str):
     return spec, module
 
 
-def _enabled(action, ctx: dict) -> bool:
-    try:
-        return all(evaluate(pred, ctx) for pred in action.pre)
-    except Exception:
-        return False
+def _try(spec, action, ctx: dict) -> dict | None:
+    """Return the next state if the kernel ACCEPTS this transition, else None."""
+    result = step(spec, action, ctx)
+    if result.outcome is Outcome.ACCEPTED:
+        return result.post_context
+    return None
 
 
-def _step(action, ctx: dict) -> dict:
-    post = _apply_effects(action.effect, ctx)
-    for inst in post.values():  # apply saturating bounds, exactly as the engine does
-        for fname, desc in all_fields(type(inst)).items():
-            spec = desc.spec
-            if spec is not None and spec.saturate:
-                inst.__dict__[fname] = spec.clamp(inst.__dict__.get(fname))
-    return post
-
-
-def _ending(spec, ctx: dict) -> Any | None:
+def _ending(spec, ctx: dict):
     """Return the terminal lifecycle value if the game is over, else None."""
     for lc in spec.lifecycles:
         inst = ctx.get(lc.entity_cls)
@@ -96,9 +93,11 @@ def main() -> None:
         while fired_auto:
             fired_auto = False
             for action in spec.actions:
-                if action.id in auto and _enabled(action, ctx):
-                    ctx = _step(action, ctx)
-                    fired_auto = True
+                if action.id in auto:
+                    post = _try(spec, action, ctx)
+                    if post is not None:
+                        ctx = post
+                        fired_auto = True
 
         end = _ending(spec, ctx)
         if end is not None:
@@ -106,11 +105,15 @@ def main() -> None:
             return
 
         print("\n" + game.describe(ctx))
-        choices = [a for a in spec.actions if a.id not in auto and _enabled(a, ctx)]
+        choices = [
+            (a, post)
+            for a in spec.actions
+            if a.id not in auto and (post := _try(spec, a, ctx)) is not None
+        ]
         if not choices:
             print("\nThere is nothing you can do. (softlock)")
             return
-        for i, action in enumerate(choices, 1):
+        for i, (action, _post) in enumerate(choices, 1):
             print(f"  {i}. {action.name or action.id}")
 
         if scripted is not None:
@@ -122,13 +125,13 @@ def main() -> None:
         else:
             try:
                 pick = int(input("> ").strip())
-            except ValueError, EOFError:
+            except _INPUT_ABORTED:
                 print("\n(quit)")
                 return
         if not 1 <= pick <= len(choices):
             print("no such choice")
             continue
-        ctx = _step(choices[pick - 1], ctx)
+        ctx = choices[pick - 1][1]
 
 
 if __name__ == "__main__":

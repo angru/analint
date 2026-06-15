@@ -860,6 +860,91 @@
     },
     "flows": {}
   },
+  "oauth": {
+    "verdict": "PASS",
+    "warnings": 0,
+    "scenarios": {
+      "sc_issue": {
+        "status": "PASS",
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_redeem": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_redeem_wrong_redirect": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "3f611e148955cb64"
+      }
+    },
+    "queries": {
+      "honest_flow_reaches_token": {
+        "status": "PASS",
+        "states": 5,
+        "exploration": "ada3ae7ef7533c03",
+        "trace": [
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)"
+        ],
+        "findings_hash": "36f857a637d7374c"
+      },
+      "no_token_via_mismatched_redirect": {
+        "status": "PASS",
+        "states": 5,
+        "exploration": "ada3ae7ef7533c03",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "no_token_without_redeemed_code": {
+        "status": "PASS",
+        "states": 5,
+        "exploration": "ada3ae7ef7533c03",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "explorations": {
+      "ada3ae7ef7533c03": {
+        "states": 5,
+        "edges": 4,
+        "states_hash": "474098d4521bc824",
+        "edges_hash": "f4168d313293692a",
+        "roots": 1,
+        "roots_hash": "3c355fc725f9a5be",
+        "findings_hash": "e3b0c44298fc1c14",
+        "fired": [
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
+          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)",
+          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>)"
+        ],
+        "excluded": {},
+        "incomplete": []
+      }
+    },
+    "invariants": {
+      "token_implies_redeemed": {
+        "status": "PASS",
+        "states": 5,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "flows": {
+      "flow_happy_path": {
+        "passed": true,
+        "actions_run": 2,
+        "trace": [
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)"
+        ],
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    }
+  },
   "sunless_crypt": {
     "verdict": "PASS",
     "warnings": 13,

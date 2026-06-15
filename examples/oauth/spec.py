@@ -30,10 +30,13 @@ from analint import (
     And,
     Assert,
     Entity,
+    Expect,
+    Field,
     Flow,
     Implies,
     Invariant,
     Lifecycle,
+    Param,
     Reachable,
     Scenario,
     Set,
@@ -54,6 +57,13 @@ class TokenState(StrEnum):
     ACTIVE = "active"
 
 
+# STEP 2: registered redirect URIs — finite identity values (RFC 6749 §4.1.3
+# binds redemption to the redirect URI the code was issued for).
+class Redirect(StrEnum):
+    A = "https://app-a.example/cb"
+    B = "https://app-b.example/cb"
+
+
 class AuthCode(Entity):
     state: CodeState = Lifecycle(
         initial=CodeState.UNISSUED,
@@ -63,6 +73,7 @@ class AuthCode(Entity):
         ],
         terminal=[CodeState.REDEEMED],  # a spent code is frozen — single-use
     )
+    redirect: Redirect = Field(Redirect.A)  # the redirect URI the code is bound to
 
 
 class Token(Entity):
@@ -71,21 +82,37 @@ class Token(Entity):
         transitions=[Transition(TokenState.ABSENT, [TokenState.ACTIVE])],
         terminal=[TokenState.ACTIVE],
     )
+    via_redirect: Redirect = Field(Redirect.A)  # redirect presented when redeemed
 
 
 # ── Actions — RFC 6749 §4.1 happy path ───────────────────────────────────────────
+redirect = Param("redirect", Redirect.A, Redirect.B)
+presented = Param("presented", Redirect.A, Redirect.B)
+
 issue_code = Action(
-    name="The authorization server issues a code after the owner approves",
+    name="The authorization server issues a code bound to a redirect URI",
+    params=[redirect],
     pre=[AuthCode.state == CodeState.UNISSUED],
-    effect=[Set(AuthCode.state, CodeState.ISSUED)],
+    effect=[
+        Set(AuthCode.state, CodeState.ISSUED),
+        Set(AuthCode.redirect, redirect),
+    ],
 )
 
 redeem_code = Action(
-    name="The client exchanges the authorization code for an access token",
-    pre=[AuthCode.state == CodeState.ISSUED, Token.state == TokenState.ABSENT],
+    name="The client redeems the code, presenting a redirect URI that must match",
+    params=[presented],
+    # STEP 2: RFC 6749 §4.1.3 — redemption only succeeds when the presented
+    # redirect URI matches the one the code was bound to at issuance.
+    pre=[
+        AuthCode.state == CodeState.ISSUED,
+        Token.state == TokenState.ABSENT,
+        presented == AuthCode.redirect,
+    ],
     effect=[
         Set(AuthCode.state, CodeState.REDEEMED),
         Set(Token.state, TokenState.ACTIVE),
+        Set(Token.via_redirect, presented),
     ],
 )
 
@@ -99,20 +126,30 @@ token_implies_redeemed = Invariant(
 
 # ── Scenarios ────────────────────────────────────────────────────────────────────
 sc_issue = Scenario(
-    name="A code is issued after approval",
-    action=issue_code,
+    name="A code is issued after approval, bound to its redirect URI",
+    action=issue_code.bind(redirect=Redirect.A),
     given=[AuthCode()],
-    then=[Assert(AuthCode.state == CodeState.ISSUED)],
+    then=[
+        Assert(AuthCode.state == CodeState.ISSUED),
+        Assert(AuthCode.redirect == Redirect.A),
+    ],
 )
 
 sc_redeem = Scenario(
-    name="An issued code is exchanged for a token",
-    action=redeem_code,
-    given=[AuthCode(state=CodeState.ISSUED), Token()],
+    name="An issued code is exchanged for a token with the matching redirect",
+    action=redeem_code.bind(presented=Redirect.A),
+    given=[AuthCode(state=CodeState.ISSUED, redirect=Redirect.A), Token()],
     then=[
         Assert(Token.state == TokenState.ACTIVE),
         Assert(AuthCode.state == CodeState.REDEEMED),
     ],
+)
+
+sc_redeem_wrong_redirect = Scenario(
+    name="Redemption with a non-matching redirect URI is rejected",
+    action=redeem_code.bind(presented=Redirect.B),
+    given=[AuthCode(state=CodeState.ISSUED, redirect=Redirect.A), Token()],
+    expected=Expect.FAIL,
 )
 
 
@@ -120,9 +157,9 @@ sc_redeem = Scenario(
 flow_happy_path = Flow(
     given=[AuthCode(), Token()],
     steps=[
-        issue_code,
+        issue_code.bind(redirect=Redirect.A),
         Assert(AuthCode.state == CodeState.ISSUED),
-        redeem_code,
+        redeem_code.bind(presented=Redirect.A),
         Assert(Token.state == TokenState.ACTIVE),
         Assert(AuthCode.state == CodeState.REDEEMED),
     ],
@@ -138,6 +175,11 @@ honest_flow_reaches_token = Reachable(
 no_token_without_redeemed_code = Unreachable(
     And(Token.state == TokenState.ACTIVE, AuthCode.state != CodeState.REDEEMED),
     label="a token can never exist without a redeemed authorization code",
+)
+
+no_token_via_mismatched_redirect = Unreachable(
+    And(Token.state == TokenState.ACTIVE, Token.via_redirect != AuthCode.redirect),
+    label="a token is never issued via a redirect URI other than the code's binding",
 )
 
 

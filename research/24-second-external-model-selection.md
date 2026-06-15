@@ -100,6 +100,23 @@ Duplicating entities or actions merely to make the contracts look modular
 would be a failed experiment. One purpose of this case is to determine whether
 `Contract` is semantic composition or only packaging.
 
+**Finding (decided 2026-06-15): PKCE cannot be a separate additive contract.**
+`Contract` (src/analint/models/contract.py) is a closed union of whole
+behavioural fragments with identity deduplication. It offers no entity-schema
+extension and no way to add a guard/effect to an existing action. PKCE *refines*
+an existing entity (a `challenge` field on `AuthCode`) and an existing transition
+(a verifier guard on `redeem_code`). A parallel PKCE redemption action would
+leave the original `redeem_code` as a PKCE bypass; closing that bypass requires
+modifying or excluding the core action, which is no longer additive composition.
+Precise conclusion: *whole-fragment composition works; cross-cutting behavioural
+refinement is unsupported*. PKCE is therefore integrated into the canonical model
+(`examples/oauth/spec.py`), and this failed expectation is kept as the evidence.
+One case does not justify adding refinement semantics (`Action.refine()`,
+overlays, replacement) — those need conflict rules, version semantics and
+entity-schema composition. Client registration vs the auth-code core may still be
+a genuine ownership split; step 4 exercises ordinary composition and multiplicity
+on its own terms.
+
 ### Baseline actions
 
 - issue a code after an approved authorization request;
@@ -137,7 +154,8 @@ Save and measure these changes independently:
 
 1. implement the RFC 6749 authorization-code core for one client;
 2. enforce exact redirect URI binding;
-3. add PKCE as a separate contract;
+3. add PKCE — planned as a separate contract, but it refines existing state and
+   transitions, so it is integrated (see the Contract finding above);
 4. add a second client and intercepted-code attacker actions;
 5. add replay detection and the selected token-revocation policy.
 

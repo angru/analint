@@ -871,55 +871,71 @@
       },
       "sc_redeem": {
         "status": "PASS",
-        "rules": 4,
+        "rules": 5,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_redeem_wrong_redirect": {
         "status": "PASS",
-        "rules": 4,
-        "findings_hash": "3f611e148955cb64"
+        "rules": 5,
+        "findings_hash": "17e3b49751da88d5"
+      },
+      "sc_redeem_wrong_verifier": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "cb23f511d06bb9f0"
       }
     },
     "queries": {
       "honest_flow_reaches_token": {
         "status": "PASS",
-        "states": 5,
-        "exploration": "ada3ae7ef7533c03",
+        "states": 9,
+        "exploration": "3176721079aab325",
         "trace": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)"
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
-        "findings_hash": "36f857a637d7374c"
+        "findings_hash": "1759b52c9d963029"
       },
       "no_token_via_mismatched_redirect": {
         "status": "PASS",
-        "states": 5,
-        "exploration": "ada3ae7ef7533c03",
+        "states": 9,
+        "exploration": "3176721079aab325",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "no_token_with_wrong_verifier": {
+        "status": "PASS",
+        "states": 9,
+        "exploration": "3176721079aab325",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "no_token_without_redeemed_code": {
         "status": "PASS",
-        "states": 5,
-        "exploration": "ada3ae7ef7533c03",
+        "states": 9,
+        "exploration": "3176721079aab325",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
-      "ada3ae7ef7533c03": {
-        "states": 5,
-        "edges": 4,
-        "states_hash": "474098d4521bc824",
-        "edges_hash": "f4168d313293692a",
+      "3176721079aab325": {
+        "states": 9,
+        "edges": 8,
+        "states_hash": "7bf7d1d5bf309a82",
+        "edges_hash": "af76cc711073f843",
         "roots": 1,
-        "roots_hash": "3c355fc725f9a5be",
+        "roots_hash": "d53c816e1d6d948e",
         "findings_hash": "e3b0c44298fc1c14",
         "fired": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
-          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)",
-          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>)"
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)"
         ],
         "excluded": {},
         "incomplete": []
@@ -928,7 +944,7 @@
     "invariants": {
       "token_implies_redeemed": {
         "status": "PASS",
-        "states": 5,
+        "states": 9,
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
@@ -938,8 +954,8 @@
         "passed": true,
         "actions_run": 2,
         "trace": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>)"
+          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
         "findings_hash": "e3b0c44298fc1c14"
       }

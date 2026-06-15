@@ -864,6 +864,16 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
+      "sc_attacker_wrong_client": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "1c1c3d820a5c1108"
+      },
+      "sc_attacker_wrong_verifier": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "712faf2f0ea8a84a"
+      },
       "sc_issue": {
         "status": "PASS",
         "rules": 1,
@@ -873,89 +883,119 @@
         "status": "PASS",
         "rules": 5,
         "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_redeem_wrong_redirect": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "17e3b49751da88d5"
-      },
-      "sc_redeem_wrong_verifier": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "cb23f511d06bb9f0"
       }
     },
     "queries": {
+      "every_token_traces_to_its_code": {
+        "status": "PASS",
+        "states": 497,
+        "exploration": "ebff17022adcc431",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
       "honest_flow_reaches_token": {
         "status": "PASS",
-        "states": 9,
-        "exploration": "3176721079aab325",
+        "states": 497,
+        "exploration": "ebff17022adcc431",
         "trace": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
-        "findings_hash": "1759b52c9d963029"
+        "findings_hash": "3cf3786645d347e9"
+      },
+      "no_token_to_wrong_client": {
+        "status": "PASS",
+        "states": 497,
+        "exploration": "ebff17022adcc431",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "no_token_via_mismatched_redirect": {
         "status": "PASS",
-        "states": 9,
-        "exploration": "3176721079aab325",
+        "states": 497,
+        "exploration": "ebff17022adcc431",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "no_token_with_wrong_verifier": {
         "status": "PASS",
-        "states": 9,
-        "exploration": "3176721079aab325",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "no_token_without_redeemed_code": {
-        "status": "PASS",
-        "states": 9,
-        "exploration": "3176721079aab325",
+        "states": 497,
+        "exploration": "ebff17022adcc431",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
-      "3176721079aab325": {
-        "states": 9,
-        "edges": 8,
-        "states_hash": "7bf7d1d5bf309a82",
-        "edges_hash": "af76cc711073f843",
+      "ebff17022adcc431": {
+        "states": 497,
+        "edges": 944,
+        "states_hash": "afc05ecdca14289c",
+        "edges_hash": "691f3ef3f162b70b",
         "roots": 1,
-        "roots_hash": "d53c816e1d6d948e",
+        "roots_hash": "8da415efd4eca97f",
         "findings_hash": "e3b0c44298fc1c14",
         "fired": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
-          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
-          "issue_code(redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
-          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
-          "redeem_code(presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)"
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.ATTACKER: 'attacker'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "issue_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.B: 'https://app-b.example/cb'>, challenge=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.ATTACKER: 'attacker'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c2'], code_id=<CodeId.C2: 'code-2'>, token=Token['t2'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.B: 'https://app-b.example/cb'>, verifier=<Pkce.V2: 'verifier-2'>)"
         ],
         "excluded": {},
         "incomplete": []
       }
     },
-    "invariants": {
-      "token_implies_redeemed": {
-        "status": "PASS",
-        "states": 9,
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      }
-    },
+    "invariants": {},
     "flows": {
       "flow_happy_path": {
         "passed": true,
         "actions_run": 2,
         "trace": [
-          "issue_code(redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
-          "redeem_code(presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
+          "issue_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
+          "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
         "findings_hash": "e3b0c44298fc1c14"
       }

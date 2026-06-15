@@ -10,3 +10,4 @@ dist/
 .coverage
 htmlcov/
 reviews/
+_apalache-out/

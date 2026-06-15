@@ -332,9 +332,11 @@ consume меняет смысл `Event`; ломает state-chaining саги; �
   complete graph: 1169 states / 2256 edges
 - ✅ the same bounded OAuth case is ported to Quint 0.32.0
   (`examples/oauth/oauth.qnt`): typecheck + 5 run tests + seeded 10k-trace
-  safety simulation pass. Symbolic `quint verify` is not confirmed separately:
-  Apalache requires a Java runtime that is not installed; simulation is not
-  presented as proof
+  safety simulation pass, AND symbolic `quint verify` (Apalache, `allSafety`,
+  12 steps) passes — `[ok] No violation found` — confirming analint's exhaustive
+  1169-state result on the same bounded model (needs OpenJDK 17; Quint installed
+  globally). One tool-semantics finding: Apalache flags terminal/quiescent states
+  as a deadlock, so the Quint `step` gained a safety-preserving stutter (research/24)
 - ✅ a series of four requirement changes is measured (research/23 "Change
   series"): dismiss-stale off, strict→loose checks, require-approval-of-latest-push,
   allow-bypass — each with its saved diff, state-count delta and blast radius. Two

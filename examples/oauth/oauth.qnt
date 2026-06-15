@@ -143,6 +143,12 @@ module oauth {
       issueCode(codeSlot, client, redirect, verifier),
       redeemCode(codeSlot, tokenSlot, client, redirect, verifier),
       detectReplayAndRevoke(codeSlot, tokenSlot, client, redirect, verifier),
+      // Stutter: idle in terminal/quiescent states. analint treats terminal
+      // states as normal endpoints of its BFS; Apalache's `verify` reports a
+      // state with no enabled action as a deadlock. Stuttering preserves every
+      // safety invariant and removes no real transition, so it makes the
+      // bounded safety check well-defined without weakening it.
+      all { codes' = codes, tokens' = tokens },
     }
   }
 

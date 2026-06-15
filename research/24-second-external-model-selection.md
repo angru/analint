@@ -248,17 +248,26 @@ npx --yes @informalsystems/quint@0.32.0 run examples/oauth/oauth.qnt \
   --max-steps=20 --seed=0x5eed
 ```
 
-Observed on 2026-06-15:
+Observed on 2026-06-15 (Quint 0.32.0 installed globally; OpenJDK 17 via Homebrew):
 
 - typecheck passed;
 - five deterministic run tests passed;
 - the seeded 10,000-trace simulation found no safety violation;
-- `quint verify --invariant=allSafety --max-steps=7` could not start because
-  Apalache requires a Java runtime and this machine has none.
+- `quint verify --invariant=allSafety --max-steps=12` now passes symbolically via
+  Apalache (`[ok] No violation found`, ~35 s) once a Java 17 runtime is present.
 
-The simulation result is **not** claimed as symbolic proof. analint exhaustively
-enumerated 1169 distinct states in-process; Quint's comparable symbolic
-verification remains an environment prerequisite, not a model failure.
+This is bounded symbolic model checking, not random simulation, and it confirms
+analint's exhaustive 1169-state result on the same bounded model.
+
+**Finding — terminal states vs deadlock.** The first `quint verify` run reported a
+"deadlock", not a safety violation: the model reaches quiescent states (all codes
+spent/replay-detected, all tokens revoked) with no enabled action, and Apalache
+flags a state with no successor as a deadlock by default. analint treats such
+terminal states as normal endpoints of its BFS. To make the bounded safety check
+well-defined the Quint `step` gained an explicit stutter alternative
+(`all { codes' = codes, tokens' = tokens }`); stuttering preserves every safety
+invariant and removes no real transition. This is a genuine tool-semantics
+difference worth recording, not a defect in either model.
 
 ### Comparative verdict
 
@@ -268,7 +277,7 @@ verification remains an environment prerequisite, not a model failure.
 | Provenance identity | Extra `CodeId` plus slot-to-ID relation | Map key used directly |
 | Safety syntax | `AlwaysHolds` / `Unreachable`, nested bounds | Boolean invariant over maps and sets |
 | Positive/rejection examples | `Scenario` and executable `Flow` with detailed rule diagnostics | Concise `run` chains and `.fail()` |
-| Exploration result here | Exhaustive: 1169 states, 2256 edges | 10,000 sampled traces; symbolic run blocked by missing Java |
+| Exploration result here | Exhaustive: 1169 states, 2256 edges | 10,000 sampled traces + symbolic `verify` (Apalache, allSafety, 12 steps) — both clean |
 | Source size | 551 lines for protocol + assurance, 26-line root | 285-line combined model and tests |
 | Composition evidence | Explicit versioned contracts, but no dependency declaration or refinement | Native modules/imports; this port is one module |
 

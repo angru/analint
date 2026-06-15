@@ -1,3 +1,4 @@
+# ruff: noqa: E712  (DSL: `== True/False` builds a Predicate; see research/27)
 """Troll Bridge — a deliberately broken micro-RPG.
 
 The economy hides a softlock and the bridge hides a death the author forgot
@@ -55,7 +56,7 @@ gold_not_negative = Invariant(Hero.gold >= 0, label="Gold can not go negative")
 # ── Actions ────────────────────────────────────────────────────────────────────
 
 buy_sword = Action(
-    pre=[hero_alive, Hero.gold >= 5, Hero.has_sword == False],  # noqa: E712
+    pre=[hero_alive, Hero.gold >= 5, Hero.has_sword == False],
     effect=[Subtract(Hero.gold, 5), Set(Hero.has_sword, True)],
 )
 
@@ -70,13 +71,13 @@ drink_potion = Action(
 )
 
 fight_troll = Action(
-    pre=[hero_alive, Troll.alive == True, Hero.has_sword == True],  # noqa: E712
+    pre=[hero_alive, Troll.alive == True, Hero.has_sword == True],
     effect=[Set(Troll.alive, False), Subtract(Hero.hp, 3)],
 )
 
 cross_bridge = Action(
     name="Cross the ruined bridge",
-    pre=[hero_alive, Troll.alive == False],  # noqa: E712
+    pre=[hero_alive, Troll.alive == False],
     effect=[Set(Quest.bridge_crossed, True), Subtract(Hero.hp, 8)],
 )
 
@@ -86,7 +87,7 @@ sc_buy_sword = Scenario(
     name="Sword purchase",
     action=buy_sword,
     given=[Hero(), Troll(), Quest()],
-    then=[Assert(Hero.gold == 1), Assert(Hero.has_sword == True)],  # noqa: E712
+    then=[Assert(Hero.gold == 1), Assert(Hero.has_sword == True)],
 )
 
 sc_cannot_afford_sword = Scenario(
@@ -107,7 +108,7 @@ sc_fight = Scenario(
     name="Armed hero slays the troll",
     action=fight_troll,
     given=[Hero(has_sword=True), Troll(), Quest()],
-    then=[Assert(Troll.alive == False), Assert(Hero.hp == 7)],  # noqa: E712
+    then=[Assert(Troll.alive == False), Assert(Hero.hp == 7)],
 )
 
 sc_no_crossing_with_troll = Scenario(
@@ -127,7 +128,7 @@ sc_buy_two_potions = Scenario(
 # ── Queries — this is where the model breaks ──────────────────────────────────
 
 bridge_is_reachable = Reachable(
-    Quest.bridge_crossed == True,  # noqa: E712
+    Quest.bridge_crossed == True,
     label="the quest can be completed",
 )
 
@@ -135,7 +136,7 @@ bridge_is_reachable = Reachable(
 # the troll is immortal without it → the bridge is unreachable. A classic
 # economy softlock; no scenario above even hints at it.
 no_softlock = NoDeadEnd(
-    goal=Quest.bridge_crossed == True,  # noqa: E712
+    goal=Quest.bridge_crossed == True,
     label="the player can never spend themselves into a corner",
 )
 

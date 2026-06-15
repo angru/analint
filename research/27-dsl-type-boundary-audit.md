@@ -50,11 +50,18 @@ All of them reduce to **two independent mechanisms**, not many bugs:
    `Wallet.balance == 50` is inferred `bool` and `Order.status` is inferred
    `OrderStatus`, although `EntityMeta` returns a symbolic descriptor whose
    `__eq__`/`__ge__` build a `Predicate`. 81 of the sampled diagnostics are this.
-2. **Mutable-collection invariance → `invalid-assignment`.** `list[Set | Subtract]`
-   is not assignable to `list[Effect]`, and a list of concrete predicate node types
-   is not assignable to `list[Predicate]`, even when each element is a valid
-   subtype. 4 of the sampled diagnostics are this. This is an *input-typing*
-   problem, not evidence that the effect/predicate inheritance is wrong.
+2. **Lifecycle-declaration opacity → `invalid-assignment`.** `state: OrderStatus =
+   Lifecycle(...)` is flagged because `Lifecycle[OrderStatus]` is not assignable to
+   `OrderStatus`. This is the *same* dual-view boundary as mechanism 1, not a
+   separate bug: it only appears for `Lifecycle` and not for `Field` because
+   `Field(...)` is typed `-> Any` (so its result is assignable to any annotation),
+   whereas `Lifecycle[S]` is a generic class whose constructor returns `Lifecycle[S]`.
+   4 of the sampled diagnostics are this.
+
+(An earlier draft mislabelled these as mutable-collection invariance; the sampled
+specs contain no `list[Set | Subtract]`-style assignment error — effect and
+predicate lists typecheck. The real `invalid-assignment` is lifecycle-declaration
+opacity.)
 
 assurance.py is clean because it uses named predicate objects and quantifier
 helpers rather than bare class-level comparisons — a hint that mechanism 1 is the
@@ -109,10 +116,13 @@ the real boundaries — that is the main thing P4.0b should tighten.
   and drop the project-wide `invalid-method-override = ignore`. Cost: per-class
   `# ty: ignore[invalid-method-override]` on ~3 classes; net safer (normal classes
   regain override checking).
-- **Collection invariance (`invalid-assignment`, 4).** Accept read-only covariant
-  inputs (`Sequence[Effect]`, `Sequence[Predicate]`) in public constructors while
-  normalising to `list` and preserving Pydantic serialization. Cost: constructor
-  signature changes only; no author-visible change.
+- **Lifecycle-declaration opacity (`invalid-assignment`).** This is the same
+  dual-view boundary as the class-level comparison: `Field(...) -> Any` hides it,
+  `Lifecycle[S]` exposes it. The *consistent* policy is to treat both as the
+  accepted dual-view boundary. Making `Lifecycle(...)` typecheck like `Field`
+  (returning `Any`) would need a `__new__ -> Any`/factory change to a core generic
+  dataclass; **deferred as not worth the risk** for an example-only, non-blocking
+  diagnostic. Documented as accepted instead.
 - **89 `noqa: E712`.** Do **not** weaken E712 globally. Options: (a) a file-level
   `# ruff: noqa: E712` header in spec files (documented spec-file lint policy), or
   (b) a typed predicate helper (`eq(field, True)`) — rejected, it harms domain
@@ -149,10 +159,11 @@ the real boundaries — that is the main thing P4.0b should tighten.
 - The class-level "Predicate vs bool" diagnostic is an **accepted checker
   boundary**, documented, not suppressed project-wide.
 - Concrete, low-risk fixes that do *not* touch syntax are approved for P4.0b: the
-  closed expression base (removes 9 `attr-defined`), localised `__eq__` overrides
-  (removes the global ty rule), covariant constructor inputs (removes the 4
-  `invalid-assignment`), and a file-level spec lint header (removes 89 inline
-  `noqa`).
+  closed expression/comparison bases (`_BinaryExpr`/`_BinaryComparison`, remove the
+  9 `attr-defined`), localised `__eq__`/`__ne__` overrides (remove the global ty
+  rule), and a file-level spec lint header (removes 89 inline `noqa`). The
+  lifecycle-declaration `invalid-assignment` is documented as the accepted
+  dual-view boundary, not fixed (constructor-typing change deferred as risky).
 - Runtime structural validation remains fail-closed regardless of static typing.
 
 The type probes that reproduce these diagnostics as a regression signal live in

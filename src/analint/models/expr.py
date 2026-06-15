@@ -43,12 +43,12 @@ class Expr:
 
     # comparisons produce predicates ───────────────────────────────────────────
 
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Eq
 
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Ne
 
         return _Ne(left=self, right=other)
@@ -78,21 +78,27 @@ class Expr:
 
 
 @dataclass(eq=False)
-class _AddExpr(Expr):
+class _BinaryExpr(Expr):
+    """Closed base for the binary arithmetic nodes — carries typed operands so
+    traversal can read ``.left``/``.right`` without an attr-defined suppression."""
+
     left: Any
     right: Any
 
 
 @dataclass(eq=False)
-class _SubExpr(Expr):
-    left: Any
-    right: Any
+class _AddExpr(_BinaryExpr):
+    pass
 
 
 @dataclass(eq=False)
-class _MulExpr(Expr):
-    left: Any
-    right: Any
+class _SubExpr(_BinaryExpr):
+    pass
+
+
+@dataclass(eq=False)
+class _MulExpr(_BinaryExpr):
+    pass
 
 
 _OPS: dict[type, str] = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}

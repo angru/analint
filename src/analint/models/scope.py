@@ -116,12 +116,12 @@ class InstanceField:
     def lifecycle(self) -> Any:
         return self.descriptor.lifecycle
 
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Eq
 
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Ne
 
         return _Ne(left=self, right=other)

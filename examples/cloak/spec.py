@@ -1,3 +1,4 @@
+# ruff: noqa: E712  (DSL: `== True/False` builds a Predicate; see research/27)
 """Cloak of Darkness — the canonical IF benchmark (Roger Firth, 1999) as an analint spec.
 
 Three rooms: Foyer (start), Cloakroom (west), Bar (south). The player wears a
@@ -70,13 +71,13 @@ class Game(Entity):
 # ── Constraints ────────────────────────────────────────────────────────────────
 
 cloak_in_one_place = Invariant(
-    Implies(Hook.holds_cloak == True, Player.has_cloak == False),  # noqa: E712
+    Implies(Hook.holds_cloak == True, Player.has_cloak == False),
     label="The cloak cannot be on the hook and on the player at once",
 )
 
 # "the Bar is dark" is not stored state — it is a fact derived from the cloak
-bar_is_dark = Player.has_cloak == True  # noqa: E712
-bar_is_lit = Player.has_cloak == False  # noqa: E712
+bar_is_dark = Player.has_cloak == True
+bar_is_lit = Player.has_cloak == False
 
 # ── Movement ───────────────────────────────────────────────────────────────────
 
@@ -104,7 +105,7 @@ go_north = Action(
 
 hang_cloak = Action(
     name="Hang the cloak on the hook",
-    pre=[Player.location == Room.CLOAKROOM, Player.has_cloak == True],  # noqa: E712
+    pre=[Player.location == Room.CLOAKROOM, Player.has_cloak == True],
     effect=[Set(Player.has_cloak, False), Set(Hook.holds_cloak, True)],
 )
 
@@ -165,8 +166,8 @@ sc_hang = Scenario(
     action=hang_cloak,
     given=[Player(location=Room.CLOAKROOM, has_cloak=True), Hook()],
     then=[
-        Assert(Player.has_cloak == False),  # noqa: E712
-        Assert(Hook.holds_cloak == True),  # noqa: E712
+        Assert(Player.has_cloak == False),
+        Assert(Hook.holds_cloak == True),
     ],
 )
 
@@ -251,7 +252,7 @@ game_can_always_end = NoDeadEnd(
 every_action_playable = DeadActions()
 
 cloak_invariant_holds_everywhere = AlwaysHolds(
-    Implies(Hook.holds_cloak == True, Player.has_cloak == False),  # noqa: E712
+    Implies(Hook.holds_cloak == True, Player.has_cloak == False),
     label="the cloak is never in two places",
 )
 

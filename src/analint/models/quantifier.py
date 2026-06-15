@@ -65,10 +65,10 @@ class BoundField:
     def entity_cls(self) -> type:
         return self.variable.scope.entity_cls
 
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         return _Ne(left=self, right=other)
 
     def __gt__(self, other: Any) -> Predicate:

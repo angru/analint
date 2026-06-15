@@ -71,8 +71,5 @@ python-version = "3.14"
 [tool.ty.analysis]
 allowed-unresolved-imports = ["mcp.**"]
 
-[tool.ty.rules]
-invalid-method-override = "ignore" # comparisons intentionally build Predicate objects
-
 [tool.ty.src]
 include = ["src"]

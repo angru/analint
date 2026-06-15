@@ -132,12 +132,12 @@ class FieldDescriptor:
     # comparison operators → predicate objects ────────────────────────────────
     # Imports are deferred to avoid circular dependency with predicate.py
 
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Eq
 
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         from analint.models.predicate import _Ne
 
         return _Ne(left=self, right=other)

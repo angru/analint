@@ -8,7 +8,7 @@ from analint.models.actor import Actor
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
-from analint.models.expr import Expr, expr_op
+from analint.models.expr import _BinaryExpr, expr_op
 from analint.models.flow import Assert, Emitted
 from analint.models.predicate import (
     Predicate,
@@ -600,10 +600,10 @@ def _required_operand_refs(
         return _required_field_refs(operand.predicate, bound | {operand.variable})
     if isinstance(operand, (_Sum, _Min, _Max)):
         return _required_operand_refs(operand.operand, bound | {operand.variable})
-    if isinstance(operand, Expr):
-        return _required_operand_refs(operand.left, bound) + _required_operand_refs(  # type: ignore[attr-defined]
+    if isinstance(operand, _BinaryExpr):
+        return _required_operand_refs(operand.left, bound) + _required_operand_refs(
             operand.right,
-            bound,  # type: ignore[attr-defined]
+            bound,
         )
     return []
 
@@ -939,9 +939,9 @@ def _check_operand_nodes(
             )
         else:
             findings.extend(_check_operand_nodes(operand.operand, bound | {operand.variable}, loc))
-    elif isinstance(operand, Expr):
-        findings.extend(_check_operand_nodes(operand.left, bound, loc))  # type: ignore[attr-defined]
-        findings.extend(_check_operand_nodes(operand.right, bound, loc))  # type: ignore[attr-defined]
+    elif isinstance(operand, _BinaryExpr):
+        findings.extend(_check_operand_nodes(operand.left, bound, loc))
+        findings.extend(_check_operand_nodes(operand.right, bound, loc))
     return findings
 
 
@@ -1010,9 +1010,9 @@ def _check_operand_scopes(
         if operand.variable.scope not in spec_scopes:
             findings.append(_unregistered_bound_scope(operand.variable, loc))
         findings.extend(_check_operand_scopes(operand.operand, spec_scopes, loc))
-    elif isinstance(operand, Expr):
-        findings.extend(_check_operand_scopes(operand.left, spec_scopes, loc))  # type: ignore[attr-defined]
-        findings.extend(_check_operand_scopes(operand.right, spec_scopes, loc))  # type: ignore[attr-defined]
+    elif isinstance(operand, _BinaryExpr):
+        findings.extend(_check_operand_scopes(operand.left, spec_scopes, loc))
+        findings.extend(_check_operand_scopes(operand.right, spec_scopes, loc))
     return findings
 
 
@@ -1042,8 +1042,8 @@ def _operand_refs(operand: Any) -> list[FieldDescriptor | InstanceField]:
         for instance in operand.variable.scope:
             refs.extend(_operand_refs(bind_operand(operand.operand, operand.variable, instance)))
         return refs
-    if isinstance(operand, Expr):
-        return _operand_refs(operand.left) + _operand_refs(operand.right)  # type: ignore[attr-defined]
+    if isinstance(operand, _BinaryExpr):
+        return _operand_refs(operand.left) + _operand_refs(operand.right)
     return []
 
 
@@ -1128,11 +1128,8 @@ def _describe_operand(op: Any) -> str:
         scope = op.variable.scope.id or op.variable.scope.entity_cls.__name__
         name = type(op).__name__[1:].upper()
         return f"{name} {op.variable.name} IN {scope}: {_describe_operand(op.operand)}"
-    if isinstance(op, Expr):
-        return (
-            f"({_describe_operand(op.left)} {expr_op(op)} "  # type: ignore[attr-defined]
-            f"{_describe_operand(op.right)})"  # type: ignore[attr-defined]
-        )
+    if isinstance(op, _BinaryExpr):
+        return f"({_describe_operand(op.left)} {expr_op(op)} {_describe_operand(op.right)})"
     if hasattr(op, "name") and hasattr(op, "value"):
         return f"{type(op).__name__}.{op.name}"
     return repr(op)

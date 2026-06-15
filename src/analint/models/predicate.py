@@ -12,39 +12,42 @@ class Predicate:
 
 
 @dataclass
-class _Eq(Predicate):
+class _BinaryComparison(Predicate):
+    """Closed base for the binary comparison nodes — carries typed operands so
+    traversal can read ``.left``/``.right`` without an attr-defined suppression."""
+
     left: Any
     right: Any
 
 
 @dataclass
-class _Ne(Predicate):
-    left: Any
-    right: Any
+class _Eq(_BinaryComparison):
+    pass
 
 
 @dataclass
-class _Gt(Predicate):
-    left: Any
-    right: Any
+class _Ne(_BinaryComparison):
+    pass
 
 
 @dataclass
-class _Gte(Predicate):
-    left: Any
-    right: Any
+class _Gt(_BinaryComparison):
+    pass
 
 
 @dataclass
-class _Lt(Predicate):
-    left: Any
-    right: Any
+class _Gte(_BinaryComparison):
+    pass
 
 
 @dataclass
-class _Lte(Predicate):
-    left: Any
-    right: Any
+class _Lt(_BinaryComparison):
+    pass
+
+
+@dataclass
+class _Lte(_BinaryComparison):
+    pass
 
 
 # ── Logical predicates ─────────────────────────────────────────────────────────

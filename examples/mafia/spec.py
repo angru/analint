@@ -1,3 +1,4 @@
+# ruff: noqa: E712  (DSL: `== True/False` builds a Predicate; see research/27)
 """Mafia / Werewolf, translated from Quint's play_mafia.qnt.
 
 Original:
@@ -97,32 +98,32 @@ _PLAYERS = [Mahtab, Gabriela, Max]
 
 # A dead player need not vote; every living player must vote before resolution.
 all_voted = And(
-    Implies(Mahtab.alive == True, Mahtab.voted == True),  # noqa: E712
-    Implies(Gabriela.alive == True, Gabriela.voted == True),  # noqa: E712
-    Implies(Max.alive == True, Max.voted == True),  # noqa: E712
+    Implies(Mahtab.alive == True, Mahtab.voted == True),
+    Implies(Gabriela.alive == True, Gabriela.voted == True),
+    Implies(Max.alive == True, Max.voted == True),
 )
 
 # Role-generic world facts (the quantifier expanded by hand over the three
 # fixed players — the multiplicity wall, measured again).
 mafia_is_dead = And(
-    Implies(Mahtab.role == Role.MAFIA, Mahtab.alive == False),  # noqa: E712
-    Implies(Gabriela.role == Role.MAFIA, Gabriela.alive == False),  # noqa: E712
-    Implies(Max.role == Role.MAFIA, Max.alive == False),  # noqa: E712
+    Implies(Mahtab.role == Role.MAFIA, Mahtab.alive == False),
+    Implies(Gabriela.role == Role.MAFIA, Gabriela.alive == False),
+    Implies(Max.role == Role.MAFIA, Max.alive == False),
 )
 mafia_is_alive = Or(
-    And(Mahtab.role == Role.MAFIA, Mahtab.alive == True),  # noqa: E712
-    And(Gabriela.role == Role.MAFIA, Gabriela.alive == True),  # noqa: E712
-    And(Max.role == Role.MAFIA, Max.alive == True),  # noqa: E712
+    And(Mahtab.role == Role.MAFIA, Mahtab.alive == True),
+    And(Gabriela.role == Role.MAFIA, Gabriela.alive == True),
+    And(Max.role == Role.MAFIA, Max.alive == True),
 )
 all_citizens_dead = And(
-    Implies(Mahtab.role == Role.CITIZEN, Mahtab.alive == False),  # noqa: E712
-    Implies(Gabriela.role == Role.CITIZEN, Gabriela.alive == False),  # noqa: E712
-    Implies(Max.role == Role.CITIZEN, Max.alive == False),  # noqa: E712
+    Implies(Mahtab.role == Role.CITIZEN, Mahtab.alive == False),
+    Implies(Gabriela.role == Role.CITIZEN, Gabriela.alive == False),
+    Implies(Max.role == Role.CITIZEN, Max.alive == False),
 )
 some_citizen_alive = Or(
-    And(Mahtab.role == Role.CITIZEN, Mahtab.alive == True),  # noqa: E712
-    And(Gabriela.role == Role.CITIZEN, Gabriela.alive == True),  # noqa: E712
-    And(Max.role == Role.CITIZEN, Max.alive == True),  # noqa: E712
+    And(Mahtab.role == Role.CITIZEN, Mahtab.alive == True),
+    And(Gabriela.role == Role.CITIZEN, Gabriela.alive == True),
+    And(Max.role == Role.CITIZEN, Max.alive == True),
 )
 
 correct_game_status = Invariant(
@@ -153,10 +154,10 @@ mafia_kills = Action(
     pre=[
         *_night,
         killer.role == Role.MAFIA,
-        killer.alive == True,  # noqa: E712
+        killer.alive == True,
         victim.role == Role.CITIZEN,
-        victim.alive == True,  # noqa: E712
-        bystander.alive == True,  # noqa: E712
+        victim.alive == True,
+        bystander.alive == True,
     ],
     effect=[Set(victim.alive, False), Set(Game.phase, Phase.DAY)],
 )
@@ -168,10 +169,10 @@ mafia_kills_last_citizen = Action(
     pre=[
         *_night,
         killer.role == Role.MAFIA,
-        killer.alive == True,  # noqa: E712
+        killer.alive == True,
         victim.role == Role.CITIZEN,
-        victim.alive == True,  # noqa: E712
-        bystander.alive == False,  # noqa: E712
+        victim.alive == True,
+        bystander.alive == False,
     ],
     effect=[Set(victim.alive, False), Set(Game.status, GameStatus.MAFIA_WON)],
 )
@@ -188,9 +189,9 @@ vote = Action(
     pre=[
         Game.phase == Phase.DAY,
         Game.status == GameStatus.PENDING,
-        voter.alive == True,  # noqa: E712
-        target.alive == True,  # noqa: E712
-        voter.voted == False,  # noqa: E712
+        voter.alive == True,
+        target.alive == True,
+        voter.voted == False,
     ],
     effect=[Set(voter.voted, True), Add(target.votes, 1)],
 )
@@ -221,7 +222,7 @@ hang_mafia = Action(
     where=_distinct_hang,
     pre=[
         *_day,
-        hanged.alive == True,  # noqa: E712
+        hanged.alive == True,
         hanged.role == Role.MAFIA,
         *_unique_max,
     ],
@@ -234,13 +235,13 @@ hang_citizen = Action(
     where=_distinct_hang,
     pre=[
         *_day,
-        hanged.alive == True,  # noqa: E712
+        hanged.alive == True,
         hanged.role == Role.CITIZEN,
         *_unique_max,
         # another citizen is still alive
         Or(
-            And(other_a.role == Role.CITIZEN, other_a.alive == True),  # noqa: E712
-            And(other_b.role == Role.CITIZEN, other_b.alive == True),  # noqa: E712
+            And(other_a.role == Role.CITIZEN, other_a.alive == True),
+            And(other_b.role == Role.CITIZEN, other_b.alive == True),
         ),
     ],
     effect=[Set(hanged.alive, False), Set(Game.phase, Phase.NIGHT), *reset_ballot],
@@ -252,11 +253,11 @@ hang_last_citizen = Action(
     where=_distinct_hang,
     pre=[
         *_day,
-        hanged.alive == True,  # noqa: E712
+        hanged.alive == True,
         hanged.role == Role.CITIZEN,
         *_unique_max,
-        Implies(other_a.role == Role.CITIZEN, other_a.alive == False),  # noqa: E712
-        Implies(other_b.role == Role.CITIZEN, other_b.alive == False),  # noqa: E712
+        Implies(other_a.role == Role.CITIZEN, other_a.alive == False),
+        Implies(other_b.role == Role.CITIZEN, other_b.alive == False),
     ],
     effect=[Set(hanged.alive, False), Set(Game.status, GameStatus.MAFIA_WON), *reset_ballot],
 )
@@ -332,7 +333,7 @@ any_role_assignment = Initial(
 sc_night_kill = Scenario(
     action=mafia_kills.bind(killer=Mahtab, victim=Gabriela, bystander=Max),
     given=_world(),
-    then=[Assert(Gabriela.alive == False), Assert(Game.phase == Phase.DAY)],  # noqa: E712
+    then=[Assert(Gabriela.alive == False), Assert(Game.phase == Phase.DAY)],
 )
 
 sc_citizen_cannot_kill = Scenario(
@@ -351,7 +352,7 @@ sc_kill_last_citizen_ends_game = Scenario(
 sc_vote = Scenario(
     action=vote.bind(voter=Gabriela, target=Mahtab),
     given=_world(phase=Phase.DAY),
-    then=[Assert(Mahtab.votes == 1), Assert(Gabriela.voted == True)],  # noqa: E712
+    then=[Assert(Mahtab.votes == 1), Assert(Gabriela.voted == True)],
 )
 
 sc_player_cannot_vote_twice = Scenario(

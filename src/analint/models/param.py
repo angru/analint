@@ -118,10 +118,10 @@ class Param:
         return ParamField(self, item)
 
     # comparisons (for where= clauses and value-domain predicates)
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         return _Ne(left=self, right=other)
 
     def __hash__(self) -> int:
@@ -152,10 +152,10 @@ class ParamField:
         self.param = param
         self.field_name = field_name
 
-    def __eq__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __eq__(self, other: Any) -> Predicate:  # type: ignore
         return _Eq(left=self, right=other)
 
-    def __ne__(self, other: Any) -> Predicate:  # type: ignore[override]
+    def __ne__(self, other: Any) -> Predicate:  # type: ignore
         return _Ne(left=self, right=other)
 
     def __gt__(self, other: Any) -> Predicate:

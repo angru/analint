@@ -27,6 +27,10 @@
 | [18-critical-audit-of-v1.3-direction.md](18-critical-audit-of-v1.3-direction.md) | Errata к 17: пропущенные false-green, canonical Init, `Action.by`, executable traces и исправленный порядок |
 | [19-visualization-backends-and-positioning.md](19-visualization-backends-and-positioning.md) | Визуализация как diagnostics, границы IR/backends, Numba и честная ниша относительно Quint/FizzBee |
 | [20-benchmark-strategy-before-transition-kernel.md](20-benchmark-strategy-before-transition-kernel.md) | Четыре разных benchmark-слоя: semantic conformance, graph characterization, synthetic scaling и внешний GitHub policy case |
+| [21-playable-spec-experiment.md](21-playable-spec-experiment.md) | Executable traces and the limits of treating a specification as an interactive system |
+| [22-event-dispatch.md](22-event-dispatch.md) | Evidence-based decision to keep `on` documentary and defer operational event-pool semantics |
+| [23-evidence-github-branch-protection.md](23-evidence-github-branch-protection.md) | First external evidence model: GitHub branch protection, fidelity matrix, and measured requirement changes |
+| [24-second-external-model-selection.md](24-second-external-model-selection.md) | Selection of OAuth Authorization Code with PKCE as the second external composition and identity model |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.

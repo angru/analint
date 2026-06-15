@@ -67,7 +67,7 @@ def _import_packaged(qualname: str, entry: Path) -> ModuleType:
     return importlib.import_module(qualname)
 
 
-def _import_standalone(entry: Path) -> ModuleType:
+def _import_standalone(entry: Path, *, use_cache: bool = True) -> ModuleType:
     """Import a non-packaged entry file under a synthetic unique name.
 
     Nothing imports the entry module itself, so the synthetic name cannot cause
@@ -77,8 +77,10 @@ def _import_standalone(entry: Path) -> ModuleType:
     digest = hashlib.sha1(str(entry).encode()).hexdigest()[:8]
     name = f"_analint_entry_{entry.stem}_{digest}"
     cached = sys.modules.get(name)
-    if cached is not None:
+    if cached is not None and use_cache:
         return cached
+    if cached is not None:
+        sys.modules.pop(name)
     file_spec = importlib.util.spec_from_file_location(name, entry)
     if file_spec is None or file_spec.loader is None:
         raise ImportError(f"cannot create import spec for {entry}")

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -32,7 +35,11 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
     patch = None
     if extra is not None:
         try:
-            patch = _import_standalone(Path(extra).resolve())
+            with _spec_alias(path, modules):
+                # A what-if file is an editable hypothesis, not part of the
+                # stable spec import closure. Re-execute it on every validation
+                # so repeated MCP checks observe edits at the same path.
+                patch = _import_standalone(Path(extra).resolve(), use_cache=False)
             modules = [*modules, patch]
         except Exception as exc:
             load_errors = [*load_errors, LoadError(Path(extra), exc)]
@@ -53,6 +60,50 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
         ),
     )
     return None, modules, [*load_errors, error]
+
+
+@contextmanager
+def _spec_alias(path: Path, modules: list[ModuleType]) -> Iterator[None]:
+    """Temporarily expose the loaded entry module to a what-if patch.
+
+    A what-if patch is a standalone file imported *after* the spec, so it can
+    import the spec's objects. A packaged spec is importable under its real
+    package name, but a single-file spec is loaded under a private synthetic name
+    a patch cannot know (this is why ``--what-if`` used to fail on single-file
+    examples). Expose the entry module under the fixed alias ``analint_spec`` so a
+    patch can always do ``from analint_spec import X`` regardless of layout.
+
+    The alias exists only while the patch executes. Leaving it in ``sys.modules``
+    would leak one validated spec into later validations in the same MCP process.
+    """
+    try:
+        entry = resolve_entry(path)
+    except LoadError:
+        yield
+        return
+    entry_module = next(
+        (
+            module
+            for module in modules
+            if (file_name := getattr(module, "__file__", None))
+            and Path(file_name).resolve() == entry
+        ),
+        None,
+    )
+    if entry_module is None:
+        yield
+        return
+
+    had_previous = "analint_spec" in sys.modules
+    previous = sys.modules.get("analint_spec")
+    sys.modules["analint_spec"] = entry_module
+    try:
+        yield
+    finally:
+        if not had_previous:
+            sys.modules.pop("analint_spec", None)
+        elif previous is not None:
+            sys.modules["analint_spec"] = previous
 
 
 def validate(

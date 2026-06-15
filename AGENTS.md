@@ -2,6 +2,15 @@
 
 Context for AI agents working in this repository.
 
+## Working language
+
+- The user may write prompts in Russian; interpret them in English and reply in
+  English unless the user explicitly requests another language.
+- Write all new repository content, code comments, documentation, reviews, and
+  commit messages in English.
+- Existing Russian documents are historical content. Do not translate them
+  mechanically as part of unrelated work, but do not add new Russian sections.
+
 ## What this project is
 
 analint is a **Python DSL for declaring and verifying system behaviour**: domain entities, constraints, actions (state transitions), lifecycles, and scenarios — checked by a linter/validator. The domain is intentionally generic: business analytics, game rules, and narrative consistency all use the same primitives (see `examples/`).
@@ -213,7 +222,7 @@ use only one of `given`, `given_any`, or `initial`.
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (225)
+uv run pytest                          # run all tests (291)
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

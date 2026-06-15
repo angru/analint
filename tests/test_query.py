@@ -1,4 +1,6 @@
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import click
 from typer.testing import CliRunner
@@ -71,9 +73,11 @@ def test_affects_field():
     assert "create-card/happy" in payload["scenarios"]
 
 
-def test_affects_action_shows_downstream_triggers():
+def test_affects_action_shows_documented_handlers():
     payload = q.affects(_spec(TASKBOARD), "create_card")
-    assert "send_notification" in payload["triggers_downstream"]
+    # `on=` is documentary: actions that document handling an emitted event,
+    # not actions this one triggers.
+    assert "send_notification" in payload["documented_handlers"]
     assert "archive_card" in payload["required_by"]
 
 
@@ -102,6 +106,49 @@ def test_what_if_patch_adds_invariant(tmp_path):
     assert result.failed_count > 0
     failed = [sr for sr in result.scenario_results if not sr.passed]
     assert any("At most 2 cards" in f.message for sr in failed for f in sr.findings)
+
+
+def test_what_if_patch_on_single_file_spec(tmp_path):
+    # A single-file spec (cloak: spec.py with no __init__.py) is loaded under a
+    # private synthetic name; a patch reaches it through the stable `analint_spec`
+    # alias. Regression for the old "No module named ..." what-if failure.
+    patch = tmp_path / "hypothesis.py"
+    patch.write_text(
+        "from analint import Invariant\n"
+        "from analint_spec import Player\n"
+        "always_cloaked = Invariant(Player.has_cloak == True, label='player always cloaked')\n"
+    )
+    result = validate(CLOAK, extra=patch)
+    assert result.load_errors == []  # the patch resolved the spec, no import error
+    assert any(
+        "player always cloaked" in ir.label and ir.status.value == "FAIL"
+        for ir in result.invariant_results
+    )
+
+
+def test_what_if_alias_is_temporary_and_patch_is_reloaded(tmp_path, monkeypatch):
+    patch = tmp_path / "hypothesis.py"
+    sentinel = ModuleType("analint_spec")
+    monkeypatch.setitem(sys.modules, "analint_spec", sentinel)
+
+    patch.write_text(
+        "from analint import Invariant\n"
+        "from analint_spec import Player\n"
+        "probe = Invariant(Player.has_cloak == True, label='first hypothesis')\n"
+    )
+    first = validate(CLOAK, extra=patch)
+    assert sys.modules["analint_spec"] is sentinel
+    assert any(ir.label == "first hypothesis" for ir in first.invariant_results)
+
+    patch.write_text(
+        "from analint import Invariant\n"
+        "from analint_spec import Player\n"
+        "probe = Invariant(Player.has_cloak == True, label='revised hypothesis')\n"
+    )
+    second = validate(CLOAK, extra=patch)
+    assert sys.modules["analint_spec"] is sentinel
+    assert any(ir.label == "revised hypothesis" for ir in second.invariant_results)
+    assert all(ir.label != "first hypothesis" for ir in second.invariant_results)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

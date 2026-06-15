@@ -343,7 +343,9 @@ while `Min`/`Max` report an evaluation error.
 
 ### Actor
 
-Who can trigger an action. Subclass `Actor` to define a role:
+A role referenced by an action's `by=` as **documentary metadata** — who is
+documented to perform an action, not an authorization or enabledness guard (`by`
+is not enforced). Subclass `Actor` to define a role:
 
 ```python
 from analint import Actor
@@ -634,10 +636,15 @@ Exit codes: `0` ok · `1` findings (errors, failed scenarios, warnings with `--s
 
 ### What-if: check a hypothesis without touching the spec
 
+A patch is a standalone file whose objects are added on top of the model for one
+run. It must reference the spec's objects to build predicates over them; the
+loaded spec's entry module is always importable under the stable alias
+`analint_spec`, regardless of whether the spec is a package or a single file:
+
 ```python
 # /tmp/hypothesis.py
 from analint import Invariant
-from myproject.entities import Board
+from analint_spec import Board          # the loaded spec, by stable alias
 
 max_two = Invariant(Board.card_count <= 2, label="At most 2 cards per board")
 ```
@@ -647,6 +654,10 @@ analint check . --what-if /tmp/hypothesis.py
   FAIL  archive-card/happy
          ↳  INVARIANT failed: At most 2 cards per board
 ```
+
+(A packaged spec can also be imported by its real package name, e.g.
+`from myproject.entities import Board`, but `analint_spec` works for every
+layout, including single-file specs.)
 
 ### MCP server (for AI agents)
 

@@ -424,14 +424,19 @@ def _affects_entity(spec: Spec, name: str) -> dict:
 def _affects_action(spec: Spec, action_id: str) -> dict:
     action = next(a for a in spec.actions if a.id == action_id)
     emitted_classes = [(e if isinstance(e, type) else type(e)) for e in action.emits]
-    downstream = sorted({a.id for a in spec.actions if any(cls in a.on for cls in emitted_classes)})
+    # Actions whose `on=` lists an event this action emits. `on` is documentary
+    # metadata, not operational dispatch — emitting does not invoke these actions;
+    # they merely document that they handle the event.
+    documented_handlers = sorted(
+        {a.id for a in spec.actions if any(cls in a.on for cls in emitted_classes)}
+    )
     return {
         "kind": "action-impact",
         "target": action_id,
         "reads": sorted({_describe_operand(r) for r in _action_refs(action)}),
         "writes": [_effect_str(w) for w in _action_writes(action)],
         "emits": [_emit_str(e) for e in action.emits],
-        "triggers_downstream": downstream,
+        "documented_handlers": documented_handlers,
         "required_by": [a.id for a in spec.actions if any(r.id == action_id for r in a.requires)],
         "flows": [f.id for f in spec.flows if _flow_uses(f, action_id)],
         "scenarios": _scenarios_of(spec, action_id),

@@ -75,3 +75,40 @@ dispatch-модель.
   consume проще и верифицируем.
 - time/concurrency примитивы — остаются за evidence-gate.
 - `by`/`requires` — остаются documentary (отдельный honesty-pass позже).
+
+## Разворот (15 июня 2026): operational `on` отложен за evidence-gate
+
+Решение выше **не реализуется сейчас**. Ревью (reviews/8cca900) и аудит кода
+выявили блокеры, делающие операционный `on` преждевременным и неверным в текущем
+виде:
+
+1. **Конечность неверна.** «finite payload → finite pool» ложно: пул — это
+   мультимножество, и даже payloadless `Tick`, эмитируемый без обязательного
+   consume, даёт `{}, {Tick}, {Tick,Tick}, …` — бесконечность. Конечный alphabet
+   не ограничивает multiplicity. Нужен явный контракт (bounded capacity / set /
+   per-event bound / synchronous handoff) — не задан.
+2. **Consume меняет смысл `Event`.** `Event` сейчас — observable domain fact
+   (subscription/broadcast). Exclusive-consume превращает его в queue message:
+   один handler на событие, второй handler меняет поведение первого, композиция
+   `Contract`'ов = конкуренция за ресурс, audit/notification-подписчики не
+   получают событие вместе. Для линейного ресурса честнее отдельное `Message`/
+   `consumes`, а `Event` оставить фактом.
+3. **Бой с архитектурой.** Существующие `on` (fulfillment-сага из 6 действий,
+   taskboard) — документальные поверх **state-chaining** (STRIPS-планирование по
+   состояниям — ядро проекта). Операционный `on` ломает обе модели и со
+   str-payload уводит верификацию в INCONCLUSIVE.
+4. **Evidence-gate.** ROADMAP требует две внешние change-oriented модели до
+   event-pool; их нет. taskboard/fulfillment — внутренние, не независимый
+   benchmark.
+5. Неопределены: any-of/all для `on=[A,B]`, выбор payload, occurrence-binding в
+   Flow (bare Action), payload timing (kernel считает по **post**, не pre, как
+   ошибочно сказано выше), bare-class payload, стабильный `event_class_id`.
+
+**Принято (порядок из reviews/8cca900):** P3 = honesty-pass (`on`/`by`/`requires`
+явно documentary metadata; убраны слова «triggers»); затем внешняя evidence-
+модель (GitHub protected-branch policy) и сравнение с Quint/FizzBee. К событиям
+возвращаться, только если внешний кейс реально требует event-causality, которой
+не хватает state-протокола — и тогда сперва дополнить этот док пунктами 1–5.
+Минимальный безопасный вариант (если понадобится): один `on: EventType | None`,
+synchronous one-step handoff без persistent multiset, явный invocation в Flow/
+Scenario, emit→handler как составной transition — но только после evidence.

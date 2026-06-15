@@ -354,7 +354,7 @@ class Admin(Actor): pass
 
 ### Event
 
-A signal between actions, with a typed payload. Emitting binds payload fields to expressions over the state; `on=` subscribes an action to an event, and its `pre` may constrain the payload:
+An observable domain fact, with a typed payload. Emitting binds payload fields to expressions over the state (the kernel materialises them); `on=` documents that an action handles the event, and its `pre` may constrain the payload:
 
 ```python
 from analint import Event
@@ -373,8 +373,11 @@ notify_vip = Action(
 ```
 
 The linter validates payload bindings (fields exist, types match) and warns when
-an emitted event is not referenced by any action's `on` metadata. `on` does not
-yet define executable event-delivery semantics.
+an emitted event has no action listing it in `on=`. `on` is **documentary
+metadata**, not operational dispatch: emitting an event does not trigger an
+`on=` action — event-driven causality is modelled through state (see
+`examples/fulfillment`, a saga chained via status fields). Whether `on` should
+become real event dispatch is gated behind external evidence (research/22).
 
 ### Lifecycle
 

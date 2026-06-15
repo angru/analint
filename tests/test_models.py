@@ -630,7 +630,9 @@ def test_structural_event_emitted_but_unhandled_warns():
     )
     findings = validate_structural(spec)
     warnings = [f for f in findings if f.severity == Severity.WARNING]
-    assert any("OrderPlaced" in f.message and "never triggers" in f.message for f in warnings)
+    assert any(
+        "OrderPlaced" in f.message and "no documented handler" in f.message for f in warnings
+    )
 
 
 def test_event_payload_template_binds_fields():

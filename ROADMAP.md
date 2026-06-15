@@ -299,14 +299,22 @@ snapshot-режима).
 
 #### P3. Семантическая честность словаря
 
-- `Actor/by`: сейчас metadata. Не расширять `by` до списка до решения
-  principal/authorization semantics; multi-approval моделировать как protocol state
-- `Event/emits/on`: либо event model с чёткой consume/broadcast semantics, либо
-  явно documentary metadata; не обещать trigger semantics между этими вариантами
-- `requires`: оставить явно Flow-ordering documentation либо дать операционную
-  семантику; не смешивать оба смысла
-- предупреждение о потенциально безграничных числовых доменах улучшить после
-  исправления общего inconclusive verdict
+Решено (reviews/8cca900): honesty-pass, БЕЗ новой семантики. `by`/`on`/`requires`
+— явно documentary metadata; операционный `on` отложен за evidence-gate
+(research/22 §«Разворот»: мультимножество-пул не ограничен конечным payload;
+consume меняет смысл `Event`; ломает state-chaining саги; нет внешних моделей).
+
+- ✅ `Actor/by`: documentary metadata (не authz), зафиксировано в docstring
+  Action и README. `by` не расширять до списка до решения principal-семантики
+- ✅ `Event/emits/on`: `emits` — поведение (материализация payload + `Emitted`);
+  `on` — documentary (не trigger; причинность через состояние). Формулировки
+  без «triggers/subscribe»; docstrings Action/Event, README, structural warning
+- ✅ `requires`: явно Flow-ordering documentation (cycles + порядок), не
+  операционный prerequisite; зафиксировано в docstring/README
+- ⏳ предупреждение о потенциально безграничных числовых доменах — после общего
+  inconclusive verdict
+- ⏳ операционный `on` (event dispatch) — только при подтверждении внешним
+  evidence-кейсом, что state-протокола недостаточно (research/22 пункты 1–5)
 
 #### Evidence gate (параллельно с P0, блокирует новые примитивы)
 

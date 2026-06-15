@@ -220,7 +220,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
             elif event_cls not in handled_events:
                 findings.append(
                     warn(
-                        loc, f"event '{event_cls.__name__}' is emitted but never triggers an action"
+                        loc,
+                        f"event '{event_cls.__name__}' is emitted but no action lists it in "
+                        f"on= (no documented handler)",
                     )
                 )
             if not isinstance(emitted, type):

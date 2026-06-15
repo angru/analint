@@ -21,6 +21,15 @@ class Action(BaseModel):
     simultaneously: every right-hand side is evaluated against the pre-state,
     and the order of the list carries no meaning.
 
+    Behavioural vs documentary fields. `pre`, `post`, `effect` and `emits` carry
+    behaviour — they are evaluated, applied and materialised by the kernel.
+    `by`, `on` and `requires` are documentary metadata: validated for references
+    (and `requires` for cycles / Flow order) and shown by `affects`/`show`, but
+    NOT enforced at execution — `by` does not authorise, `on` does not trigger
+    the action (event causality is realised through state), and `requires` is not
+    an operational prerequisite. (Whether `on` becomes operational event dispatch
+    is gated behind external evidence — research/22, ROADMAP P3/P4.)
+
     Example::
 
         archive_card = Action(

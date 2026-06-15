@@ -43,9 +43,13 @@ def build_snapshot_context(spec: Spec, given: list) -> dict:
     return context
 
 
-def _applicable(inv: Invariant, context: dict) -> bool:
+def invariant_is_applicable(inv: Invariant, context: dict) -> bool:
     """An invariant is applicable in this state only when every referenced entity
-    is present — its key is in the context and (for a Scope slot) not absent."""
+    is present — its key is in the context and (for a Scope slot) not absent.
+
+    The single source of truth for presence-aware applicability, shared by the
+    scenario/flow state checks, the explorer's per-state check and the canonical
+    invariant scanner, so they can never diverge (review 8cca900)."""
     keys = {field_context_key(ref) for ref in _collect_field_refs(inv.expression)}
     if not keys <= set(context):
         return False
@@ -54,14 +58,16 @@ def _applicable(inv: Invariant, context: dict) -> bool:
 
 def applicable_invariants(spec: Spec, context: dict) -> list:
     """The invariants that can be meaningfully evaluated against this state."""
-    return [inv for inv in spec.invariants if _applicable(inv, context)]
+    return [inv for inv in spec.invariants if invariant_is_applicable(inv, context)]
 
 
 def check_invariants(spec: Spec, context: dict, label: str) -> list[Finding]:
     """Evaluate every applicable world invariant over one state; an empty result
     means all hold. A violation or an evaluation error is a model defect."""
     findings: list[Finding] = []
-    for inv in applicable_invariants(spec, context):
+    for inv in spec.invariants:
+        if not invariant_is_applicable(inv, context):
+            continue
         text = inv.label or _describe(inv.expression)
         loc = f"invariant:{inv.id}"
         try:

@@ -46,6 +46,7 @@ from analint.models.scope import (
 from analint.reporter.base import Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
+from analint.validator.state_checks import invariant_is_applicable
 from analint.validator.structural import _collect_field_refs, _describe
 
 StateKey = tuple[Any, ...]
@@ -461,12 +462,8 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
 def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Exploration) -> bool:
     violated = False
     for inv in spec.invariants:
-        refs = _collect_field_refs(inv.expression)
-        keys = {field_context_key(r) for r in refs}
-        if not keys <= set(ctx):
-            continue  # a referenced entity is absent from this state's universe
-        if any(isinstance(k, InstanceRef) and not is_present(ctx, k) for k in keys):
-            continue  # a referenced Scope slot is absent here — invariant not applicable
+        if not invariant_is_applicable(inv, ctx):
+            continue  # a referenced entity/Scope slot is absent — not applicable here
         try:
             ok = evaluate(inv.expression, ctx)
         except Exception as exc:
@@ -643,12 +640,11 @@ def verify_invariants(
 def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
     label = inv.label or _describe(inv.expression)
     loc = f"invariant:{inv.id}"
-    refs = _collect_field_refs(inv.expression)
     evaluated = False
     for key in exp.order:
         ctx = exp.states[key]
-        if any(field_context_key(r) not in ctx for r in refs):
-            continue  # not applicable in this state — its entities are absent
+        if not invariant_is_applicable(inv, ctx):
+            continue  # presence-aware: a referenced entity/slot is absent here
         evaluated = True
         try:
             ok = evaluate(inv.expression, ctx)

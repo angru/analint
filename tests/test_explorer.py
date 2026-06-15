@@ -783,3 +783,26 @@ def test_spec_max_states_must_be_positive():
     for bad in (0, -1):
         with pytest.raises(ValidationError):
             Spec(id="s", name="S", entities=[Box], max_states=bad)
+
+
+def test_canonical_invariant_over_a_deleted_slot_stays_pass():
+    """After Delete the slot's key stays in context as Absent; the invariant over
+    it must be inapplicable, not a false FAIL (review 8cca900, P0)."""
+    from analint import Delete
+
+    class Account(Entity):
+        balance: int = Field(0, ge=-5, le=5)
+
+    accounts = Scope(Account, keys=["a"], id="accounts")
+    ref = accounts["a"]
+    close = Action(id="close", effect=[Delete(ref)])
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Account],
+        scopes=[accounts],
+        actions=[close],
+        invariants=[Invariant(ref.balance >= 0, id="non_negative")],
+    )
+    (res,), _ = _verify(spec)
+    assert res.status == "PASS"

@@ -35,10 +35,6 @@ from analint.validator.kernel import Outcome, step
 
 EXAMPLES = Path(__file__).parent
 
-# Bound to a name on purpose: ruff format 0.15.14 miscompiles an inline
-# `except (ValueError, EOFError):` into invalid `except ValueError, EOFError:`.
-_INPUT_ABORTED = (ValueError, EOFError)
-
 
 def _load_game(name: str):
     """Load through the framework loader so action ids are filled and params
@@ -125,7 +121,7 @@ def main() -> None:
         else:
             try:
                 pick = int(input("> ").strip())
-            except _INPUT_ABORTED:
+            except ValueError, EOFError:  # PEP 758 (Python 3.14): parens optional
                 print("\n(quit)")
                 return
         if not 1 <= pick <= len(choices):

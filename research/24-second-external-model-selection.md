@@ -256,8 +256,10 @@ Observed on 2026-06-15 (Quint 0.32.0 installed globally; OpenJDK 17 via Homebrew
 - `quint verify --invariant=allSafety --max-steps=12` now passes symbolically via
   Apalache (`[ok] No violation found`, ~35 s) once a Java 17 runtime is present.
 
-This is bounded symbolic model checking, not random simulation, and it confirms
-analint's exhaustive 1169-state result on the same bounded model.
+This is bounded symbolic model checking, not random simulation. It independently
+checks the same safety predicates through depth 12, but it does **not** prove
+graph equivalence with analint's complete 1169-state exploration: no diameter
+proof was established, and the Quint transition relation includes stuttering.
 
 **Finding — terminal states vs deadlock.** The first `quint verify` run reported a
 "deadlock", not a safety violation: the model reaches quiescent states (all codes
@@ -277,7 +279,7 @@ difference worth recording, not a defect in either model.
 | Provenance identity | Extra `CodeId` plus slot-to-ID relation | Map key used directly |
 | Safety syntax | `AlwaysHolds` / `Unreachable`, nested bounds | Boolean invariant over maps and sets |
 | Positive/rejection examples | `Scenario` and executable `Flow` with detailed rule diagnostics | Concise `run` chains and `.fail()` |
-| Exploration result here | Exhaustive: 1169 states, 2256 edges | 10,000 sampled traces + symbolic `verify` (Apalache, allSafety, 12 steps) — both clean |
+| Exploration result here | Exhaustive: 1169 states, 2256 edges | 10,000 sampled traces + bounded symbolic `verify` through 12 steps — both clean, not a graph-equivalence proof |
 | Source size | 551 lines for protocol + assurance, 26-line root | 285-line combined model and tests |
 | Composition evidence | Explicit versioned contracts, but no dependency declaration or refinement | Native modules/imports; this port is one module |
 

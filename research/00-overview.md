@@ -31,6 +31,8 @@
 | [22-event-dispatch.md](22-event-dispatch.md) | Evidence-based decision to keep `on` documentary and defer operational event-pool semantics |
 | [23-evidence-github-branch-protection.md](23-evidence-github-branch-protection.md) | First external evidence model: GitHub branch protection, fidelity matrix, and measured requirement changes |
 | [24-second-external-model-selection.md](24-second-external-model-selection.md) | Selection of OAuth Authorization Code with PKCE as the second external composition and identity model |
+| [25-evidence-gate-synthesis.md](25-evidence-gate-synthesis.md) | Evidence-gate verdict: freeze semantic expansion while continuing the self-contained engine, diagnostics and measured scaling |
+| [26-p4-self-contained-model-workbench-plan.md](26-p4-self-contained-model-workbench-plan.md) | Executable P4 plan: DSL/type audit, example intent contracts, exploration artifact, diagnostics, scaling and project-sized dogfooding |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.
@@ -68,9 +70,13 @@ executable traces и реальные внешние модели.
   реализованы; старые документы до 17 описывают исторические ограничения.
 - Концептуальный словарь мал, но public authoring surface уже содержит 48 имён.
   Новые слова требуют доказанной semantic density.
-- `Scenario` — concrete one-step example, query — bounded exploration.
-  Следующий недостающий уровень — executable multi-step trace.
+- `Scenario` is a concrete one-step example, `Flow` is an executable multi-step
+  trace, and a query performs bounded exploration. Before stabilizing its result
+  artifact, P4 audits the authored DSL type boundary and makes every example's
+  expected outcome executable; the next result level is then a stable
+  exploration artifact with state diffs and completeness.
 - JSON-IR, implementation bridge, semantic diff и Rust отложены; внутреннюю
   единую transition semantics откладывать нельзя.
-- Внешняя проверка двумя реальными моделями должна ограничивать дальнейший
-  рост DSL, особенно Events, actors, time и concurrency.
+- Two external models closed the evidence gate: new primitives remain frozen
+  until pain recurs. Active work is the self-contained bounded engine,
+  diagnostics, scaling and additional project-sized models.

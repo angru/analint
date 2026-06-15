@@ -1,0 +1,312 @@
+"""GitHub protected-branch / required pull-request policy — an external,
+change-oriented evidence model (ROADMAP evidence gate, research/20 §"first
+external candidate").
+
+This is a real system not invented for analint: GitHub's branch protection on a
+required pull request. A PR may merge into a protected branch only when the
+policy holds — enough approving reviews, no outstanding "changes requested",
+required status checks passing, and the branch up to date with its base. New
+commits dismiss stale approvals and re-run checks; the base branch can advance,
+putting the PR behind.
+
+The point of the exercise (compared with Quint / FizzBee) is to check whether a
+*state-machine* model in a domain-readable DSL captures this faithfully and how
+cheaply it survives requirement changes — see research/23 for the write-up.
+
+The verification value is in the queries: across EVERY reachable action order,
+a merge can never bypass the policy (the Unreachable guards), the policy is
+achievable (Reachable), and a merged PR provably satisfied the policy (the
+auto-verified invariant). Quint/FizzBee express the same with invariants over a
+transition system; here the transitions read as the domain actions themselves.
+"""
+
+from enum import StrEnum
+
+from analint import (
+    Action,
+    AlwaysHolds,
+    And,
+    Assert,
+    Entity,
+    Expect,
+    Field,
+    Implies,
+    Invariant,
+    Lifecycle,
+    Reachable,
+    Scenario,
+    Set,
+    Spec,
+    Transition,
+    Unreachable,
+)
+
+REQUIRED_APPROVALS = 2
+
+
+class PRState(StrEnum):
+    OPEN = "open"
+    MERGED = "merged"
+    CLOSED = "closed"
+
+
+class Checks(StrEnum):
+    PENDING = "pending"
+    PASSING = "passing"
+    FAILING = "failing"
+
+
+class PullRequest(Entity):
+    state: PRState = Lifecycle(
+        initial=PRState.OPEN,
+        transitions=[Transition(PRState.OPEN, [PRState.MERGED, PRState.CLOSED])],
+        terminal=[PRState.MERGED, PRState.CLOSED],  # a merged/closed PR is frozen
+    )
+    approvals: int = Field(0, ge=0, le=REQUIRED_APPROVALS)
+    changes_requested: bool = Field(False)
+    checks: Checks = Field(Checks.PENDING)
+    behind_base: bool = Field(False)  # base branch advanced; PR is not up to date
+    code_owner_approved: bool = Field(False)  # required review from a code owner
+
+
+# ── The branch-protection policy: when may a PR merge? ───────────────────────────
+mergeable = And(
+    PullRequest.approvals >= REQUIRED_APPROVALS,
+    PullRequest.changes_requested == False,  # noqa: E712
+    PullRequest.checks == Checks.PASSING,
+    PullRequest.behind_base == False,  # noqa: E712
+    PullRequest.code_owner_approved == True,  # noqa: E712
+)
+is_open = PullRequest.state == PRState.OPEN
+
+# ── Review actions ───────────────────────────────────────────────────────────────
+approve = Action(
+    name="A reviewer approves the pull request",
+    pre=[is_open, PullRequest.approvals < REQUIRED_APPROVALS],
+    effect=[Set(PullRequest.approvals, PullRequest.approvals + 1)],
+)
+
+code_owner_approve = Action(
+    name="A code owner approves",
+    pre=[is_open, PullRequest.code_owner_approved == False],  # noqa: E712
+    effect=[Set(PullRequest.code_owner_approved, True)],
+)
+
+request_changes = Action(
+    name="A reviewer requests changes",
+    pre=[is_open],
+    effect=[Set(PullRequest.changes_requested, True)],
+)
+
+resolve_changes = Action(
+    name="The requested changes are resolved / the review is dismissed",
+    pre=[is_open, PullRequest.changes_requested == True],  # noqa: E712
+    effect=[Set(PullRequest.changes_requested, False)],
+)
+
+# ── Commit / CI actions ──────────────────────────────────────────────────────────
+push_commit = Action(
+    name="A new commit is pushed: stale approvals are dismissed, checks re-run",
+    pre=[is_open],
+    effect=[
+        Set(PullRequest.approvals, 0),
+        Set(PullRequest.changes_requested, False),
+        Set(PullRequest.checks, Checks.PENDING),
+        Set(PullRequest.code_owner_approved, False),
+    ],
+)
+
+checks_pass = Action(
+    name="Required status checks pass",
+    pre=[is_open, PullRequest.checks == Checks.PENDING],
+    effect=[Set(PullRequest.checks, Checks.PASSING)],
+)
+
+checks_fail = Action(
+    name="Required status checks fail",
+    pre=[is_open, PullRequest.checks == Checks.PENDING],
+    effect=[Set(PullRequest.checks, Checks.FAILING)],
+)
+
+# ── Base-branch actions ──────────────────────────────────────────────────────────
+base_advanced = Action(
+    name="The base branch advances; the PR is now behind",
+    pre=[is_open, PullRequest.behind_base == False],  # noqa: E712
+    effect=[Set(PullRequest.behind_base, True)],
+)
+
+update_branch = Action(
+    name="Update the branch from base; checks must re-run",
+    pre=[is_open, PullRequest.behind_base == True],  # noqa: E712
+    effect=[Set(PullRequest.behind_base, False), Set(PullRequest.checks, Checks.PENDING)],
+)
+
+# ── Terminal actions ─────────────────────────────────────────────────────────────
+merge = Action(
+    name="Merge the pull request (only when the policy holds)",
+    pre=[is_open, mergeable],
+    effect=[Set(PullRequest.state, PRState.MERGED)],
+)
+
+close = Action(
+    name="Close the pull request without merging",
+    pre=[is_open],
+    effect=[Set(PullRequest.state, PRState.CLOSED)],
+)
+
+
+# ── Policy invariant: a merged PR provably satisfied the policy ──────────────────
+merged_satisfied_policy = Invariant(
+    Implies(PullRequest.state == PRState.MERGED, mergeable),
+    label="a merged PR satisfied the branch-protection policy",
+)
+
+
+# ── Scenarios — concrete, hand-checked cases ─────────────────────────────────────
+sc_merge_happy = Scenario(
+    name="A fully-approved, green, up-to-date PR merges",
+    action=merge,
+    given=[PullRequest(approvals=2, checks=Checks.PASSING, code_owner_approved=True)],
+    then=[Assert(PullRequest.state == PRState.MERGED)],
+)
+
+sc_merge_underapproved = Scenario(
+    name="Cannot merge without enough approvals",
+    action=merge,
+    given=[PullRequest(approvals=1, checks=Checks.PASSING)],
+    expected=Expect.FAIL,
+)
+
+sc_merge_failing_checks = Scenario(
+    name="Cannot merge with failing checks",
+    action=merge,
+    given=[PullRequest(approvals=2, checks=Checks.FAILING)],
+    expected=Expect.FAIL,
+)
+
+sc_merge_behind_base = Scenario(
+    name="Cannot merge while behind the base branch",
+    action=merge,
+    given=[PullRequest(approvals=2, checks=Checks.PASSING, behind_base=True)],
+    expected=Expect.FAIL,
+)
+
+sc_push_dismisses_approvals = Scenario(
+    name="A new commit dismisses stale approvals",
+    action=push_commit,
+    given=[PullRequest(approvals=2, checks=Checks.PASSING)],
+    then=[Assert(PullRequest.approvals == 0), Assert(PullRequest.checks == Checks.PENDING)],
+)
+
+sc_approve = Scenario(
+    name="A reviewer adds an approval",
+    action=approve,
+    given=[PullRequest(approvals=1)],
+    then=[Assert(PullRequest.approvals == 2)],
+)
+
+sc_code_owner_approve = Scenario(
+    name="A code owner approves",
+    action=code_owner_approve,
+    given=[PullRequest()],
+    then=[Assert(PullRequest.code_owner_approved == True)],  # noqa: E712
+)
+
+sc_request_changes = Scenario(
+    name="A reviewer requests changes",
+    action=request_changes,
+    given=[PullRequest()],
+    then=[Assert(PullRequest.changes_requested == True)],  # noqa: E712
+)
+
+sc_resolve_changes = Scenario(
+    name="The requested changes are resolved",
+    action=resolve_changes,
+    given=[PullRequest(changes_requested=True)],
+    then=[Assert(PullRequest.changes_requested == False)],  # noqa: E712
+)
+
+sc_checks_pass = Scenario(
+    name="Pending checks pass",
+    action=checks_pass,
+    given=[PullRequest(checks=Checks.PENDING)],
+    then=[Assert(PullRequest.checks == Checks.PASSING)],
+)
+
+sc_checks_fail = Scenario(
+    name="Pending checks fail",
+    action=checks_fail,
+    given=[PullRequest(checks=Checks.PENDING)],
+    then=[Assert(PullRequest.checks == Checks.FAILING)],
+)
+
+sc_base_advanced = Scenario(
+    name="The base branch advances; the PR falls behind",
+    action=base_advanced,
+    given=[PullRequest()],
+    then=[Assert(PullRequest.behind_base == True)],  # noqa: E712
+)
+
+sc_update_branch = Scenario(
+    name="Updating from base clears 'behind' and re-runs checks",
+    action=update_branch,
+    given=[PullRequest(behind_base=True, checks=Checks.PASSING)],
+    then=[
+        Assert(PullRequest.behind_base == False),  # noqa: E712
+        Assert(PullRequest.checks == Checks.PENDING),
+    ],
+)
+
+sc_close = Scenario(
+    name="A PR can be closed without merging",
+    action=close,
+    given=[PullRequest(approvals=2, checks=Checks.PASSING)],
+    then=[Assert(PullRequest.state == PRState.CLOSED)],
+)
+
+
+# ── Queries — the policy holds across EVERY reachable action order ────────────────
+merge_is_achievable = Reachable(
+    PullRequest.state == PRState.MERGED,
+    label="some sequence of reviews/checks/updates leads to a merge",
+)
+
+never_merge_underapproved = Unreachable(
+    And(PullRequest.state == PRState.MERGED, PullRequest.approvals < REQUIRED_APPROVALS),
+    label="a PR can never merge with too few approvals",
+)
+
+never_merge_failing = Unreachable(
+    And(PullRequest.state == PRState.MERGED, PullRequest.checks == Checks.FAILING),
+    label="a PR can never merge with failing checks",
+)
+
+never_merge_with_changes = Unreachable(
+    And(PullRequest.state == PRState.MERGED, PullRequest.changes_requested == True),  # noqa: E712
+    label="a PR can never merge with outstanding change requests",
+)
+
+never_merge_behind = Unreachable(
+    And(PullRequest.state == PRState.MERGED, PullRequest.behind_base == True),  # noqa: E712
+    label="a PR can never merge while behind its base branch",
+)
+
+never_merge_without_code_owner = Unreachable(
+    And(PullRequest.state == PRState.MERGED, PullRequest.code_owner_approved == False),  # noqa: E712
+    label="a PR can never merge without a code-owner approval",
+)
+
+policy_always_holds = AlwaysHolds(
+    Implies(PullRequest.state == PRState.MERGED, mergeable),
+    label="every reachable merged state satisfies the policy",
+)
+
+
+spec = Spec(
+    id="branch_protection",
+    name="GitHub protected-branch pull-request policy",
+    version="1.0.0",
+    description="A required PR into a protected branch: approvals, stale-review "
+    "dismissal, required checks, and up-to-date-with-base — verified to be "
+    "unbypassable across every action order.",
+)

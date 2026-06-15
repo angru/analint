@@ -1,4 +1,172 @@
 {
+  "branch_protection": {
+    "verdict": "PASS",
+    "warnings": 0,
+    "scenarios": {
+      "sc_approve": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_base_advanced": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_checks_fail": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_checks_pass": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_close": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_code_owner_approve": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_merge_behind_base": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "d6820123a1914aad"
+      },
+      "sc_merge_failing_checks": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "2c6e5510ef06aeb1"
+      },
+      "sc_merge_happy": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_merge_underapproved": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "afb902aaff7de55d"
+      },
+      "sc_push_dismisses_approvals": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_request_changes": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_resolve_changes": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_update_branch": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "queries": {
+      "merge_is_achievable": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": [
+          "approve",
+          "approve",
+          "checks_pass",
+          "code_owner_approve",
+          "merge"
+        ],
+        "findings_hash": "f38dc15a028018c3"
+      },
+      "never_merge_behind": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "never_merge_failing": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "never_merge_underapproved": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "never_merge_with_changes": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "never_merge_without_code_owner": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "policy_always_holds": {
+        "status": "PASS",
+        "states": 145,
+        "exploration": "3fbccc11f70c70c5",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "explorations": {
+      "3fbccc11f70c70c5": {
+        "states": 145,
+        "edges": 457,
+        "states_hash": "944dd8f910671fa8",
+        "edges_hash": "7ac31061479823c8",
+        "roots": 1,
+        "roots_hash": "d490f2c27040ef4f",
+        "findings_hash": "e3b0c44298fc1c14",
+        "fired": [
+          "approve",
+          "base_advanced",
+          "checks_fail",
+          "checks_pass",
+          "close",
+          "code_owner_approve",
+          "merge",
+          "push_commit",
+          "request_changes",
+          "resolve_changes",
+          "update_branch"
+        ],
+        "excluded": {},
+        "incomplete": []
+      }
+    },
+    "invariants": {
+      "merged_satisfied_policy": {
+        "status": "PASS",
+        "states": 145,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "flows": {}
+  },
   "cloak": {
     "verdict": "PASS",
     "warnings": 0,

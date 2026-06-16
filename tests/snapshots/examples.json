@@ -737,64 +737,70 @@
     "warnings": 6,
     "scenarios": {},
     "queries": {
-      "converged_always_recoverable": {
+      "both_converged_is_reachable": {
         "status": "PASS",
-        "states": 80,
-        "exploration": "1b22886046d6557b",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "converged_is_reachable": {
-        "status": "PASS",
-        "states": 80,
-        "exploration": "1b22886046d6557b",
+        "states": 864,
+        "exploration": "7936a1bb09a2db04",
         "trace": [
-          "scale_up",
-          "reconcile_create(slot=Pod['p0'])",
-          "scale_up",
-          "reconcile_create(slot=Pod['p1'])",
-          "scale_up",
-          "reconcile_create(slot=Pod['p2'])"
+          "scale_up(rs=ReplicaSet['rs0'])",
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
+          "scale_up(rs=ReplicaSet['rs1'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p1'])"
         ],
-        "findings_hash": "2c662ba328caaed9"
+        "findings_hash": "e31799c907b012be"
+      },
+      "quota_can_starve_a_replicaset": {
+        "status": "PASS",
+        "states": 864,
+        "exploration": "7936a1bb09a2db04",
+        "trace": [
+          "scale_up(rs=ReplicaSet['rs0'])"
+        ],
+        "findings_hash": "6fd77b11dfb082e0"
       },
       "quota_never_exceeded": {
         "status": "PASS",
-        "states": 80,
-        "exploration": "1b22886046d6557b",
+        "states": 864,
+        "exploration": "7936a1bb09a2db04",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "under_replicated_by_quota_is_reachable": {
+      "rs0_converged_always_recoverable": {
         "status": "PASS",
-        "states": 80,
-        "exploration": "1b22886046d6557b",
-        "trace": [
-          "scale_up"
-        ],
-        "findings_hash": "6c509dfbdfee8220"
+        "states": 864,
+        "exploration": "7936a1bb09a2db04",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
-      "1b22886046d6557b": {
-        "states": 80,
-        "edges": 312,
-        "states_hash": "56f5d87eeb09badc",
-        "edges_hash": "d61a17b49359aea4",
+      "7936a1bb09a2db04": {
+        "states": 864,
+        "edges": 4896,
+        "states_hash": "206e09c0f828429a",
+        "edges_hash": "a5b6025adb2948d9",
         "roots": 4,
-        "roots_hash": "a39d48e344d06151",
+        "roots_hash": "40f984847fc3b241",
         "findings_hash": "e3b0c44298fc1c14",
         "fired": [
           "decrease_quota",
           "increase_quota",
-          "reconcile_create(slot=Pod['p0'])",
-          "reconcile_create(slot=Pod['p1'])",
-          "reconcile_create(slot=Pod['p2'])",
-          "reconcile_delete(slot=Pod['p0'])",
-          "reconcile_delete(slot=Pod['p1'])",
-          "reconcile_delete(slot=Pod['p2'])",
-          "scale_down",
-          "scale_up"
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p1'])",
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p2'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p0'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p1'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p2'])",
+          "reconcile_delete(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
+          "reconcile_delete(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p1'])",
+          "reconcile_delete(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p2'])",
+          "reconcile_delete(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p0'])",
+          "reconcile_delete(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p1'])",
+          "reconcile_delete(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p2'])",
+          "scale_down(rs=ReplicaSet['rs0'])",
+          "scale_down(rs=ReplicaSet['rs1'])",
+          "scale_up(rs=ReplicaSet['rs0'])",
+          "scale_up(rs=ReplicaSet['rs1'])"
         ],
         "excluded": {},
         "incomplete": []

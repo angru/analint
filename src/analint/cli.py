@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Never
+from typing import TYPE_CHECKING, Never
 
 import click
 import typer
@@ -14,6 +14,9 @@ from analint.models.root import Spec
 from analint.reporter.json_reporter import report_json
 from analint.reporter.terminal import report_terminal
 from analint.validator.engine import build_spec, validate
+
+if TYPE_CHECKING:
+    from analint.reporter.exploration_artifact import ExplorationArtifact
 
 # Exit codes (stable interface for agents and CI):
 #   0 — checks passed (warnings allowed unless --strict)
@@ -82,6 +85,70 @@ def check(
         raise typer.Exit(1)
     if verdict == "INCONCLUSIVE":
         raise typer.Exit(4)
+
+
+def _print_exploration(art: ExplorationArtifact) -> None:
+    s, c = art.summary, art.completeness
+    src = f"{art.source['kind']}" + (f" ({art.source['query']})" if art.source["query"] else "")
+    print(f"analint explore  spec: {art.spec['id']}  source: {src}")
+    status = "COMPLETE" if c["complete"] else f"INCOMPLETE ({', '.join(c['reasons'])})"
+    print(f"  {status}  max_states={c['max_states']}")
+    print(
+        f"  roots {s['roots']}  states {s['states']}  edges {s['edges']}  "
+        f"max_depth {s['max_depth']}"
+    )
+    b = s["branching"]
+    print(
+        f"  dead_ends {s['dead_ends']}  self_loops {s['self_loops']}  "
+        f"branching {b['min']}/{b['mean']}/{b['max']}"
+    )
+    if s["fired_actions"]:
+        print(f"  fired: {', '.join(s['fired_actions'])}")
+    for action_id, reason in s["excluded_actions"].items():
+        print(f"  excluded {action_id}: {reason}")
+    for finding in art.findings:
+        print(f"  {finding['severity']} {finding['location']}: {finding['message']}")
+
+
+@app.command()
+def explore(
+    path: Path = typer.Argument(Path("."), help="Directory with spec.py, or a spec file"),
+    query: str | None = typer.Option(
+        None, "--query", help="Explore this query id's state space (default: the canonical initial)"
+    ),
+    format: str = typer.Option(
+        "terminal", "--format", "-f", help="Output format: terminal or json"
+    ),
+    include_graph: bool = typer.Option(
+        False, "--include-graph", help="Emit the full node/edge graph in JSON (default: compact)"
+    ),
+    what_if: Path | None = typer.Option(
+        None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
+    ),
+) -> None:
+    """Explore the reachable state space (canonical or one query's) and report it."""
+    from analint.validator.exploration_service import ExplorationError, explore_path
+
+    try:
+        artifact = explore_path(path, query_id=query, what_if=what_if)
+    except ExplorationError as exc:
+        if format == "json":
+            print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))
+        else:
+            typer.echo(f"EXPLORE ERROR ({exc.kind}): {exc.message}", err=True)
+            for detail in exc.details:
+                typer.echo(f"  - {detail}", err=True)
+        raise typer.Exit(3) from None
+
+    if format == "json":
+        if not include_graph:
+            artifact.graph_included = False
+            artifact.graph_omitted_reason = (
+                "compact projection — pass --include-graph for nodes/edges"
+            )
+        print(json.dumps(artifact.to_dict(), indent=2, ensure_ascii=False))
+    else:
+        _print_exploration(artifact)
 
 
 @app.command()

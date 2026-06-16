@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
@@ -106,13 +107,43 @@ def _spec_alias(path: Path, modules: list[ModuleType]) -> Iterator[None]:
             sys.modules["analint_spec"] = previous
 
 
+@dataclass
+class PreparedModel:
+    """The loaded, structurally-checked model — shared so that validation and
+    exploration always work from an identical prepared Spec."""
+
+    spec: Spec | None
+    modules: list
+    load_errors: list
+    structural_findings: list[Finding]
+
+    @property
+    def has_structural_errors(self) -> bool:
+        return any(f.severity.value == "ERROR" for f in self.structural_findings)
+
+
+def prepare_model(path: Path, *, what_if: Path | None = None) -> PreparedModel:
+    """Load the spec (+ optional what-if), warn about unloaded files and run
+    structural validation — the single model-preparation path for `validate` and
+    the exploration service."""
+    spec, modules, load_errors = build_spec(path, extra=what_if)
+    structural: list[Finding] = []
+    if spec is not None:
+        structural.extend(_unloaded_file_warnings(path, modules))
+        structural.extend(validate_structural(spec))
+    return PreparedModel(
+        spec=spec, modules=modules, load_errors=load_errors, structural_findings=structural
+    )
+
+
 def validate(
     path: Path,
     scenario_ids: list[str] | None = None,
     tags: list[str] | None = None,
     extra: Path | None = None,
 ) -> ValidationResult:
-    spec, modules, load_errors = build_spec(path, extra=extra)
+    prepared = prepare_model(path, what_if=extra)
+    spec, load_errors = prepared.spec, prepared.load_errors
 
     if spec is None:
         result = ValidationResult(
@@ -128,11 +159,9 @@ def validate(
         load_errors=[str(e) for e in load_errors],
     )
 
-    result.structural_findings.extend(_unloaded_file_warnings(path, modules))
-    result.structural_findings.extend(validate_structural(spec))
+    result.structural_findings.extend(prepared.structural_findings)
 
-    has_structural_errors = any(f.severity.value == "ERROR" for f in result.structural_findings)
-    if has_structural_errors:
+    if prepared.has_structural_errors:
         return result
 
     scenarios = spec.scenarios

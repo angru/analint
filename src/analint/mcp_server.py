@@ -24,6 +24,39 @@ def check_spec(path: str = ".", what_if: str | None = None) -> dict:
     return result_to_dict(result)
 
 
+def explore_spec(
+    path: str = ".",
+    query: str | None = None,
+    what_if: str | None = None,
+    include_graph: bool = False,
+    max_graph_states: int | None = None,
+) -> dict:
+    from analint.validator.exploration_service import ExplorationError, explore_path
+
+    try:
+        artifact = explore_path(path, query_id=query, what_if=what_if)
+    except ExplorationError as exc:
+        return exc.to_dict()
+
+    if not include_graph:
+        artifact.graph_included = False
+        artifact.graph_omitted_reason = (
+            "compact — set include_graph + max_graph_states for the graph"
+        )
+    elif max_graph_states is None:
+        return {
+            "error": "include_graph=true requires max_graph_states",
+            "kind": "usage",
+            "details": [],
+        }
+    elif artifact.summary["states"] > max_graph_states:
+        artifact.graph_included = False
+        artifact.graph_omitted_reason = (
+            f"graph has {artifact.summary['states']} states > max_graph_states {max_graph_states}"
+        )
+    return artifact.to_dict()
+
+
 def show_spec(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:
@@ -54,6 +87,24 @@ def build_server() -> Any:
         only: use it to test a hypothesis before editing the spec.
         """
         return check_spec(path, what_if)
+
+    @mcp.tool()
+    def explore(
+        path: str = ".",
+        query: str | None = None,
+        what_if: str | None = None,
+        include_graph: bool = False,
+        max_graph_states: int | None = None,
+    ) -> dict:
+        """Explore the reachable state space at `path` (schema analint.exploration/v1).
+
+        Without `query`, explores the canonical initial; with `query`, that query's
+        own initial. Defaults to a compact projection (summary + completeness,
+        `graph: null`). Set `include_graph=true` AND `max_graph_states` to receive
+        nodes/edges; if the graph is larger than `max_graph_states`, the summary is
+        returned with `graph: null` and a `graph_omitted` reason.
+        """
+        return explore_spec(path, query, what_if, include_graph, max_graph_states)
 
     @mcp.tool()
     def show(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:

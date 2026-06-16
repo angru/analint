@@ -95,25 +95,28 @@ class ExplorationArtifact:
     nodes: list[ArtifactNode] = field(default_factory=list)
     edges: list[ArtifactEdge] = field(default_factory=list)
     graph_included: bool = True
+    graph_omitted_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The versioned wire contract — only strings, numbers, bools, None, lists
-        and string-keyed dicts. ``graph`` is ``null`` for a compact projection."""
-        graph: dict[str, Any] | None
-        if self.graph_included:
-            graph = {
-                "roots": self.roots,
-                "nodes": [n.to_dict() for n in self.nodes],
-                "edges": [e.to_dict() for e in self.edges],
-            }
-        else:
-            graph = None
-        return {
+        and string-keyed dicts. A compact projection sets ``graph`` to ``null`` and
+        adds an explicit ``graph_omitted`` reason (output truncation is NOT an
+        exploration-incompleteness reason)."""
+        payload: dict[str, Any] = {
             "schema": ARTIFACT_SCHEMA,
             "spec": self.spec,
             "source": self.source,
             "completeness": self.completeness,
             "summary": self.summary,
             "findings": self.findings,
-            "graph": graph,
         }
+        if self.graph_included:
+            payload["graph"] = {
+                "roots": self.roots,
+                "nodes": [n.to_dict() for n in self.nodes],
+                "edges": [e.to_dict() for e in self.edges],
+            }
+        else:
+            payload["graph"] = None
+            payload["graph_omitted"] = self.graph_omitted_reason or "graph omitted"
+        return payload

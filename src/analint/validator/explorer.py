@@ -493,24 +493,15 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
 # ── Query evaluation ───────────────────────────────────────────────────────────
 
 
-def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
-    qid = query.id or type(query).__name__
-    kind = type(query).__name__
-
+def resolve_query_initials(query: Query, spec: Spec) -> tuple[list[dict] | None, str | None]:
+    """The initial contexts a query explores from — its own ``given``/``given_any``/
+    ``initial``, or the spec's canonical initial when it declares none. Returns
+    ``(initials, None)`` or ``(None, error)``. The single interpretation of a
+    query's initial source, shared by ``run_query`` and the exploration service.
+    """
     initial_sources = bool(query.given) + bool(query.given_any) + (query.initial is not None)
     if initial_sources > 1:
-        return QueryResult(
-            query_id=qid,
-            kind=kind,
-            status="FAIL",
-            findings=[
-                Finding(
-                    Severity.ERROR,
-                    f"query:{qid}",
-                    "use exactly one of given=, given_any=, or initial=, not both/multiple",
-                )
-            ],
-        )
+        return None, "use exactly one of given=, given_any=, or initial=, not both/multiple"
 
     # A query with no initial source of its own starts from the spec's canonical
     # initial, so every check shares one state space unless it opts out.
@@ -518,41 +509,33 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     if initial_sources == 0 and spec.initial is not None:
         effective_initial = spec.initial
 
-    initials: list[dict]
     if effective_initial is not None:
         built, error = build_initial_relation(spec, effective_initial)
         if built is None:
-            return QueryResult(
-                query_id=qid,
-                kind=kind,
-                status="FAIL",
-                findings=[
-                    Finding(
-                        Severity.ERROR,
-                        f"query:{qid}",
-                        error or "could not build the initial state",
-                    )
-                ],
-            )
-        initials = built
-    else:
-        initials = []
-        for given in query.given_any or [query.given]:
-            initial, error = build_initial(spec, given)
-            if initial is None:
-                return QueryResult(
-                    query_id=qid,
-                    kind=kind,
-                    status="FAIL",
-                    findings=[
-                        Finding(
-                            Severity.ERROR,
-                            f"query:{qid}",
-                            error or "could not build the initial state",
-                        )
-                    ],
-                )
-            initials.append(initial)
+            return None, error or "could not build the initial state"
+        return built, None
+
+    initials: list[dict] = []
+    for given in query.given_any or [query.given]:
+        initial, error = build_initial(spec, given)
+        if initial is None:
+            return None, error or "could not build the initial state"
+        initials.append(initial)
+    return initials, None
+
+
+def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
+    qid = query.id or type(query).__name__
+    kind = type(query).__name__
+
+    initials, error = resolve_query_initials(query, spec)
+    if initials is None:
+        return QueryResult(
+            query_id=qid,
+            kind=kind,
+            status="FAIL",
+            findings=[Finding(Severity.ERROR, f"query:{qid}", error or "bad initial state")],
+        )
 
     root_keys = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
     cache_key = (root_keys, query.max_states)

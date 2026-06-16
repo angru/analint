@@ -395,7 +395,7 @@ research/26.
   MCP-guarded output still builds the full artifact internally (review of 4b5535d)
   — consider a summary-only/lazy builder so compact output does not materialise the
   whole graph
-- ⏳ **P4.5 project-sized dogfood:** one externally documented model with at
+- ✅ **P4.5 project-sized dogfood:** one externally documented model with at
   least three interacting entity types/scopes, ten actions and a measured
   requirement-change series
 

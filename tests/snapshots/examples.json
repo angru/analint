@@ -734,13 +734,13 @@
   },
   "k8s_replicaset": {
     "verdict": "PASS",
-    "warnings": 8,
+    "warnings": 9,
     "scenarios": {},
     "queries": {
       "bare_pods_can_starve_a_replicaset": {
         "status": "PASS",
         "states": 1792,
-        "exploration": "688cfa84844093a4",
+        "exploration": "12d7da2b7639defa",
         "trace": [
           "create_bare_pod(slot=Pod['p0'])",
           "scale_up(rs=ReplicaSet['rs0'])"
@@ -750,7 +750,7 @@
       "both_converged_is_reachable": {
         "status": "PASS",
         "states": 1792,
-        "exploration": "688cfa84844093a4",
+        "exploration": "12d7da2b7639defa",
         "trace": [
           "scale_up(rs=ReplicaSet['rs0'])",
           "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
@@ -759,10 +759,17 @@
         ],
         "findings_hash": "e31799c907b012be"
       },
+      "every_action_usable": {
+        "status": "PASS",
+        "states": 1792,
+        "exploration": "12d7da2b7639defa",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
       "quota_can_starve_a_replicaset": {
         "status": "PASS",
         "states": 1792,
-        "exploration": "688cfa84844093a4",
+        "exploration": "12d7da2b7639defa",
         "trace": [
           "scale_up(rs=ReplicaSet['rs0'])"
         ],
@@ -771,28 +778,34 @@
       "quota_never_exceeded": {
         "status": "PASS",
         "states": 1792,
-        "exploration": "688cfa84844093a4",
+        "exploration": "12d7da2b7639defa",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "rs0_converged_always_recoverable": {
         "status": "PASS",
         "states": 1792,
-        "exploration": "688cfa84844093a4",
+        "exploration": "12d7da2b7639defa",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
-      "688cfa84844093a4": {
+      "12d7da2b7639defa": {
         "states": 1792,
-        "edges": 11520,
+        "edges": 13008,
         "states_hash": "a6e07f3325fd71db",
-        "edges_hash": "ba6144bfd8f3bd5f",
+        "edges_hash": "a7a94320ac2cf61c",
         "roots": 4,
         "roots_hash": "40f984847fc3b241",
         "findings_hash": "e3b0c44298fc1c14",
         "fired": [
+          "acquire_orphan(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
+          "acquire_orphan(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p1'])",
+          "acquire_orphan(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p2'])",
+          "acquire_orphan(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p0'])",
+          "acquire_orphan(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p1'])",
+          "acquire_orphan(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p2'])",
           "create_bare_pod(slot=Pod['p0'])",
           "create_bare_pod(slot=Pod['p1'])",
           "create_bare_pod(slot=Pod['p2'])",

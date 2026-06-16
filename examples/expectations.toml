@@ -84,6 +84,7 @@ failed_queries = []
 failed_invariants = []
 failed_flows = []
 warning_locations = [
+    "action:acquire_orphan",
     "action:create_bare_pod",
     "action:decrease_quota",
     "action:delete_bare_pod",

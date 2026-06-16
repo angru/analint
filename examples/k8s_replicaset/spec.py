@@ -11,10 +11,10 @@ competition is *reachable*, and a converged state remains *reachable* from every
 state (a no-dead-end question), not inevitable.
 
 Scope (kept small for exhaustive BFS): 1 namespace, 1 count/pods ResourceQuota,
-**two ReplicaSets** competing for it (change-series step 2), 3 Pod slots. Omitted:
-Deployment rollouts, scheduler/nodes, readiness, CPU/memory requests, multiple
-namespaces. Orphan acquisition and bare pods arrive in later steps. The measured
-change series is in research/28.
+**two ReplicaSets** competing for it, 3 Pod slots, **bare (unowned) pods** that
+also consume the quota, and **orphan acquisition** (a controller adopts a matching
+unowned pod). Omitted: Deployment rollouts, scheduler/nodes, readiness, CPU/memory
+requests, multiple namespaces. The measured change series is in research/28.
 """
 
 from enum import StrEnum
@@ -28,6 +28,7 @@ from analint import (
     Bound,
     Count,
     Create,
+    DeadActions,
     Delete,
     Entity,
     Field,
@@ -38,6 +39,7 @@ from analint import (
     Present,
     Reachable,
     Scope,
+    Set,
     Spec,
     Subtract,
 )
@@ -119,6 +121,15 @@ reconcile_delete = Action(
     effect=[Delete(slot)],
 )
 
+acquire_orphan = Action(
+    name="A controller adopts a matching orphan/bare Pod toward its desired count",
+    params=[rs, rs_owner, slot],
+    where=_rs_is_owner,
+    # an existing unowned pod is adopted (no new quota consumed) when below desired
+    pre=[Present(slot), slot.owner == Owner.NONE, owned(rs_owner) < rs.desired],
+    effect=[Set(slot.owner, rs_owner)],
+)
+
 create_bare_pod = Action(
     name="A user creates a bare Pod (no controller owner), consuming quota",
     params=[slot],
@@ -191,6 +202,10 @@ rs0_converged_always_recoverable = NoDeadEnd(
     label="rs0 can reach its desired count from every reachable state",
 )
 
+every_action_usable = DeadActions(
+    label="every action (including orphan acquisition) is reachable and usable",
+)
+
 
 # The namespace starts EMPTY (no pods); scope slots default to *present*, so the
 # initial marks them absent. `Initial` requires a `vary`, so the starting quota
@@ -203,7 +218,7 @@ initial = Initial(
 spec = Spec(
     id="k8s_replicaset",
     name="Kubernetes ReplicaSet + count/pods ResourceQuota",
-    version="0.3.0",
+    version="0.4.0",
     description="A narrow, reachability-only slice: two ReplicaSets reconcile Pod "
     "counts competing for one namespace pod quota. Safety (quota never exceeded) "
     "and reachability (both converged, quota-starvation, recovery) — never eventual "

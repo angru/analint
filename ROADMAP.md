@@ -368,22 +368,22 @@ consume меняет смысл `Event`; ломает state-chaining саги; �
 Detailed implementation contract, JSON shape, tests and commit checkpoints:
 research/26.
 
-- ⏳ **P4.0a type-boundary gate:** audit the intentional dual view
+- ✅ **P4.0a type-boundary gate:** audit the intentional dual view
   (`wallet.balance` is a domain value; `Wallet.balance` is a symbolic reference),
   Pylance/Pyright metaclass opacity, collection invariance, AST operand unions,
   `Any` and suppressions. Do not expose private `FieldDescriptor` types or assume
   `balance: int` is wrong
-- ⏳ **P4.0b DSL typing policy:** preserve annotation-first declarations such as
+- ✅ **P4.0b DSL typing policy:** preserve annotation-first declarations such as
   `balance: int`; improve constructor/collection typing where possible and
   document narrow IDE inspection settings for unavoidable class-level DSL false
   positives. Descriptor-first syntax and a parallel field namespace are rejected
-- ⏳ **P4.0c example intent:** `examples/expectations.toml`, a README for every
+- ✅ **P4.0c example intent:** `examples/expectations.toml`, a README for every
   example, complete root README inventory, and a test that checks expected
   verdicts/failures/warnings separately from characterization snapshots
-- ⏳ **P4.1 artifact core:** deterministic `analint.exploration/v1` DTO and
+- ✅ **P4.1 artifact core:** deterministic `analint.exploration/v1` DTO and
   converter over the existing `Exploration`; stable nodes/edges/bindings/diffs,
   summary and explicit multi-reason completeness
-- ⏳ **P4.2 exploration service:** canonical/query-specific exploration through
+- ✅ **P4.2 exploration service:** canonical/query-specific exploration through
   compact-by-default CLI and MCP; full graph is explicit and never silently
   truncated
 - ⏳ **P4.3 witness diagnostics:** state-diff traces for query

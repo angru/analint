@@ -34,27 +34,26 @@ def explore_spec(
     from analint.validator.exploration_service import ExplorationError, explore_path
 
     try:
-        artifact = explore_path(path, query_id=query, what_if=what_if)
+        if not include_graph:
+            # the common path: summary-only, the graph is never materialised
+            artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=False)
+            artifact.graph_omitted_reason = (
+                "compact — set include_graph + max_graph_states for the graph"
+            )
+            return artifact.to_dict()
+        if max_graph_states is None:
+            return {
+                "error": "include_graph=true requires max_graph_states",
+                "kind": "usage",
+                "details": [],
+            }
+        artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=True)
+        if artifact.summary["states"] > max_graph_states:
+            artifact.graph_included = False
+            artifact.graph_omitted_reason = f"graph has {artifact.summary['states']} states > max_graph_states {max_graph_states}"
+        return artifact.to_dict()
     except ExplorationError as exc:
         return exc.to_dict()
-
-    if not include_graph:
-        artifact.graph_included = False
-        artifact.graph_omitted_reason = (
-            "compact — set include_graph + max_graph_states for the graph"
-        )
-    elif max_graph_states is None:
-        return {
-            "error": "include_graph=true requires max_graph_states",
-            "kind": "usage",
-            "details": [],
-        }
-    elif artifact.summary["states"] > max_graph_states:
-        artifact.graph_included = False
-        artifact.graph_omitted_reason = (
-            f"graph has {artifact.summary['states']} states > max_graph_states {max_graph_states}"
-        )
-    return artifact.to_dict()
 
 
 def trace_spec(path: str = ".", query: str = "", what_if: str | None = None) -> dict:

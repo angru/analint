@@ -130,7 +130,7 @@ def explore(
     from analint.validator.exploration_service import ExplorationError, explore_path
 
     try:
-        artifact = explore_path(path, query_id=query, what_if=what_if)
+        artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=include_graph)
     except ExplorationError as exc:
         if format == "json":
             print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))
@@ -141,11 +141,6 @@ def explore(
         raise typer.Exit(3) from None
 
     if format == "json":
-        if not include_graph:
-            artifact.graph_included = False
-            artifact.graph_omitted_reason = (
-                "compact projection — pass --include-graph for nodes/edges"
-            )
         print(json.dumps(artifact.to_dict(), indent=2, ensure_ascii=False))
     else:
         _print_exploration(artifact)

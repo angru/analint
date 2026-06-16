@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 
 from analint import Action, Add, Create, Delete, Entity, Event, Field, Scope, Set, Spec
-from analint.validator.artifact_builder import build_exploration_artifact
+from analint.validator.artifact_builder import (
+    build_exploration_artifact,
+    build_summary_artifact,
+)
 from analint.validator.engine import build_spec
 from analint.validator.explorer import build_canonical_initials, explore
 
@@ -42,6 +45,20 @@ def test_oauth_schema_summary_and_completeness():
     assert d["completeness"]["reasons"] == []
     assert len(d["graph"]["nodes"]) == 1169
     assert len(d["graph"]["edges"]) == 2256
+
+
+def test_summary_artifact_matches_full_summary_without_the_graph():
+    spec, _, _ = build_spec(EXAMPLES / "branch_protection")
+    initials, _ = build_canonical_initials(spec)
+    exp = explore(spec, initials, spec.max_states)
+    full = build_exploration_artifact(exp, spec).to_dict()
+    summary = build_summary_artifact(exp, spec).to_dict()
+    # identical summary/completeness, but the graph is not materialised
+    assert summary["summary"] == full["summary"]
+    assert summary["completeness"] == full["completeness"]
+    assert summary["spec"] == full["spec"]
+    assert summary["graph"] is None
+    assert "graph_omitted" in summary
 
 
 def test_node_and_edge_ids_are_content_digests():

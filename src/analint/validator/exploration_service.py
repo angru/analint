@@ -15,7 +15,12 @@ from pathlib import Path
 
 from analint.reporter.base import Severity
 from analint.reporter.exploration_artifact import ExplorationArtifact, canonical_digest
-from analint.validator.artifact_builder import _changes, _render_state, build_exploration_artifact
+from analint.validator.artifact_builder import (
+    _changes,
+    _render_state,
+    build_exploration_artifact,
+    build_summary_artifact,
+)
 from analint.validator.engine import prepare_model
 from analint.validator.explorer import (
     Exploration,
@@ -44,6 +49,7 @@ def explore_path(
     *,
     query_id: str | None = None,
     what_if: str | Path | None = None,
+    include_graph: bool = True,
 ) -> ExplorationArtifact:
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
     if prepared.spec is None:
@@ -76,6 +82,15 @@ def explore_path(
         raise ExplorationError("unbuildable", error or "could not build an initial state")
 
     exp = explore(spec, initials, budget)
+    if not include_graph:
+        return build_summary_artifact(
+            exp,
+            spec,
+            source_kind=source_kind,
+            query_id=query_id,
+            max_states=budget,
+            graph_omitted_reason="compact projection — request the full graph explicitly",
+        )
     return build_exploration_artifact(
         exp, spec, source_kind=source_kind, query_id=query_id, max_states=budget
     )

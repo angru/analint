@@ -389,7 +389,7 @@ research/26.
   truncated
 - ✅ **P4.3 witness diagnostics:** state-diff traces for query
   witnesses/counterexamples while preserving the existing action-id trace
-- ⏳ **P4.4 measured scaling:** generated counter-grid, conserved-transfer and
+- ✅ **P4.4 measured scaling:** generated counter-grid, conserved-transfer and
   workflow-product families over 10²–10⁵ states; profile before optimization,
   one semantic-neutral change per commit. Also measure/address that compact &
   MCP-guarded output still builds the full artifact internally (review of 4b5535d)

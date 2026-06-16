@@ -764,6 +764,22 @@ Findings that direct P4.4b:
 3. 10⁴-state families complete in the edit/check loop (sub-second to a few
    seconds); the 10⁵ tier (`--full`) is runnable but slow — honest, not capped.
 
+### P4.4b — summary-only artifact (the measured optimization)
+
+`build_summary_artifact` computes the same summary + completeness directly from the
+`Exploration` (one `Counter` over edges, parent-walk depths) without rendering any
+state or hashing any node/edge. `explore_path(..., include_graph=False)` and the
+default compact CLI/MCP projections now use it, so the common path never
+materialises the graph. The full builder is unchanged and shares the one summary
+computation (full artifact output is byte-identical — verified).
+
+Before/after on counter_grid (4,9) = 10 000 states (CPython 3.14.5): the artifact
+build dropped from **~395 ms (full) to ~26 ms (summary-only), ~15×**. This is the
+common agent path (compact `explore`, MCP default, the MCP graph guard's reject
+path stays full-then-drop for the explicit oversized request). No explorer
+algorithm change was needed; the bottleneck was artifact materialisation, exactly
+as the baseline indicated.
+
 ### P4.5 — Project-sized dogfood gate
 
 **Outcome:** validate the workbench on a model larger than a tutorial, not add a

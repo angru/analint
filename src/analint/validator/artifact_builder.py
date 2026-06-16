@@ -1,11 +1,17 @@
-"""Build the deterministic ``analint.exploration/v1`` artifact from one
-`Exploration` (P4.1, schema in research/26).
+"""Build the ``analint.exploration/v1`` artifact from one `Exploration` (P4.1/P4.4).
 
-This adapts the existing BFS result (`states`, `order`, `edges`, `parents`,
-`roots`, `fired`, `excluded`, `capped`) into the documented wire contract. It does
-not re-run or rewrite the search, and it reuses ``context_key_label``, presence
-semantics and ``all_fields`` for state rendering — no duplicate field discovery
-and no second ``step()``.
+Two builders share one summary computation:
+
+- ``build_exploration_artifact`` — the full artifact (nodes/edges/graph): renders
+  every state and computes a SHA-256 digest per node/edge.
+- ``build_summary_artifact`` — the compact projection (``graph: null``): the same
+  summary and completeness WITHOUT rendering states or hashing, so the common
+  compact CLI/MCP path does not materialise the whole graph (P4.4b; the full build
+  was 28–88% of exploration time, research/26).
+
+Neither re-runs the search; both reuse ``context_key_label``, presence semantics
+and ``all_fields`` for any rendering — no duplicate field discovery, no second
+``step()``.
 """
 
 from __future__ import annotations
@@ -45,6 +51,61 @@ def _render_state(ctx: dict) -> dict[str, Any]:
     return out
 
 
+def _family_of(actions_by_id: dict, action_id: str) -> str:
+    action = actions_by_id.get(action_id)
+    return action.family if (action is not None and action.family) else action_id
+
+
+def _summary(
+    exp: Exploration, spec: Spec, actions_by_id: dict, max_states: int | None
+) -> tuple[dict, dict, list]:
+    """Summary + completeness computed straight from the exploration (no rendering,
+    no digests). Returns ``(summary, completeness, valid_edges)`` where valid edges
+    have both endpoints explored (a capped run may record an edge past the budget)."""
+    valid = [(s, a, t) for s, a, t in exp.edges if s in exp.states and t in exp.states]
+    out_degree = Counter(source for source, _, _ in valid)
+    counts = [out_degree.get(key, 0) for key in exp.order]
+
+    reasons: list[str] = []
+    if exp.capped:
+        reasons.append("capped")
+    if exp.excluded:
+        reasons.append("excluded-semantics")
+    reasons.sort()
+
+    summary = {
+        "roots": len(exp.roots),
+        "states": len(exp.order),
+        "edges": len(valid),
+        "max_depth": max((len(exp.trace_to(key)) for key in exp.order), default=0),
+        "dead_ends": sum(1 for count in counts if count == 0),
+        "self_loops": sum(1 for source, _, target in valid if source == target),
+        "branching": {
+            "min": min(counts) if counts else 0,
+            "mean": round(fmean(counts), 4) if counts else 0.0,
+            "max": max(counts) if counts else 0,
+        },
+        "fired_actions": sorted({_family_of(actions_by_id, a) for a in exp.fired}),
+        "edge_count_by_action": dict(
+            sorted(Counter(_family_of(actions_by_id, a) for _, a, _ in valid).items())
+        ),
+        "excluded_actions": {aid: reason for aid, reason in sorted(exp.excluded.items())},
+    }
+    completeness = {
+        "complete": not reasons,
+        "reasons": reasons,
+        "max_states": spec.max_states if max_states is None else max_states,
+    }
+    return summary, completeness, valid
+
+
+def _findings(exp: Exploration) -> list[dict[str, str]]:
+    return [
+        {"severity": f.severity.value, "location": f.location, "message": f.message}
+        for f in exp.findings
+    ]
+
+
 def build_exploration_artifact(
     exp: Exploration,
     spec: Spec,
@@ -54,12 +115,10 @@ def build_exploration_artifact(
     max_states: int | None = None,
 ) -> ExplorationArtifact:
     actions_by_id = {action.id: action for action in spec.actions}
+    summary, completeness, valid_edges = _summary(exp, spec, actions_by_id, max_states)
+
     rendered = {key: _render_state(exp.states[key]) for key in exp.order}
     node_id = {key: canonical_digest(rendered[key]) for key in exp.order}
-
-    def family_of(action_id: str) -> str:
-        action = actions_by_id.get(action_id)
-        return action.family if (action is not None and action.family) else action_id
 
     def binding_of(action_id: str) -> dict[str, str]:
         action = actions_by_id.get(action_id)
@@ -75,88 +134,66 @@ def build_exploration_artifact(
     nodes: list[ArtifactNode] = []
     for key in exp.order:
         prev, action_id = exp.parents[key]
-        parent_edge = edge_digest(prev, action_id, key) if prev is not None else None
         nodes.append(
             ArtifactNode(
                 id=node_id[key],
                 depth=len(exp.trace_to(key)),
-                parent_edge=parent_edge,
+                parent_edge=edge_digest(prev, action_id, key) if prev is not None else None,
                 state=rendered[key],
             )
         )
 
-    edges: list[ArtifactEdge] = []
-    for source_key, action_id, target_key in exp.edges:
-        # A capped run may record an edge to a state beyond the budget; keep the
-        # artifact internally consistent by emitting only edges between nodes.
-        if source_key not in node_id or target_key not in node_id:
-            continue
-        edges.append(
-            ArtifactEdge(
-                id=edge_digest(source_key, action_id, target_key),
-                source=node_id[source_key],
-                target=node_id[target_key],
-                action=action_id,
-                family=family_of(action_id),
-                binding=binding_of(action_id),
-                changes=_changes(rendered[source_key], rendered[target_key]),
-            )
+    edges = [
+        ArtifactEdge(
+            id=edge_digest(source_key, action_id, target_key),
+            source=node_id[source_key],
+            target=node_id[target_key],
+            action=action_id,
+            family=_family_of(actions_by_id, action_id),
+            binding=binding_of(action_id),
+            changes=_changes(rendered[source_key], rendered[target_key]),
         )
-
-    out_degree = Counter(edge.source for edge in edges)
-    counts = [out_degree.get(node.id, 0) for node in nodes]
-    self_loops = sum(1 for edge in edges if edge.source == edge.target)
-
-    reasons: list[str] = []
-    if exp.capped:
-        reasons.append("capped")
-    if exp.excluded:
-        reasons.append("excluded-semantics")
-    reasons.sort()
-
-    fired = sorted({family_of(action_id) for action_id in exp.fired})
-    edge_count_by_action = dict(sorted(Counter(edge.family for edge in edges).items()))
-    excluded_actions = {action_id: reason for action_id, reason in sorted(exp.excluded.items())}
-
-    summary = {
-        "roots": len(exp.roots),
-        "states": len(exp.order),
-        "edges": len(edges),
-        "max_depth": max((node.depth for node in nodes), default=0),
-        "dead_ends": sum(1 for count in counts if count == 0),
-        "self_loops": self_loops,
-        "branching": {
-            "min": min(counts) if counts else 0,
-            "mean": round(fmean(counts), 4) if counts else 0.0,
-            "max": max(counts) if counts else 0,
-        },
-        "fired_actions": fired,
-        "edge_count_by_action": edge_count_by_action,
-        "excluded_actions": excluded_actions,
-    }
+        for source_key, action_id, target_key in valid_edges
+    ]
 
     roots = sorted(
         ({"index": index, "node": node_id[key]} for key, index in exp.roots.items()),
         key=lambda root: root["index"],
     )
-    findings = [
-        {"severity": f.severity.value, "location": f.location, "message": f.message}
-        for f in exp.findings
-    ]
-
     return ExplorationArtifact(
         spec={"id": spec.id, "version": spec.version},
         source={"kind": source_kind, "query": query_id},
-        completeness={
-            "complete": not reasons,
-            "reasons": reasons,
-            "max_states": spec.max_states if max_states is None else max_states,
-        },
+        completeness=completeness,
         summary=summary,
-        findings=findings,
+        findings=_findings(exp),
         roots=roots,
         nodes=nodes,
         edges=edges,
+    )
+
+
+def build_summary_artifact(
+    exp: Exploration,
+    spec: Spec,
+    *,
+    source_kind: str = "canonical",
+    query_id: str | None = None,
+    max_states: int | None = None,
+    graph_omitted_reason: str | None = None,
+) -> ExplorationArtifact:
+    """The compact projection: full summary/completeness, ``graph: null``, without
+    rendering states or hashing nodes/edges."""
+    actions_by_id = {action.id: action for action in spec.actions}
+    summary, completeness, _ = _summary(exp, spec, actions_by_id, max_states)
+    return ExplorationArtifact(
+        spec={"id": spec.id, "version": spec.version},
+        source={"kind": source_kind, "query": query_id},
+        completeness=completeness,
+        summary=summary,
+        findings=_findings(exp),
+        roots=[],
+        graph_included=False,
+        graph_omitted_reason=graph_omitted_reason or "summary-only build (graph not materialised)",
     )
 
 

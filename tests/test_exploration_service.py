@@ -60,6 +60,14 @@ def test_cli_unknown_query_exits_3():
 # ── service ──────────────────────────────────────────────────────────────────────
 
 
+def test_explore_path_summary_only_matches_full_summary():
+    full = explore_path(BP, include_graph=True).to_dict()
+    compact = explore_path(BP, include_graph=False).to_dict()
+    assert compact["summary"] == full["summary"]
+    assert compact["completeness"] == full["completeness"]
+    assert compact["graph"] is None and "graph_omitted" in compact
+
+
 def test_service_load_failure_raises_structured():
     with pytest.raises(ExplorationError) as info:
         explore_path("/tmp/analint-does-not-exist-xyz")

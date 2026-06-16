@@ -732,6 +732,77 @@
     },
     "flows": {}
   },
+  "k8s_replicaset": {
+    "verdict": "PASS",
+    "warnings": 6,
+    "scenarios": {},
+    "queries": {
+      "converged_always_recoverable": {
+        "status": "PASS",
+        "states": 80,
+        "exploration": "1b22886046d6557b",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "converged_is_reachable": {
+        "status": "PASS",
+        "states": 80,
+        "exploration": "1b22886046d6557b",
+        "trace": [
+          "scale_up",
+          "reconcile_create(slot=Pod['p0'])",
+          "scale_up",
+          "reconcile_create(slot=Pod['p1'])",
+          "scale_up",
+          "reconcile_create(slot=Pod['p2'])"
+        ],
+        "findings_hash": "2c662ba328caaed9"
+      },
+      "quota_never_exceeded": {
+        "status": "PASS",
+        "states": 80,
+        "exploration": "1b22886046d6557b",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "under_replicated_by_quota_is_reachable": {
+        "status": "PASS",
+        "states": 80,
+        "exploration": "1b22886046d6557b",
+        "trace": [
+          "scale_up"
+        ],
+        "findings_hash": "6c509dfbdfee8220"
+      }
+    },
+    "explorations": {
+      "1b22886046d6557b": {
+        "states": 80,
+        "edges": 312,
+        "states_hash": "56f5d87eeb09badc",
+        "edges_hash": "d61a17b49359aea4",
+        "roots": 4,
+        "roots_hash": "a39d48e344d06151",
+        "findings_hash": "e3b0c44298fc1c14",
+        "fired": [
+          "decrease_quota",
+          "increase_quota",
+          "reconcile_create(slot=Pod['p0'])",
+          "reconcile_create(slot=Pod['p1'])",
+          "reconcile_create(slot=Pod['p2'])",
+          "reconcile_delete(slot=Pod['p0'])",
+          "reconcile_delete(slot=Pod['p1'])",
+          "reconcile_delete(slot=Pod['p2'])",
+          "scale_down",
+          "scale_up"
+        ],
+        "excluded": {},
+        "incomplete": []
+      }
+    },
+    "invariants": {},
+    "flows": {}
+  },
   "mafia": {
     "verdict": "PASS",
     "warnings": 0,

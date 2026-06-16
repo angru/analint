@@ -75,6 +75,24 @@ failed_flows = []
 warning_locations = []
 source = ""
 
+[k8s_replicaset]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = [
+    "action:decrease_quota",
+    "action:increase_quota",
+    "action:reconcile_create",
+    "action:reconcile_delete",
+    "action:scale_down",
+    "action:scale_up",
+]
+source = "Kubernetes ReplicaSet + count/pods ResourceQuota (research/26 §P4.5)"
+
 [mafia]
 verdict = "PASS"
 exit_code = 0

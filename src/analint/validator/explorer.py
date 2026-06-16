@@ -798,6 +798,7 @@ def _eval_reachable(
                 status="PASS",
                 states_explored=len(exp.states),
                 trace=trace,
+                witness_key=found,
                 findings=[
                     Finding(
                         Severity.INFO,
@@ -813,6 +814,7 @@ def _eval_reachable(
             status="FAIL",
             states_explored=len(exp.states),
             trace=trace,
+            witness_key=found,
             findings=[
                 Finding(
                     Severity.ERROR,
@@ -867,6 +869,7 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
                 status="FAIL",
                 states_explored=len(exp.states),
                 trace=trace,
+                witness_key=key,
                 findings=[
                     Finding(
                         Severity.ERROR,
@@ -946,6 +949,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                 status="FAIL",
                 states_explored=len(exp.states),
                 trace=trace,
+                witness_key=key,
                 findings=[
                     Finding(
                         Severity.ERROR,

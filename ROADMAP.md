@@ -155,7 +155,8 @@ snapshot-режима).
 - Запросы: `Reachable(p)`, `Unreachable(p)` (метки «система не должна уметь
   сюда попадать» — регрессии ловятся диффом), `NoDeadEnd(goal=p)`,
   `AlwaysHolds(p)`, `DeadActions()`
-- ⏸ отдельные CLI `analint query` / `analint trace` не реализованы
+- ✅ CLI `analint explore` / `analint trace` реализованы в P4.2/P4.3 (exploration
+  artifact + state-diff witness traces)
 - ⏸ реляционные эффекты `f.next` — слой для недетерминизма (выбор игрока,
   успех/отказ платежа) без отдельного примитива Choice (research/07)
 - ⏸ `analint simulate --steps N` — случайные блуждания как smoke-test спеки
@@ -386,11 +387,14 @@ research/26.
 - ✅ **P4.2 exploration service:** canonical/query-specific exploration through
   compact-by-default CLI and MCP; full graph is explicit and never silently
   truncated
-- ⏳ **P4.3 witness diagnostics:** state-diff traces for query
+- ✅ **P4.3 witness diagnostics:** state-diff traces for query
   witnesses/counterexamples while preserving the existing action-id trace
 - ⏳ **P4.4 measured scaling:** generated counter-grid, conserved-transfer and
   workflow-product families over 10²–10⁵ states; profile before optimization,
-  one semantic-neutral change per commit
+  one semantic-neutral change per commit. Also measure/address that compact &
+  MCP-guarded output still builds the full artifact internally (review of 4b5535d)
+  — consider a summary-only/lazy builder so compact output does not materialise the
+  whole graph
 - ⏳ **P4.5 project-sized dogfood:** one externally documented model with at
   least three interacting entity types/scopes, ten actions and a measured
   requirement-change series

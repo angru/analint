@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class Severity(StrEnum):
@@ -57,6 +57,9 @@ class QueryResult:
     findings: list[Finding] = field(default_factory=list)
     states_explored: int = 0
     trace: list[str] | None = None  # action ids from the initial state
+    # the witness/counterexample state key (an internal explorer tuple); kept for
+    # the trace projection and NOT serialized into the public JSON.
+    witness_key: Any = None
 
 
 @dataclass

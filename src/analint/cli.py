@@ -151,6 +151,55 @@ def explore(
         _print_exploration(artifact)
 
 
+def _print_trace(t: dict) -> None:
+    print(f"analint trace  query: {t['query']}  status: {t['status']}")
+    if t.get("root") is None:
+        print(f"  {t.get('message', 'no witness/counterexample to trace')}")
+        return
+    print(f"  root: init #{t['root']['index']}  {t['root']['node']}")
+    for i, step in enumerate(t["steps"], 1):
+        changes = (
+            ", ".join(f"{c['field']}: {c['before']} → {c['after']}" for c in step["changes"])
+            or "(no field change)"
+        )
+        print(f"  {i}. {step['action']}")
+        print(f"       {changes}")
+    print("  final state:")
+    for field_label, value in t["final_state"].items():
+        print(f"    {field_label} = {value}")
+
+
+@app.command()
+def trace(
+    query: str = typer.Argument(..., help="The query id whose witness/counterexample to trace"),
+    path: Path = typer.Option(
+        Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
+    ),
+    format: str = typer.Option(
+        "terminal", "--format", "-f", help="Output format: terminal or json"
+    ),
+    what_if: Path | None = typer.Option(
+        None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
+    ),
+) -> None:
+    """Show a query's witness/counterexample as states and changes, step by step."""
+    from analint.validator.exploration_service import ExplorationError, trace_query
+
+    try:
+        result = trace_query(path, query, what_if=what_if)
+    except ExplorationError as exc:
+        if format == "json":
+            print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))
+        else:
+            typer.echo(f"TRACE ERROR ({exc.kind}): {exc.message}", err=True)
+        raise typer.Exit(3) from None
+
+    if format == "json":
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        _print_trace(result)
+
+
 @app.command()
 def show(
     kind: str | None = typer.Argument(

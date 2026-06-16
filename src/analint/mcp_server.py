@@ -57,6 +57,15 @@ def explore_spec(
     return artifact.to_dict()
 
 
+def trace_spec(path: str = ".", query: str = "", what_if: str | None = None) -> dict:
+    from analint.validator.exploration_service import ExplorationError, trace_query
+
+    try:
+        return trace_query(path, query, what_if=what_if)
+    except ExplorationError as exc:
+        return exc.to_dict()
+
+
 def show_spec(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:
@@ -105,6 +114,17 @@ def build_server() -> Any:
         returned with `graph: null` and a `graph_omitted` reason.
         """
         return explore_spec(path, query, what_if, include_graph, max_graph_states)
+
+    @mcp.tool()
+    def trace(path: str = ".", query: str = "", what_if: str | None = None) -> dict:
+        """A query's witness/counterexample as states and changes (not just action ids).
+
+        `query` is the query id. Returns the root, a step list
+        (`action`/`source`/`target`/`changes`) and the `final_state`, with node ids
+        matching the exploration artifact. A passing property with no example
+        returns `witness: null` and a message rather than an error.
+        """
+        return trace_spec(path, query, what_if)
 
     @mcp.tool()
     def show(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:

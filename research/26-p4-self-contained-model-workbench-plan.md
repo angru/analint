@@ -735,6 +735,35 @@ P4.4a: add generated scaling characterization
 P4.4b: optimize <measured bottleneck>
 ```
 
+### P4.4a baseline (2026-06-16, CPython 3.14.5)
+
+`scripts/scaling_models.py` (counter_grid, conserved_transfer, workflow_product)
++ `scripts/bench_scaling.py`. All families reproduce their closed-form counts
+(`tests/test_scaling_models.py`). Timings are noisy/hardware-dependent — recorded
+for trend, not as a gate.
+
+| family | states | edges | t_min | µs/state | artifact % |
+|---|---:|---:|---:|---:|---:|
+| counter_grid (4,9) | 10 000 | 36 000 | 0.78 s | ~78 | 48% |
+| conserved_transfer (5,20) | 10 626 | 177 100 | 5.1 s | ~484 | 37% |
+| workflow_product (7) | 16 384 | 86 016 | 4.3 s | ~260 | 28% |
+
+Findings that direct P4.4b:
+
+1. **Throughput is edge-dominated, not state-dominated.** conserved_transfer's
+   `send` expands to O(n²) bound actions, so its 10⁴-state case has 177k edges and
+   is ~6× slower per state than the sparse counter grid. The cost is per-edge
+   transition work, not per-state bookkeeping.
+2. **The artifact build is 28–88% of exploration time** — far above the <10%
+   *summary* target — because the full builder renders every state and computes a
+   SHA-256 digest per node/edge. This confirms the review note on 4b5535d: compact
+   and MCP-guarded output should NOT materialise the whole graph. The
+   measurement-justified P4.4b is a **summary-only artifact path** that computes
+   completeness/summary directly from the `Exploration` without rendering nodes,
+   edges or digests; the compact CLI/MCP projections then use it.
+3. 10⁴-state families complete in the edit/check loop (sub-second to a few
+   seconds); the 10⁵ tier (`--full`) is runnable but slow — honest, not capped.
+
 ### P4.5 — Project-sized dogfood gate
 
 **Outcome:** validate the workbench on a model larger than a tutorial, not add a

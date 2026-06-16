@@ -864,16 +864,6 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
-      "sc_attacker_wrong_client": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "1c1c3d820a5c1108"
-      },
-      "sc_attacker_wrong_verifier": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "712faf2f0ea8a84a"
-      },
       "sc_issue": {
         "status": "PASS",
         "rules": 1,
@@ -883,6 +873,16 @@
         "status": "PASS",
         "rules": 5,
         "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_attacker_wrong_client": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "1c1c3d820a5c1108"
+      },
+      "sc_attacker_wrong_verifier": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "712faf2f0ea8a84a"
       },
       "sc_replay_revokes_derived_token": {
         "status": "PASS",
@@ -896,13 +896,6 @@
       }
     },
     "queries": {
-      "every_token_traces_to_its_code": {
-        "status": "PASS",
-        "states": 1169,
-        "exploration": "a2285b3a666c6141",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "honest_flow_reaches_token": {
         "status": "PASS",
         "states": 1169,
@@ -912,6 +905,13 @@
           "redeem_code(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
         "findings_hash": "7a3500102605db57"
+      },
+      "every_token_traces_to_its_code": {
+        "status": "PASS",
+        "states": 1169,
+        "exploration": "a2285b3a666c6141",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "no_token_to_wrong_client": {
         "status": "PASS",
@@ -934,13 +934,6 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "only_replayed_codes_tokens_are_revoked": {
-        "status": "PASS",
-        "states": 1169,
-        "exploration": "a2285b3a666c6141",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "replay_can_reach_revocation": {
         "status": "PASS",
         "states": 1169,
@@ -951,6 +944,13 @@
           "detect_replay_and_revoke(code=AuthCode['c1'], code_id=<CodeId.C1: 'code-1'>, token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
         "findings_hash": "28f610fd943c8d3a"
+      },
+      "only_replayed_codes_tokens_are_revoked": {
+        "status": "PASS",
+        "states": 1169,
+        "exploration": "a2285b3a666c6141",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "replay_detected_code_has_no_active_token": {
         "status": "PASS",

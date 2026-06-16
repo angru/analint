@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from analint.models.actor import Actor
 from analint.models.effect import Effect
@@ -59,6 +59,9 @@ class Action(BaseModel):
     params: list[Param] = Field(default_factory=list)
     where: list[Predicate] = Field(default_factory=list)
     family: str = ""  # the parameterized action this instance was expanded from
+    # Structured parameter bindings of a concrete instance (param name → value),
+    # set by bind_action. Private: surfaced only through the exploration artifact.
+    _bindings: dict[str, Any] | None = PrivateAttr(default=None)
 
     @field_validator("on", "emits", "pre", "post", "effect", "params", "where", mode="before")
     @classmethod

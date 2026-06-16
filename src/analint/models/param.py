@@ -386,6 +386,7 @@ def bind_action(action: Action, binding: Binding) -> Action:
         on=list(action.on),
         tags=list(action.tags),
     )
+    concrete._bindings = dict(binding)
     _BIND_MEMO[key] = concrete
     return concrete
 

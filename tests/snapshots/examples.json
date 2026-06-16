@@ -734,13 +734,23 @@
   },
   "k8s_replicaset": {
     "verdict": "PASS",
-    "warnings": 6,
+    "warnings": 8,
     "scenarios": {},
     "queries": {
+      "bare_pods_can_starve_a_replicaset": {
+        "status": "PASS",
+        "states": 1792,
+        "exploration": "688cfa84844093a4",
+        "trace": [
+          "create_bare_pod(slot=Pod['p0'])",
+          "scale_up(rs=ReplicaSet['rs0'])"
+        ],
+        "findings_hash": "a9e9b491279d65c4"
+      },
       "both_converged_is_reachable": {
         "status": "PASS",
-        "states": 864,
-        "exploration": "7936a1bb09a2db04",
+        "states": 1792,
+        "exploration": "688cfa84844093a4",
         "trace": [
           "scale_up(rs=ReplicaSet['rs0'])",
           "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
@@ -751,8 +761,8 @@
       },
       "quota_can_starve_a_replicaset": {
         "status": "PASS",
-        "states": 864,
-        "exploration": "7936a1bb09a2db04",
+        "states": 1792,
+        "exploration": "688cfa84844093a4",
         "trace": [
           "scale_up(rs=ReplicaSet['rs0'])"
         ],
@@ -760,30 +770,36 @@
       },
       "quota_never_exceeded": {
         "status": "PASS",
-        "states": 864,
-        "exploration": "7936a1bb09a2db04",
+        "states": 1792,
+        "exploration": "688cfa84844093a4",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "rs0_converged_always_recoverable": {
         "status": "PASS",
-        "states": 864,
-        "exploration": "7936a1bb09a2db04",
+        "states": 1792,
+        "exploration": "688cfa84844093a4",
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
-      "7936a1bb09a2db04": {
-        "states": 864,
-        "edges": 4896,
-        "states_hash": "206e09c0f828429a",
-        "edges_hash": "a5b6025adb2948d9",
+      "688cfa84844093a4": {
+        "states": 1792,
+        "edges": 11520,
+        "states_hash": "a6e07f3325fd71db",
+        "edges_hash": "ba6144bfd8f3bd5f",
         "roots": 4,
         "roots_hash": "40f984847fc3b241",
         "findings_hash": "e3b0c44298fc1c14",
         "fired": [
+          "create_bare_pod(slot=Pod['p0'])",
+          "create_bare_pod(slot=Pod['p1'])",
+          "create_bare_pod(slot=Pod['p2'])",
           "decrease_quota",
+          "delete_bare_pod(slot=Pod['p0'])",
+          "delete_bare_pod(slot=Pod['p1'])",
+          "delete_bare_pod(slot=Pod['p2'])",
           "increase_quota",
           "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
           "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p1'])",

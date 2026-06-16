@@ -119,6 +119,20 @@ reconcile_delete = Action(
     effect=[Delete(slot)],
 )
 
+create_bare_pod = Action(
+    name="A user creates a bare Pod (no controller owner), consuming quota",
+    params=[slot],
+    pre=[live_pods < Namespace.quota],
+    effect=[Create(slot, owner=Owner.NONE)],
+)
+
+delete_bare_pod = Action(
+    name="A user deletes a bare Pod, freeing quota",
+    params=[slot],
+    pre=[Present(slot), slot.owner == Owner.NONE],
+    effect=[Delete(slot)],
+)
+
 increase_quota = Action(
     name="Raise the ResourceQuota pod limit",
     pre=[Namespace.quota < MAX_PODS],
@@ -160,6 +174,15 @@ quota_can_starve_a_replicaset = Reachable(
     label="quota competition can hold a ReplicaSet below its desired count",
 )
 
+bare_pods_can_starve_a_replicaset = Reachable(
+    And(
+        owned(Owner.RS0) < replicasets["rs0"].desired,
+        live_pods == Namespace.quota,
+        owned(Owner.NONE) >= 1,
+    ),
+    label="bare (unowned) pods can consume the quota and starve a ReplicaSet",
+)
+
 # A no-dead-end question, NOT a liveness guarantee: rs0 can always reach its desired
 # count again from any reachable state (freeing quota via scale-down / deletion is
 # always possible).
@@ -180,7 +203,7 @@ initial = Initial(
 spec = Spec(
     id="k8s_replicaset",
     name="Kubernetes ReplicaSet + count/pods ResourceQuota",
-    version="0.2.0",
+    version="0.3.0",
     description="A narrow, reachability-only slice: two ReplicaSets reconcile Pod "
     "counts competing for one namespace pod quota. Safety (quota never exceeded) "
     "and reachability (both converged, quota-starvation, recovery) — never eventual "

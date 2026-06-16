@@ -25,19 +25,23 @@ from analint import (
     Add,
     AlwaysHolds,
     And,
+    Assert,
     Bound,
     Count,
     Create,
     DeadActions,
     Delete,
     Entity,
+    Expect,
     Field,
+    Flow,
     Implies,
     Initial,
     NoDeadEnd,
     Param,
     Present,
     Reachable,
+    Scenario,
     Scope,
     Set,
     Spec,
@@ -181,8 +185,14 @@ both_converged_is_reachable = Reachable(
 )
 
 quota_can_starve_a_replicaset = Reachable(
-    And(owned(Owner.RS0) < replicasets["rs0"].desired, live_pods == Namespace.quota),
-    label="quota competition can hold a ReplicaSet below its desired count",
+    And(
+        Namespace.quota > 0,  # a real, non-zero quota...
+        replicasets["rs0"].desired >= 1,
+        owned(Owner.RS0) < replicasets["rs0"].desired,
+        owned(Owner.RS1) >= 1,  # ...fully consumed by the OTHER ReplicaSet
+        live_pods == Namespace.quota,
+    ),
+    label="one ReplicaSet's pods can consume the quota and starve the other",
 )
 
 bare_pods_can_starve_a_replicaset = Reachable(
@@ -207,6 +217,111 @@ every_action_usable = DeadActions(
 )
 
 
+# ── Scenarios & flows (executable documentation, one per action family) ───────────
+_RS = [replicasets["rs0"](), replicasets["rs1"]()]
+
+sc_scale_up = Scenario(
+    name="Scaling a ReplicaSet up raises its desired count",
+    action=scale_up.bind(rs=replicasets["rs0"]),
+    given=[replicasets["rs0"](desired=0), replicasets["rs1"]()],
+    then=[Assert(replicasets["rs0"].desired == 1)],
+)
+
+sc_scale_down = Scenario(
+    name="Scaling a ReplicaSet down lowers its desired count",
+    action=scale_down.bind(rs=replicasets["rs0"]),
+    given=[replicasets["rs0"](desired=2), replicasets["rs1"]()],
+    then=[Assert(replicasets["rs0"].desired == 1)],
+)
+
+sc_reconcile_delete = Scenario(
+    name="The controller deletes a surplus owned Pod",
+    action=reconcile_delete.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p1"]),
+    given=[
+        replicasets["rs0"](desired=1),
+        replicasets["rs1"](),
+        pods["p0"](owner=Owner.RS0),
+        pods["p1"](owner=Owner.RS0),
+    ],
+    then=[Assert(owned(Owner.RS0) == 1)],
+)
+
+sc_create_beyond_quota_blocked = Scenario(
+    name="Creating a Pod beyond the quota is blocked",
+    action=reconcile_create.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p1"]),
+    given=[
+        Namespace(quota=1),
+        replicasets["rs0"](desired=2),
+        replicasets["rs1"](),
+        pods["p0"](owner=Owner.RS0),  # live=1 already fills the quota
+        Absent(pods["p1"]),  # the slot the controller would create into
+    ],
+    expected=Expect.FAIL,
+)
+
+sc_acquire_orphan = Scenario(
+    name="A controller adopts a matching orphan Pod",
+    action=acquire_orphan.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p0"]),
+    given=[replicasets["rs0"](desired=1), replicasets["rs1"](), pods["p0"](owner=Owner.NONE)],
+    then=[Assert(pods["p0"].owner == Owner.RS0)],
+)
+
+sc_create_bare_pod = Scenario(
+    name="A user creates a bare Pod under the quota",
+    action=create_bare_pod.bind(slot=pods["p0"]),
+    given=[Namespace(quota=1), *_RS, Absent(pods["p0"])],
+    then=[Assert(Present(pods["p0"])), Assert(pods["p0"].owner == Owner.NONE)],
+)
+
+sc_delete_bare_pod = Scenario(
+    name="A user deletes a bare Pod, freeing quota",
+    action=delete_bare_pod.bind(slot=pods["p0"]),
+    given=[*_RS, pods["p0"](owner=Owner.NONE)],
+    then=[Assert(live_pods == 0)],
+)
+
+sc_increase_quota = Scenario(
+    name="Raising the ResourceQuota",
+    action=increase_quota,
+    given=[Namespace(quota=1), *_RS],
+    then=[Assert(Namespace.quota == 2)],
+)
+
+sc_decrease_quota = Scenario(
+    name="Lowering the ResourceQuota when usage allows",
+    action=decrease_quota,
+    given=[Namespace(quota=2), *_RS],
+    then=[Assert(Namespace.quota == 1)],
+)
+
+# A happy path: both ReplicaSets converge to one Pod each under a fitting quota.
+flow_both_converge = Flow(
+    given=[Namespace(quota=2), *_RS],
+    steps=[
+        scale_up.bind(rs=replicasets["rs0"]),
+        reconcile_create.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p0"]),
+        scale_up.bind(rs=replicasets["rs1"]),
+        reconcile_create.bind(rs=replicasets["rs1"], rs_owner=Owner.RS1, slot=pods["p1"]),
+        Assert(owned(Owner.RS0) == 1),
+        Assert(owned(Owner.RS1) == 1),
+    ],
+)
+
+# Starvation then recovery: a bare Pod holds the only quota slot; once deleted, the
+# controller can create the owned Pod it wanted.
+flow_starve_then_recover = Flow(
+    given=[Namespace(quota=1), *_RS],
+    steps=[
+        create_bare_pod.bind(slot=pods["p0"]),  # live=1=quota — no room for the controller
+        scale_up.bind(rs=replicasets["rs0"]),
+        Assert(live_pods == 1),
+        delete_bare_pod.bind(slot=pods["p0"]),  # free the quota
+        reconcile_create.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p0"]),
+        Assert(owned(Owner.RS0) == 1),
+    ],
+)
+
+
 # The namespace starts EMPTY (no pods); scope slots default to *present*, so the
 # initial marks them absent. `Initial` requires a `vary`, so the starting quota
 # varies over its domain (a natural multi-root); both ReplicaSets start at desired 0.
@@ -218,7 +333,7 @@ initial = Initial(
 spec = Spec(
     id="k8s_replicaset",
     name="Kubernetes ReplicaSet + count/pods ResourceQuota",
-    version="0.4.0",
+    version="0.5.0",
     description="A narrow, reachability-only slice: two ReplicaSets reconcile Pod "
     "counts competing for one namespace pod quota. Safety (quota never exceeded) "
     "and reachability (both converged, quota-starvation, recovery) — never eventual "

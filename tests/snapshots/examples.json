@@ -734,8 +734,54 @@
   },
   "k8s_replicaset": {
     "verdict": "PASS",
-    "warnings": 9,
-    "scenarios": {},
+    "warnings": 0,
+    "scenarios": {
+      "sc_acquire_orphan": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_create_bare_pod": {
+        "status": "PASS",
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_create_beyond_quota_blocked": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "dd17e436947657cd"
+      },
+      "sc_decrease_quota": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_delete_bare_pod": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_increase_quota": {
+        "status": "PASS",
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_reconcile_delete": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_scale_down": {
+        "status": "PASS",
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_scale_up": {
+        "status": "PASS",
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
     "queries": {
       "bare_pods_can_starve_a_replicaset": {
         "status": "PASS",
@@ -771,9 +817,11 @@
         "states": 1792,
         "exploration": "12d7da2b7639defa",
         "trace": [
-          "scale_up(rs=ReplicaSet['rs0'])"
+          "scale_up(rs=ReplicaSet['rs0'])",
+          "scale_up(rs=ReplicaSet['rs1'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p0'])"
         ],
-        "findings_hash": "6fd77b11dfb082e0"
+        "findings_hash": "f6b017676f6f5705"
       },
       "quota_never_exceeded": {
         "status": "PASS",
@@ -836,7 +884,30 @@
       }
     },
     "invariants": {},
-    "flows": {}
+    "flows": {
+      "flow_both_converge": {
+        "passed": true,
+        "actions_run": 4,
+        "trace": [
+          "scale_up(rs=ReplicaSet['rs0'])",
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])",
+          "scale_up(rs=ReplicaSet['rs1'])",
+          "reconcile_create(rs=ReplicaSet['rs1'], rs_owner=<Owner.RS1: 'replicaset-1'>, slot=Pod['p1'])"
+        ],
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "flow_starve_then_recover": {
+        "passed": true,
+        "actions_run": 4,
+        "trace": [
+          "create_bare_pod(slot=Pod['p0'])",
+          "scale_up(rs=ReplicaSet['rs0'])",
+          "delete_bare_pod(slot=Pod['p0'])",
+          "reconcile_create(rs=ReplicaSet['rs0'], rs_owner=<Owner.RS0: 'replicaset-0'>, slot=Pod['p0'])"
+        ],
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    }
   },
   "mafia": {
     "verdict": "PASS",

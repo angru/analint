@@ -121,7 +121,7 @@ def main() -> None:
         else:
             try:
                 pick = int(input("> ").strip())
-            except ValueError, EOFError:  # PEP 758 (Python 3.14): parens optional
+            except (ValueError, EOFError):
                 print("\n(quit)")
                 return
         if not 1 <= pick <= len(choices):

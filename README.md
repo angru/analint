@@ -724,3 +724,26 @@ BFS over all reachable states; every query answers with a trace of action ids:
 | [`examples/mafia/`](examples/mafia/README.md) | **Mafia/Werewolf** from Quint: the citizens cannot win under *every* nondeterministic role assignment (declarative `Initial`, role-generic `Param` actions; `research/16`) |
 | [`examples/sunless_crypt/`](examples/sunless_crypt/README.md) | A dungeon crawl that is both **checked and played**: the same spec is verified by `analint check` and run as a text game by `examples/play.py` (`research/21`) |
 | [`examples/k8s_replicaset/`](examples/k8s_replicaset/README.md) | The **project-sized dogfood**: a Kubernetes ReplicaSet reconciling Pods under a count/pods ResourceQuota — multiplicity + presence + `Count` + `ownerReference` provenance, reachability/safety only (liveness deliberately out of scope; `research/26` §P4.5) |
+
+---
+
+## Status
+
+This is the **first public release (`0.0.1`)**. The engine and CLI are mature and
+covered by 350+ tests, but the API is not yet frozen and may change before `1.0` —
+pin a version if you depend on it.
+
+analint performs **bounded reachability** over a finite state graph. It checks
+safety and reachability — invariants, `Reachable`, `NoDeadEnd`, dead actions — and
+returns an honest completeness verdict, preferring `INCONCLUSIVE` / `NOT_CHECKED`
+over a silent pass. It deliberately does **not** model liveness or temporal
+"eventually" properties; that is a scope boundary, not a defect.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, running the tests,
+and the review-gated workflow.
+
+## License
+
+[MIT](LICENSE) © angru

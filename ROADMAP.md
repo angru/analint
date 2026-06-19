@@ -403,10 +403,28 @@ Success criterion: a user or agent can model a non-trivial project, understand
 the explored behavior and counterexample state changes, and receive an honest
 completeness verdict using analint alone.
 
-### Deferred ecosystem work
+### Ecosystem — first public release (0.0.1), in progress
 
-- Publication work (license, PyPI, public packaging, CONTRIBUTING and docs site)
-  is intentionally deferred until the self-contained workbench is complete
+Plan: research/29. Unblocked now that the P4 workbench is complete.
+
+- ✅ **Packaging metadata + license:** MIT `LICENSE`; `pyproject` `version=0.0.1`
+  (reset from the internal 1.0.1 milestone numbering), `license`/`authors`/
+  `readme`/`keywords`/`classifiers`/`[project.urls]`; `requires-python` relaxed
+  `==3.14.*` → `>=3.12` (the real floor is PEP 695; `examples/play.py` backported
+  off PEP 758 so 3.12 is honest — proven by the full suite passing on 3.12; ruff
+  `target-version` and ty `python-version` also dropped to 3.12, else `ruff
+  format` keeps stripping the except-group parens back to 3.14-only syntax);
+  sdist target excludes `research/`/`reviews/`, ships `src`/`examples`/`tests`
+- ✅ **Docs:** README License/Status sections; `CONTRIBUTING.md`; `CHANGELOG.md`
+  (Keep a Changelog, 0.0.1 entry honest about bounded-reachability scope)
+- ✅ **Build/install validation:** `uv build`, `twine check` (both PASSED), clean
+  wheel install + CLI smoke test on Python 3.12
+- ⏳ **Publish (irreversible, gated on explicit go):** TestPyPI dry-run → PyPI;
+  confirm GitHub repo visibility; tag `v0.0.1` + release
+- Deferred within the phase: full docs site (MkDocs); CI trusted-publishing
+  workflow
+
+Still deferred until later:
 - Quint/export bridges are deferred until an explicit external-verifier consumer
   exists; the checked OAuth port remains comparison evidence, not architecture
 - After the artifact: state-diff traces and statistics first; Mermaid/DOT for

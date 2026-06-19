@@ -4,14 +4,47 @@ build-backend = "hatchling.build"
 
 [project]
 name = "analint"
-version = "1.0.1"
+version = "0.0.1"
 description = "Analytics linter — describe your system in Python, validate consistency"
-requires-python = "==3.14.*"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "angru", email = "mydifservices@gmail.com" },
+]
+keywords = [
+    "linter",
+    "analytics",
+    "modeling",
+    "verification",
+    "model-checking",
+    "reachability",
+    "specification",
+    "dsl",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.0",
     "typer>=0.12",
     "rich>=13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/angru/analint"
+Repository = "https://github.com/angru/analint"
+Issues = "https://github.com/angru/analint/issues"
+Changelog = "https://github.com/angru/analint/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
@@ -34,9 +67,21 @@ analint-mcp = "analint.mcp_server:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/analint"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/examples",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/pyproject.toml",
+]
+
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -66,7 +111,7 @@ ignore = [
 "tests/**/*.py" = ["ANN", "B011"]
 
 [tool.ty.environment]
-python-version = "3.14"
+python-version = "3.12"
 
 [tool.ty.analysis]
 allowed-unresolved-imports = ["mcp.**"]

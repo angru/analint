@@ -739,7 +739,11 @@ def test_invariant_inconclusive_when_an_action_is_excluded():
     class Box(Entity):
         value: int = 0
 
-    event_step = Action(id="ev", on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 1)])  # noqa: E712
+    event_step = Action(
+        id="ev",
+        pre=[Signal.ok == True],  # noqa: E712
+        effect=[Set(Box.value, 1)],
+    )
     spec = Spec(
         id="s",
         name="S",

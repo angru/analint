@@ -30,7 +30,7 @@ class Contract(BaseModel):
     depending on which implementation modules happened to be imported.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     id: str
     name: str = ""

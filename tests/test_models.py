@@ -1,10 +1,13 @@
 from enum import Enum
 
+import pytest
+
 from analint import (
     Action,
     Add,
     And,
     Assert,
+    Contract,
     Emitted,
     Entity,
     Event,
@@ -321,6 +324,21 @@ def test_action_pre_and_effect():
     assert len(action.effect) == 1
 
 
+@pytest.mark.parametrize("field", ["on", "requires", "by", "effects"])
+def test_action_rejects_removed_or_unknown_fields(field):
+    with pytest.raises(ValueError, match=field):
+        Action(id="a", **{field: object()})
+
+
+@pytest.mark.parametrize("model", [Spec, Contract])
+def test_root_models_reject_removed_actors_field(model):
+    kwargs = {"id": "x", "actors": [object()]}
+    if model is Spec:
+        kwargs["name"] = "X"
+    with pytest.raises(ValueError, match="actors"):
+        model(**kwargs)
+
+
 def test_scenario_given_and_expected():
     class Item(Entity):
         price: float
@@ -542,7 +560,7 @@ def test_event_payload_template_binds_fields():
         card_id: str
 
     action = Action(id="create", pre=[Card.title != ""], emits=[CardCreated(card_id=Card.id)])
-    handler = Action(id="notify", on=CardCreated, pre=[CardCreated.card_id != ""])
+    handler = Action(id="notify", pre=[CardCreated.card_id != ""])
     sc1 = Scenario(id="sc1", name="S1", action=action, given=[Card(id="c1", title="t")])
     sc2 = Scenario(id="sc2", name="S2", action=handler, given=[CardCreated(card_id="c1")])
     spec = Spec(
@@ -570,7 +588,7 @@ def test_event_payload_type_mismatch_warns():
         weight: str  # wrong: bound to a float field
 
     action = Action(id="weigh", pre=[Card.weight > 0], emits=[CardWeighed(weight=Card.weight)])
-    handler = Action(id="log", on=CardWeighed, pre=[])
+    handler = Action(id="log", pre=[])
     sc = Scenario(id="sc", name="S", action=action, given=[Card(id="c", weight=1.0)])
     spec = Spec(
         id="s",
@@ -596,7 +614,6 @@ def test_scenario_runner_evaluates_event_payload_predicates():
 
     handler = Action(
         id="handle-big",
-        on=BigOrder,
         pre=[BigOrder.total > 100],
         effect=[Add(Ledger.entries, 1)],
     )

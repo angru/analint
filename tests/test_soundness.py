@@ -186,7 +186,7 @@ def test_event_payload_action_reported_excluded_and_not_dead():
     class Counter(Entity):
         total: int = 0
 
-    handler = Action(id="handler", on=Ping, pre=[Ping.size > 0], effect=[Set(Counter.total, 1)])
+    handler = Action(id="handler", pre=[Ping.size > 0], effect=[Set(Counter.total, 1)])
     spec = Spec(id="s", name="S", entities=[Counter], events=[Ping], actions=[handler])
     cache: dict = {}
     result = run_query(DeadActions(id="q"), spec, cache)

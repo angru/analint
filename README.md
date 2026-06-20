@@ -442,12 +442,9 @@ purchase_flow = Flow(
 
 `given=` is the initial state — a partial snapshot (the same one a scenario
 uses): only the listed entities are present, unspecified `Scope` slots are
-absent, and a step that needs an unlisted entity is rejected. `given=[]` is
-valid when entity defaults are sufficient.
-
-```python
-purchase_journey = Flow(steps=[login, browse, checkout], description="...")
-```
+absent, and a step that needs an unlisted entity is rejected. It is required;
+`given=[]` means an empty world and is useful only when the flow creates
+everything it needs.
 
 ### Reachability queries
 

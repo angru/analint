@@ -39,14 +39,18 @@ class Flow:
     appear anywhere: run several actions, then assert once. Each action must be
     accepted; the first rejected/defective step fails the flow with a trace.
 
-    ``given`` is the initial state — a *partial snapshot* (the same builder a
+    ``given`` is the required initial state — a *partial snapshot* (the same builder a
     scenario uses): only the listed entities are present and unspecified Scope
     slots are absent, so this is not the canonical defaults-built world and a step
-    that needs an unlisted entity is rejected. ``given=[]`` is valid when entity
-    defaults are sufficient; every flow is executed.
+    that needs an unlisted entity is rejected. ``given=[]`` is an empty world,
+    useful only when the flow creates everything it needs; every flow is executed.
     """
 
+    given: list[Any]  # required partial snapshot; [] means no unscoped entities
     steps: list[FlowEntry] = dc_field(default_factory=list)
-    given: list[Any] = dc_field(default_factory=list)  # initial state; [] = defaults
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""
+
+    def __post_init__(self) -> None:
+        if self.given is None:
+            raise TypeError("Flow.given must be a list, not None")

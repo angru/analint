@@ -20,15 +20,12 @@ uv run analint check examples/taskboard
 ```
 
 ## Expected outcome
-PASS, exit 0, with three intentional **warnings**:
-- `action:move_card` — `CardMoved` emitted, no action lists it in `on=`;
-- `action:send_notification` — `NotificationDelivered` emitted, no documented handler;
+PASS, exit 0, with one intentional warning:
 - `action:read_notification` — has no scenarios.
-`on` is documentary metadata, so the handler warnings are advisory.
 
 ## What a behavioural change means
-Adding `on=[...]` handlers or a `read_notification` scenario would clear the
-warnings. A new failing query would indicate a board/queue behaviour regression.
+Adding a `read_notification` scenario would clear the warning. A new failing
+query would indicate a board/queue behaviour regression.
 
 ## Related research
-research/14 (declarativity / `on` semantics).
+research/30 (subtractive public-API cleanup).

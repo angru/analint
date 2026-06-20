@@ -19,13 +19,10 @@ uv run analint check examples/ecommerce
 ```
 
 ## Expected outcome
-PASS, exit 0, with one intentional structural **warning** at `action:checkout`:
-`OrderPlaced` is emitted but no action lists it in `on=` (no documented handler).
-`on` is documentary metadata, so this is a warning, not an error.
+PASS, exit 0, with no warnings.
 
 ## What a behavioural change means
-Adding an action with `on=[OrderPlaced]` would clear the warning. A new FAIL in
-`paid_is_reachable` would mean the happy path became unreachable.
+A new FAIL in `paid_is_reachable` would mean the happy path became unreachable.
 
 ## Related research
-research/14 (declarativity / `on` as documentary metadata).
+research/30 (subtractive public-API cleanup).

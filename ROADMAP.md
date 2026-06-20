@@ -291,7 +291,8 @@ snapshot-режима).
 - ✅ `Flow` оживлён: `given` (initial state) + смешанный `steps` (Action |
   Assert | Emitted). Каждый шаг-Action идёт через общий `kernel.step`,
   post→pre; первый rejected/defect action или ложный checkpoint валит flow с
-  трассой. Flow без `given` остаётся документацией. `FlowResult` влит в verdict,
+  трассой. Исторически Flow без `given` оставался документацией; этот режим
+  удалён pre-release cleanup из block C ниже. `FlowResult` влит в verdict,
   warning-агрегацию, terminal/JSON репортеры и characterization; `validator/flow_runner`
 - ✅ post-state шага становится pre-state следующего через общий transition kernel
 - ✅ «слои» как arbitrary snapshot deltas НЕ добавлены: только реальные действия
@@ -301,21 +302,22 @@ snapshot-режима).
 
 #### P3. Семантическая честность словаря
 
-Решено (reviews/8cca900): honesty-pass, БЕЗ новой семантики. `by`/`on`/`requires`
-— явно documentary metadata; операционный `on` отложен за evidence-gate
+Историческое решение (reviews/8cca900) сначала оставляло `by`/`on`/`requires`
+как documentary metadata; pre-release cleanup из block C ниже удалил их.
+Операционный `on` остаётся отложен за evidence-gate
 (research/22 §«Разворот»: мультимножество-пул не ограничен конечным payload;
 consume меняет смысл `Event`; ломает state-chaining саги; нет внешних моделей).
 
-- ✅ `Actor/by`: documentary metadata (не authz), зафиксировано в docstring
-  Action и README. `by` не расширять до списка до решения principal-семантики
+- ✅ `Actor/by`: были documentary metadata (не authz); удалены в block C.
 - ✅ `Event/emits/on`: `emits` — поведение (материализация payload + `Emitted`);
-  `on` — documentary (не trigger; причинность через состояние). Формулировки
+  `on` был documentary (не trigger; причинность через состояние), затем удалён.
+  Формулировки
   без «triggers/subscribe» во ВСЕХ поверхностях: docstrings Action/Event, README,
   structural warning, **и agent-facing API** — `affects` JSON отдаёт
   `documented_handlers` (был `triggers_downstream`), MCP-описание переформулировано
   (закрыто ревью 4465e16)
-- ✅ `requires`: явно Flow-ordering documentation (cycles + порядок), не
-  операционный prerequisite; зафиксировано в docstring/README
+- ✅ `requires`: был Flow-ordering documentation, не операционный prerequisite;
+  удалён в block C.
 - ⏳ предупреждение о потенциально безграничных числовых доменах — после общего
   inconclusive verdict
 - ⏳ операционный `on` (event dispatch) — только при подтверждении внешним

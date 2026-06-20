@@ -1,3 +1,5 @@
+import pytest
+
 from analint import (
     Action,
     Add,
@@ -72,6 +74,16 @@ def test_flow_emitted_checkpoint_fails_when_event_absent():
     result = run_flow(flow, _spec(flow))
     assert not result.passed
     assert any("Other" in f.message and "emitted" in f.message for f in result.findings)
+
+
+def test_flow_requires_given():
+    with pytest.raises(TypeError, match="given"):
+        Flow(id="f")  # type: ignore[call-arg]
+
+
+def test_flow_rejects_none_given():
+    with pytest.raises(TypeError, match="given"):
+        Flow(id="f", given=None)  # type: ignore[arg-type]
 
 
 # ── review 2015619 regressions ───────────────────────────────────────────────────

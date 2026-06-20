@@ -220,8 +220,8 @@ def test_each_excluded_action_surfaces_its_own_finding(tmp_path):
         "    ok: bool\n\n"
         "class Box(Entity):\n"
         "    value: int = 0\n\n"
-        "a = Action(id='a', on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 1)])\n"
-        "b = Action(id='b', on=[Signal], pre=[Signal.ok == True], effect=[Set(Box.value, 2)])\n"
+        "a = Action(id='a', pre=[Signal.ok == True], effect=[Set(Box.value, 1)])\n"
+        "b = Action(id='b', pre=[Signal.ok == True], effect=[Set(Box.value, 2)])\n"
         "spec = Spec(id='s', name='S', entities=[Box], events=[Signal], actions=[a, b],\n"
         "            invariants=[Invariant(Box.value == 0, id='z')])\n"
     )

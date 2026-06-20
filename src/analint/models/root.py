@@ -31,7 +31,7 @@ class Spec(BaseModel):
     list is used as-is. When imports are present, composition is fully explicit:
     only contract contents and directly listed local objects are included."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
     id: str
     name: str
     version: str = "0.1.0"

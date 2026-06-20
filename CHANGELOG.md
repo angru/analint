@@ -14,7 +14,7 @@ test suite; this release makes them installable and documents their scope.
 
 - **DSL** for declaring system behaviour in Python: `Entity` with field
   constraints, `Invariant`, `Action` (`pre` / `effect` / `post` / `emits`),
-  `Event`, `Actor`, `Lifecycle`, `Scenario`, `Flow`, parameterized actions
+  `Event`, `Lifecycle`, `Scenario`, `Flow`, parameterized actions
   (`Param`), finite quantifiers/aggregates, `Scope` multiplicity, and `Spec` as
   the top-level aggregate.
 - **Validator** with a single transition kernel shared by scenarios, flows, and

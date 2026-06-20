@@ -20,7 +20,7 @@ v0.10 и v1.0
 приоритетов (что было → что стало → когда → почему → как откатиться) —
 в research/17 §3; критический аудит и errata — research/18.
 
-Этот роадмап выведен из исследования в `research/` (файлы 00–19). Краткая
+Этот роадмап выведен из датированных решений в `research/`. Краткая
 логика: ядро DSL удачное (≈ планировочный домен STRIPS), узкие места —
 многословность поверхности, отсутствие движка поиска по состояниям и
 отсутствие интерфейса для AI-агентов, которые признаны главным сценарием
@@ -504,10 +504,22 @@ Still deferred until later:
   exists; the checked OAuth port remains comparison evidence, not architecture
 - After the artifact: state-diff traces and statistics first; Mermaid/DOT for
   lifecycle/action dependencies later
-- Interactive explorer (enabled/disabled actions, fork/rewind, failed guards) —
-  после executable traces; полный state graph только для малых/агрегированных моделей
-- Performance: parameterized synthetic families (counter grid, conserved
-  transfers, workflow product) с 10²–10⁵ states; timing не CI gate
+- **Optional human TUI (research/32):** not a first-release item and not an
+  agent/CI surface. Reconsider after API/docs stabilization only if repeated
+  human use shows navigation or trace-review pain. Start read-only in this
+  repository over `show`/`affects`/validation/`analint.exploration/v1`, behind an
+  optional dependency; no editor or full state graph. Interactive
+  enabled/disabled-action stepping is a later milestone.
+- **Performance history (research/32):** generated counter-grid,
+  conserved-transfer and workflow-product families over 10²–10⁵ states already
+  measure one revision. Add a small ASV suite over the same generated workloads
+  plus complete validation of representative examples, so runtime and memory can
+  be compared by commit on one controlled runner. Keep normal tests free of
+  timing gates; use `asv continuous` for performance-sensitive changes and
+  scheduled/manual history. First remove known harness distortion:
+  characterization currently repeats equivalent query explorations, and
+  `scripts/bench.py` must ignore non-example directories. Optimize or design
+  another backend only from measured scaling/property/consumer triggers.
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 

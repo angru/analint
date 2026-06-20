@@ -38,6 +38,7 @@
 | [29-ecosystem-and-first-public-release.md](29-ecosystem-and-first-public-release.md) | Packaging, compatibility and release-engineering decisions for the first public release |
 | [30-dsl-contract-stabilization-review.md](30-dsl-contract-stabilization-review.md) | Pre-documentation API review: stable semantic kernel, bounded surface cleanup, rejected redesigns and freeze matrix |
 | [31-goal-and-expressiveness-closure-audit.md](31-goal-and-expressiveness-closure-audit.md) | Strict goal/capability audit: finite-state semantic closure, evidence matrix, adversarial requirements and non-goals |
+| [32-benchmarks-backends-and-terminal-ui.md](32-benchmarks-backends-and-terminal-ui.md) | Longitudinal performance benchmarks, trigger-based backend strategy, and a human-only read-only TUI gate |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.
@@ -94,3 +95,7 @@ executable traces и реальные внешние модели.
   bounded safety/reachability scope: no new verification primitive is required.
   It also identifies a claims bug to fix before publication: `NoDeadEnd` proves
   recoverability, not inevitable settlement/liveness.
+- The benchmark/backend/TUI follow-up (research/32) distinguishes realistic
+  evidence models from performance benchmarks, adds ASV-style history over the
+  existing workloads, defers another verifier until a measured trigger, and
+  treats a TUI as an optional human navigator after API/docs stabilization.

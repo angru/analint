@@ -60,9 +60,38 @@ published metadata is honest about maturity.
    Tag `v0.0.1` + GitHub release. A PyPI version cannot be re-uploaded once
    taken, so this checkpoint is held until the user says go.
 
+## Test-install findings: Typer vendored Click (the dev env was lying)
+
+A real test-install (TestPyPI → fresh venv) surfaced two latent bugs that the dev
+environment had masked, both rooted in one upstream change: **Typer 0.26.0 vendored
+Click** (PR #1774 — "Typer no longer depends on Click as a third party dependency,
+it vendors … Click", now importable as `typer._click`). The repo's lockfile was
+pinned to `typer 0.25.1` — one minor below the change — so everything passed
+locally while a fresh install pulled `typer 0.26.7`, which behaves differently.
+
+1. **`ModuleNotFoundError: No module named 'click'`.** `cli.py` did `import click`,
+   but Typer no longer pulls the external `click` package. First reflex was to
+   *declare* `click`; the correct fix is that analint should **not import external
+   Click at all** — the CLI layer is entirely Typer's. Removed the import; the
+   `ctx`/command in the `resolve_command` override are an opaque `Any` pass-through
+   to `super()`. External `click` is now a *dev-only* dependency (one test uses
+   `click.unstyle`), not a runtime one.
+2. **`analint <PATH>` shortcut silently broken under 0.26.x.** `_DefaultToCheck`
+   caught `click.exceptions.UsageError` (external), but Typer raises its *vendored*
+   `typer._click` `UsageError` — a different class, never caught, so the
+   bare-path → `check` fallback died with "No such command". Rewritten to decide by
+   inspecting `args[0]` (known command / option flag → leave; else prepend
+   `check`), which is independent of any Click class identity and works on old and
+   new Typer. `ty` also flagged this once the lock was current: the override's
+   external-Click return type is not Liskov-compatible with the vendored-Click base.
+
+Process lesson (matches the review-gated discipline): a lockfile below a
+dependency's behavioural boundary is a standing false-green generator. Fix applied:
+`uv lock --upgrade` to the latest of everything, so dev/CI run against the versions
+users actually install. The bare-path regression test was adversarially confirmed
+to fail on the broken version under `typer 0.26.7` before the fix was accepted.
+
 ## Deferred within this phase
 
 - Full docs site (MkDocs/Material). The 726-line README covers the surface; a
   separate site is a follow-up, not a blocker for 0.0.1.
-- CI publishing workflow (GitHub Actions → PyPI trusted publishing). Worth doing
-  but can follow the first manual release.

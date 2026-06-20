@@ -419,10 +419,18 @@ Plan: research/29. Unblocked now that the P4 workbench is complete.
   (Keep a Changelog, 0.0.1 entry honest about bounded-reachability scope)
 - ✅ **Build/install validation:** `uv build`, `twine check` (both PASSED), clean
   wheel install + CLI smoke test on Python 3.12
-- ⏳ **Publish (irreversible, gated on explicit go):** TestPyPI dry-run → PyPI;
-  confirm GitHub repo visibility; tag `v0.0.1` + release
-- Deferred within the phase: full docs site (MkDocs); CI trusted-publishing
-  workflow
+- ✅ **CI Trusted Publishing:** `.github/workflows/publish.yml` (OIDC, no tokens) —
+  `workflow_dispatch` → TestPyPI, GitHub Release → PyPI
+- ✅ **TestPyPI dry-run:** OIDC pipeline green end-to-end. Surfaced two real bugs
+  the dev lock had masked (Typer 0.26.0 vendored Click; lock was pinned to 0.25.1,
+  see research/29): (a) `cli.py` imported external `click` — removed, the CLI is
+  Typer-only, `click` is now dev-only; (b) the `analint <PATH>`→`check` shortcut
+  caught the wrong `UsageError` class — rewritten to inspect args, regression-tested.
+  Also `uv lock --upgrade` so dev/CI run the versions users install
+- ⏳ **Publish to real PyPI (irreversible, gated on explicit go):** GitHub Release
+  `v0.0.1`. Repo is public; the fixed `0.0.1` will be the first PyPI upload
+  (TestPyPI 0.0.1 is the pre-fix build and cannot be re-uploaded)
+- Deferred within the phase: full docs site (MkDocs)
 
 Still deferred until later:
 - Quint/export bridges are deferred until an explicit external-verifier consumer

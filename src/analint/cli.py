@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Never
+from typing import TYPE_CHECKING, Any, Never
 
-import click
 import typer
 from typer.core import TyperGroup
 
@@ -27,15 +26,20 @@ if TYPE_CHECKING:
 
 
 class _DefaultToCheck(TyperGroup):
-    """`analint PATH` keeps working: an unknown first argument routes to `check`."""
+    """`analint PATH` keeps working: an unknown first argument routes to `check`.
 
-    def resolve_command(
-        self, ctx: click.Context, args: list[str]
-    ) -> tuple[str | None, click.Command | None, list[str]]:
-        try:
-            return super().resolve_command(ctx, args)
-        except click.exceptions.UsageError:
-            return super().resolve_command(ctx, ["check", *args])
+    Decided by inspecting the argument, not by catching ``UsageError``: modern
+    Typer (>=0.26) vendors its own copy of Click as ``typer._click``, so the
+    exception it raises is a *different* class from the external
+    ``click.exceptions.UsageError`` and would not be caught. We also avoid
+    importing the external ``click`` entirely; the ctx/command are an opaque
+    pass-through to ``super()`` (see research/29).
+    """
+
+    def resolve_command(self, ctx: Any, args: list[str]) -> tuple[str | None, Any, list[str]]:
+        if args and args[0] not in self.commands and not args[0].startswith("-"):
+            args = ["check", *args]
+        return super().resolve_command(ctx, args)
 
 
 app = typer.Typer(

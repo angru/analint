@@ -162,6 +162,18 @@ def test_cli_bare_path_routes_to_check():
     assert "11 passed" in click.unstyle(result.output)
 
 
+def test_cli_version_matches_package():
+    from importlib.metadata import version
+
+    import analint
+
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert result.output.strip() == f"analint {analint.__version__}"
+    # __version__ comes from installed metadata, not a hardcoded literal that drifts
+    assert analint.__version__ == version("analint")
+
+
 def test_cli_show_action_json():
     import json
 

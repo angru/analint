@@ -1,3 +1,6 @@
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _version
+
 from analint.models.action import Action
 from analint.models.actor import Actor
 from analint.models.contract import Contract
@@ -31,7 +34,10 @@ from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.models.scope import Absent, InstanceRef, Scope
 
-__version__ = "1.0.1"
+try:
+    __version__ = _version("analint")
+except PackageNotFoundError:  # running from a source tree without an installed dist
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     # state

@@ -34,4 +34,35 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen --group dev --python ${{ matrix.python-version }}
-      - run: uv run --frozen --python ${{ matrix.python-version }} pytest
+      - run: uv run --frozen --python ${{ matrix.python-version }} pytest --cov=analint --cov-report=xml
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.14'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  package:
+    name: build + clean install
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - run: uv build
+      # Install the wheel into a throwaway env with NO dev dependencies, exactly
+      # as a user would. Catches packaging regressions (missing runtime deps,
+      # broken entry points) that the dev environment hides.
+      - name: Clean-room install + smoke test
+        run: |
+          uv venv --python ${{ matrix.python-version }} /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python dist/*.whl
+          /tmp/smoke/bin/analint --version
+          /tmp/smoke/bin/analint check examples/ecommerce

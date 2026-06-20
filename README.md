@@ -1,5 +1,10 @@
 # analint
 
+[![Quality](https://github.com/angru/analint/actions/workflows/quality.yml/badge.svg)](https://github.com/angru/analint/actions/workflows/quality.yml)
+[![codecov](https://codecov.io/gh/angru/analint/branch/main/graph/badge.svg)](https://codecov.io/gh/angru/analint)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/analint/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **A Python DSL for declaring and verifying how a system behaves.**
 
 Requirements live in Word, Confluence, and Miro — readable by humans, but impossible to check for contradictions, diff, or hand to an AI agent. Code is the other extreme: too low-level. analint sits in the middle: **Python that reads like a specification and checks like one.**

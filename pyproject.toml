@@ -119,3 +119,10 @@ allowed-unresolved-imports = ["mcp.**"]
 
 [tool.ty.src]
 include = ["src"]
+
+[tool.coverage.run]
+source = ["analint"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

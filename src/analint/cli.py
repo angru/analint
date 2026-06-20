@@ -49,8 +49,25 @@ app = typer.Typer(
 )
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from analint import __version__
+
+        typer.echo(f"analint {__version__}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
-def _root(ctx: typer.Context) -> None:
+def _root(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the analint version and exit.",
+    ),
+) -> None:
     if ctx.invoked_subcommand is None:
         ctx.invoke(check)
 

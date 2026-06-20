@@ -436,12 +436,16 @@ Plan: research/29. Unblocked now that the P4 workbench is complete.
 **Remaining before the 0.0.1 PyPI upload** (the user wants the most stable,
 best-documented version first; the upload is the last step, gated on explicit go):
 
-- **A. Release-engineering hardening** (auto-catch the class of bug we hit manually)
-  - [ ] CI job: clean-room `uv build` → install the wheel into an env *without*
-    dev deps → smoke-run `analint` on an example, across the matrix. The Click/Typer
-    breakage was only caught by a hand-run install; this makes it a gate
-  - [ ] CLI `--version` (verify it exists / add it) — table stakes for a published CLI
-  - [ ] README badges: CI status, PyPI version, supported Python, license
+- **A. Release-engineering hardening** (auto-catch the class of bug we hit manually) ✅
+  - ✅ CI `package` job: clean-room `uv build` → install the wheel into an env
+    *without* dev deps → smoke-run `analint --version` / `analint check`, across
+    the 3.12/3.13/3.14 matrix. The Click/Typer breakage is now a CI gate
+  - ✅ CLI `--version`; `__version__` derived from installed metadata (was a stale
+    hardcoded "1.0.1"); a test asserts no drift
+  - ✅ README badges: CI, coverage (Codecov), supported Python, license. PyPI
+    version badge deferred to the publish step. **User action:** enable the repo
+    at codecov.io (public repos usually tokenless; else add a `CODECOV_TOKEN`
+    secret) so the coverage badge populates
 - **B. Documentation** ("most complete docs")
   - [ ] Decide scope: README-canonical vs a MkDocs-Material site on GitHub Pages
     (recommended). The 726-line README is the seed

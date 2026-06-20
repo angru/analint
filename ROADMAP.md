@@ -446,16 +446,27 @@ best-documented version first; the upload is the last step, gated on explicit go
     version badge deferred to the publish step. **User action:** enable the repo
     at codecov.io (public repos usually tokenless; else add a `CODECOV_TOKEN`
     secret) so the coverage badge populates
-- **B. Documentation** ("most complete docs")
-  - [ ] Decide scope: README-canonical vs a MkDocs-Material site on GitHub Pages
-    (recommended). The 726-line README is the seed
+> **Sequencing decision (2026-06-20):** the docs format is **MkDocs Material**
+> (chosen), but block B is **paused behind block C**. Writing docs against an API
+> that may still move just means rewriting them — so the next step is a deliberate
+> review of the abstractions / the public "contract" to confirm they have settled.
+> This review is done by fresh eyes on purpose (the user, a separate agent, and a
+> later dedicated pass here), not folded into feature work.
+
+- **C. Abstraction / public-API stabilization — NEXT (gates B)**
+  - [ ] Thorough review of the core abstractions and the public surface: are the
+    DSL primitives (`Entity` / `Action` / `Invariant` / `Flow` / `Scope` /
+    `Contract` / `Lifecycle` / queries …), the `analint` export set / `__all__`,
+    naming, and the CLI / MCP / exploration-artifact contracts the right and stable
+    shape? Could any need a *big* change before 1.0?
+  - [ ] Record the verdict: confirmed-stable vs intended pre-1.0 renames/reshapes,
+    so docs can be written once against a frozen contract
+- **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
+  - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed
   - [ ] Getting started / first spec; DSL reference; CLI + MCP reference
   - [ ] Concepts page: bounded reachability, three-valued verdict, why
     `INCONCLUSIVE`/`NOT_CHECKED`, the deliberate no-liveness boundary
-  - [ ] Examples gallery linking the per-example READMEs; build docs in CI
-- **C. Public API stabilization** (roadmap principle: don't publish before names settle)
-  - [ ] Review the `analint` export surface / `__all__`, naming, public docstrings;
-    record any intended pre-1.0 renames
+  - [ ] Examples gallery linking the per-example READMEs; build + deploy docs in CI
 - **D. Pre-flight, then publish**
   - [ ] Final pipeline validation on TestPyPI under a throwaway version (0.0.1 is
     already consumed there), then publish `0.0.1` to real PyPI via a GitHub Release

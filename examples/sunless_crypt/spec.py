@@ -1,4 +1,3 @@
-# ruff: noqa: E712  (DSL: `== True/False` builds a Predicate; see research/27)
 """The Sunless Crypt — a small gamebook-style dungeon crawl, expressed as an
 analint spec AND made playable by the generic runner in ``examples/play.py``.
 
@@ -26,6 +25,7 @@ from analint import (
     Field,
     Lifecycle,
     NoDeadEnd,
+    Not,
     Reachable,
     Scenario,
     Set,
@@ -99,12 +99,12 @@ leave_armory = Action(
 )
 enter_crypt_lit = Action(
     name="Enter the crypt (torch held high)",
-    pre=[Hero.location == Room.HALL, Hero.torch_lit == True],
+    pre=[Hero.location == Room.HALL, Hero.torch_lit],
     effect=[Set(Hero.location, Room.CRYPT)],
 )
 enter_crypt_dark = Action(
     name="Grope into the pitch-dark crypt",
-    pre=[Hero.location == Room.HALL, Hero.torch_lit == False],
+    pre=[Hero.location == Room.HALL, Not(Hero.torch_lit)],
     effect=[Set(Hero.location, Room.CRYPT), Subtract(Hero.stamina, 1)],
 )
 leave_crypt = Action(
@@ -124,7 +124,7 @@ leave_altar = Action(
 )
 enter_vault = Action(
     name="Enter the open vault",
-    pre=[Hero.location == Room.CRYPT, Crypt.vault_open == True],
+    pre=[Hero.location == Room.CRYPT, Crypt.vault_open],
     effect=[Set(Hero.location, Room.VAULT)],
 )
 leave_vault = Action(
@@ -137,25 +137,25 @@ leave_vault = Action(
 
 take_torch = Action(
     name="Take the guttering torch from its sconce",
-    pre=[Hero.location == Room.ENTRANCE, Hero.has_torch == False],
+    pre=[Hero.location == Room.ENTRANCE, Not(Hero.has_torch)],
     effect=[Set(Hero.has_torch, True)],
 )
 light_torch = Action(
     name="Light the torch",
-    pre=[Hero.has_torch == True, Hero.torch_lit == False],
+    pre=[Hero.has_torch, Not(Hero.torch_lit)],
     effect=[Set(Hero.torch_lit, True)],
 )
 take_sword = Action(
     name="Pry the rusted sword from a dead hand",
-    pre=[Hero.location == Room.ARMORY, Hero.has_sword == False],
+    pre=[Hero.location == Room.ARMORY, Not(Hero.has_sword)],
     effect=[Set(Hero.has_sword, True)],
 )
 slay_guardian = Action(
     name="Cut the bone guardian down with your sword",
     pre=[
         Hero.location == Room.CRYPT,
-        Crypt.guardian_alive == True,
-        Hero.has_sword == True,
+        Crypt.guardian_alive,
+        Hero.has_sword,
     ],
     effect=[Set(Crypt.guardian_alive, False)],
 )
@@ -163,8 +163,8 @@ fight_barehanded = Action(
     name="Grapple the guardian with bare hands",
     pre=[
         Hero.location == Room.CRYPT,
-        Crypt.guardian_alive == True,
-        Hero.has_sword == False,
+        Crypt.guardian_alive,
+        Not(Hero.has_sword),
     ],
     effect=[Subtract(Hero.stamina, 2)],  # it claws you; it does not fall
 )
@@ -172,8 +172,8 @@ take_key = Action(
     name="Take the iron key from the guardian's ribs",
     pre=[
         Hero.location == Room.CRYPT,
-        Crypt.guardian_alive == False,
-        Hero.has_key == False,
+        Not(Crypt.guardian_alive),
+        Not(Hero.has_key),
     ],
     effect=[Set(Hero.has_key, True)],
 )
@@ -181,21 +181,21 @@ unlock_vault = Action(
     name="Unlock the vault with the iron key",
     pre=[
         Hero.location == Room.CRYPT,
-        Hero.has_key == True,
-        Crypt.vault_open == False,
+        Hero.has_key,
+        Not(Crypt.vault_open),
     ],
     effect=[Set(Crypt.vault_open, True)],
 )
 take_amulet = Action(
     name="Lift the amulet from its pedestal",
-    pre=[Hero.location == Room.VAULT, Hero.has_amulet == False],
+    pre=[Hero.location == Room.VAULT, Not(Hero.has_amulet)],
     effect=[Set(Hero.has_amulet, True)],
 )
 place_amulet = Action(
     name="Set the amulet on the altar and escape",
     pre=[
         Hero.location == Room.ALTAR,
-        Hero.has_amulet == True,
+        Hero.has_amulet,
         Game.result == Result.PLAYING,
     ],
     effect=[Set(Game.result, Result.ESCAPED)],
@@ -220,7 +220,7 @@ sc_take_torch = Scenario(
     name="Take the torch at the entrance",
     action=take_torch,
     given=[Hero()],
-    then=[Hero.has_torch == True],
+    then=[Hero.has_torch],
 )
 sc_dark_hurts = Scenario(
     name="Groping into the dark crypt costs stamina",
@@ -238,7 +238,7 @@ sc_slay = Scenario(
     name="The sword fells the guardian",
     action=slay_guardian,
     given=[Hero(location=Room.CRYPT, has_sword=True), Crypt(guardian_alive=True)],
-    then=[Crypt.guardian_alive == False],
+    then=[Not(Crypt.guardian_alive)],
 )
 sc_key_needs_dead_guardian = Scenario(
     name="The key cannot be taken while the guardian stands",

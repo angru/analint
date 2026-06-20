@@ -22,6 +22,7 @@ from analint.models.predicate import (
     _Ne,
     _Not,
     _Or,
+    normalize_predicate,
 )
 from analint.models.scope import InstanceRef, Scope
 
@@ -153,6 +154,7 @@ def ForAll(variable: Bound, predicate: Predicate) -> _ForAll:
     """The predicate must hold for every instance in the variable's Scope."""
     if not isinstance(variable, Bound):
         raise TypeError("ForAll variable must be Bound(...)")
+    predicate = normalize_predicate(predicate)
     if not isinstance(predicate, Predicate):
         raise TypeError("ForAll body must be a Predicate")
     return _ForAll(variable=variable, predicate=predicate)
@@ -162,6 +164,7 @@ def Exists(variable: Bound, predicate: Predicate) -> _Exists:
     """The predicate must hold for at least one instance in the variable's Scope."""
     if not isinstance(variable, Bound):
         raise TypeError("Exists variable must be Bound(...)")
+    predicate = normalize_predicate(predicate)
     if not isinstance(predicate, Predicate):
         raise TypeError("Exists body must be a Predicate")
     return _Exists(variable=variable, predicate=predicate)
@@ -181,6 +184,7 @@ def Count(variable: Bound, predicate: Predicate) -> _Count:
     """Count instances in the variable's Scope for which predicate holds."""
     if not isinstance(variable, Bound):
         raise TypeError("Count variable must be Bound(...)")
+    predicate = normalize_predicate(predicate)
     if not isinstance(predicate, Predicate):
         raise TypeError("Count body must be a Predicate")
     return _Count(variable=variable, predicate=predicate)

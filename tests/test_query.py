@@ -106,7 +106,7 @@ def test_what_if_patch_on_single_file_spec(tmp_path):
     patch.write_text(
         "from analint import Invariant\n"
         "from analint_spec import Player\n"
-        "always_cloaked = Invariant(Player.has_cloak == True, label='player always cloaked')\n"
+        "always_cloaked = Invariant(Player.has_cloak, label='player always cloaked')\n"
     )
     result = validate(CLOAK, extra=patch)
     assert result.load_errors == []  # the patch resolved the spec, no import error
@@ -124,7 +124,7 @@ def test_what_if_alias_is_temporary_and_patch_is_reloaded(tmp_path, monkeypatch)
     patch.write_text(
         "from analint import Invariant\n"
         "from analint_spec import Player\n"
-        "probe = Invariant(Player.has_cloak == True, label='first hypothesis')\n"
+        "probe = Invariant(Player.has_cloak, label='first hypothesis')\n"
     )
     first = validate(CLOAK, extra=patch)
     assert sys.modules["analint_spec"] is sentinel
@@ -133,7 +133,7 @@ def test_what_if_alias_is_temporary_and_patch_is_reloaded(tmp_path, monkeypatch)
     patch.write_text(
         "from analint import Invariant\n"
         "from analint_spec import Player\n"
-        "probe = Invariant(Player.has_cloak == True, label='revised hypothesis')\n"
+        "probe = Invariant(Player.has_cloak, label='revised hypothesis')\n"
     )
     second = validate(CLOAK, extra=patch)
     assert sys.modules["analint_spec"] is sentinel
@@ -220,8 +220,8 @@ def test_each_excluded_action_surfaces_its_own_finding(tmp_path):
         "    ok: bool\n\n"
         "class Box(Entity):\n"
         "    value: int = 0\n\n"
-        "a = Action(id='a', pre=[Signal.ok == True], effect=[Set(Box.value, 1)])\n"
-        "b = Action(id='b', pre=[Signal.ok == True], effect=[Set(Box.value, 2)])\n"
+        "a = Action(id='a', pre=[Signal.ok], effect=[Set(Box.value, 1)])\n"
+        "b = Action(id='b', pre=[Signal.ok], effect=[Set(Box.value, 2)])\n"
         "spec = Spec(id='s', name='S', entities=[Box], events=[Signal], actions=[a, b],\n"
         "            invariants=[Invariant(Box.value == 0, id='z')])\n"
     )

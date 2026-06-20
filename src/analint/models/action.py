@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from analint.models.effect import Effect
 from analint.models.event import Event
-from analint.models.predicate import Predicate
+from analint.models.predicate import Predicate, normalize_predicate
 
 if TYPE_CHECKING:
     from analint.models.param import Param
@@ -61,6 +61,14 @@ class Action(BaseModel):
         if not isinstance(v, list):
             return [v]
         return v
+
+    @field_validator("pre", "post", "where", mode="before")
+    @classmethod
+    def _normalize_predicates(cls, value: Any) -> Any:
+        if value is None:
+            return []
+        values = value if isinstance(value, list) else [value]
+        return [normalize_predicate(item) for item in values]
 
     def bind(self, **binding: Any) -> Action:
         """A concrete instance of this parameterized action for one binding.

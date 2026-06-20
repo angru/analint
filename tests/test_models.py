@@ -279,9 +279,9 @@ def test_evaluate_not():
     class Item(Entity):
         active: bool
 
-    pred = Not(Item.active == False)  # noqa: E712
-    assert evaluate(pred, _ctx(Item(active=True))) is True
-    assert evaluate(pred, _ctx(Item(active=False))) is False
+    pred = Not(Item.active)
+    assert evaluate(pred, _ctx(Item(active=True))) is False
+    assert evaluate(pred, _ctx(Item(active=False))) is True
 
 
 def test_evaluate_implies():
@@ -291,7 +291,7 @@ def test_evaluate_implies():
     class Player(Entity):
         has_cloak: bool
 
-    pred = Implies(Hook.holds_cloak == True, Player.has_cloak == False)  # noqa: E712
+    pred = Implies(Hook.holds_cloak, Not(Player.has_cloak))
     assert evaluate(pred, _ctx(Hook(holds_cloak=True), Player(has_cloak=False))) is True
     assert evaluate(pred, _ctx(Hook(holds_cloak=True), Player(has_cloak=True))) is False
     # vacuously true when the antecedent is false
@@ -321,6 +321,30 @@ def test_action_pre_and_effect():
     )
     assert len(action.pre) == 1
     assert len(action.effect) == 1
+
+
+def test_boolean_field_normalizes_in_predicate_positions():
+    class Item(Entity):
+        active: bool = True
+
+    action = Action(id="a", pre=[Item.active], post=[Not(Item.active)])
+    scenario = Scenario(id="s", action=action, then=[Item.active])
+    invariant = Invariant(Item.active)
+
+    assert isinstance(action.pre[0], _Eq)
+    assert action.pre[0].left is Item.active and action.pre[0].right is True
+    assert isinstance(action.post[0], _Not)
+    assert isinstance(action.post[0].expr, _Eq)
+    assert isinstance(scenario.then[0], _Eq)
+    assert isinstance(invariant.expression, _Eq)
+
+
+def test_non_boolean_field_is_rejected_in_predicate_position():
+    class Item(Entity):
+        count: int = 0
+
+    with pytest.raises(ValueError, match="Predicate"):
+        Action(id="a", pre=[Item.count])
 
 
 @pytest.mark.parametrize("field", ["on", "requires", "by", "effects"])

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from analint.models.initial import Initial
-from analint.models.predicate import Predicate
+from analint.models.predicate import Predicate, normalize_predicate
 
 
 @dataclass
@@ -28,6 +28,9 @@ class Reachable:
     max_states: int = 10_000
     initial: Initial | None = None
 
+    def __post_init__(self) -> None:
+        self.predicate = normalize_predicate(self.predicate)
+
 
 @dataclass
 class Unreachable:
@@ -45,6 +48,9 @@ class Unreachable:
     max_states: int = 10_000
     initial: Initial | None = None
 
+    def __post_init__(self) -> None:
+        self.predicate = normalize_predicate(self.predicate)
+
 
 @dataclass
 class AlwaysHolds:
@@ -58,6 +64,9 @@ class AlwaysHolds:
     label: str = ""
     max_states: int = 10_000
     initial: Initial | None = None
+
+    def __post_init__(self) -> None:
+        self.predicate = normalize_predicate(self.predicate)
 
 
 @dataclass
@@ -75,6 +84,9 @@ class NoDeadEnd:
     label: str = ""
     max_states: int = 10_000
     initial: Initial | None = None
+
+    def __post_init__(self) -> None:
+        self.goal = normalize_predicate(self.goal)
 
 
 @dataclass

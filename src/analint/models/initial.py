@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from analint.models.predicate import Predicate
+from analint.models.predicate import Predicate, normalize_predicate
 
 
 @dataclass
@@ -23,6 +23,7 @@ class Initial:
     max_candidates: int = 10_000
 
     def __post_init__(self) -> None:
+        self.where = [normalize_predicate(predicate) for predicate in self.where]
         if not self.vary:
             raise TypeError("Initial vary= needs at least one field")
         if not isinstance(self.max_candidates, int) or self.max_candidates <= 0:

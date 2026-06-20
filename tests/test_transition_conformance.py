@@ -178,7 +178,7 @@ def _terminal_doc_spec(action: Action) -> Spec:
 
 
 def test_pre_true_is_accepted():
-    a = Action(id="go", pre=[Flag.done == False], effect=[Set(Flag.done, True)])  # noqa: E712
+    a = Action(id="go", pre=[Not(Flag.done)], effect=[Set(Flag.done, True)])
     _assert_agree(
         _flag_spec(a),
         a,
@@ -189,16 +189,16 @@ def test_pre_true_is_accepted():
 
 
 def test_pre_false_is_rejected():
-    a = Action(id="go", pre=[Flag.done == True], effect=[Set(Flag.done, True)])  # noqa: E712
+    a = Action(id="go", pre=[Flag.done], effect=[Set(Flag.done, True)])
     _assert_agree(_flag_spec(a), a, [Flag(done=False)], "REJECTED")
 
 
 def test_post_true_is_accepted():
     a = Action(
         id="go",
-        pre=[Flag.done == False],  # noqa: E712
+        pre=[Not(Flag.done)],
         effect=[Set(Flag.done, True)],
-        post=[Flag.done == True],  # noqa: E712
+        post=[Flag.done],
     )
     _assert_agree(
         _flag_spec(a),
@@ -212,15 +212,15 @@ def test_post_true_is_accepted():
 def test_post_false_is_defect():
     a = Action(
         id="go",
-        pre=[Flag.done == False],  # noqa: E712
+        pre=[Not(Flag.done)],
         effect=[Set(Flag.done, True)],
-        post=[Flag.done == False],  # noqa: E712  contradicts the effect
+        post=[Not(Flag.done)],  # contradicts the effect
     )
     _assert_agree(_flag_spec(a), a, [Flag(done=False)], "DEFECT")
 
 
 def test_effectless_post_false_is_defect():
-    a = Action(id="go", post=[Flag.done == True])  # noqa: E712  false at done=False
+    a = Action(id="go", post=[Flag.done])  # false at done=False
     _assert_agree(_flag_spec(a), a, [Flag(done=False)], "DEFECT")
 
 

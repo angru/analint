@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from analint.models.predicate import Predicate
+from analint.models.predicate import Predicate, normalize_predicate
 
 
 @dataclass
@@ -13,7 +13,7 @@ class Invariant:
     references (and re-checked after effects are applied). Declared at module
     level; `id` is derived from the variable name when omitted::
 
-        user_is_active = Invariant(User.is_active == True)
+        user_is_active = Invariant(User.is_active)
     """
 
     expression: Predicate
@@ -21,3 +21,6 @@ class Invariant:
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""
     tags: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.expression = normalize_predicate(self.expression)

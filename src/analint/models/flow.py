@@ -6,7 +6,7 @@ from typing import Any
 
 from analint.models.action import Action
 from analint.models.event import Event
-from analint.models.predicate import Predicate
+from analint.models.predicate import Predicate, normalize_predicate
 
 
 @dataclass
@@ -14,6 +14,9 @@ class Assert:
     """Post-execution assertion on entity state."""
 
     predicate: Predicate
+
+    def __post_init__(self) -> None:
+        self.predicate = normalize_predicate(self.predicate)
 
 
 @dataclass

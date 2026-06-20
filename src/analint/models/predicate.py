@@ -8,6 +8,27 @@ class Predicate:
     """Base class for all predicate expressions (enables typing and isinstance)."""
 
 
+def normalize_predicate(value: Any) -> Any:
+    """Normalize a boolean field reference in predicate position."""
+    if isinstance(value, Predicate):
+        return value
+    entity_cls = getattr(value, "entity_cls", None)
+    if entity_cls is None:
+        param = getattr(value, "param", None)
+        domain = getattr(param, "domain", ())
+        first = domain[0] if domain else None
+        entity_cls = getattr(first, "entity_cls", None)
+        if entity_cls is None and isinstance(first, type):
+            entity_cls = first
+    field_name = getattr(value, "field_name", None)
+    if entity_cls is None or field_name is None:
+        return value
+    annotation = None
+    for cls in reversed(entity_cls.__mro__):
+        annotation = getattr(cls, "__annotations__", {}).get(field_name, annotation)
+    return _Eq(left=value, right=True) if annotation is bool or annotation == "bool" else value
+
+
 # ── Comparison predicates ───────────────────────────────────────────────────────
 
 
@@ -98,22 +119,22 @@ class _IsNotNull(Predicate):
 
 def And(*exprs: Predicate) -> _And:
     """All sub-predicates must hold."""
-    return _And(exprs=list(exprs))
+    return _And(exprs=[normalize_predicate(expr) for expr in exprs])
 
 
 def Or(*exprs: Predicate) -> _Or:
     """At least one sub-predicate must hold."""
-    return _Or(exprs=list(exprs))
+    return _Or(exprs=[normalize_predicate(expr) for expr in exprs])
 
 
 def Not(expr: Predicate) -> _Not:
     """Negation of a predicate."""
-    return _Not(expr=expr)
+    return _Not(expr=normalize_predicate(expr))
 
 
 def Implies(left: Predicate, right: Predicate) -> _Implies:
     """If `left` holds, `right` must hold too (vacuously true when `left` is false)."""
-    return _Implies(left=left, right=right)
+    return _Implies(left=normalize_predicate(left), right=normalize_predicate(right))
 
 
 def In(operand: Any, values: list[Any]) -> _In:

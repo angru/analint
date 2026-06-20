@@ -46,12 +46,12 @@
       "sc_merge_behind_base": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "4dc3641c7ab73acb"
+        "findings_hash": "de0450554f0989fa"
       },
       "sc_merge_failing_checks": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "23bbc7a1298c10a1"
+        "findings_hash": "cf3ed1c3d7dad1da"
       },
       "sc_merge_happy": {
         "status": "PASS",
@@ -61,17 +61,17 @@
       "sc_merge_underapproved": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "c7d03795ad4d87a3"
+        "findings_hash": "c589bd7bd36633a2"
       },
       "sc_merge_with_changes_requested": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "d6fda5f7c89faa02"
+        "findings_hash": "36e73599222158a3"
       },
       "sc_merge_without_code_owner": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "a44624bb83a63cea"
+        "findings_hash": "4fd1e1efc0ec083a"
       },
       "sc_push_dismisses_approvals": {
         "status": "PASS",
@@ -253,7 +253,7 @@
       "sc_read_in_dark": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "318f61a1e073e7f4"
+        "findings_hash": "6e0d93cc8d7bb80b"
       },
       "sc_trampled_lose": {
         "status": "PASS",
@@ -941,7 +941,7 @@
       "sc_player_cannot_vote_twice": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "b7c1144c3e13d031"
+        "findings_hash": "5576ad6b5480a229"
       },
       "sc_tie_skips_hanging": {
         "status": "PASS",
@@ -1282,7 +1282,7 @@
       "sc_key_needs_dead_guardian": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "058812dd5d381c81"
+        "findings_hash": "4018826775b157dd"
       },
       "sc_no_act_when_dead": {
         "status": "PASS",
@@ -1529,7 +1529,7 @@
       "sc_no_crossing_with_troll": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "eb63a6c2c7f71233"
+        "findings_hash": "826916b2a54ac4e6"
       },
       "sc_potion": {
         "status": "PASS",

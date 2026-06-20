@@ -18,6 +18,7 @@ from analint import (
     Invariant,
     Lifecycle,
     NoDeadEnd,
+    Not,
     Reachable,
     Scope,
     Set,
@@ -58,7 +59,7 @@ def _switch_spec():
 
     toggle_on = Action(
         id="turn_on",
-        pre=[Lamp.on == False],  # noqa: E712
+        pre=[Not(Lamp.on)],
         effect=[Set(Lamp.on, True)],
     )
     return Lamp, Spec(id="s", name="S", entities=[Lamp], actions=[toggle_on])
@@ -66,7 +67,7 @@ def _switch_spec():
 
 def test_reachable_pass_with_witness_trace():
     Lamp, spec = _switch_spec()
-    result = _run(Reachable(Lamp.on == True, id="q"), spec)  # noqa: E712
+    result = _run(Reachable(Lamp.on, id="q"), spec)
     assert result.status == "PASS"
     assert result.trace == ["turn_on"]
 
@@ -76,14 +77,14 @@ def test_reachable_fail_when_no_path():
         open: bool = False
 
     spec = Spec(id="s", name="S", entities=[Door], actions=[])
-    result = _run(Reachable(Door.open == True, id="q"), spec)  # noqa: E712
+    result = _run(Reachable(Door.open, id="q"), spec)
     assert result.status == "FAIL"
     assert "not reachable" in result.findings[0].message
 
 
 def test_unreachable_fail_with_counterexample():
     Lamp, spec = _switch_spec()
-    result = _run(Unreachable(Lamp.on == True, id="q"), spec)  # noqa: E712
+    result = _run(Unreachable(Lamp.on, id="q"), spec)
     assert result.status == "FAIL"
     assert result.trace == ["turn_on"]
 
@@ -126,18 +127,18 @@ def test_no_dead_end_detects_softlock():
     waste = Action(id="waste", pre=[Purse.gold >= 3], effect=[Subtract(Purse.gold, 3)])
     win = Action(
         id="win",
-        pre=[Purse.has_sword == True],  # noqa: E712
+        pre=[Purse.has_sword],
         effect=[Set(Purse.done, True)],
     )
     spec = Spec(id="s", name="S", entities=[Purse], actions=[buy_sword, waste, win])
-    result = _run(NoDeadEnd(Purse.done == True, id="q"), spec)  # noqa: E712
+    result = _run(NoDeadEnd(Purse.done, id="q"), spec)
     assert result.status == "FAIL"
     assert result.trace == ["waste"]  # 3 gold left → the sword is gone forever
 
 
 def test_no_dead_end_pass():
     Lamp, spec = _switch_spec()
-    result = _run(NoDeadEnd(Lamp.on == True, id="q"), spec)  # noqa: E712
+    result = _run(NoDeadEnd(Lamp.on, id="q"), spec)
     assert result.status == "PASS"
 
 
@@ -150,7 +151,7 @@ def test_dead_actions_reported():
 
     open_box = Action(
         id="open_box",
-        pre=[Box.sealed == False],  # noqa: E712
+        pre=[Not(Box.sealed)],
         effect=[Set(Box.sealed, True)],
     )
     spec = Spec(id="s", name="S", entities=[Box], actions=[open_box])
@@ -385,20 +386,20 @@ def test_given_any_quantifies_over_all_roots():
 
     push = Action(
         id="push",
-        pre=[Door.locked == False, Door.open == False],  # noqa: E712
+        pre=[Not(Door.locked), Not(Door.open)],
         effect=[Set(Door.open, True)],
     )
     spec = Spec(id="s", name="S", entities=[Door], actions=[push])
 
     # from the default (locked) root alone the door never opens…
-    one = run_query(Reachable(Door.open == True, id="q1"), spec, cache={})  # noqa: E712
+    one = run_query(Reachable(Door.open, id="q1"), spec, cache={})
     assert one.status == "FAIL"
 
     # …but over the set of admissible initials it does — and the verdict
     # names the originating configuration
     many = run_query(
         Reachable(
-            Door.open == True,  # noqa: E712
+            Door.open,
             id="q2",
             given_any=[[Door(locked=True)], [Door(locked=False)]],
         ),
@@ -462,14 +463,14 @@ def test_declarative_initial_relation_varies_finite_fields():
 
     push = Action(
         id="push",
-        pre=[Door.locked == False, Door.open == False],  # noqa: E712
+        pre=[Not(Door.locked), Not(Door.open)],
         effect=[Set(Door.open, True)],
     )
     initials = Initial(vary=[Door.locked])
     spec = Spec(id="s", name="S", entities=[Door], actions=[push])
 
     result = run_query(
-        Reachable(Door.open == True, id="q", initial=initials),  # noqa: E712
+        Reachable(Door.open, id="q", initial=initials),
         spec,
         cache={},
     )
@@ -526,7 +527,7 @@ def test_initial_relation_infers_domain_from_required_given_value():
     spec = Spec(id="s", name="S", entities=[Switch])
     result = run_query(
         Reachable(
-            Switch.enabled == False,  # noqa: E712
+            Not(Switch.enabled),
             id="q",
             initial=Initial(
                 vary=[Switch.enabled],
@@ -611,7 +612,7 @@ def test_initial_relation_is_structurally_validated():
     other = Scope(Player, keys=["b"], id="other")
     outsider = Bound("outsider", other)
     query = AlwaysHolds(
-        Player.alive == True,  # noqa: E712
+        Player.alive,
         id="q",
         initial=Initial(vary=[outsider.alive]),
     )
@@ -741,7 +742,7 @@ def test_invariant_inconclusive_when_an_action_is_excluded():
 
     event_step = Action(
         id="ev",
-        pre=[Signal.ok == True],  # noqa: E712
+        pre=[Signal.ok],
         effect=[Set(Box.value, 1)],
     )
     spec = Spec(

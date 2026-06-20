@@ -163,7 +163,7 @@ def test_bare_event_class_passes_through():
 def test_illegal_initial_plus_false_pre_is_not_a_rejection():
     """An illegal initial state is a defect; Expect.FAIL must not pass it even
     when a precondition also rejects the action (review 535ecb8, P1#1)."""
-    a = Action(id="go", pre=[Box.flag == True], effect=[Set(Box.flag, True)])  # noqa: E712
+    a = Action(id="go", pre=[Box.flag], effect=[Set(Box.flag, True)])
     inv = Invariant(Box.n == 1, id="initial_is_valid")
     spec = Spec(id="s", name="S", entities=[Box], actions=[a], invariants=[inv])
     sc = Scenario(id="t", name="t", action=a, given=[Box(n=0)], expected=Expect.FAIL)

@@ -1,4 +1,3 @@
-# ruff: noqa: E712  (DSL: `== True/False` builds a Predicate; see research/27)
 """GitHub protected-branch / required pull-request policy — an external,
 change-oriented evidence model (ROADMAP evidence gate, research/20 §"first
 external candidate").
@@ -55,6 +54,7 @@ from analint import (
     Implies,
     Invariant,
     Lifecycle,
+    Not,
     Reachable,
     Scenario,
     Set,
@@ -97,10 +97,10 @@ class PullRequest(Entity):
 # ── The branch-protection policy: when may a PR merge? ───────────────────────────
 mergeable = And(
     PullRequest.approvals >= REQUIRED_APPROVALS,
-    PullRequest.code_owner_approved == True,
-    PullRequest.changes_requested == False,
+    PullRequest.code_owner_approved,
+    Not(PullRequest.changes_requested),
     PullRequest.checks == Checks.PASSING,
-    PullRequest.behind_base == False,
+    Not(PullRequest.behind_base),
 )
 is_open = PullRequest.state == PRState.OPEN
 
@@ -115,7 +115,7 @@ code_owner_approve = Action(
     name="A code owner approves (counts as an approving review)",
     pre=[
         is_open,
-        PullRequest.code_owner_approved == False,
+        Not(PullRequest.code_owner_approved),
     ],
     effect=[
         Set(PullRequest.approvals, PullRequest.approvals + 1),
@@ -131,7 +131,7 @@ request_changes = Action(
 
 dismiss_changes_request = Action(
     name="The blocking 'changes requested' review is dismissed / re-reviewed",
-    pre=[is_open, PullRequest.changes_requested == True],
+    pre=[is_open, PullRequest.changes_requested],
     effect=[Set(PullRequest.changes_requested, False)],
 )
 
@@ -164,13 +164,13 @@ checks_fail = Action(
 # ── Base-branch actions ──────────────────────────────────────────────────────────
 base_advanced = Action(
     name="The base branch advances; the PR is now behind (head unchanged)",
-    pre=[is_open, PullRequest.behind_base == False],
+    pre=[is_open, Not(PullRequest.behind_base)],
     effect=[Set(PullRequest.behind_base, True)],
 )
 
 update_branch = Action(
     name="Update the branch from base: a new head commit, so approvals are dismissed",
-    pre=[is_open, PullRequest.behind_base == True],
+    pre=[is_open, PullRequest.behind_base],
     # Updating merges base into the head — a new commit — so stale approvals are
     # dismissed and checks must re-run, just like push_commit.
     effect=[
@@ -205,7 +205,7 @@ merged_satisfied_policy = Invariant(
 # Abstraction soundness: a code-owner approval is itself an approval, so the flag
 # can never be set without at least one approval backing it.
 code_owner_is_an_approval = Invariant(
-    Implies(PullRequest.code_owner_approved == True, PullRequest.approvals >= 1),
+    Implies(PullRequest.code_owner_approved, PullRequest.approvals >= 1),
     label="a code-owner approval counts as at least one approving review",
 )
 
@@ -270,7 +270,7 @@ sc_push_dismisses_approvals = Scenario(
     given=[PullRequest(approvals=2, code_owner_approved=True, checks=Checks.PASSING)],
     then=[
         PullRequest.approvals == 0,
-        PullRequest.code_owner_approved == False,
+        Not(PullRequest.code_owner_approved),
         PullRequest.checks == Checks.PENDING,
     ],
 )
@@ -279,7 +279,7 @@ sc_push_keeps_changes_requested = Scenario(
     name="A new commit does NOT clear a blocking changes-requested review",
     action=push_commit,
     given=[PullRequest(changes_requested=True)],
-    then=[PullRequest.changes_requested == True],
+    then=[PullRequest.changes_requested],
 )
 
 sc_approve = Scenario(
@@ -295,7 +295,7 @@ sc_code_owner_approve = Scenario(
     given=[PullRequest()],
     then=[
         PullRequest.approvals == 1,
-        PullRequest.code_owner_approved == True,
+        PullRequest.code_owner_approved,
     ],
 )
 
@@ -305,7 +305,7 @@ sc_code_owner_can_approve_after_threshold = Scenario(
     given=[PullRequest(approvals=2)],
     then=[
         PullRequest.approvals == 2,
-        PullRequest.code_owner_approved == True,
+        PullRequest.code_owner_approved,
     ],
 )
 
@@ -313,14 +313,14 @@ sc_request_changes = Scenario(
     name="A reviewer requests changes",
     action=request_changes,
     given=[PullRequest()],
-    then=[PullRequest.changes_requested == True],
+    then=[PullRequest.changes_requested],
 )
 
 sc_dismiss_changes_request = Scenario(
     name="The blocking changes-requested review is dismissed",
     action=dismiss_changes_request,
     given=[PullRequest(changes_requested=True)],
-    then=[PullRequest.changes_requested == False],
+    then=[Not(PullRequest.changes_requested)],
 )
 
 sc_checks_pass = Scenario(
@@ -342,7 +342,7 @@ sc_base_advanced = Scenario(
     action=base_advanced,
     given=[PullRequest(approvals=2, code_owner_approved=True)],
     then=[
-        PullRequest.behind_base == True,
+        PullRequest.behind_base,
         PullRequest.approvals == 2,
     ],
 )
@@ -354,9 +354,9 @@ sc_update_branch = Scenario(
         PullRequest(behind_base=True, approvals=2, code_owner_approved=True, checks=Checks.PASSING)
     ],
     then=[
-        PullRequest.behind_base == False,
+        Not(PullRequest.behind_base),
         PullRequest.approvals == 0,
-        PullRequest.code_owner_approved == False,
+        Not(PullRequest.code_owner_approved),
         PullRequest.checks == Checks.PENDING,
     ],
 )
@@ -376,9 +376,9 @@ flow_changes_request_blocks_until_dismissed = Flow(
     given=[PullRequest()],
     steps=[
         request_changes,
-        Assert(PullRequest.changes_requested == True),
+        Assert(PullRequest.changes_requested),
         push_commit,  # a new commit does not clear the blocking review
-        Assert(PullRequest.changes_requested == True),
+        Assert(PullRequest.changes_requested),
         dismiss_changes_request,  # only an explicit dismissal clears it
         approve,
         code_owner_approve,
@@ -398,7 +398,7 @@ flow_push_forces_reapproval = Flow(
         Assert(PullRequest.approvals == 2),
         push_commit,
         Assert(PullRequest.approvals == 0),
-        Assert(PullRequest.code_owner_approved == False),
+        Assert(Not(PullRequest.code_owner_approved)),
         approve,
         code_owner_approve,
         checks_pass,
@@ -420,7 +420,7 @@ never_merge_underapproved = Unreachable(
 )
 
 never_merge_without_code_owner = Unreachable(
-    And(PullRequest.state == PRState.MERGED, PullRequest.code_owner_approved == False),
+    And(PullRequest.state == PRState.MERGED, Not(PullRequest.code_owner_approved)),
     label="a PR can never merge without a code-owner approval",
 )
 
@@ -430,12 +430,12 @@ never_merge_failing = Unreachable(
 )
 
 never_merge_with_changes = Unreachable(
-    And(PullRequest.state == PRState.MERGED, PullRequest.changes_requested == True),
+    And(PullRequest.state == PRState.MERGED, PullRequest.changes_requested),
     label="a PR can never merge with outstanding change requests",
 )
 
 never_merge_behind = Unreachable(
-    And(PullRequest.state == PRState.MERGED, PullRequest.behind_base == True),
+    And(PullRequest.state == PRState.MERGED, PullRequest.behind_base),
     label="a PR can never merge while behind its base branch",
 )
 

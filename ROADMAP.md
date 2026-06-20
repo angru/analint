@@ -468,22 +468,48 @@ best-documented version first; the upload is the last step, gated on explicit go
     by the current DSL; no new semantic primitive is required. Liveness/fairness,
     real event delivery/time/probability, unbounded structures and intra-action
     concurrency remain explicit non-goals.
-  - [ ] Correct publication claims around `NoDeadEnd`: it proves that a goal
-    remains reachable from every reachable state (recoverability/no softlock),
-    not that every run eventually reaches the goal. Rename/reword the
-    fulfillment "always settles"/"every run terminates"/"never wedges" claims.
-  - [ ] Remove semantic-looking metadata/non-behavioural modes:
-    `Actor`/`Action.by`, `Action.on`, `Action.requires`, documentary-only `Flow`;
-    decide and narrow entity-wide lifecycle-terminal freezing.
-  - [ ] Simplify canonical syntax without new semantics: boolean field refs in
-    predicate positions, raw predicate checkpoints instead of `Assert`, mapping
-    syntax instead of public `Transition`.
-  - [ ] Close repeated advanced authoring friction from external models:
-    scope-key value expression, explicit canonical scope presence, fixed
-    `Initial(given=...)` without artificial `vary`.
-  - [ ] Freeze agent contracts: version check/show/affects/trace JSON, align
-    CLI/MCP `show`, validate output formats, update stale tool descriptions.
-  - [ ] Migrate examples/tests and confirm the final `__all__`; then mark C
+  - [x] **Corrected `NoDeadEnd` publication claims** (recoverability, not
+    liveness): renamed `saga_always_settles` → `settlement_always_reachable` and
+    reworded the fulfillment "always settles"/"every run terminates"/"never
+    wedges" prose; the engine docstring/reporter were already honest. The
+    characterization-snapshot diff was purely the query-id key (commit 9a9f190).
+
+  **Decision (2026-06-20, after the strict review pass):** split the cleanup into a
+  pure-subtractive **core** (first, one reviewable pass, **no deprecation aliases**
+  — nothing is on PyPI yet) and a **decoupled additive** pass. Two of research/30's
+  recommendations are deliberately **not** taken:
+  - **Do NOT narrow lifecycle `terminal`.** Whole-entity freeze is a useful,
+    intuitive default ("CANCELLED order / ARCHIVED card / MERGED PR is frozen"); no
+    current example needs post-terminal mutation or has multiple lifecycle fields.
+    Narrowing is speculative, high blast-radius (re-characterizes 9 examples) and
+    makes the common case more verbose. Treat the "surprise" as documentation:
+    state the whole-entity rule precisely. Revisit only with a real model that needs it.
+  - **Keep `Assert` optional, do not delete it.** Drop it where the list is
+    homogeneous (`Scenario.then`) — the bulk of the ~113 uses — but keep `Assert`
+    exported and usable in mixed `Flow.steps`, where it is a real reader cue (same
+    rationale that keeps `Emitted` and `Add`/`Subtract`).
+
+  - [ ] **Subtractive core (first pass):**
+    - remove `Actor` / `Action.by`, `Action.on`, `Action.requires` and the
+      documentary-only `Flow` mode (`given=None`); a principal is scoped
+      state/`Param`, prose goes in `name`/`description`/`tags`
+    - raw predicate checkpoints in `Scenario.then` (drop `Assert` there); keep
+      `Assert` optional in `Flow.steps`
+    - normalize boolean field refs in predicate positions (remove `== True/False`
+      + the spec-wide E712 exception); `And`/`Or`/`Not`/`pre`/`post`/`then` admit
+      `bool`, literal bools handled/rejected explicitly
+    - lifecycle transition mapping (`transitions={s: [...]}`) instead of the public
+      `Transition` wrapper; do not infer terminal from missing keys
+    - no deprecation aliases; migrate examples/tests + snapshot in the same pass;
+      document the whole-entity terminal rule precisely (no semantic change)
+  - [ ] **Freeze agent contracts:** version check/show/affects/trace JSON, align
+    CLI/MCP `show`, validate `--format`, update stale tool descriptions.
+  - [ ] **Additive pass — decoupled, last or 0.0.2 (the only new public surface):**
+    `Key(...)` scope-key value expression + explicit canonical scope presence +
+    fixed `Initial(given=...)`. Removes the parallel-identity-param workaround in
+    OAuth/Kubernetes but ADDS a symbol/AST node — design and version its
+    JSON/artifact representation carefully. Does not gate the subtractive core or docs.
+  - [ ] Migrate remaining examples/tests, confirm the final `__all__`; then mark C
     complete so docs can be written once against the frozen contract.
 - **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
   - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed

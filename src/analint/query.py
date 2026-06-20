@@ -297,7 +297,6 @@ def _describe_flow(spec: Spec, name: str) -> dict:
         "kind": "flow",
         "id": flow.id,
         "description": flow.description,
-        "executable": bool(flow.given),
         "steps": [_flow_step_str(s) for s in flow.steps],
     }
 

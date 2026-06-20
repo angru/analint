@@ -39,16 +39,14 @@ class Flow:
     appear anywhere: run several actions, then assert once. Each action must be
     accepted; the first rejected/defective step fails the flow with a trace.
 
-    ``given`` is the execution-mode switch, independent of how many snapshots the
-    initial state needs: ``None`` (the default) is a documented journey —
-    validated structurally and shown, but not run; a list (even empty) makes the
-    flow executable. The initial state is a *partial snapshot* (the same builder a
+    ``given`` is the initial state — a *partial snapshot* (the same builder a
     scenario uses): only the listed entities are present and unspecified Scope
-    slots are absent — this is not the canonical defaults-built world, so a step
-    that needs an unlisted entity is rejected.
+    slots are absent, so this is not the canonical defaults-built world and a step
+    that needs an unlisted entity is rejected. ``given=[]`` is valid when entity
+    defaults are sufficient; every flow is executed.
     """
 
     steps: list[FlowEntry] = dc_field(default_factory=list)
-    given: list[Any] | None = None  # None = documentation; a list = executable
+    given: list[Any] = dc_field(default_factory=list)  # initial state; [] = defaults
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""

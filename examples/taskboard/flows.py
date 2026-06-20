@@ -1,12 +1,8 @@
 from analint import Assert, Emitted, Flow
 
 from .actions import (
-    add_comment,
-    archive_card,
-    assign_card,
     create_card,
     invite_member,
-    move_card,
 )
 from .entities import (
     Board,
@@ -40,11 +36,4 @@ flow_onboarding = Flow(
         Emitted(CardCreated),
     ],
     description="Owner sets up a board: invite a member, create the first card",
-)
-
-# A documented journey (no given): validated structurally and shown, not executed.
-flow_card_lifecycle = Flow(
-    id="card-lifecycle-flow",
-    steps=[create_card, assign_card, move_card, add_comment, archive_card],
-    description="Full card journey from creation to archival",
 )

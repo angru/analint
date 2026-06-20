@@ -173,13 +173,10 @@ def validate(
     for scenario in scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
-    # A flow with given=... (even []) is executed; given=None stays a documented
-    # journey (validated structurally, not run).
-    executable_flows = [flow for flow in spec.flows if flow.given is not None]
-    if executable_flows:
+    if spec.flows:
         from analint.validator.flow_runner import run_flow
 
-        for flow in executable_flows:
+        for flow in spec.flows:
             result.flow_results.append(run_flow(flow, spec))
 
     # Findings from different explorations of the same state space overlap, so

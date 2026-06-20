@@ -418,7 +418,7 @@ Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Mana
 
 ### Flow
 
-An ordered journey. With `given=` it is **executed**: each action runs through
+An ordered, **executed** journey: each action runs through
 the same transition kernel — its post-state feeds the next — and checkpoints
 (`Assert` / `Emitted`) interleaved in `steps` are checked against the state
 reached so far. The first rejected action or failed checkpoint fails the flow
@@ -440,11 +440,10 @@ purchase_flow = Flow(
 )
 ```
 
-`given=` is a partial snapshot (the same one a scenario uses): only the listed
-entities are present, unspecified `Scope` slots are absent, and a step that
-needs an unlisted entity is rejected. Without `given=` (the default) a Flow
-stays a documented journey: the linter shows it but does not execute state
-through the steps.
+`given=` is the initial state — a partial snapshot (the same one a scenario
+uses): only the listed entities are present, unspecified `Scope` slots are
+absent, and a step that needs an unlisted entity is rejected. `given=[]` is
+valid when entity defaults are sufficient.
 
 ```python
 purchase_journey = Flow(steps=[login, browse, checkout], description="...")

@@ -437,10 +437,8 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 else:
                     findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
 
-        has_checkpoints = False
         for step in flow.steps:
             if isinstance(step, Assert):
-                has_checkpoints = True
                 findings.extend(
                     _check_pred_refs(step.predicate, spec.entities, spec.events, loc, spec.scopes)
                 )
@@ -448,7 +446,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     _check_scoped_refs(_collect_field_refs(step.predicate), scoped_entities, loc)
                 )
             elif isinstance(step, Emitted):
-                has_checkpoints = True
                 if not (isinstance(step.event_cls, type) and issubclass(step.event_cls, Event)):
                     findings.append(
                         err(loc, f"Emitted(...) needs an Event class, got {step.event_cls!r}")
@@ -463,22 +460,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     err(loc, f"flow step '{step!r}' is not an Action, Assert(...) or Emitted(...)")
                 )
 
-        findings.extend(
-            _validate_given_snapshots(flow.given or [], spec, scoped_entities, loc, "given")
-        )
-        if flow.given is None:
-            if has_checkpoints:
-                findings.append(
-                    warn(
-                        loc,
-                        "flow has checkpoints but no given — it is not executed, so the "
-                        "checkpoints never run; add given= to run it",
-                    )
-                )
-        elif not action_steps:
-            findings.append(
-                warn(loc, "executable flow (given= set) has no action steps — it does nothing")
-            )
+        findings.extend(_validate_given_snapshots(flow.given, spec, scoped_entities, loc, "given"))
+        if not action_steps:
+            findings.append(warn(loc, "flow has no action steps — it does nothing"))
 
     return findings
 

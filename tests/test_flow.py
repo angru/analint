@@ -74,12 +74,6 @@ def test_flow_emitted_checkpoint_fails_when_event_absent():
     assert any("Other" in f.message and "emitted" in f.message for f in result.findings)
 
 
-def test_flow_without_given_with_checkpoints_warns():
-    flow = Flow(id="f", steps=[bump, Assert(Counter.n == 1)])
-    findings = validate_structural(_spec(flow))
-    assert any("checkpoints but no given" in f.message for f in findings)
-
-
 # ── review 2015619 regressions ───────────────────────────────────────────────────
 
 

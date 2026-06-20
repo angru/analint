@@ -23,7 +23,7 @@ from analint.validator.structural import _describe
 
 def run_flow(flow: Flow, spec: Spec) -> FlowResult:
     loc = f"flow:{flow.id}"
-    context = build_snapshot_context(spec, flow.given or [])
+    context = build_snapshot_context(spec, flow.given)
 
     findings: list[Finding] = []
     emitted_so_far: list = []

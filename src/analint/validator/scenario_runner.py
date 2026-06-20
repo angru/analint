@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from analint.models.flow import Assert, Emitted
+from analint.models.flow import Emitted
+from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
 from analint.reporter.base import Finding, ScenarioResult, Severity
@@ -90,14 +91,14 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
     emitted_classes = {e if isinstance(e, type) else type(e) for e in scenario.action.emits}
     failed = False
     for assertion in scenario.then:
-        if isinstance(assertion, Assert):
+        if isinstance(assertion, Predicate):
             try:
-                if not evaluate(assertion.predicate, post):
+                if not evaluate(assertion, post):
                     findings.append(
                         Finding(
                             Severity.ERROR,
                             f"scenario:{scenario.id}",
-                            f"then: {_describe(assertion.predicate)} — not satisfied",
+                            f"then: {_describe(assertion)} — not satisfied",
                         )
                     )
                     failed = True
@@ -125,7 +126,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                 Finding(
                     Severity.ERROR,
                     f"scenario:{scenario.id}",
-                    f"then entry '{assertion!r}' is not Assert(...) or Emitted(...)",
+                    f"then entry '{assertion!r}' is not a predicate or Emitted(...)",
                 )
             )
             failed = True

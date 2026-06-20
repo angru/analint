@@ -46,8 +46,8 @@ sc_issue = Scenario(
     ),
     given=[codes["c1"](), codes["c2"](), tokens["t1"](), tokens["t2"]()],
     then=[
-        Assert(codes["c1"].state == CodeState.ISSUED),
-        Assert(codes["c1"].client == Client.HONEST),
+        codes["c1"].state == CodeState.ISSUED,
+        codes["c1"].client == Client.HONEST,
     ],
 )
 
@@ -74,9 +74,9 @@ sc_redeem = Scenario(
         tokens["t2"](),
     ],
     then=[
-        Assert(tokens["t1"].state == TokenState.ACTIVE),
-        Assert(tokens["t1"].issued_to == Client.HONEST),
-        Assert(codes["c1"].state == CodeState.REDEEMED),
+        tokens["t1"].state == TokenState.ACTIVE,
+        tokens["t1"].issued_to == Client.HONEST,
+        codes["c1"].state == CodeState.REDEEMED,
     ],
 )
 
@@ -153,8 +153,8 @@ sc_replay_revokes_derived_token = Scenario(
         tokens["t2"](),
     ],
     then=[
-        Assert(codes["c1"].state == CodeState.REPLAY_DETECTED),
-        Assert(tokens["t1"].state == TokenState.REVOKED),
+        codes["c1"].state == CodeState.REPLAY_DETECTED,
+        tokens["t1"].state == TokenState.REVOKED,
     ],
 )
 

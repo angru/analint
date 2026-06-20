@@ -224,14 +224,14 @@ sc_scale_up = Scenario(
     name="Scaling a ReplicaSet up raises its desired count",
     action=scale_up.bind(rs=replicasets["rs0"]),
     given=[replicasets["rs0"](desired=0), replicasets["rs1"]()],
-    then=[Assert(replicasets["rs0"].desired == 1)],
+    then=[replicasets["rs0"].desired == 1],
 )
 
 sc_scale_down = Scenario(
     name="Scaling a ReplicaSet down lowers its desired count",
     action=scale_down.bind(rs=replicasets["rs0"]),
     given=[replicasets["rs0"](desired=2), replicasets["rs1"]()],
-    then=[Assert(replicasets["rs0"].desired == 1)],
+    then=[replicasets["rs0"].desired == 1],
 )
 
 sc_reconcile_delete = Scenario(
@@ -243,7 +243,7 @@ sc_reconcile_delete = Scenario(
         pods["p0"](owner=Owner.RS0),
         pods["p1"](owner=Owner.RS0),
     ],
-    then=[Assert(owned(Owner.RS0) == 1)],
+    then=[owned(Owner.RS0) == 1],
 )
 
 sc_create_beyond_quota_blocked = Scenario(
@@ -263,35 +263,35 @@ sc_acquire_orphan = Scenario(
     name="A controller adopts a matching orphan Pod",
     action=acquire_orphan.bind(rs=replicasets["rs0"], rs_owner=Owner.RS0, slot=pods["p0"]),
     given=[replicasets["rs0"](desired=1), replicasets["rs1"](), pods["p0"](owner=Owner.NONE)],
-    then=[Assert(pods["p0"].owner == Owner.RS0)],
+    then=[pods["p0"].owner == Owner.RS0],
 )
 
 sc_create_bare_pod = Scenario(
     name="A user creates a bare Pod under the quota",
     action=create_bare_pod.bind(slot=pods["p0"]),
     given=[Namespace(quota=1), *_RS, Absent(pods["p0"])],
-    then=[Assert(Present(pods["p0"])), Assert(pods["p0"].owner == Owner.NONE)],
+    then=[Present(pods["p0"]), pods["p0"].owner == Owner.NONE],
 )
 
 sc_delete_bare_pod = Scenario(
     name="A user deletes a bare Pod, freeing quota",
     action=delete_bare_pod.bind(slot=pods["p0"]),
     given=[*_RS, pods["p0"](owner=Owner.NONE)],
-    then=[Assert(live_pods == 0)],
+    then=[live_pods == 0],
 )
 
 sc_increase_quota = Scenario(
     name="Raising the ResourceQuota",
     action=increase_quota,
     given=[Namespace(quota=1), *_RS],
-    then=[Assert(Namespace.quota == 2)],
+    then=[Namespace.quota == 2],
 )
 
 sc_decrease_quota = Scenario(
     name="Lowering the ResourceQuota when usage allows",
     action=decrease_quota,
     given=[Namespace(quota=2), *_RS],
-    then=[Assert(Namespace.quota == 1)],
+    then=[Namespace.quota == 1],
 )
 
 # A happy path: both ReplicaSets converge to one Pod each under a fitting quota.

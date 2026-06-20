@@ -5,7 +5,6 @@ import pytest
 from analint import (
     Action,
     AlwaysHolds,
-    Assert,
     Bound,
     Count,
     Entity,
@@ -134,7 +133,7 @@ def test_aggregate_can_drive_an_effect():
         name="Snapshot total",
         action=snapshot,
         given=[alice(balance=1), bob(balance=2), eve(balance=3), Ledger()],
-        then=[Assert(Ledger.total == 6)],
+        then=[Ledger.total == 6],
     )
     spec = Spec(
         id="s",

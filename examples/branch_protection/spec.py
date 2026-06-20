@@ -226,7 +226,7 @@ sc_merge_happy = Scenario(
     name="A fully-approved, green, up-to-date PR merges",
     action=merge,
     given=[PullRequest(**_ALL_GREEN)],
-    then=[Assert(PullRequest.state == PRState.MERGED)],
+    then=[PullRequest.state == PRState.MERGED],
 )
 
 sc_merge_underapproved = Scenario(
@@ -269,9 +269,9 @@ sc_push_dismisses_approvals = Scenario(
     action=push_commit,
     given=[PullRequest(approvals=2, code_owner_approved=True, checks=Checks.PASSING)],
     then=[
-        Assert(PullRequest.approvals == 0),
-        Assert(PullRequest.code_owner_approved == False),
-        Assert(PullRequest.checks == Checks.PENDING),
+        PullRequest.approvals == 0,
+        PullRequest.code_owner_approved == False,
+        PullRequest.checks == Checks.PENDING,
     ],
 )
 
@@ -279,14 +279,14 @@ sc_push_keeps_changes_requested = Scenario(
     name="A new commit does NOT clear a blocking changes-requested review",
     action=push_commit,
     given=[PullRequest(changes_requested=True)],
-    then=[Assert(PullRequest.changes_requested == True)],
+    then=[PullRequest.changes_requested == True],
 )
 
 sc_approve = Scenario(
     name="An ordinary reviewer adds an approval",
     action=approve,
     given=[PullRequest(approvals=1, code_owner_approved=True)],
-    then=[Assert(PullRequest.approvals == 2)],
+    then=[PullRequest.approvals == 2],
 )
 
 sc_code_owner_approve = Scenario(
@@ -294,8 +294,8 @@ sc_code_owner_approve = Scenario(
     action=code_owner_approve,
     given=[PullRequest()],
     then=[
-        Assert(PullRequest.approvals == 1),
-        Assert(PullRequest.code_owner_approved == True),
+        PullRequest.approvals == 1,
+        PullRequest.code_owner_approved == True,
     ],
 )
 
@@ -304,8 +304,8 @@ sc_code_owner_can_approve_after_threshold = Scenario(
     action=code_owner_approve,
     given=[PullRequest(approvals=2)],
     then=[
-        Assert(PullRequest.approvals == 2),
-        Assert(PullRequest.code_owner_approved == True),
+        PullRequest.approvals == 2,
+        PullRequest.code_owner_approved == True,
     ],
 )
 
@@ -313,28 +313,28 @@ sc_request_changes = Scenario(
     name="A reviewer requests changes",
     action=request_changes,
     given=[PullRequest()],
-    then=[Assert(PullRequest.changes_requested == True)],
+    then=[PullRequest.changes_requested == True],
 )
 
 sc_dismiss_changes_request = Scenario(
     name="The blocking changes-requested review is dismissed",
     action=dismiss_changes_request,
     given=[PullRequest(changes_requested=True)],
-    then=[Assert(PullRequest.changes_requested == False)],
+    then=[PullRequest.changes_requested == False],
 )
 
 sc_checks_pass = Scenario(
     name="Pending checks pass",
     action=checks_pass,
     given=[PullRequest(checks=Checks.PENDING)],
-    then=[Assert(PullRequest.checks == Checks.PASSING)],
+    then=[PullRequest.checks == Checks.PASSING],
 )
 
 sc_checks_fail = Scenario(
     name="Pending checks fail",
     action=checks_fail,
     given=[PullRequest(checks=Checks.PENDING)],
-    then=[Assert(PullRequest.checks == Checks.FAILING)],
+    then=[PullRequest.checks == Checks.FAILING],
 )
 
 sc_base_advanced = Scenario(
@@ -342,8 +342,8 @@ sc_base_advanced = Scenario(
     action=base_advanced,
     given=[PullRequest(approvals=2, code_owner_approved=True)],
     then=[
-        Assert(PullRequest.behind_base == True),
-        Assert(PullRequest.approvals == 2),
+        PullRequest.behind_base == True,
+        PullRequest.approvals == 2,
     ],
 )
 
@@ -354,10 +354,10 @@ sc_update_branch = Scenario(
         PullRequest(behind_base=True, approvals=2, code_owner_approved=True, checks=Checks.PASSING)
     ],
     then=[
-        Assert(PullRequest.behind_base == False),
-        Assert(PullRequest.approvals == 0),
-        Assert(PullRequest.code_owner_approved == False),
-        Assert(PullRequest.checks == Checks.PENDING),
+        PullRequest.behind_base == False,
+        PullRequest.approvals == 0,
+        PullRequest.code_owner_approved == False,
+        PullRequest.checks == Checks.PENDING,
     ],
 )
 
@@ -365,7 +365,7 @@ sc_close = Scenario(
     name="A PR can be closed without merging",
     action=close,
     given=[PullRequest(**_ALL_GREEN)],
-    then=[Assert(PullRequest.state == PRState.CLOSED)],
+    then=[PullRequest.state == PRState.CLOSED],
 )
 
 

@@ -4,6 +4,8 @@ A verifier sells trust in PASS: every test here pins a case where the old
 engine would have answered green for the wrong reason.
 """
 
+import pytest
+
 from analint import (
     Action,
     AlwaysHolds,
@@ -65,14 +67,14 @@ def test_structural_rejects_unknown_then_entry():
         price: float = 1.0
 
     action = Action(id="act", pre=[Item.price > 0])
-    sc = Scenario(
-        id="sc", name="SC", action=action, given=[Item()], then=["price should be positive"]
-    )  # a string is not a check
-    spec = Spec(id="s", name="S", entities=[Item], actions=[action], scenarios=[sc])
-    assert any(
-        "must be Assert(...) or Emitted(...)" in f.message
-        for f in _errors(validate_structural(spec))
-    )
+    with pytest.raises(ValueError, match="then"):
+        Scenario(
+            id="sc",
+            name="SC",
+            action=action,
+            given=[Item()],
+            then=["price should be positive"],  # type: ignore[list-item]
+        )
 
 
 # ── §7.2: evaluation errors must not read as "no violation" ───────────────────

@@ -6,6 +6,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from analint.models.action import Action
+from analint.models.flow import Emitted
+from analint.models.predicate import Predicate
 
 
 class Expect(StrEnum):
@@ -17,7 +19,7 @@ class Scenario(BaseModel):
     """A concrete example: initial state, one action, expected outcome.
 
     `given` holds Entity instances (and, for actions triggered by events,
-    Event instances carrying the payload). `then` holds Assert/Emitted checks
+    Event instances carrying the payload). `then` holds predicates and Emitted checks
     evaluated against the post-state.
     """
 
@@ -27,6 +29,6 @@ class Scenario(BaseModel):
     description: str = ""
     action: Action
     given: list[Any] = Field(default_factory=list)  # Entity / Event instances
-    then: list[Any] = Field(default_factory=list)  # [Assert(pred), Emitted(EventCls)]
+    then: list[Predicate | Emitted] = Field(default_factory=list)
     expected: Expect = Expect.PASS
     tags: list[str] = Field(default_factory=list)

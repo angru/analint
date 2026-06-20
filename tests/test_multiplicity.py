@@ -5,7 +5,6 @@ from enum import StrEnum
 from analint import (
     Action,
     Add,
-    Assert,
     Entity,
     Field,
     Lifecycle,
@@ -74,7 +73,7 @@ def test_scenario_updates_two_instances_simultaneously():
         name="Alice pays Bob",
         action=bound,
         given=[alice(balance=3), bob(balance=1), eve(balance=0)],
-        then=[Assert(alice.balance == 1), Assert(bob.balance == 3)],
+        then=[alice.balance == 1, bob.balance == 3],
     )
     spec = Spec(
         id="s",
@@ -101,7 +100,7 @@ def test_effect_rhs_reads_multiplicity_pre_state():
         name="Swap balances",
         action=swap,
         given=[alice(balance=4), bob(balance=1)],
-        then=[Assert(alice.balance == 1), Assert(bob.balance == 4)],
+        then=[alice.balance == 1, bob.balance == 4],
     )
     spec = Spec(
         id="s",
@@ -233,7 +232,7 @@ def test_terminal_lifecycle_blocks_only_target_instance():
         name="Finish B",
         action=finish_b,
         given=[a(status=Status.DONE), b(status=Status.OPEN)],
-        then=[Assert(b.status == Status.DONE)],
+        then=[b.status == Status.DONE],
     )
     spec = Spec(
         id="s",

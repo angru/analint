@@ -399,8 +399,8 @@ sc_happy = Scenario(
         Product(stock=5, price=50.0, name="Widget"),
     ],
     then=[
-        Assert(Order.status == OrderStatus.PAID),
-        Assert(Wallet.balance == 50.0),
+        Order.status == OrderStatus.PAID,
+        Wallet.balance == 50.0,
         Emitted(OrderPlaced),
     ],
     expected=Expect.PASS,

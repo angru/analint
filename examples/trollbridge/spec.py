@@ -15,7 +15,6 @@ from analint import (
     Action,
     Add,
     AlwaysHolds,
-    Assert,
     DeadActions,
     Entity,
     Expect,
@@ -87,7 +86,7 @@ sc_buy_sword = Scenario(
     name="Sword purchase",
     action=buy_sword,
     given=[Hero(), Troll(), Quest()],
-    then=[Assert(Hero.gold == 1), Assert(Hero.has_sword == True)],
+    then=[Hero.gold == 1, Hero.has_sword == True],
 )
 
 sc_cannot_afford_sword = Scenario(
@@ -101,14 +100,14 @@ sc_potion = Scenario(
     name="Potion heals",
     action=drink_potion,
     given=[Hero(hp=7, potions=1), Troll(), Quest()],
-    then=[Assert(Hero.hp == 11)],
+    then=[Hero.hp == 11],
 )
 
 sc_fight = Scenario(
     name="Armed hero slays the troll",
     action=fight_troll,
     given=[Hero(has_sword=True), Troll(), Quest()],
-    then=[Assert(Troll.alive == False), Assert(Hero.hp == 7)],
+    then=[Troll.alive == False, Hero.hp == 7],
 )
 
 sc_no_crossing_with_troll = Scenario(
@@ -122,7 +121,7 @@ sc_buy_two_potions = Scenario(
     name="Two potions fit the budget",
     action=buy_potion,
     given=[Hero(gold=3, potions=1), Troll(), Quest()],
-    then=[Assert(Hero.gold == 0), Assert(Hero.potions == 2)],
+    then=[Hero.gold == 0, Hero.potions == 2],
 )
 
 # ── Queries — this is where the model breaks ──────────────────────────────────

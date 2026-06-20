@@ -27,7 +27,6 @@ from analint import (
     Action,
     AlwaysHolds,
     And,
-    Assert,
     Bound,
     DeadActions,
     Entity,
@@ -130,9 +129,9 @@ sc_mint_then_send = Scenario(
     action=send.bind(src=bob, dst=eve, amount=2),
     given=_world(bob=5),
     then=[
-        Assert(bob.coins == 3),
-        Assert(eve.coins == 2),
-        Assert(total_supply == 5),  # transfers do not change the supply
+        bob.coins == 3,
+        eve.coins == 2,
+        total_supply == 5,  # transfers do not change the supply
     ],
 )
 
@@ -154,7 +153,7 @@ sc_minting_works = Scenario(
     name="The minter issues coins out of thin air",
     action=mint.bind(receiver=alice, amount=3),
     given=_world(),
-    then=[Assert(alice.coins == 3), Assert(total_supply == 3)],
+    then=[alice.coins == 3, total_supply == 3],
 )
 
 

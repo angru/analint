@@ -4,7 +4,6 @@ from analint import (
     Absent,
     Action,
     AlwaysHolds,
-    Assert,
     Bound,
     Count,
     Create,
@@ -61,7 +60,7 @@ def test_create_makes_slot_present_with_given_fields():
         name="Open eve",
         action=open_eve,
         given=[alice(balance=1)],  # bob, eve materialise as Absent
-        then=[Assert(Present(eve)), Assert(eve.balance == 2)],
+        then=[Present(eve), eve.balance == 2],
     )
     result = run_scenario(scenario, _spec([open_eve], [scenario]))
     assert result.passed
@@ -74,7 +73,7 @@ def test_create_unspecified_fields_take_defaults():
         name="Open eve at default",
         action=open_eve,
         given=[alice(balance=1)],
-        then=[Assert(eve.balance == 0)],
+        then=[eve.balance == 0],
     )
     assert run_scenario(scenario, _spec([open_eve], [scenario])).passed
 
@@ -110,7 +109,7 @@ def test_delete_makes_slot_absent():
         name="Close alice",
         action=close,
         given=[alice(balance=1)],
-        then=[Assert(Not(Present(alice)))],
+        then=[Not(Present(alice))],
     )
     assert run_scenario(scenario, _spec([close], [scenario])).passed
 

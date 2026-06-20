@@ -6,7 +6,6 @@ from analint import (
     Action,
     Add,
     And,
-    Assert,
     Contract,
     Emitted,
     Entity,
@@ -622,7 +621,7 @@ def test_scenario_runner_evaluates_event_payload_predicates():
         name="big",
         action=handler,
         given=[BigOrder(total=500.0), Ledger(entries=0)],
-        then=[Assert(Ledger.entries == 1)],
+        then=[Ledger.entries == 1],
         expected=Expect.PASS,
     )
     sc_small = Scenario(
@@ -699,7 +698,7 @@ def test_effect_subtract():
         name="SC",
         action=action,
         given=[Wallet(balance=100.0), Order(total=30.0)],
-        then=[Assert(Wallet.balance == 70.0)],
+        then=[Wallet.balance == 70.0],
         expected=Expect.PASS,
     )
     result = run_scenario(sc, _spec_for(action, entities=[Wallet, Order], scenarios=[sc]))
@@ -729,8 +728,8 @@ def test_effects_are_simultaneous():
         action=action,
         given=[Order(status="pending"), Audit(last_status="")],
         then=[
-            Assert(Order.status == "paid"),
-            Assert(Audit.last_status == "pending"),
+            Order.status == "paid",
+            Audit.last_status == "pending",
         ],
         expected=Expect.PASS,
     )
@@ -804,7 +803,7 @@ def test_then_assert_fails_when_condition_wrong():
         name="SC",
         action=action,
         given=[Order(status="pending")],
-        then=[Assert(Order.status == "cancelled")],  # wrong: it becomes "paid"
+        then=[Order.status == "cancelled"],  # wrong: it becomes "paid"
         expected=Expect.PASS,
     )
     result = run_scenario(sc, _spec_for(action, entities=[Order], scenarios=[sc]))

@@ -1,4 +1,4 @@
-from analint import Assert, Emitted, Expect, Scenario
+from analint import Emitted, Expect, Scenario
 
 from .actions import (
     add_comment,
@@ -99,7 +99,7 @@ sc_create_card_ok = Scenario(
         _column("col-todo", "b1"),
         _active_card("b1", "col-todo"),
     ],
-    then=[Assert(Board.card_count == 1), Emitted(CardCreated)],
+    then=[Board.card_count == 1, Emitted(CardCreated)],
     expected=Expect.PASS,
 )
 
@@ -145,8 +145,8 @@ sc_move_card_ok = Scenario(
         _column("col-inprogress", "b1"),
     ],
     then=[
-        Assert(Card.status == CardStatus.IN_PROGRESS),
-        Assert(Card.column_id == "col-inprogress"),
+        Card.status == CardStatus.IN_PROGRESS,
+        Card.column_id == "col-inprogress",
         Emitted(CardMoved),
     ],
     expected=Expect.PASS,
@@ -185,7 +185,7 @@ sc_assign_ok = Scenario(
             status=CardStatus.TODO,
         ),
     ],
-    then=[Assert(Card.assignee_id == "u2"), Emitted(CardAssigned)],
+    then=[Card.assignee_id == "u2", Emitted(CardAssigned)],
     expected=Expect.PASS,
 )
 
@@ -222,7 +222,7 @@ sc_comment_ok = Scenario(
         _active_card("b1", "col-todo"),
         Comment(id="cm1", card_id="c1", author_id="u2"),
     ],
-    then=[Assert(Card.comment_count == 1), Emitted(CommentAdded)],
+    then=[Card.comment_count == 1, Emitted(CommentAdded)],
     expected=Expect.PASS,
 )
 
@@ -252,7 +252,7 @@ sc_archive_ok = Scenario(
         _member_membership("u2", "b1"),
         _active_card("b1", "col-inprogress", CardStatus.IN_PROGRESS),
     ],
-    then=[Assert(Card.status == CardStatus.ARCHIVED), Assert(Board.card_count == 2)],
+    then=[Card.status == CardStatus.ARCHIVED, Board.card_count == 2],
     expected=Expect.PASS,
 )
 
@@ -276,7 +276,7 @@ sc_notification_delivered = Scenario(
     name="System delivers an unread notification",
     action=send_notification,
     given=[Notification(id="n1", recipient_id="u2", status=NotificationStatus.UNREAD)],
-    then=[Assert(Notification.status == NotificationStatus.READ), Emitted(NotificationDelivered)],
+    then=[Notification.status == NotificationStatus.READ, Emitted(NotificationDelivered)],
     expected=Expect.PASS,
 )
 

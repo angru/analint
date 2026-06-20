@@ -20,7 +20,6 @@ from enum import StrEnum
 from analint import (
     Action,
     AlwaysHolds,
-    Assert,
     DeadActions,
     Entity,
     Expect,
@@ -221,25 +220,25 @@ sc_take_torch = Scenario(
     name="Take the torch at the entrance",
     action=take_torch,
     given=[Hero()],
-    then=[Assert(Hero.has_torch == True)],
+    then=[Hero.has_torch == True],
 )
 sc_dark_hurts = Scenario(
     name="Groping into the dark crypt costs stamina",
     action=enter_crypt_dark,
     given=[Hero(location=Room.HALL, stamina=5, torch_lit=False)],
-    then=[Assert(Hero.stamina == 4), Assert(Hero.location == Room.CRYPT)],
+    then=[Hero.stamina == 4, Hero.location == Room.CRYPT],
 )
 sc_barehanded_bleeds = Scenario(
     name="Fighting the guardian unarmed drains two stamina",
     action=fight_barehanded,
     given=[Hero(location=Room.CRYPT, stamina=5, has_sword=False), Crypt(guardian_alive=True)],
-    then=[Assert(Hero.stamina == 3)],
+    then=[Hero.stamina == 3],
 )
 sc_slay = Scenario(
     name="The sword fells the guardian",
     action=slay_guardian,
     given=[Hero(location=Room.CRYPT, has_sword=True), Crypt(guardian_alive=True)],
-    then=[Assert(Crypt.guardian_alive == False)],
+    then=[Crypt.guardian_alive == False],
 )
 sc_key_needs_dead_guardian = Scenario(
     name="The key cannot be taken while the guardian stands",
@@ -257,13 +256,13 @@ sc_escape = Scenario(
     name="The amulet on the altar wins the game",
     action=place_amulet,
     given=[Hero(location=Room.ALTAR, has_amulet=True), Game()],
-    then=[Assert(Game.result == Result.ESCAPED)],
+    then=[Game.result == Result.ESCAPED],
 )
 sc_death = Scenario(
     name="At zero stamina the hero collapses",
     action=succumb,
     given=[Hero(stamina=0), Game()],
-    then=[Assert(Game.result == Result.DEAD)],
+    then=[Game.result == Result.DEAD],
 )
 sc_no_act_when_dead = Scenario(
     name="A finished game accepts no more deeds",

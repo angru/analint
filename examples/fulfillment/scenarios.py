@@ -1,4 +1,4 @@
-from analint import Assert, Expect, Scenario
+from analint import Expect, Scenario
 
 from .actions import (
     authorize_payment,
@@ -51,21 +51,21 @@ sc_restock = Scenario(
     name="Supplier tops up the shelf",
     action=supplier_restock,
     given=_world(stock=0),
-    then=[Assert(Warehouse.stock == 1)],
+    then=[Warehouse.stock == 1],
 )
 
 sc_reserve = Scenario(
     name="Goods reserved, stock drops",
     action=reserve_stock,
     given=_world(stock=1),
-    then=[Assert(Reservation.status == ReservationStatus.RESERVED), Assert(Warehouse.stock == 0)],
+    then=[Reservation.status == ReservationStatus.RESERVED, Warehouse.stock == 0],
 )
 
 sc_reject = Scenario(
     name="Empty shelf rejects the order",
     action=reject_out_of_stock,
     given=_world(stock=0),
-    then=[Assert(Order.status == OrderStatus.CANCELLED)],
+    then=[Order.status == OrderStatus.CANCELLED],
 )
 
 sc_reserve_needs_stock = Scenario(
@@ -79,14 +79,14 @@ sc_authorize = Scenario(
     name="Payment authorized after reservation",
     action=authorize_payment,
     given=_world(res=ReservationStatus.RESERVED),
-    then=[Assert(Payment.status == PaymentStatus.AUTHORIZED)],
+    then=[Payment.status == PaymentStatus.AUTHORIZED],
 )
 
 sc_decline = Scenario(
     name="Provider declines the payment",
     action=decline_payment,
     given=_world(res=ReservationStatus.RESERVED),
-    then=[Assert(Payment.status == PaymentStatus.FAILED)],
+    then=[Payment.status == PaymentStatus.FAILED],
 )
 
 sc_compensate_failed = Scenario(
@@ -94,9 +94,9 @@ sc_compensate_failed = Scenario(
     action=compensate_failed_payment,
     given=_world(res=ReservationStatus.RESERVED, pay=PaymentStatus.FAILED, stock=0),
     then=[
-        Assert(Order.status == OrderStatus.CANCELLED),
-        Assert(Reservation.status == ReservationStatus.RELEASED),
-        Assert(Warehouse.stock == 1),
+        Order.status == OrderStatus.CANCELLED,
+        Reservation.status == ReservationStatus.RELEASED,
+        Warehouse.stock == 1,
     ],
 )
 
@@ -104,7 +104,7 @@ sc_confirm = Scenario(
     name="Order confirmed once authorized",
     action=confirm_order,
     given=_world(res=ReservationStatus.RESERVED, pay=PaymentStatus.AUTHORIZED),
-    then=[Assert(Order.status == OrderStatus.CONFIRMED)],
+    then=[Order.status == OrderStatus.CONFIRMED],
 )
 
 sc_capture = Scenario(
@@ -113,7 +113,7 @@ sc_capture = Scenario(
     given=_world(
         order=OrderStatus.CONFIRMED, res=ReservationStatus.RESERVED, pay=PaymentStatus.AUTHORIZED
     ),
-    then=[Assert(Payment.status == PaymentStatus.CAPTURED)],
+    then=[Payment.status == PaymentStatus.CAPTURED],
 )
 
 sc_cancel = Scenario(
@@ -122,7 +122,7 @@ sc_cancel = Scenario(
     given=_world(
         order=OrderStatus.CONFIRMED, res=ReservationStatus.RESERVED, pay=PaymentStatus.AUTHORIZED
     ),
-    then=[Assert(Order.status == OrderStatus.CANCELLED)],
+    then=[Order.status == OrderStatus.CANCELLED],
 )
 
 sc_cancel_window_closed = Scenario(
@@ -140,14 +140,14 @@ sc_refund = Scenario(
     given=_world(
         order=OrderStatus.CANCELLED, res=ReservationStatus.RESERVED, pay=PaymentStatus.AUTHORIZED
     ),
-    then=[Assert(Payment.status == PaymentStatus.REFUNDED)],
+    then=[Payment.status == PaymentStatus.REFUNDED],
 )
 
 sc_release = Scenario(
     name="Cancelled order returns goods to the shelf",
     action=release_after_cancel,
     given=_world(order=OrderStatus.CANCELLED, res=ReservationStatus.RESERVED, stock=0),
-    then=[Assert(Reservation.status == ReservationStatus.RELEASED), Assert(Warehouse.stock == 1)],
+    then=[Reservation.status == ReservationStatus.RELEASED, Warehouse.stock == 1],
 )
 
 sc_dispatch = Scenario(
@@ -157,9 +157,9 @@ sc_dispatch = Scenario(
         order=OrderStatus.CONFIRMED, res=ReservationStatus.RESERVED, pay=PaymentStatus.CAPTURED
     ),
     then=[
-        Assert(Shipment.status == ShipmentStatus.DISPATCHED),
-        Assert(Order.status == OrderStatus.SHIPPED),
-        Assert(Reservation.status == ReservationStatus.CONSUMED),
+        Shipment.status == ShipmentStatus.DISPATCHED,
+        Order.status == OrderStatus.SHIPPED,
+        Reservation.status == ReservationStatus.CONSUMED,
     ],
 )
 
@@ -172,7 +172,7 @@ sc_delivery = Scenario(
         pay=PaymentStatus.CAPTURED,
         ship=ShipmentStatus.DISPATCHED,
     ),
-    then=[Assert(Order.status == OrderStatus.DELIVERED)],
+    then=[Order.status == OrderStatus.DELIVERED],
 )
 
 sc_lost = Scenario(
@@ -184,7 +184,7 @@ sc_lost = Scenario(
         pay=PaymentStatus.CAPTURED,
         ship=ShipmentStatus.DISPATCHED,
     ),
-    then=[Assert(Shipment.status == ShipmentStatus.LOST)],
+    then=[Shipment.status == ShipmentStatus.LOST],
 )
 
 sc_refund_lost = Scenario(
@@ -196,7 +196,7 @@ sc_refund_lost = Scenario(
         pay=PaymentStatus.CAPTURED,
         ship=ShipmentStatus.LOST,
     ),
-    then=[Assert(Payment.status == PaymentStatus.REFUNDED)],
+    then=[Payment.status == PaymentStatus.REFUNDED],
 )
 
 sc_close_lost = Scenario(
@@ -208,7 +208,7 @@ sc_close_lost = Scenario(
         pay=PaymentStatus.REFUNDED,
         ship=ShipmentStatus.LOST,
     ),
-    then=[Assert(Order.status == OrderStatus.CANCELLED)],
+    then=[Order.status == OrderStatus.CANCELLED],
 )
 
 sc_close_lost_needs_refund = Scenario(

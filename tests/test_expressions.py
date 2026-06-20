@@ -3,7 +3,6 @@
 from analint import (
     Action,
     AlwaysHolds,
-    Assert,
     Entity,
     Field,
     Invariant,
@@ -73,7 +72,7 @@ def test_set_with_expression_is_simultaneous():
         name="SC",
         action=swapish,
         given=[Acc()],
-        then=[Assert(Acc.a == 6), Assert(Acc.b == 11)],
+        then=[Acc.a == 6, Acc.b == 11],
     )
     spec = Spec(id="s", name="S", entities=[Acc], actions=[swapish], scenarios=[sc])
     result = run_scenario(sc, spec)
@@ -111,7 +110,7 @@ def test_param_inside_field_expression():
         effect=[Set(Pot.coins, Pot.coins - n)],
     )
     bound = take.bind(n=3)
-    sc = Scenario(id="sc", name="SC", action=bound, given=[Pot()], then=[Assert(Pot.coins == 2)])
+    sc = Scenario(id="sc", name="SC", action=bound, given=[Pot()], then=[Pot.coins == 2])
     spec = Spec(id="s", name="S", entities=[Pot], actions=[take], scenarios=[sc])
     assert run_scenario(sc, spec).passed
 

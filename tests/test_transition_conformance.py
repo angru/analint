@@ -48,7 +48,6 @@ from analint import (
     Absent,
     Action,
     Add,
-    Assert,
     Create,
     Delete,
     Entity,
@@ -116,10 +115,9 @@ def _assert_agree(
     expected_presence: list[tuple[Any, bool]] | None = None,
     expected_edge: bool | None = None,
 ) -> None:
-    assertions = [Assert(field == value) for field, value in expected_fields or []]
+    assertions = [field == value for field, value in expected_fields or []]
     assertions.extend(
-        Assert(Present(ref) if present else Not(Present(ref)))
-        for ref, present in expected_presence or []
+        Present(ref) if present else Not(Present(ref)) for ref, present in expected_presence or []
     )
     s = _scenario_cat(spec, action, given, assertions)
     e, post, has_edge = _explorer_result(spec, action, given)

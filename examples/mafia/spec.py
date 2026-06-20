@@ -24,7 +24,6 @@ from analint import (
     Add,
     AlwaysHolds,
     And,
-    Assert,
     Entity,
     Expect,
     Field,
@@ -333,7 +332,7 @@ any_role_assignment = Initial(
 sc_night_kill = Scenario(
     action=mafia_kills.bind(killer=Mahtab, victim=Gabriela, bystander=Max),
     given=_world(),
-    then=[Assert(Gabriela.alive == False), Assert(Game.phase == Phase.DAY)],
+    then=[Gabriela.alive == False, Game.phase == Phase.DAY],
 )
 
 sc_citizen_cannot_kill = Scenario(
@@ -346,13 +345,13 @@ sc_citizen_cannot_kill = Scenario(
 sc_kill_last_citizen_ends_game = Scenario(
     action=mafia_kills_last_citizen.bind(killer=Mahtab, victim=Gabriela, bystander=Max),
     given=_world(alive={Max: False}),
-    then=[Assert(Game.status == GameStatus.MAFIA_WON)],
+    then=[Game.status == GameStatus.MAFIA_WON],
 )
 
 sc_vote = Scenario(
     action=vote.bind(voter=Gabriela, target=Mahtab),
     given=_world(phase=Phase.DAY),
-    then=[Assert(Mahtab.votes == 1), Assert(Gabriela.voted == True)],
+    then=[Mahtab.votes == 1, Gabriela.voted == True],
 )
 
 sc_player_cannot_vote_twice = Scenario(
@@ -374,7 +373,7 @@ sc_town_hangs_the_mafia = Scenario(
         voted={Mahtab: True, Gabriela: True, Max: True},
         votes={Mahtab: 2, Gabriela: 1},
     ),
-    then=[Assert(Game.status == GameStatus.CITIZENS_WON)],
+    then=[Game.status == GameStatus.CITIZENS_WON],
 )
 
 sc_town_hangs_a_citizen = Scenario(
@@ -384,7 +383,7 @@ sc_town_hangs_a_citizen = Scenario(
         voted={Mahtab: True, Gabriela: True, Max: True},
         votes={Gabriela: 2, Mahtab: 1},
     ),
-    then=[Assert(Game.phase == Phase.NIGHT), Assert(Game.status == GameStatus.PENDING)],
+    then=[Game.phase == Phase.NIGHT, Game.status == GameStatus.PENDING],
 )
 
 sc_hanging_last_citizen_ends_game = Scenario(
@@ -395,7 +394,7 @@ sc_hanging_last_citizen_ends_game = Scenario(
         voted={Mahtab: True, Max: True},
         votes={Max: 1},
     ),
-    then=[Assert(Game.status == GameStatus.MAFIA_WON)],
+    then=[Game.status == GameStatus.MAFIA_WON],
 )
 
 sc_tie_skips_hanging = Scenario(
@@ -405,7 +404,7 @@ sc_tie_skips_hanging = Scenario(
         voted={Mahtab: True, Gabriela: True, Max: True},
         votes={Mahtab: 1, Gabriela: 1, Max: 1},
     ),
-    then=[Assert(Game.phase == Phase.NIGHT)],
+    then=[Game.phase == Phase.NIGHT],
 )
 
 

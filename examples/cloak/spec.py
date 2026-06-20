@@ -14,7 +14,6 @@ from analint import (
     Action,
     Add,
     AlwaysHolds,
-    Assert,
     DeadActions,
     Entity,
     Expect,
@@ -137,28 +136,28 @@ sc_walk_west = Scenario(
     name="Walk from the foyer to the cloakroom",
     action=go_west,
     given=[Player()],
-    then=[Assert(Player.location == Room.CLOAKROOM)],
+    then=[Player.location == Room.CLOAKROOM],
 )
 
 sc_walk_back = Scenario(
     name="Walk back east to the foyer",
     action=go_east,
     given=[Player(location=Room.CLOAKROOM)],
-    then=[Assert(Player.location == Room.FOYER)],
+    then=[Player.location == Room.FOYER],
 )
 
 sc_walk_south = Scenario(
     name="Walk south into the bar",
     action=go_south,
     given=[Player()],
-    then=[Assert(Player.location == Room.BAR)],
+    then=[Player.location == Room.BAR],
 )
 
 sc_walk_north = Scenario(
     name="Leave the bar to the north",
     action=go_north,
     given=[Player(location=Room.BAR)],
-    then=[Assert(Player.location == Room.FOYER)],
+    then=[Player.location == Room.FOYER],
 )
 
 sc_hang = Scenario(
@@ -166,8 +165,8 @@ sc_hang = Scenario(
     action=hang_cloak,
     given=[Player(location=Room.CLOAKROOM, has_cloak=True), Hook()],
     then=[
-        Assert(Player.has_cloak == False),
-        Assert(Hook.holds_cloak == True),
+        Player.has_cloak == False,
+        Hook.holds_cloak == True,
     ],
 )
 
@@ -182,7 +181,7 @@ sc_grope = Scenario(
     name="Blundering in the dark tramples the message",
     action=grope_in_dark,
     given=[Player(location=Room.BAR, has_cloak=True), Message(disturbances=0)],
-    then=[Assert(Message.disturbances == 1)],
+    then=[Message.disturbances == 1],
 )
 
 sc_read_in_dark = Scenario(
@@ -205,7 +204,7 @@ sc_clean_win = Scenario(
         Message(disturbances=0),
         Game(),
     ],
-    then=[Assert(Game.result == Result.WON)],
+    then=[Game.result == Result.WON],
 )
 
 sc_trampled_lose = Scenario(
@@ -217,7 +216,7 @@ sc_trampled_lose = Scenario(
         Message(disturbances=2),
         Game(),
     ],
-    then=[Assert(Game.result == Result.LOST)],
+    then=[Game.result == Result.LOST],
 )
 
 sc_game_already_over = Scenario(

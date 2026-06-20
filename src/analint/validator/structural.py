@@ -338,13 +338,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 label = repr(key) if isinstance(key, InstanceRef) else key.__name__
                 findings.append(warn(loc, f"'{label}' referenced by the action but not in given"))
 
-        # then entries: only Assert/Emitted are checks — anything else would
+        # then entries: only Predicate/Emitted are checks — anything else would
         # be silently ignored at run time, which is a false-green path
         for assertion in sc.then:
-            if isinstance(assertion, Assert):
+            if isinstance(assertion, Predicate):
                 findings.extend(
                     _check_pred_refs(
-                        assertion.predicate,
+                        assertion,
                         spec.entities,
                         spec.events,
                         loc,
@@ -352,9 +352,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     )
                 )
                 findings.extend(
-                    _check_scoped_refs(
-                        _collect_field_refs(assertion.predicate), scoped_entities, loc
-                    )
+                    _check_scoped_refs(_collect_field_refs(assertion), scoped_entities, loc)
                 )
             elif isinstance(assertion, Emitted):
                 if not (
@@ -365,7 +363,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     )
             else:
                 findings.append(
-                    err(loc, f"then entry '{assertion!r}' must be Assert(...) or Emitted(...)")
+                    err(loc, f"then entry '{assertion!r}' must be a predicate or Emitted(...)")
                 )
 
         for lc in spec.lifecycles:

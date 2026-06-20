@@ -141,8 +141,7 @@ def build_server() -> Any:
 
         `target` is 'Entity.field' (who reads/writes it, which invariants and
         lifecycles constrain it), an entity/event name, or an action id (what
-        it touches, what it emits, and which actions document handling those
-        events via `on=` — documentary metadata, not operational dispatch).
+        it touches and what it emits).
         """
         return affects_target(target, path)
 

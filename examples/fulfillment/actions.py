@@ -75,7 +75,6 @@ reject_out_of_stock = Action(
 
 authorize_payment = Action(
     name="Authorize payment",
-    on=StockReserved,
     pre=[order_placed, stock_reserved, payment_missing],
     effect=[Set(Payment.status, PaymentStatus.AUTHORIZED)],
     emits=[PaymentAuthorized(order_id=Order.id, amount=Order.total)],
@@ -83,7 +82,6 @@ authorize_payment = Action(
 
 decline_payment = Action(
     name="Payment declined by the provider",
-    on=StockReserved,
     pre=[order_placed, stock_reserved, payment_missing],
     effect=[Set(Payment.status, PaymentStatus.FAILED)],
     emits=[PaymentFailed(order_id=Order.id)],
@@ -91,7 +89,6 @@ decline_payment = Action(
 
 compensate_failed_payment = Action(
     name="Compensation: failed payment cancels the order, stock returns",
-    on=PaymentFailed,
     pre=[order_placed, stock_reserved, Payment.status == PaymentStatus.FAILED],
     effect=[
         Set(Order.status, OrderStatus.CANCELLED),
@@ -102,7 +99,6 @@ compensate_failed_payment = Action(
 
 confirm_order = Action(
     name="Confirm the order",
-    on=PaymentAuthorized,
     pre=[order_placed, stock_reserved, payment_authorized],
     effect=[Set(Order.status, OrderStatus.CONFIRMED)],
 )
@@ -138,7 +134,6 @@ release_after_cancel = Action(
 
 dispatch = Action(
     name="Dispatch the shipment",
-    on=PaymentCaptured,
     pre=[order_confirmed, payment_captured, not_shipped_yet],
     effect=[
         Set(Shipment.status, ShipmentStatus.DISPATCHED),
@@ -165,7 +160,6 @@ report_lost = Action(
 
 refund_lost = Action(
     name="Compensation: refund the captured payment for a lost shipment",
-    on=ShipmentLost,
     pre=[shipment_lost, payment_captured],
     effect=[Set(Payment.status, PaymentStatus.REFUNDED)],
 )

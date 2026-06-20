@@ -36,7 +36,7 @@ src/analint/
     predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
     invariant.py            ← Invariant dataclass (world-level constraint)
     initial.py              ← Initial relation over finite field domains
-    action.py               ← Action (pre / effect / post / emits / on / requires / by)
+    action.py               ← Action (pre / effect / post / emits / by)
     effect.py               ← Set, Subtract, Add, Create, Delete effects
     lifecycle.py            ← Lifecycle (with terminal states), Transition
     scenario.py             ← Scenario, Expect enum
@@ -149,8 +149,6 @@ validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
 - actions with event-payload preconditions are **excluded** from exploration
   and reported (`Exploration.excluded`); DeadActions lists them as "not
   assessed", not dead — full event-pool semantics is future work (research/07)
-- `requires` is Flow-ordering documentation; the explorer deliberately does
-  NOT honor it (an action may fire without its requires having run)
 
 ### Bounded multiplicity
 

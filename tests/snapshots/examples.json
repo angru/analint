@@ -479,7 +479,7 @@
   },
   "ecommerce": {
     "verdict": "PASS",
-    "warnings": 1,
+    "warnings": 0,
     "scenarios": {
       "checkout/already-paid": {
         "status": "PASS",
@@ -1404,7 +1404,7 @@
   },
   "taskboard": {
     "verdict": "PASS",
-    "warnings": 3,
+    "warnings": 1,
     "scenarios": {
       "archive-card/already-archived": {
         "status": "PASS",

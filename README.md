@@ -211,16 +211,14 @@ checkout = Action(
     ],
     post=[Order.status == OrderStatus.PAID],       # optional double-entry check
     emits=[OrderPlaced(order_id=Order.id, total=Order.total, customer_id=Order.customer_id)],
-    requires=[login],                              # Flow-ordering documentation
 )
 ```
 
 **Effects are simultaneous facts, not a program.** Every right-hand side is evaluated against the *pre*-state; the order of the list carries no meaning; two effects on the same field are a structural error.
 
-Current semantic boundary: `by` does not affect enabledness, `requires` is
-checked only against declared `Flow` order, and `on` does not create an event
-queue or gate exploration. Authorization belongs in explicit parameters and
-`pre`; operational event semantics is a planned design decision.
+Current semantic boundary: `by` does not affect enabledness — authorization
+belongs in explicit parameters and `pre`. Event-driven causality is modelled
+through state, not a dispatch primitive.
 
 | Effect | Next-state fact |
 |---|---|
@@ -361,7 +359,7 @@ class Admin(Actor): pass
 
 ### Event
 
-An observable domain fact, with a typed payload. Emitting binds payload fields to expressions over the state (the kernel materialises them); `on=` documents that an action handles the event, and its `pre` may constrain the payload:
+An observable domain fact, with a typed payload. Emitting binds payload fields to expressions over the state (the kernel materialises them). An action's `pre` may constrain an event payload by referencing the event's fields (the event instance lives in the scenario's `given`):
 
 ```python
 from analint import Event
@@ -373,18 +371,14 @@ class OrderPlaced(Event):
 checkout = Action(..., emits=[OrderPlaced(order_id=Order.id, total=Order.total)])
 
 notify_vip = Action(
-    on=OrderPlaced,
     pre=[OrderPlaced.total > 100],     # payload condition
     effect=[Add(Manager.alerts, 1)],
 )
 ```
 
-The linter validates payload bindings (fields exist, types match) and warns when
-an emitted event has no action listing it in `on=`. `on` is **documentary
-metadata**, not operational dispatch: emitting an event does not trigger an
-`on=` action — event-driven causality is modelled through state (see
-`examples/fulfillment`, a saga chained via status fields). Whether `on` should
-become real event dispatch is gated behind external evidence (research/22).
+The linter validates payload bindings (fields exist, types match). Emitting an
+event does not trigger another action — event-driven causality is modelled
+through state (see `examples/fulfillment`, a saga chained via status fields).
 
 ### Lifecycle
 
@@ -433,8 +427,7 @@ sc_happy = Scenario(
 `expected=Expect.FAIL` documents a blocked path: the scenario is **correct** when at least one rule rejects the data.
 
 For an event-payload scenario, put the event instance in `given` — its payload
-is then visible to `pre`. This checks one local transition; `on=` itself is not
-an operational trigger:
+is then visible to `pre`. This checks one local transition:
 
 ```python
 Scenario(action=notify_vip, given=[OrderPlaced(order_id="o1", total=500.0), Manager(alerts=0)])
@@ -467,8 +460,8 @@ purchase_flow = Flow(
 `given=` is a partial snapshot (the same one a scenario uses): only the listed
 entities are present, unspecified `Scope` slots are absent, and a step that
 needs an unlisted entity is rejected. Without `given=` (the default) a Flow
-stays a documented journey: the linter verifies `requires` order and shows it,
-but does not execute state through the steps.
+stays a documented journey: the linter shows it but does not execute state
+through the steps.
 
 ```python
 purchase_journey = Flow(steps=[login, browse, checkout], description="...")
@@ -681,9 +674,8 @@ The same three operations as the CLI, callable as agent tools — an agent can i
 
 - Missing/duplicate ids; duplicate class names from double imports
 - Predicates reference registered entities/events and existing fields
-- `by` actors registered; `requires` graphs acyclic; flow order satisfies `requires`
+- `by` actors registered
 - Event payload bindings: fields exist, annotation types match
-- Emitted events are handled by at least one `on=` (warning if not)
 - Two effects on the same field (simultaneity violation)
 - Field constraints on construction and after effects
 - Transitions out of `terminal` states

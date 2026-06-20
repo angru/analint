@@ -11,7 +11,6 @@ from analint import (
     Event,
     Expect,
     Field,
-    Flow,
     Implies,
     Invariant,
     Lifecycle,
@@ -323,14 +322,6 @@ def test_action_pre_and_effect():
     assert len(action.effect) == 1
 
 
-def test_action_on_accepts_single_event():
-    class Ping(Event):
-        source: str
-
-    action = Action(id="react", on=Ping)
-    assert action.on == [Ping]
-
-
 def test_scenario_given_and_expected():
     class Item(Entity):
         price: float
@@ -608,33 +599,6 @@ def test_structural_event_not_registered():
     assert any("OrderPlaced" in f.message and "not in spec.events" in f.message for f in errors)
 
 
-def test_structural_event_emitted_but_unhandled_warns():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class OrderPlaced(Event):
-        order_id: str
-
-    class Item(Entity):
-        price: float
-
-    action = Action(id="act", pre=[Item.price > 0], emits=[OrderPlaced])
-    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(
-        id="s",
-        name="S",
-        entities=[Item],
-        events=[OrderPlaced],
-        actions=[action],
-        scenarios=[sc],
-    )
-    findings = validate_structural(spec)
-    warnings = [f for f in findings if f.severity == Severity.WARNING]
-    assert any(
-        "OrderPlaced" in f.message and "no documented handler" in f.message for f in warnings
-    )
-
-
 def test_event_payload_template_binds_fields():
     from analint.reporter.base import Severity
     from analint.validator.structural import validate_structural
@@ -733,42 +697,6 @@ def test_scenario_runner_evaluates_event_payload_predicates():
 
 
 # ── Requires ──────────────────────────────────────────────────────────────────
-
-
-def test_requires_valid():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Item(Entity):
-        price: float
-
-    a = Action(id="a", pre=[Item.price > 0])
-    b = Action(id="b", pre=[Item.price > 0], requires=[a])
-    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)], expected=Expect.PASS)
-    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b], scenarios=[sc_a, sc_b])
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert not any("circular" in f.message for f in errors)
-
-
-def test_requires_circular_detected():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Item(Entity):
-        price: float
-
-    a = Action(id="a", pre=[Item.price > 0])
-    b = Action(id="b", pre=[Item.price > 0])
-    object.__setattr__(a, "requires", [b])
-    object.__setattr__(b, "requires", [a])
-    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)], expected=Expect.PASS)
-    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(id="s", name="S", entities=[Item], actions=[a, b], scenarios=[sc_a, sc_b])
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert any("circular" in f.message for f in errors)
 
 
 # ── Effects ───────────────────────────────────────────────────────────────────
@@ -980,46 +908,6 @@ def test_then_emitted_fails_when_not_in_emits():
 
 
 # ── Flow ──────────────────────────────────────────────────────────────────────
-
-
-def test_flow_requires_order_valid():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Item(Entity):
-        price: float
-
-    a = Action(id="a", pre=[Item.price > 0])
-    b = Action(id="b", pre=[Item.price > 0], requires=[a])
-    flow = Flow(id="f1", steps=[a, b])
-    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
-    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
-    spec = Spec(
-        id="s", name="S", entities=[Item], actions=[a, b], flows=[flow], scenarios=[sc_a, sc_b]
-    )
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR and "requires" in f.message]
-    assert not errors
-
-
-def test_flow_requires_order_violated():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Item(Entity):
-        price: float
-
-    a = Action(id="a", pre=[Item.price > 0])
-    b = Action(id="b", pre=[Item.price > 0], requires=[a])
-    flow = Flow(id="f1", steps=[b, a])  # wrong order: b before a
-    sc_a = Scenario(id="sc_a", name="SA", action=a, given=[Item(price=5.0)])
-    sc_b = Scenario(id="sc_b", name="SB", action=b, given=[Item(price=5.0)])
-    spec = Spec(
-        id="s", name="S", entities=[Item], actions=[a, b], flows=[flow], scenarios=[sc_a, sc_b]
-    )
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert any("requires" in f.message and "'a'" in f.message for f in errors)
 
 
 # ── Loader: id autofill from variable names ───────────────────────────────────

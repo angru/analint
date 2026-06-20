@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from analint.models.action import Action
@@ -162,16 +162,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
             )
         )
 
-    # Requires cycles
-    action_by_id = {a.id: a for a in spec.actions}
-    _check_requires_cycles(spec.actions, action_by_id, findings, err)
-
-    handled_events: set = set()
-    for action in spec.actions:
-        for event_cls in action.on:
-            if isinstance(event_cls, type):
-                handled_events.add(event_cls)
-
     for action in spec.actions:
         loc = f"action:{action.id}"
 
@@ -194,19 +184,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
             elif action.by.__name__ not in spec_actor_names:
                 findings.append(err(loc, f"actor '{action.by.__name__}' not in spec.actors"))
 
-        for req in action.requires:
-            if id(req) not in registered_action_ids:
-                if req.id in action_ids:
-                    findings.append(
-                        err(
-                            loc,
-                            f"required action '{req.id}' is a different object than the "
-                            f"registered action with that id — reference the registered Action",
-                        )
-                    )
-                else:
-                    findings.append(err(loc, f"required action '{req.id}' not in spec.actions"))
-
         # emits: classes or payload templates (Event instances)
         for emitted in action.emits:
             event_cls = emitted if isinstance(emitted, type) else type(emitted)
@@ -217,14 +194,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 findings.append(
                     err(loc, f"emitted event '{event_cls.__name__}' not in spec.events")
                 )
-            elif event_cls not in handled_events:
-                findings.append(
-                    warn(
-                        loc,
-                        f"event '{event_cls.__name__}' is emitted but no action lists it in "
-                        f"on= (no documented handler)",
-                    )
-                )
             if not isinstance(emitted, type):
                 findings.extend(_check_event_template(emitted, spec.entities, loc))
                 findings.extend(
@@ -234,12 +203,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
                         loc,
                     )
                 )
-
-        for event_cls in action.on:
-            if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
-                findings.append(err(loc, f"on entry '{event_cls!r}' must be an Event class"))
-            elif event_cls not in registered_events:
-                findings.append(err(loc, f"on event '{event_cls.__name__}' not in spec.events"))
 
         # effects: registered targets, no two facts about the same field or slot
         effect_targets: set[tuple[Any, str]] = set()
@@ -485,18 +448,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     )
                 else:
                     findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
-        seen_steps: set[str] = set()
-        for step in action_steps:
-            for req in step.requires:
-                if req.id not in seen_steps:
-                    findings.append(
-                        err(
-                            loc,
-                            f"'{step.id}' requires '{req.id}' but "
-                            f"'{req.id}' does not appear before it in steps",
-                        )
-                    )
-            seen_steps.add(step.id)
 
         has_checkpoints = False
         for step in flow.steps:
@@ -1074,46 +1025,6 @@ def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor | InstanceField
     elif isinstance(pred, _Present):
         pass
     return refs
-
-
-def _check_requires_cycles(
-    actions: list[Action],
-    action_by_id: dict[str, Action],
-    findings: list[Finding],
-    err_fn: Callable[[str, str], Finding],
-) -> None:
-    """DFS cycle detection on the requires graph."""
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {a.id: WHITE for a in actions}
-
-    def dfs(action_id: str) -> bool:
-        color[action_id] = GRAY
-        action = action_by_id.get(action_id)
-        if action is None:
-            color[action_id] = BLACK
-            return False
-        for req in action.requires:
-            nid = req.id
-            if nid not in color:
-                color[nid] = WHITE
-            if color[nid] == GRAY:
-                findings.append(
-                    err_fn(
-                        f"action:{action_id}",
-                        f"circular dependency detected involving '{nid}'",
-                    )
-                )
-                color[action_id] = BLACK
-                return True
-            if color[nid] == WHITE and dfs(nid):
-                color[action_id] = BLACK
-                return True
-        color[action_id] = BLACK
-        return False
-
-    for action in actions:
-        if color[action.id] == WHITE:
-            dfs(action.id)
 
 
 def _describe_operand(op: Any) -> str:

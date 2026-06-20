@@ -37,7 +37,6 @@ def test_describe_action():
     assert any("Board.status" in p for p in payload["pre"])
     assert payload["effect"] == ["Board.card_count += 1"]
     assert "create-card/happy" in payload["scenarios"]
-    assert "move_card" in payload["required_by"]
 
 
 def test_describe_entity():
@@ -71,14 +70,6 @@ def test_affects_field():
     card_count = next(field for field in board["fields"] if field["name"] == "card_count")
     assert card_count["constraints"] == {"ge": "0"}
     assert "create-card/happy" in payload["scenarios"]
-
-
-def test_affects_action_shows_documented_handlers():
-    payload = q.affects(_spec(TASKBOARD), "create_card")
-    # `on=` is documentary: actions that document handling an emitted event,
-    # not actions this one triggers.
-    assert "send_notification" in payload["documented_handlers"]
-    assert "archive_card" in payload["required_by"]
 
 
 def test_affects_unknown_target():

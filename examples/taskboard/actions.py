@@ -76,7 +76,6 @@ move_card = Action(
         Set(Card.status, CardStatus.IN_PROGRESS),
     ],
     emits=[CardMoved(card_id=Card.id, to_column_id=Column.id)],
-    requires=[create_card],
 )
 
 assign_card = Action(
@@ -92,7 +91,6 @@ assign_card = Action(
     ],
     effect=[Set(Card.assignee_id, Membership.user_id)],
     emits=[CardAssigned(card_id=Card.id, assignee_id=Membership.user_id)],
-    requires=[create_card],
 )
 
 add_comment = Action(
@@ -109,7 +107,6 @@ add_comment = Action(
     ],
     effect=[Add(Card.comment_count, 1)],
     emits=[CommentAdded(card_id=Card.id, comment_id=Card.id, author_id=Card.creator_id)],
-    requires=[create_card],
 )
 
 archive_card = Action(
@@ -128,13 +125,11 @@ archive_card = Action(
         Subtract(Board.card_count, 1),
     ],
     post=[Card.status == CardStatus.ARCHIVED],
-    requires=[create_card],
 )
 
 send_notification = Action(
     name="Send Notification",
     by=System,
-    on=[CardCreated, CardAssigned, CommentAdded, MemberInvited],
     pre=[notification_unread],
     effect=[Set(Notification.status, NotificationStatus.READ)],
     post=[Notification.status == NotificationStatus.READ],
@@ -151,5 +146,4 @@ read_notification = Action(
     pre=[acting_user_is_active, notification_unread],
     effect=[Set(Notification.status, NotificationStatus.READ)],
     post=[Notification.status == NotificationStatus.READ],
-    requires=[send_notification],
 )

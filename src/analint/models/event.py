@@ -13,10 +13,9 @@ class Event(metaclass=EntityMeta):
     fields can be referenced in predicates if needed.
 
     An action ``emits`` an event (its payload is materialised by the kernel and
-    can be asserted with ``Emitted``). An action's ``on=[E]`` documents that it
-    handles ``E`` — it is metadata, not operational dispatch: emitting ``E`` does
-    not by itself trigger an ``on=[E]`` action. Event-driven causality is modelled
-    through state (see examples/fulfillment, a saga chained via status fields).
+    can be asserted with ``Emitted``). Emitting does not dispatch or trigger
+    another action — event-driven causality is modelled through state (see
+    examples/fulfillment, a saga chained via status fields).
 
     Example::
 
@@ -26,7 +25,6 @@ class Event(metaclass=EntityMeta):
             customer_id: str
 
         checkout = Action(..., emits=[OrderPlaced(order_id=Order.id)])
-        payment  = Action(..., on=[OrderPlaced])  # documents the handler
     """
 
     def __init__(self, **kwargs: Any) -> None:

@@ -61,7 +61,7 @@ failed_scenarios = []
 failed_queries = []
 failed_invariants = []
 failed_flows = []
-warning_locations = ["action:checkout"]
+warning_locations = []
 source = ""
 
 [fulfillment]
@@ -141,11 +141,7 @@ failed_scenarios = []
 failed_queries = []
 failed_invariants = []
 failed_flows = []
-warning_locations = [
-    "action:move_card",
-    "action:read_notification",
-    "action:send_notification",
-]
+warning_locations = ["action:read_notification"]
 source = ""
 
 [trollbridge]

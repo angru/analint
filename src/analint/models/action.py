@@ -22,13 +22,10 @@ class Action(BaseModel):
     and the order of the list carries no meaning.
 
     Behavioural vs documentary fields. `pre`, `post`, `effect` and `emits` carry
-    behaviour — they are evaluated, applied and materialised by the kernel.
-    `by`, `on` and `requires` are documentary metadata: validated for references
-    (and `requires` for cycles / Flow order) and shown by `affects`/`show`, but
-    NOT enforced at execution — `by` does not authorise, `on` does not trigger
-    the action (event causality is realised through state), and `requires` is not
-    an operational prerequisite. (Whether `on` becomes operational event dispatch
-    is gated behind external evidence — research/22, ROADMAP P3/P4.)
+    behaviour — they are evaluated, applied and materialised by the kernel. `by`
+    is documentary metadata: validated for references and shown by `affects`/
+    `show`, but NOT enforced at execution — `by` does not authorise. Event
+    causality is realised through state, not through a dispatch primitive.
 
     Example::
 
@@ -49,9 +46,7 @@ class Action(BaseModel):
     pre: list[Predicate] = Field(default_factory=list)
     post: list[Predicate] = Field(default_factory=list)
     effect: list[Effect] = Field(default_factory=list)
-    requires: list[Action] = Field(default_factory=list)
     emits: list[type[Event] | Event] = Field(default_factory=list)
-    on: list[type[Event]] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
 
     # Parameterized actions (research/15): one declaration over finite domains,
@@ -63,7 +58,7 @@ class Action(BaseModel):
     # set by bind_action. Private: surfaced only through the exploration artifact.
     _bindings: dict[str, Any] | None = PrivateAttr(default=None)
 
-    @field_validator("on", "emits", "pre", "post", "effect", "params", "where", mode="before")
+    @field_validator("emits", "pre", "post", "effect", "params", "where", mode="before")
     @classmethod
     def _listify(cls, v: Any) -> Any:
         if v is None:

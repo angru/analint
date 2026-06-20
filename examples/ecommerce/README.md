@@ -2,7 +2,7 @@
 
 ## Purpose & source
 A compact, invented e-commerce domain (no external source) exercising entities,
-actors, a lifecycle, an event with payload, and reachability.
+a lifecycle, an event with payload, and reachability.
 
 ## Modeled scope & omissions
 `Order` (PENDING → PAID | CANCELLED), a `Wallet`, a `Product`, and a `checkout`
@@ -10,7 +10,7 @@ that emits an `OrderPlaced` event. Payments/refunds beyond the wallet balance an
 multi-item carts are out of scope.
 
 ## Key entities / actions / properties
-- `Customer`/`Admin` actors; `Order`, `Wallet`, `Product`; `OrderPlaced` event.
+- `Order`, `Wallet`, `Product`; `OrderPlaced` event.
 - `checkout` (emits `OrderPlaced`), cancel/pay actions; `paid_is_reachable` (Reachable).
 
 ## Run

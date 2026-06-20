@@ -31,7 +31,6 @@ src/analint/
   models/
     contract.py            ← Contract: explicit reusable public spec fragment
     entity.py               ← Entity, Field constraints, EntityMeta, FieldDescriptor
-    actor.py                ← Actor base class (role markers)
     event.py                ← Event base class (same metaclass as Entity)
     predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
     invariant.py            ← Invariant dataclass (world-level constraint)
@@ -269,7 +268,7 @@ shared by the CLI and MCP.
 - Do not reintroduce `via=` on Transition, `when=`/`Run` on Scenario, or `BusinessRule`/`UseCase`/`StateMachine` — removed in v0.9; the migration map lives in `research/05-universal-dsl.md`
 - Do not make effects sequential or let one effect observe another — simultaneity is a semantic guarantee with a test (`test_effects_are_simultaneous`)
 - Do not compare collected DSL instances with `==` — use object identity (`id(obj)`)
-- Do not add pydantic to `Entity`/`Actor`/`Event` — metaclass conflict
+- Do not add pydantic to `Entity`/`Event` — metaclass conflict
 - Do not import `predicate.py` at the top of `entity.py` — circular import
 - Do not mutate `scenario.given` instances — effects work on copies
 - Do not load spec files with `spec_from_file_location` per file — that resurrects the double-import bug; everything goes through the entry point

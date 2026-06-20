@@ -289,7 +289,6 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         imports=spec.imports,
         entities=_resolve(spec.entities, "entities"),
         scopes=_resolve(spec.scopes, "scopes"),
-        actors=_resolve(spec.actors, "actors"),
         events=_resolve(spec.events, "events"),
         lifecycles=_resolve(spec.lifecycles, "lifecycles"),
         flows=_resolve(spec.flows, "flows"),
@@ -309,7 +308,6 @@ def _extend_composed_spec(spec: Spec, collected: dict) -> None:
     for field_name in (
         "entities",
         "scopes",
-        "actors",
         "events",
         "lifecycles",
         "flows",

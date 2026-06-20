@@ -2,7 +2,6 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
 
 from analint.models.action import Action
-from analint.models.actor import Actor
 from analint.models.contract import Contract
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import Entity, Field
@@ -46,7 +45,6 @@ __all__ = [
     "Scope",
     "InstanceRef",
     "Absent",
-    "Actor",
     "Event",
     # constraints
     "Predicate",

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
-from analint.models.actor import Actor
 from analint.models.effect import Effect
 from analint.models.event import Event
 from analint.models.predicate import Predicate
@@ -21,16 +20,13 @@ class Action(BaseModel):
     simultaneously: every right-hand side is evaluated against the pre-state,
     and the order of the list carries no meaning.
 
-    Behavioural vs documentary fields. `pre`, `post`, `effect` and `emits` carry
-    behaviour — they are evaluated, applied and materialised by the kernel. `by`
-    is documentary metadata: validated for references and shown by `affects`/
-    `show`, but NOT enforced at execution — `by` does not authorise. Event
-    causality is realised through state, not through a dispatch primitive.
+    Behavioural fields. `pre`, `post`, `effect` and `emits` carry behaviour — they
+    are evaluated, applied and materialised by the kernel. Event causality is
+    realised through state, not through a dispatch primitive.
 
     Example::
 
         archive_card = Action(
-            by=Member,
             pre=[Card.status != CardStatus.ARCHIVED, Card.board_id == Board.id],
             effect=[Set(Card.status, CardStatus.ARCHIVED), Subtract(Board.card_count, 1)],
             emits=[CardArchived(card_id=Card.id)],
@@ -42,7 +38,6 @@ class Action(BaseModel):
     id: str = ""  # filled from the variable name by the loader when empty
     name: str = ""
     description: str = ""
-    by: type[Actor] | None = None
     pre: list[Predicate] = Field(default_factory=list)
     post: list[Predicate] = Field(default_factory=list)
     effect: list[Effect] = Field(default_factory=list)

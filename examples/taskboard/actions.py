@@ -1,6 +1,5 @@
 from analint import Action, Add, Set, Subtract
 
-from .actors import Member, Owner, System
 from .entities import (
     Board,
     Card,
@@ -34,7 +33,6 @@ from .invariants import (
 
 invite_member = Action(
     name="Invite Member to Board",
-    by=Owner,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -47,7 +45,6 @@ invite_member = Action(
 
 create_card = Action(
     name="Create Card",
-    by=Member,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -62,7 +59,6 @@ create_card = Action(
 
 move_card = Action(
     name="Move Card to Column",
-    by=Member,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -80,7 +76,6 @@ move_card = Action(
 
 assign_card = Action(
     name="Assign Card to Member",
-    by=Member,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -95,7 +90,6 @@ assign_card = Action(
 
 add_comment = Action(
     name="Add Comment to Card",
-    by=Member,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -111,7 +105,6 @@ add_comment = Action(
 
 archive_card = Action(
     name="Archive Card",
-    by=Member,
     pre=[
         acting_user_is_active,
         board_is_active,
@@ -129,7 +122,6 @@ archive_card = Action(
 
 send_notification = Action(
     name="Send Notification",
-    by=System,
     pre=[notification_unread],
     effect=[Set(Notification.status, NotificationStatus.READ)],
     post=[Notification.status == NotificationStatus.READ],
@@ -142,7 +134,6 @@ send_notification = Action(
 
 read_notification = Action(
     name="Mark Notification as Read",
-    by=Member,
     pre=[acting_user_is_active, notification_unread],
     effect=[Set(Notification.status, NotificationStatus.READ)],
     post=[Notification.status == NotificationStatus.READ],

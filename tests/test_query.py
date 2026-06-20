@@ -33,7 +33,6 @@ def test_overview_lists_everything():
 
 def test_describe_action():
     payload = q.describe(_spec(TASKBOARD), "action", "create_card")
-    assert payload["by"] == "Member"
     assert any("Board.status" in p for p in payload["pre"])
     assert payload["effect"] == ["Board.card_count += 1"]
     assert "create-card/happy" in payload["scenarios"]

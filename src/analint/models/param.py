@@ -377,7 +377,6 @@ def bind_action(action: Action, binding: Binding) -> Action:
         name=action.name,
         description=action.description,
         family=action.id,
-        by=action.by,
         pre=[_subst_pred(p, binding) for p in action.pre],
         post=[_subst_pred(p, binding) for p in action.post],
         effect=[_subst_effect(e, binding) for e in action.effect],

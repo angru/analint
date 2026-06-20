@@ -131,7 +131,6 @@ def spec_overview(spec: Spec) -> dict:
             }
             for scope in spec.scopes
         ],
-        "actors": [a.__name__ for a in spec.actors],
         "events": [e.__name__ for e in spec.events],
         "invariants": [i.id for i in spec.invariants],
         "actions": [a.id for a in spec.actions],
@@ -148,7 +147,6 @@ def spec_overview(spec: Spec) -> dict:
 def describe(spec: Spec, kind: str, name: str) -> dict:
     dispatch = {
         "entity": _describe_entity,
-        "actor": _describe_actor,
         "event": _describe_event,
         "invariant": _describe_invariant,
         "action": _describe_action,
@@ -175,7 +173,6 @@ def _describe_contract(spec: Spec, name: str) -> dict:
         "description": contract.description,
         "entities": [entity.__name__ for entity in contract.entities],
         "scopes": [scope.id for scope in contract.scopes],
-        "actors": [actor.__name__ for actor in contract.actors],
         "events": [event.__name__ for event in contract.events],
         "invariants": [invariant.id for invariant in contract.invariants],
         "actions": [action.id for action in contract.actions],
@@ -220,18 +217,6 @@ def _describe_entity(spec: Spec, name: str) -> dict:
     }
 
 
-def _describe_actor(spec: Spec, name: str) -> dict:
-    cls = next((a for a in spec.actors if a.__name__ == name), None)
-    if cls is None:
-        return _not_found("actor", name, [a.__name__ for a in spec.actors])
-    return {
-        "kind": "actor",
-        "name": name,
-        "description": (cls.__doc__ or "").strip(),
-        "actions": [a.id for a in spec.actions if a.by is cls],
-    }
-
-
 def _describe_event(spec: Spec, name: str) -> dict:
     cls = next((e for e in spec.events if e.__name__ == name), None)
     if cls is None:
@@ -271,7 +256,6 @@ def _describe_action(spec: Spec, name: str) -> dict:
         "id": action.id,
         "name": action.name,
         "description": action.description,
-        "by": action.by.__name__ if action.by is not None else None,
         "pre": [_describe(p) for p in action.pre],
         "effect": [_effect_str(e) for e in action.effect],
         "post": [_describe(p) for p in action.post],

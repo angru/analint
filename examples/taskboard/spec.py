@@ -1,7 +1,7 @@
 from analint import Spec
 
 # The entry point's import graph defines what is in the spec:
-# scenarios pull in actions → invariants/entities/actors/events.
+# scenarios pull in actions → invariants/entities/events.
 from . import flows, scenarios  # noqa: F401
 
 spec = Spec(

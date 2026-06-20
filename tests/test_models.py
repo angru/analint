@@ -2,7 +2,6 @@ from enum import Enum
 
 from analint import (
     Action,
-    Actor,
     Add,
     And,
     Assert,
@@ -482,74 +481,6 @@ def test_runner_blocks_modification_of_terminal_entity():
     spec = Spec(id="s", name="S", entities=[Ticket], actions=[action], scenarios=[sc])
     result = run_scenario(sc, spec)
     assert result.passed
-
-
-# ── Actor ──────────────────────────────────────────────────────────────────────
-
-
-def test_actor_subclass():
-    class Customer(Actor):
-        pass
-
-    assert issubclass(Customer, Actor)
-
-
-def test_action_with_actor():
-    class Customer(Actor):
-        pass
-
-    action = Action(id="checkout", by=Customer)
-    assert action.by is Customer
-
-
-def test_structural_actor_not_registered():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Customer(Actor):
-        pass
-
-    class Item(Entity):
-        price: float
-
-    action = Action(id="act", by=Customer, pre=[Item.price > 0])
-    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(
-        id="s",
-        name="S",
-        entities=[Item],
-        actors=[],  # Customer not registered
-        actions=[action],
-        scenarios=[sc],
-    )
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert any("Customer" in f.message and "not in spec.actors" in f.message for f in errors)
-
-
-def test_structural_actor_registered_ok():
-    from analint.reporter.base import Severity
-    from analint.validator.structural import validate_structural
-
-    class Customer(Actor):
-        pass
-
-    class Item(Entity):
-        price: float
-
-    action = Action(id="act", by=Customer, pre=[Item.price > 0])
-    sc = Scenario(id="sc", name="SC", action=action, given=[Item(price=5.0)], expected=Expect.PASS)
-    spec = Spec(
-        id="s",
-        name="S",
-        entities=[Item],
-        actors=[Customer],
-        actions=[action],
-        scenarios=[sc],
-    )
-    findings = validate_structural(spec)
-    errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert not any("Customer" in f.message for f in errors)
 
 
 # ── Event ──────────────────────────────────────────────────────────────────────

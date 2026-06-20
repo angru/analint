@@ -2,7 +2,6 @@ from enum import StrEnum
 
 from analint import (
     Action,
-    Actor,
     Assert,
     Emitted,
     Entity,
@@ -17,17 +16,6 @@ from analint import (
     Subtract,
     Transition,
 )
-
-# ── Actors ─────────────────────────────────────────────────────────────────────
-
-
-class Customer(Actor):
-    pass
-
-
-class Admin(Actor):
-    pass
-
 
 # ── Domain entity statuses ─────────────────────────────────────────────────────
 
@@ -81,7 +69,6 @@ class OrderPlaced(Event):
 checkout = Action(
     name="Customer Checkout",
     description="Customer places an order; all preconditions must hold",
-    by=Customer,
     pre=[
         Wallet.balance >= Order.total,
         Product.stock > 0,

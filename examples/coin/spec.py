@@ -16,7 +16,7 @@ Deliberate translation choices (the comparison is the point — research/15):
 - Quint's `totalSupply` fold over the map → a named arithmetic expression
   over the three bounded account refs.
 - Quint's `require(sender == minter)` → encoded structurally: minting is a
-  separate action carrying `by=Minter`.
+  separate `mint` action, distinct from the holder-to-holder `send`.
 
 This example is DELIBERATELY RED, like trollbridge: `supply_never_overflows`
 fails with a counterexample trace — the same violation the Quint lesson
@@ -25,7 +25,6 @@ demonstrates with `quint run --invariant totalSupplyDoesNotOverflowInv`.
 
 from analint import (
     Action,
-    Actor,
     AlwaysHolds,
     And,
     Assert,
@@ -48,17 +47,6 @@ from analint import (
 # We explore explicitly, so the domain is small: a balance fits 0..5 coins.
 MAX_BALANCE = 5
 MAX_SUPPLY = MAX_BALANCE  # the supply is supposed to fit the same range
-
-
-# ── Actors (Quint encodes msg.sender as an action parameter) ──────────────────
-
-
-class Minter(Actor):
-    """The contract creator — the only address allowed to mint."""
-
-
-class Holder(Actor):
-    """Any coin holder — can send coins it owns."""
 
 
 # ── State (Quint: `var balances: Addr -> UInt` over a fixed address set) ──────
@@ -92,7 +80,6 @@ amount = Param("amount", ge=1, le=3)
 
 mint = Action(
     name="Minter issues coins to a holder",
-    by=Minter,
     params=[receiver, amount],
     pre=[receiver.coins <= MAX_BALANCE - amount],  # require(isUInt(newBal))
     effect=[Set(receiver.coins, receiver.coins + amount)],
@@ -100,7 +87,6 @@ mint = Action(
 
 send = Action(
     name="A holder pays another holder",
-    by=Holder,
     params=[src, dst, amount],
     where=[src != dst],  # Quint allows self-sends as no-ops; we skip them
     pre=[

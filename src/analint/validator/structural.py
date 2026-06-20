@@ -4,7 +4,6 @@ from collections.abc import Sequence
 from typing import Any
 
 from analint.models.action import Action
-from analint.models.actor import Actor
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
@@ -97,7 +96,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
     # the same file imported under two module names (use relative imports)
     for kind, classes in [
         ("entity", spec.entities),
-        ("actor", spec.actors),
         ("event", spec.events),
     ]:
         by_name: dict[str, type] = {}
@@ -115,14 +113,13 @@ def validate_structural(spec: Spec) -> list[Finding]:
             by_name[cls.__name__] = cls
 
     spec_entity_names = {e.__name__ for e in spec.entities}
-    spec_actor_names = {a.__name__ for a in spec.actors}
     # Events are matched by class identity, not name: two classes can share a
     # __name__ (especially across composed contracts), and a checkpoint/emit
     # asserts the exact type.
     registered_events = set(spec.events)
     action_ids = {a.id for a in spec.actions}
-    # Membership of an executable reference (requires / scenario.action / flow
-    # step) is by object identity: a foreign Action that merely shares a
+    # Membership of an executable reference (scenario.action / flow step) is by
+    # object identity: a foreign Action that merely shares a
     # registered id must not pass as registered (explicit-composition contract).
     registered_action_ids = {id(a) for a in spec.actions}
 
@@ -137,10 +134,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             )
         scoped_entities[scope.entity_cls] = scope
 
-    # Actors / Events: registered classes must subclass the right base
-    for actor_cls in spec.actors:
-        if not (isinstance(actor_cls, type) and issubclass(actor_cls, Actor)):
-            findings.append(err(f"actor:{actor_cls}", f"'{actor_cls}' does not subclass Actor"))
+    # Events: registered classes must subclass the right base
     for event_cls in spec.events:
         if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
             findings.append(err(f"event:{event_cls}", f"'{event_cls}' does not subclass Event"))
@@ -177,12 +171,6 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for pred in list(action.pre) + list(action.post):
             findings.extend(_check_pred_refs(pred, spec.entities, spec.events, loc, spec.scopes))
             findings.extend(_check_scoped_refs(_collect_field_refs(pred), scoped_entities, loc))
-
-        if action.by is not None:
-            if not (isinstance(action.by, type) and issubclass(action.by, Actor)):
-                findings.append(err(loc, f"by='{action.by}' does not subclass Actor"))
-            elif action.by.__name__ not in spec_actor_names:
-                findings.append(err(loc, f"actor '{action.by.__name__}' not in spec.actors"))
 
         # emits: classes or payload templates (Event instances)
         for emitted in action.emits:

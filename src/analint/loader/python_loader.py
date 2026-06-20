@@ -161,7 +161,6 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     name the object is bound to (`archive_card = Action(...)` → id "archive_card").
     """
     from analint.models.action import Action
-    from analint.models.actor import Actor
     from analint.models.entity import Entity
     from analint.models.event import Event
     from analint.models.flow import Flow
@@ -171,7 +170,7 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     from analint.models.scenario import Scenario
     from analint.models.scope import Scope
 
-    _BASE_CLASSES = {Entity, Actor, Event}
+    _BASE_CLASSES = {Entity, Event}
 
     seen_classes: set = set()
     # Dedup by object identity: comparing by == is unsafe here, because
@@ -179,7 +178,6 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     seen_instances: set[int] = set()
 
     entities: list = []
-    actors: list = []
     events: list = []
     invariants: list = []
     actions: list = []
@@ -199,8 +197,6 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
                 seen_classes.add(obj)
                 if issubclass(obj, Entity):
                     entities.append(obj)
-                elif issubclass(obj, Actor):
-                    actors.append(obj)
                 elif issubclass(obj, Event):
                     events.append(obj)
             elif isinstance(obj, _INSTANCE_TYPES):
@@ -235,7 +231,6 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
 
     return {
         "entities": entities,
-        "actors": actors,
         "events": events,
         "invariants": invariants,
         "actions": actions,

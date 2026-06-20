@@ -11,7 +11,6 @@ Requirements live in Word, Confluence, and Miro — readable by humans, but impo
 
 ```python
 checkout = Action(
-    by=Customer,
     pre=[
         Wallet.balance >= Order.total,
         Order.status == OrderStatus.PENDING,
@@ -93,7 +92,7 @@ ids are derived from variable names (`buy`, `sc_ok`) — set `id=` explicitly on
 
 ## DSL reference
 
-The DSL has three layers: **state** (Entity, Actor, Event), **constraints** (Invariant, predicates), and **transitions** (Action, Lifecycle). Scenarios and Flows tie them together with concrete examples.
+The DSL has three layers: **state** (Entity, Event), **constraints** (Invariant, predicates), and **transitions** (Action, Lifecycle). Scenarios and Flows tie them together with concrete examples.
 
 ### Entity
 
@@ -189,16 +188,14 @@ An invariant is skipped in scenarios whose `given` does not include the entities
 
 ### Action
 
-A state transition: what must hold before (`pre`), what changes (`effect`),
-what must hold after (`post`), plus optional documentation about actor,
-ordering and events.
+A state transition: what must hold before (`pre`), what changes (`effect`), and
+what must hold after (`post`).
 
 ```python
 from analint import Action, Set, Subtract
 
 checkout = Action(
     name="Customer Checkout",
-    by=Customer,                                   # Actor metadata (not an auth guard)
     pre=[
         Wallet.balance >= Order.total,
         Product.stock > 0,
@@ -216,9 +213,8 @@ checkout = Action(
 
 **Effects are simultaneous facts, not a program.** Every right-hand side is evaluated against the *pre*-state; the order of the list carries no meaning; two effects on the same field are a structural error.
 
-Current semantic boundary: `by` does not affect enabledness — authorization
-belongs in explicit parameters and `pre`. Event-driven causality is modelled
-through state, not a dispatch primitive.
+Current semantic boundary: event-driven causality is modelled through state, not
+a dispatch primitive.
 
 | Effect | Next-state fact |
 |---|---|
@@ -343,19 +339,6 @@ expressions: they can be compared, composed with field math, used in effect
 right-hand sides, and checked by the reachability engine. Over an empty
 present set, `ForAll` is true, `Exists` is false, `Count` and `Sum` are zero,
 while `Min`/`Max` report an evaluation error.
-
-### Actor
-
-A role referenced by an action's `by=` as **documentary metadata** — who is
-documented to perform an action, not an authorization or enabledness guard (`by`
-is not enforced). Subclass `Actor` to define a role:
-
-```python
-from analint import Actor
-
-class Customer(Actor): pass
-class Admin(Actor): pass
-```
 
 ### Event
 
@@ -586,7 +569,6 @@ spec.py             ← single file is enough for small projects
 myproject/
   __init__.py
   entities.py       ← Entity subclasses + enums
-  actors.py         ← Actor subclasses
   events.py         ← Event subclasses
   invariants.py     ← Invariant instances + reusable predicates
   actions.py        ← Action instances
@@ -674,7 +656,6 @@ The same three operations as the CLI, callable as agent tools — an agent can i
 
 - Missing/duplicate ids; duplicate class names from double imports
 - Predicates reference registered entities/events and existing fields
-- `by` actors registered
 - Event payload bindings: fields exist, annotation types match
 - Two effects on the same field (simultaneity violation)
 - Field constraints on construction and after effects

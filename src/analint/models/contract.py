@@ -5,7 +5,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from analint.models.action import Action
-from analint.models.actor import Actor
 from analint.models.entity import Entity, all_fields
 from analint.models.event import Event
 from analint.models.flow import Flow
@@ -40,7 +39,6 @@ class Contract(BaseModel):
 
     entities: list[type[Entity]] = Field(default_factory=list)
     scopes: list[Scope] = Field(default_factory=list)
-    actors: list[type[Actor]] = Field(default_factory=list)
     events: list[type[Event]] = Field(default_factory=list)
     invariants: list[Invariant] = Field(default_factory=list)
     actions: list[Action] = Field(default_factory=list)

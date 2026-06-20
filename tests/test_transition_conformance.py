@@ -61,7 +61,6 @@ from analint import (
     Scope,
     Set,
     Spec,
-    Transition,
 )
 from analint.models.scenario import Expect
 from analint.reporter.base import Severity
@@ -150,14 +149,14 @@ class Status(StrEnum):
 class Doc(Entity):
     state: Status = Lifecycle(
         initial=Status.A,
-        transitions=[Transition(Status.A, [Status.B])],  # A→B only; A→C undeclared
+        transitions={Status.A: [Status.B]},  # A→B only; A→C undeclared
     )
 
 
 class TerminalDoc(Entity):
     state: Status = Lifecycle(
         initial=Status.A,
-        transitions=[Transition(Status.A, [Status.B])],
+        transitions={Status.A: [Status.B]},
         terminal=[Status.B],
     )
 
@@ -388,7 +387,7 @@ def test_pre_evaluation_error_is_defect_in_both():
 class TerminalAccount(Entity):
     state: Status = Lifecycle(
         initial=Status.A,
-        transitions=[Transition(Status.A, [Status.B])],
+        transitions={Status.A: [Status.B]},
         terminal=[Status.B],
     )
 

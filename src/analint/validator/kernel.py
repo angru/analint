@@ -346,10 +346,7 @@ def _check_lifecycle_transitions(
             new = getattr(inst_post, lc.field_name, None)
             if old == new:
                 continue
-            allowed: set = set()
-            for t in lc.transitions:
-                if t.from_state == old:
-                    allowed.update(t.to_states)
+            allowed = set(lc.transitions.get(old, ()))
             if new not in allowed:
                 return _defect(
                     action,

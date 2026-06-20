@@ -37,7 +37,7 @@ src/analint/
     initial.py              ← Initial relation over finite field domains
     action.py               ← Action (pre / effect / post / emits / by)
     effect.py               ← Set, Subtract, Add, Create, Delete effects
-    lifecycle.py            ← Lifecycle (with terminal states), Transition
+    lifecycle.py            ← Lifecycle with a transition mapping and terminal states
     scenario.py             ← Scenario, Expect enum
     flow.py                 ← Flow, Assert, Emitted dataclasses
     query.py                ← Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions
@@ -265,7 +265,7 @@ shared by the CLI and MCP.
 
 ## What NOT to do
 
-- Do not reintroduce `via=` on Transition, `when=`/`Run` on Scenario, or `BusinessRule`/`UseCase`/`StateMachine` — removed in v0.9; the migration map lives in `research/05-universal-dsl.md`
+- Do not reintroduce `Transition`/`via=`, `when=`/`Run` on Scenario, or `BusinessRule`/`UseCase`/`StateMachine` — removed public wrappers; the migration map lives in `research/05-universal-dsl.md`
 - Do not make effects sequential or let one effect observe another — simultaneity is a semantic guarantee with a test (`test_effects_are_simultaneous`)
 - Do not compare collected DSL instances with `==` — use object identity (`id(obj)`)
 - Do not add pydantic to `Entity`/`Event` — metaclass conflict

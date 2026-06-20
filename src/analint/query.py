@@ -277,8 +277,8 @@ def _describe_lifecycle(spec: Spec, name: str) -> dict:
         "field": _describe_operand(lc.field),
         "initial": _value_str(lc.initial),
         "transitions": [
-            {"from": _value_str(t.from_state), "to": [_value_str(s) for s in t.to_states]}
-            for t in lc.transitions
+            {"from": _value_str(source), "to": [_value_str(state) for state in targets]}
+            for source, targets in lc.transitions.items()
         ],
         "terminal": [_value_str(s) for s in lc.terminal],
         "reachable": [_value_str(s) for s in reachable],

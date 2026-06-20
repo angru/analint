@@ -269,7 +269,7 @@ class Entity(metaclass=EntityMeta):
     that supports comparison operators to build predicate expressions.
     Instance-level access (``order.total``) returns the stored value.
     Fields may carry constraints (``Field(0, ge=0)``) or a state machine
-    (``Lifecycle(initial=..., transitions=[...])``) as their default.
+    (``Lifecycle(initial=..., transitions={...})``) as their default.
     """
 
     def __init__(self, **kwargs: Any) -> None:

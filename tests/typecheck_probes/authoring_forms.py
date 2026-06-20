@@ -16,7 +16,7 @@ investigate before updating the probe test.
 
 from __future__ import annotations
 
-from analint import Action, Entity, Field, Invariant, Lifecycle, Param, Set, Transition
+from analint import Action, Entity, Field, Invariant, Lifecycle, Param, Set
 
 
 class WalletState(Entity):
@@ -45,7 +45,7 @@ credit = Action(
 class Phase(Entity):
     state: str = Lifecycle(
         initial="open",
-        transitions=[Transition("open", ["closed"])],
+        transitions={"open": ["closed"]},
         terminal=["closed"],
     )
 

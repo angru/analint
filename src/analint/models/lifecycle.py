@@ -1,34 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from analint.models.entity import FieldDescriptor
-
-
-@dataclass
-class Transition[S]:
-    """One allowed group of state transitions for an entity field.
-
-    `to_states` is always a collection (a single target is a one-element list):
-
-        Transition(PENDING, [PAID, CANCELLED])
-        Transition(PAID, [CANCELLED])
-    """
-
-    from_state: S
-    to_states: tuple[S, ...]
-
-    def __init__(self, from_state: S, to_states: Iterable[S]) -> None:
-        if isinstance(to_states, (str, bytes)) or not isinstance(to_states, Iterable):
-            raise TypeError(
-                f"Transition to_states must be a collection — write "
-                f"Transition({from_state!r}, [{to_states!r}])"
-            )
-        self.from_state = from_state
-        self.to_states = tuple(to_states)
 
 
 @dataclass
@@ -38,7 +15,7 @@ class Lifecycle[S]:
         class Card(Entity):
             status: CardStatus = Lifecycle(
                 initial=CardStatus.TODO,
-                transitions=[Transition(CardStatus.TODO, [CardStatus.DONE])],
+                transitions={CardStatus.TODO: [CardStatus.DONE]},
                 terminal=[CardStatus.DONE],
             )
 
@@ -48,7 +25,7 @@ class Lifecycle[S]:
     """
 
     initial: S
-    transitions: list[Transition[S]] = field(default_factory=list)
+    transitions: Mapping[S, Iterable[S]] = field(default_factory=dict)
     terminal: list[S] = field(default_factory=list)
     id: str = ""
     description: str = ""
@@ -56,6 +33,19 @@ class Lifecycle[S]:
     # wired by EntityMeta when the lifecycle is used as a field default
     _entity_cls: type | None = field(default=None, repr=False, compare=False)
     _field_name: str = field(default="", repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.transitions, Mapping):
+            raise TypeError("Lifecycle transitions must be a mapping of source: [targets]")
+        normalized: dict[S, tuple[S, ...]] = {}
+        for source, targets in self.transitions.items():
+            if isinstance(targets, (str, bytes)) or not isinstance(targets, Iterable):
+                raise TypeError(
+                    f"Lifecycle transition targets must be a collection — write "
+                    f"transitions={{{source!r}: [{targets!r}]}}"
+                )
+            normalized[source] = tuple(targets)
+        self.transitions = normalized
 
     def _bind(self, entity_cls: type, field_name: str) -> None:
         self._entity_cls = entity_cls
@@ -89,9 +79,7 @@ class Lifecycle[S]:
             if cur in visited:
                 continue
             visited.add(cur)
-            for t in self.transitions:
-                if t.from_state == cur:
-                    for target in t.to_states:
-                        if target not in visited:
-                            queue.append(target)
+            for target in self.transitions.get(cur, ()):
+                if target not in visited:
+                    queue.append(target)
         return visited

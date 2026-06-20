@@ -59,7 +59,6 @@ from analint import (
     Scenario,
     Set,
     Spec,
-    Transition,
     Unreachable,
 )
 
@@ -81,7 +80,7 @@ class Checks(StrEnum):
 class PullRequest(Entity):
     state: PRState = Lifecycle(
         initial=PRState.OPEN,
-        transitions=[Transition(PRState.OPEN, [PRState.MERGED, PRState.CLOSED])],
+        transitions={PRState.OPEN: [PRState.MERGED, PRState.CLOSED]},
         terminal=[PRState.MERGED, PRState.CLOSED],  # a merged/closed PR is frozen
     )
     # Threshold-capped approving-review count. Saturation lets a code owner

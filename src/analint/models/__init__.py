@@ -4,7 +4,7 @@ from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import Entity, Field, FieldDescriptor
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
-from analint.models.lifecycle import Lifecycle, Transition
+from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import (
     And,
     Implies,
@@ -69,5 +69,4 @@ __all__ = [
     "Spec",
     "Subtract",
     "Sum",
-    "Transition",
 ]

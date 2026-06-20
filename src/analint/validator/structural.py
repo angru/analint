@@ -296,9 +296,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
             continue
         if lc.entity_cls.__name__ not in spec_entity_names:
             findings.append(err(loc, f"entity '{lc.entity_cls.__name__}' not in spec.entities"))
-        for t in lc.transitions:
-            if t.from_state in lc.terminal:
-                findings.append(err(loc, f"transition out of terminal state {t.from_state!r}"))
+        for source in lc.transitions:
+            if source in lc.terminal:
+                findings.append(err(loc, f"transition out of terminal state {source!r}"))
 
     # Scenarios
     for sc in spec.scenarios:

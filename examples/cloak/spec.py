@@ -26,7 +26,6 @@ from analint import (
     Scenario,
     Set,
     Spec,
-    Transition,
 )
 
 # ── State ──────────────────────────────────────────────────────────────────────
@@ -62,7 +61,7 @@ class Message(Entity):
 class Game(Entity):
     result: Result = Lifecycle(
         initial=Result.PLAYING,
-        transitions=[Transition(Result.PLAYING, [Result.WON, Result.LOST])],
+        transitions={Result.PLAYING: [Result.WON, Result.LOST]},
         terminal=[Result.WON, Result.LOST],
     )
 

@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from analint import Entity, Field, Lifecycle, Transition
+from analint import Entity, Field, Lifecycle
 
 
 class OrderStatus(StrEnum):
@@ -39,11 +39,11 @@ class Order(Entity):
     total: float = 100.0
     status: OrderStatus = Lifecycle(
         initial=OrderStatus.PLACED,
-        transitions=[
-            Transition(OrderStatus.PLACED, [OrderStatus.CONFIRMED, OrderStatus.CANCELLED]),
-            Transition(OrderStatus.CONFIRMED, [OrderStatus.SHIPPED, OrderStatus.CANCELLED]),
-            Transition(OrderStatus.SHIPPED, [OrderStatus.DELIVERED, OrderStatus.CANCELLED]),
-        ],
+        transitions={
+            OrderStatus.PLACED: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+            OrderStatus.CONFIRMED: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+            OrderStatus.SHIPPED: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+        },
         terminal=[OrderStatus.DELIVERED, OrderStatus.CANCELLED],
     )
 
@@ -56,13 +56,13 @@ class Warehouse(Entity):
 class Reservation(Entity):
     status: ReservationStatus = Lifecycle(
         initial=ReservationStatus.NONE,
-        transitions=[
-            Transition(ReservationStatus.NONE, [ReservationStatus.RESERVED]),
-            Transition(
-                ReservationStatus.RESERVED,
-                [ReservationStatus.RELEASED, ReservationStatus.CONSUMED],
-            ),
-        ],
+        transitions={
+            ReservationStatus.NONE: [ReservationStatus.RESERVED],
+            ReservationStatus.RESERVED: [
+                ReservationStatus.RELEASED,
+                ReservationStatus.CONSUMED,
+            ],
+        },
         terminal=[ReservationStatus.RELEASED, ReservationStatus.CONSUMED],
     )
 
@@ -70,14 +70,11 @@ class Reservation(Entity):
 class Payment(Entity):
     status: PaymentStatus = Lifecycle(
         initial=PaymentStatus.NONE,
-        transitions=[
-            Transition(PaymentStatus.NONE, [PaymentStatus.AUTHORIZED, PaymentStatus.FAILED]),
-            Transition(
-                PaymentStatus.AUTHORIZED,
-                [PaymentStatus.CAPTURED, PaymentStatus.REFUNDED],
-            ),
-            Transition(PaymentStatus.CAPTURED, [PaymentStatus.REFUNDED]),
-        ],
+        transitions={
+            PaymentStatus.NONE: [PaymentStatus.AUTHORIZED, PaymentStatus.FAILED],
+            PaymentStatus.AUTHORIZED: [PaymentStatus.CAPTURED, PaymentStatus.REFUNDED],
+            PaymentStatus.CAPTURED: [PaymentStatus.REFUNDED],
+        },
         terminal=[PaymentStatus.FAILED, PaymentStatus.REFUNDED],
     )
 
@@ -85,12 +82,9 @@ class Payment(Entity):
 class Shipment(Entity):
     status: ShipmentStatus = Lifecycle(
         initial=ShipmentStatus.NONE,
-        transitions=[
-            Transition(ShipmentStatus.NONE, [ShipmentStatus.DISPATCHED]),
-            Transition(
-                ShipmentStatus.DISPATCHED,
-                [ShipmentStatus.DELIVERED, ShipmentStatus.LOST],
-            ),
-        ],
+        transitions={
+            ShipmentStatus.NONE: [ShipmentStatus.DISPATCHED],
+            ShipmentStatus.DISPATCHED: [ShipmentStatus.DELIVERED, ShipmentStatus.LOST],
+        },
         terminal=[ShipmentStatus.DELIVERED, ShipmentStatus.LOST],
     )

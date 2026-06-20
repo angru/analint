@@ -23,7 +23,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
 )
 
 
@@ -100,7 +99,7 @@ def workflow_product(n: int) -> tuple[Spec, int]:
     class Workflow(Entity):
         status: _WStatus = Lifecycle(
             initial=_WStatus.S0,
-            transitions=[Transition(frm, [to]) for frm, to in _ADVANCE.items()],
+            transitions={source: [target] for source, target in _ADVANCE.items()},
             terminal=[_WStatus.S3],
         )
 

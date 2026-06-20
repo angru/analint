@@ -103,7 +103,7 @@ whose states have declared transitions.
 
 ```python
 from enum import StrEnum
-from analint import Entity, Field, Lifecycle, Transition
+from analint import Entity, Field, Lifecycle
 
 class OrderStatus(StrEnum):
     PENDING   = "pending"
@@ -113,10 +113,10 @@ class OrderStatus(StrEnum):
 class Order(Entity):
     status: OrderStatus = Lifecycle(
         initial=OrderStatus.PENDING,
-        transitions=[
-            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
-        ],
+        transitions={
+            OrderStatus.PENDING: [OrderStatus.PAID, OrderStatus.CANCELLED],
+            OrderStatus.PAID: [OrderStatus.CANCELLED],
+        },
         terminal=[OrderStatus.CANCELLED],
     )
     total: float = Field(gt=0)                 # required, must be positive
@@ -373,10 +373,10 @@ initial value, transitions, and terminal states stay together.
 class Order(Entity):
     status: OrderStatus = Lifecycle(
         initial=OrderStatus.PENDING,
-        transitions=[
-            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
-        ],
+        transitions={
+            OrderStatus.PENDING: [OrderStatus.PAID, OrderStatus.CANCELLED],
+            OrderStatus.PAID: [OrderStatus.CANCELLED],
+        },
         terminal=[OrderStatus.CANCELLED],
     )
 ```

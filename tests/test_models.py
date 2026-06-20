@@ -20,7 +20,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
 )
 from analint.models.entity import FieldDescriptor
 from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
@@ -403,10 +402,7 @@ def test_lifecycle_reachable_states():
     class Thing(Entity):
         state: S = Lifecycle(
             initial=S.A,
-            transitions=[
-                Transition(S.A, [S.B]),
-                Transition(S.B, [S.C]),
-            ],
+            transitions={S.A: [S.B], S.B: [S.C]},
         )
 
     lc = Thing.state.lifecycle
@@ -429,12 +425,9 @@ def test_lifecycle_entity_cls():
     assert lc.field is Order.status
 
 
-def test_transition_requires_a_collection():
-    try:
-        Transition("pending", "paid")
-        assert False, "should have raised"
-    except TypeError as exc:
-        assert "must be a collection" in str(exc)
+def test_lifecycle_transition_targets_require_a_collection():
+    with pytest.raises(TypeError, match="must be a collection"):
+        Lifecycle(initial="pending", transitions={"pending": "paid"})
 
 
 def test_structural_warns_unreachable_state_in_given():
@@ -449,7 +442,7 @@ def test_structural_warns_unreachable_state_in_given():
     class Item(Entity):
         state: Status = Lifecycle(
             initial=Status.A,
-            transitions=[Transition(Status.A, [Status.B])],
+            transitions={Status.A: [Status.B]},
         )
 
     action = Action(id="act", pre=[Item.state == Status.A])
@@ -483,10 +476,10 @@ def test_structural_transition_out_of_terminal_state_is_error():
     class Ticket(Entity):
         state: Status = Lifecycle(
             initial=Status.OPEN,
-            transitions=[
-                Transition(Status.OPEN, [Status.CLOSED]),
-                Transition(Status.CLOSED, [Status.OPEN]),  # escapes a terminal state
-            ],
+            transitions={
+                Status.OPEN: [Status.CLOSED],
+                Status.CLOSED: [Status.OPEN],  # escapes a terminal state
+            },
             terminal=[Status.CLOSED],
         )
 
@@ -506,7 +499,7 @@ def test_runner_blocks_modification_of_terminal_entity():
     class Ticket(Entity):
         state: Status = Lifecycle(
             initial=Status.OPEN,
-            transitions=[Transition(Status.OPEN, [Status.CLOSED])],
+            transitions={Status.OPEN: [Status.CLOSED]},
             terminal=[Status.CLOSED],
         )
         notes: int

@@ -37,7 +37,6 @@ from analint import (
     Scenario,
     Set,
     Spec,
-    Transition,
     Unreachable,
 )
 
@@ -83,12 +82,7 @@ class Game(Entity):
     phase: Phase = Phase.NIGHT
     status: GameStatus = Lifecycle(
         initial=GameStatus.PENDING,
-        transitions=[
-            Transition(
-                GameStatus.PENDING,
-                [GameStatus.MAFIA_WON, GameStatus.CITIZENS_WON],
-            )
-        ],
+        transitions={GameStatus.PENDING: [GameStatus.MAFIA_WON, GameStatus.CITIZENS_WON]},
         terminal=[GameStatus.MAFIA_WON, GameStatus.CITIZENS_WON],
     )
 

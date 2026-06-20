@@ -13,7 +13,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
 )
 
 # ── Domain entity statuses ─────────────────────────────────────────────────────
@@ -32,10 +31,10 @@ class Order(Entity):
     id: str
     status: OrderStatus = Lifecycle(
         initial=OrderStatus.PENDING,
-        transitions=[
-            Transition(OrderStatus.PENDING, [OrderStatus.PAID, OrderStatus.CANCELLED]),
-            Transition(OrderStatus.PAID, [OrderStatus.CANCELLED]),
-        ],
+        transitions={
+            OrderStatus.PENDING: [OrderStatus.PAID, OrderStatus.CANCELLED],
+            OrderStatus.PAID: [OrderStatus.CANCELLED],
+        },
         terminal=[OrderStatus.CANCELLED],
         description="An order can be paid and later cancelled",
     )

@@ -31,7 +31,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
 )
 
 # ── State ────────────────────────────────────────────────────────────────────────
@@ -70,7 +69,7 @@ class Crypt(Entity):
 class Game(Entity):
     result: Result = Lifecycle(
         initial=Result.PLAYING,
-        transitions=[Transition(Result.PLAYING, [Result.ESCAPED, Result.DEAD])],
+        transitions={Result.PLAYING: [Result.ESCAPED, Result.DEAD]},
         terminal=[Result.ESCAPED, Result.DEAD],
     )
 

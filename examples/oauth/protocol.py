@@ -17,7 +17,6 @@ from analint import (
     Param,
     Scope,
     Set,
-    Transition,
 )
 
 
@@ -57,11 +56,11 @@ class CodeId(StrEnum):
 class AuthCode(Entity):
     state: CodeState = Lifecycle(
         initial=CodeState.UNISSUED,
-        transitions=[
-            Transition(CodeState.UNISSUED, [CodeState.ISSUED]),
-            Transition(CodeState.ISSUED, [CodeState.REDEEMED]),
-            Transition(CodeState.REDEEMED, [CodeState.REPLAY_DETECTED]),
-        ],
+        transitions={
+            CodeState.UNISSUED: [CodeState.ISSUED],
+            CodeState.ISSUED: [CodeState.REDEEMED],
+            CodeState.REDEEMED: [CodeState.REPLAY_DETECTED],
+        },
         terminal=[CodeState.REPLAY_DETECTED],
     )
     code_id: CodeId = Field(CodeId.C1)
@@ -73,10 +72,10 @@ class AuthCode(Entity):
 class Token(Entity):
     state: TokenState = Lifecycle(
         initial=TokenState.ABSENT,
-        transitions=[
-            Transition(TokenState.ABSENT, [TokenState.ACTIVE]),
-            Transition(TokenState.ACTIVE, [TokenState.REVOKED]),
-        ],
+        transitions={
+            TokenState.ABSENT: [TokenState.ACTIVE],
+            TokenState.ACTIVE: [TokenState.REVOKED],
+        },
         terminal=[TokenState.REVOKED],
     )
     source_code: CodeId = Field(CodeId.C1)

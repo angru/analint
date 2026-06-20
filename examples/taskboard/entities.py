@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from analint import Entity, Field, Lifecycle, Transition
+from analint import Entity, Field, Lifecycle
 
 
 class MemberRole(StrEnum):
@@ -43,9 +43,7 @@ class Board(Entity):
     owner_id: str
     status: BoardStatus = Lifecycle(
         initial=BoardStatus.ACTIVE,
-        transitions=[
-            Transition(BoardStatus.ACTIVE, [BoardStatus.ARCHIVED]),
-        ],
+        transitions={BoardStatus.ACTIVE: [BoardStatus.ARCHIVED]},
         terminal=[BoardStatus.ARCHIVED],
     )
     card_count: int = Field(0, ge=0)
@@ -70,11 +68,11 @@ class Card(Entity):
     assignee_id: str = ""
     status: CardStatus = Lifecycle(
         initial=CardStatus.TODO,
-        transitions=[
-            Transition(CardStatus.TODO, [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED]),
-            Transition(CardStatus.IN_PROGRESS, [CardStatus.DONE, CardStatus.ARCHIVED]),
-            Transition(CardStatus.DONE, [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED]),
-        ],
+        transitions={
+            CardStatus.TODO: [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED],
+            CardStatus.IN_PROGRESS: [CardStatus.DONE, CardStatus.ARCHIVED],
+            CardStatus.DONE: [CardStatus.IN_PROGRESS, CardStatus.ARCHIVED],
+        },
         terminal=[CardStatus.ARCHIVED],
     )
     priority: Priority = Priority.MEDIUM
@@ -92,8 +90,6 @@ class Notification(Entity):
     recipient_id: str
     status: NotificationStatus = Lifecycle(
         initial=NotificationStatus.UNREAD,
-        transitions=[
-            Transition(NotificationStatus.UNREAD, [NotificationStatus.READ]),
-        ],
+        transitions={NotificationStatus.UNREAD: [NotificationStatus.READ]},
         terminal=[NotificationStatus.READ],
     )

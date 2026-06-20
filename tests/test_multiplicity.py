@@ -15,7 +15,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
 )
 from analint.reporter.base import Severity
 from analint.validator.engine import build_spec
@@ -219,7 +218,7 @@ def test_terminal_lifecycle_blocks_only_target_instance():
     class Ticket(Entity):
         status: Status = Lifecycle(
             initial=Status.OPEN,
-            transitions=[Transition(Status.OPEN, [Status.DONE])],
+            transitions={Status.OPEN: [Status.DONE]},
             terminal=[Status.DONE],
         )
 

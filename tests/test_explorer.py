@@ -24,7 +24,6 @@ from analint import (
     Set,
     Spec,
     Subtract,
-    Transition,
     Unreachable,
 )
 from analint.reporter.base import Severity
@@ -205,10 +204,7 @@ def test_undeclared_lifecycle_transition_found():
     class Thing(Entity):
         state: S = Lifecycle(
             initial=S.A,
-            transitions=[
-                Transition(S.A, [S.B]),
-                Transition(S.B, [S.C]),
-            ],
+            transitions={S.A: [S.B], S.B: [S.C]},
         )
 
     jump = Action(id="jump", pre=[Thing.state == S.A], effect=[Set(Thing.state, S.C)])

@@ -427,10 +427,38 @@ Plan: research/29. Unblocked now that the P4 workbench is complete.
   Typer-only, `click` is now dev-only; (b) the `analint <PATH>`→`check` shortcut
   caught the wrong `UsageError` class — rewritten to inspect args, regression-tested.
   Also `uv lock --upgrade` so dev/CI run the versions users install
-- ⏳ **Publish to real PyPI (irreversible, gated on explicit go):** GitHub Release
-  `v0.0.1`. Repo is public; the fixed `0.0.1` will be the first PyPI upload
-  (TestPyPI 0.0.1 is the pre-fix build and cannot be re-uploaded)
-- Deferred within the phase: full docs site (MkDocs)
+- ✅ **CI version matrix:** `quality.yml` split into `lint` (once) + `test` on
+  Python 3.12 / 3.13 / 3.14 — CI now runs the whole supported range, not just the
+  one locked version that masked the Typer boundary
+- ✅ **`py.typed` marker:** ship the PEP 561 marker so the `Typing :: Typed`
+  classifier is honest and downstream type-checkers use analint's inline types
+
+**Remaining before the 0.0.1 PyPI upload** (the user wants the most stable,
+best-documented version first; the upload is the last step, gated on explicit go):
+
+- **A. Release-engineering hardening** (auto-catch the class of bug we hit manually)
+  - [ ] CI job: clean-room `uv build` → install the wheel into an env *without*
+    dev deps → smoke-run `analint` on an example, across the matrix. The Click/Typer
+    breakage was only caught by a hand-run install; this makes it a gate
+  - [ ] CLI `--version` (verify it exists / add it) — table stakes for a published CLI
+  - [ ] README badges: CI status, PyPI version, supported Python, license
+- **B. Documentation** ("most complete docs")
+  - [ ] Decide scope: README-canonical vs a MkDocs-Material site on GitHub Pages
+    (recommended). The 726-line README is the seed
+  - [ ] Getting started / first spec; DSL reference; CLI + MCP reference
+  - [ ] Concepts page: bounded reachability, three-valued verdict, why
+    `INCONCLUSIVE`/`NOT_CHECKED`, the deliberate no-liveness boundary
+  - [ ] Examples gallery linking the per-example READMEs; build docs in CI
+- **C. Public API stabilization** (roadmap principle: don't publish before names settle)
+  - [ ] Review the `analint` export surface / `__all__`, naming, public docstrings;
+    record any intended pre-1.0 renames
+- **D. Pre-flight, then publish**
+  - [ ] Final pipeline validation on TestPyPI under a throwaway version (0.0.1 is
+    already consumed there), then publish `0.0.1` to real PyPI via a GitHub Release
+  - [ ] Post-publish: verify `pip install analint` / `uvx analint`, tag, release notes
+
+Explicitly NOT blocking 0.0.1: logo, exhaustive tutorials, autodoc API dump,
+coverage gate, Dependabot — all can follow the first release.
 
 Still deferred until later:
 - Quint/export bridges are deferred until an explicit external-verifier consumer

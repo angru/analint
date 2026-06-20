@@ -2,7 +2,8 @@
 
 ## Purpose & source
 An invented but realistic distributed saga (no external source): reservation,
-payment, shipment, and a compensation for every failure — verified to never wedge.
+payment, shipment, and a compensation for every failure — verified to have no
+dead-end state (a clean settlement stays reachable from every state).
 
 ## Modeled scope & omissions
 The saga state machine and its compensations only; no real queues, timeouts or
@@ -11,7 +12,7 @@ The model is composed from `queries` and `scenarios` modules via the entry point
 
 ## Key entities / actions / properties
 - Saga steps with success/failure branches and compensations.
-- `saga_always_settles`, `no_money_for_nothing`, `no_free_goods`, `refund_path_exists`,
+- `settlement_always_reachable`, `no_money_for_nothing`, `no_free_goods`, `refund_path_exists`,
   `happy_path_exists`, `every_step_used`, and an invariant that a delivered order is
   always a captured payment.
 
@@ -24,8 +25,8 @@ uv run analint check examples/fulfillment
 PASS, exit 0, no warnings.
 
 ## What a behavioural change means
-If `saga_always_settles` fails, some interleaving wedges (a state with no path to a
-terminal settlement); if `no_money_for_nothing` / `no_free_goods` fail, a
+If `settlement_always_reachable` fails, some reachable state is a dead end (no path
+to a terminal settlement); if `no_money_for_nothing` / `no_free_goods` fail, a
 compensation gap was introduced.
 
 ## Related research

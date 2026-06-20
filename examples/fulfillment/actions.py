@@ -3,7 +3,8 @@
 Branching (payment succeeds / fails, shipment arrives / gets lost) is two
 actions with the same precondition — the reachability engine explores both.
 Every failure has a compensating action; the NoDeadEnd query in queries.py
-proves the process can never wedge.
+proves no reachable state is a dead end — a clean settlement always stays
+reachable (recoverability, not a guarantee that every run finishes).
 """
 
 from analint import Action, Add, Set, Subtract
@@ -45,7 +46,7 @@ from .invariants import (
 
 # The shelf capacity is 2 and a reserved unit may come back as a return, so
 # the supplier only refills an empty shelf. (The first version said
-# `stock < 2` — and the NoDeadEnd query found a wedge: the supplier could
+# `stock < 2` — and the NoDeadEnd query found a dead end: the supplier could
 # fill the shelf while a payment was failing, leaving no room for the
 # compensation to return the reserved unit.)
 supplier_restock = Action(

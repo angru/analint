@@ -683,7 +683,7 @@
         ],
         "findings_hash": "0e4c0426167839cf"
       },
-      "saga_always_settles": {
+      "settlement_always_reachable": {
         "status": "PASS",
         "states": 34,
         "exploration": "01d7dc1512140a0a",

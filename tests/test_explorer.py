@@ -346,7 +346,7 @@ def test_fulfillment_saga_all_green():
     result = validate(Path(__file__).parent.parent / "examples" / "fulfillment")
     assert not result.has_errors, [f.message for f in result.exploration_findings]
     by_id = {qr.query_id: qr for qr in result.query_results}
-    assert by_id["saga_always_settles"].status == "PASS"
+    assert by_id["settlement_always_reachable"].status == "PASS"
     assert by_id["happy_path_exists"].trace == [
         "supplier_restock",
         "reserve_stock",

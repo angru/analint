@@ -8,6 +8,7 @@ __pycache__/
 dist/
 *.egg-info/
 .coverage
+coverage.xml
 htmlcov/
 reviews/
 _apalache-out/

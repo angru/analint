@@ -1,6 +1,8 @@
-"""The saga theorems. The key one is `saga_always_settles`: from every
-reachable state the process can still finish in one of the consistent
-terminal constellations — no order ever wedges with money or goods stuck."""
+"""The saga properties. The key one is `settlement_always_reachable`: from
+every reachable state the order can *still reach* one of the consistent
+terminal constellations — i.e. no reachable state is a dead end with money or
+goods stuck. This is recoverability (a settlement always stays reachable), not
+liveness: it does not claim every run inevitably finishes."""
 
 from analint import And, DeadActions, NoDeadEnd, Or, Reachable, Unreachable
 
@@ -13,7 +15,7 @@ from .entities import (
     ReservationStatus,
 )
 
-# Consistent endings: every run must terminate in one of these.
+# The consistent terminal states the order can settle into.
 _settled = Or(
     # delivered and paid for
     And(
@@ -46,7 +48,7 @@ _settled = Or(
     ),
 )
 
-saga_always_settles = NoDeadEnd(
+settlement_always_reachable = NoDeadEnd(
     goal=_settled,
     label="from any state the order can still settle consistently",
 )

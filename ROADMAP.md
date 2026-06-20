@@ -454,13 +454,37 @@ best-documented version first; the upload is the last step, gated on explicit go
 > later dedicated pass here), not folded into feature work.
 
 - **C. Abstraction / public-API stabilization — NEXT (gates B)**
-  - [ ] Thorough review of the core abstractions and the public surface: are the
+  - [x] Thorough review of the core abstractions and the public surface: are the
     DSL primitives (`Entity` / `Action` / `Invariant` / `Flow` / `Scope` /
     `Contract` / `Lifecycle` / queries …), the `analint` export set / `__all__`,
     naming, and the CLI / MCP / exploration-artifact contracts the right and stable
-    shape? Could any need a *big* change before 1.0?
-  - [ ] Record the verdict: confirmed-stable vs intended pre-1.0 renames/reshapes,
-    so docs can be written once against a frozen contract
+    shape? Could any need a *big* change before 1.0? Verdict and evidence:
+    research/30.
+  - [x] Record the verdict: the semantic kernel is stable; do not replace it with
+    a textual, logic-programming, YAML or controlled-natural-language DSL.
+    The current public surface still needs one bounded pre-doc cleanup.
+  - [x] Strict goal/expressiveness closure audit (research/31): every intended
+    first-release model reduces to a finite state-transition abstraction covered
+    by the current DSL; no new semantic primitive is required. Liveness/fairness,
+    real event delivery/time/probability, unbounded structures and intra-action
+    concurrency remain explicit non-goals.
+  - [ ] Correct publication claims around `NoDeadEnd`: it proves that a goal
+    remains reachable from every reachable state (recoverability/no softlock),
+    not that every run eventually reaches the goal. Rename/reword the
+    fulfillment "always settles"/"every run terminates"/"never wedges" claims.
+  - [ ] Remove semantic-looking metadata/non-behavioural modes:
+    `Actor`/`Action.by`, `Action.on`, `Action.requires`, documentary-only `Flow`;
+    decide and narrow entity-wide lifecycle-terminal freezing.
+  - [ ] Simplify canonical syntax without new semantics: boolean field refs in
+    predicate positions, raw predicate checkpoints instead of `Assert`, mapping
+    syntax instead of public `Transition`.
+  - [ ] Close repeated advanced authoring friction from external models:
+    scope-key value expression, explicit canonical scope presence, fixed
+    `Initial(given=...)` without artificial `vary`.
+  - [ ] Freeze agent contracts: version check/show/affects/trace JSON, align
+    CLI/MCP `show`, validate output formats, update stale tool descriptions.
+  - [ ] Migrate examples/tests and confirm the final `__all__`; then mark C
+    complete so docs can be written once against the frozen contract.
 - **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
   - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed
   - [ ] Getting started / first spec; DSL reference; CLI + MCP reference

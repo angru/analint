@@ -33,6 +33,11 @@
 | [24-second-external-model-selection.md](24-second-external-model-selection.md) | Selection of OAuth Authorization Code with PKCE as the second external composition and identity model |
 | [25-evidence-gate-synthesis.md](25-evidence-gate-synthesis.md) | Evidence-gate verdict: freeze semantic expansion while continuing the self-contained engine, diagnostics and measured scaling |
 | [26-p4-self-contained-model-workbench-plan.md](26-p4-self-contained-model-workbench-plan.md) | Executable P4 plan: DSL/type audit, example intent contracts, exploration artifact, diagnostics, scaling and project-sized dogfooding |
+| [27-dsl-type-boundary-audit.md](27-dsl-type-boundary-audit.md) | Audit of the embedded DSL's class/instance typing boundary and public export inventory |
+| [28-p4.5-k8s-replicaset-dogfood.md](28-p4.5-k8s-replicaset-dogfood.md) | Kubernetes ReplicaSet + ResourceQuota dogfood: advanced authoring, diagnostics and measured friction |
+| [29-ecosystem-and-first-public-release.md](29-ecosystem-and-first-public-release.md) | Packaging, compatibility and release-engineering decisions for the first public release |
+| [30-dsl-contract-stabilization-review.md](30-dsl-contract-stabilization-review.md) | Pre-documentation API review: stable semantic kernel, bounded surface cleanup, rejected redesigns and freeze matrix |
+| [31-goal-and-expressiveness-closure-audit.md](31-goal-and-expressiveness-closure-audit.md) | Strict goal/capability audit: finite-state semantic closure, evidence matrix, adversarial requirements and non-goals |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.
@@ -80,3 +85,12 @@ executable traces и реальные внешние модели.
 - Two external models closed the evidence gate: new primitives remain frozen
   until pain recurs. Active work is the self-contained bounded engine,
   diagnostics, scaling and additional project-sized models.
+- The pre-documentation contract review (research/30) confirms the semantic
+  kernel and rejects a new textual/logic/natural-language DSL. Documentation is
+  gated on a bounded cleanup: remove semantic-looking metadata, simplify
+  checkpoints/lifecycle/boolean predicates, fix repeated scope identity and
+  initial-presence friction, and version all machine-facing JSON contracts.
+- The strict goal audit (research/31) finds semantic closure for the intended
+  bounded safety/reachability scope: no new verification primitive is required.
+  It also identifies a claims bug to fix before publication: `NoDeadEnd` proves
+  recoverability, not inevitable settlement/liveness.

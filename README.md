@@ -144,7 +144,7 @@ Wallet.balance >= Order.total          # field-to-field comparison
 from analint import And, Or, Not, Implies, In, IsNull, IsNotNull
 
 And(Order.total > 0, Wallet.balance >= Order.total)
-Implies(Hook.holds_cloak == True, Player.has_cloak == False)   # if A then B
+Implies(Hook.holds_cloak, Not(Player.has_cloak))               # if A then B
 In(Order.status, [OrderStatus.PAID, OrderStatus.CANCELLED])
 ```
 
@@ -453,8 +453,8 @@ Scenarios check states you thought of. Queries **explore every reachable state**
 ```python
 from analint import Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions
 
-bridge_is_reachable = Reachable(Quest.bridge_crossed == True)
-no_softlock         = NoDeadEnd(goal=Quest.bridge_crossed == True)
+bridge_is_reachable = Reachable(Quest.bridge_crossed)
+no_softlock         = NoDeadEnd(goal=Quest.bridge_crossed)
 hp_never_negative   = AlwaysHolds(Hero.hp >= 0)
 no_gold_from_air    = Unreachable(Hero.gold > 6)     # regression guard
 every_action_used   = DeadActions()

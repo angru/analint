@@ -50,7 +50,8 @@ v0.10 и v1.0
 4. ✅ **Исполняемый многошаговый trace** — `Flow` с `given` + смешанными
    checkpoints через общий kernel, без рукописных state deltas (artifact —
    follow-up).
-5. **Семантическая честность `by/on/requires/emits`**: поведение или явно metadata.
+5. ✅ **Семантическая честность словаря:** `Actor/by/on/requires` и
+   documentary-only Flow удалены; `emits` остаётся исполняемым поведением.
 6. **Внешние реальные модели** как gate для дальнейшего расширения языка.
 
 Сознательно отложено (с обоснованием и условиями отката — research/17 §3):
@@ -491,7 +492,7 @@ best-documented version first; the upload is the last step, gated on explicit go
     exported and usable in mixed `Flow.steps`, where it is a real reader cue (same
     rationale that keeps `Emitted` and `Add`/`Subtract`).
 
-  - [ ] **Subtractive core (first pass):**
+  - [x] **Subtractive core (commits e03efb8..afbff6c):**
     - remove `Actor` / `Action.by`, `Action.on`, `Action.requires` and the
       documentary-only `Flow` mode (`given=None`); a principal is scoped
       state/`Param`, prose goes in `name`/`description`/`tags`
@@ -511,8 +512,9 @@ best-documented version first; the upload is the last step, gated on explicit go
     fixed `Initial(given=...)`. Removes the parallel-identity-param workaround in
     OAuth/Kubernetes but ADDS a symbol/AST node — design and version its
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.
-  - [ ] Migrate remaining examples/tests, confirm the final `__all__`; then mark C
-    complete so docs can be written once against the frozen contract.
+  - [x] Migrate examples/tests and confirm the subtractive `__all__`; final C
+    completion still waits for the agent-contract decision and any chosen
+    additive pass.
 - **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
   - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed
   - [ ] Getting started / first spec; DSL reference; CLI + MCP reference

@@ -6,6 +6,7 @@ from analint import (
     Action,
     Add,
     And,
+    Assert,
     Contract,
     Emitted,
     Entity,
@@ -26,6 +27,13 @@ from analint.models.predicate import _And, _Eq, _Gt, _Gte, _Implies, _Not
 from analint.validator.rule_checker import evaluate
 
 # ── Entity DSL ─────────────────────────────────────────────────────────────────
+
+
+def test_removed_public_wrappers_are_not_exported():
+    import analint
+
+    assert not hasattr(analint, "Actor")
+    assert not hasattr(analint, "Transition")
 
 
 def test_entity_class_field_access_returns_descriptor():
@@ -336,6 +344,15 @@ def test_boolean_field_normalizes_in_predicate_positions():
     assert isinstance(action.post[0].expr, _Eq)
     assert isinstance(scenario.then[0], _Eq)
     assert isinstance(invariant.expression, _Eq)
+
+
+def test_scenario_rejects_assert_wrapper():
+    class Item(Entity):
+        active: bool = True
+
+    action = Action(id="a")
+    with pytest.raises(ValueError, match="then"):
+        Scenario(id="s", action=action, then=[Assert(Item.active)])
 
 
 def test_non_boolean_field_is_rejected_in_predicate_position():

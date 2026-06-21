@@ -1,0 +1,4 @@
+interface:
+  display_name: "analint"
+  short_description: "Model and verify systems with analint"
+  default_prompt: "Use $analint to inspect and safely modify this system specification."

@@ -645,6 +645,18 @@ analint-mcp        # stdio MCP server: check, show, affects, explore, trace
 
 The same five operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with `what_if`, explore reachable states, inspect traces, and validate after editing.
 
+### Agent Skill
+
+The portable [`analint` Agent Skill](https://github.com/angru/analint/tree/main/skills/analint)
+teaches coding agents the `show → affects → what-if → apply → check` workflow
+without requiring MCP. Install that directory with your agent client's normal
+skill installer; the CLI remains the execution layer.
+
+```bash
+gh skill preview angru/analint analint
+gh skill install angru/analint analint
+```
+
 ---
 
 ## What the linter checks

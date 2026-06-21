@@ -533,6 +533,10 @@ best-documented version first; the upload is the last step, gated on explicit go
     final API cleanup, so the current artifacts were validated locally and in CI.
   - [x] Published `v0.0.1` through the GitHub Release workflow and PyPI Trusted
     Publishing; verified `uvx --from analint==0.0.1 analint --version`.
+- [x] **Agent onboarding:** ship one portable, instruction-only `analint` skill
+  in `skills/analint`; scripts, product-specific plugins and bundled MCP
+  configuration remain deferred until installation friction or marketplace
+  demand is observed.
 
 Explicitly NOT blocking 0.0.1: logo, exhaustive tutorials, autodoc API dump,
 coverage gate, Dependabot — all can follow the first release.

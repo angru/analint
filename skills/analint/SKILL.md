@@ -135,3 +135,15 @@ Summarize:
 
 When changing analint itself, do not regenerate characterization snapshots
 mechanically. Review every graph or verdict delta first.
+
+## Go deeper
+
+For the full DSL reference and worked example specs (these links are absolute, so
+they work without cloning the repository):
+
+- Documentation and DSL reference: <https://angru.github.io/analint/>
+- Canonical example specs to study patterns from:
+  <https://github.com/angru/analint/tree/main/examples>
+
+`analint show -p PATH` on any existing spec is the fastest way to learn its
+shape; prefer it over reading source.

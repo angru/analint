@@ -406,7 +406,7 @@ Success criterion: a user or agent can model a non-trivial project, understand
 the explored behavior and counterexample state changes, and receive an honest
 completeness verdict using analint alone.
 
-### Ecosystem — first public release (0.0.1), in progress
+### Ecosystem — first public release (0.0.1), complete
 
 Plan: research/29. Unblocked now that the P4 workbench is complete.
 
@@ -528,9 +528,11 @@ best-documented version first; the upload is the last step, gated on explicit go
     `INCONCLUSIVE`/`NOT_CHECKED`, the deliberate no-liveness boundary
   - [ ] Examples gallery linking the per-example READMEs; build + deploy docs in CI
 - **D. Pre-flight, then publish**
-  - [ ] Final pipeline validation on TestPyPI under a throwaway version (0.0.1 is
-    already consumed there), then publish `0.0.1` to real PyPI via a GitHub Release
-  - [ ] Post-publish: verify `pip install analint` / `uvx analint`, tag, release notes
+  - [x] Final package validation: full CI matrix, wheel/sdist build, Twine metadata
+    check, and clean Python 3.12 install. The old TestPyPI `0.0.1` predates the
+    final API cleanup, so the current artifacts were validated locally and in CI.
+  - [x] Published `v0.0.1` through the GitHub Release workflow and PyPI Trusted
+    Publishing; verified `uvx --from analint==0.0.1 analint --version`.
 
 Explicitly NOT blocking 0.0.1: logo, exhaustive tutorials, autodoc API dump,
 coverage gate, Dependabot — all can follow the first release.

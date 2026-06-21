@@ -2,6 +2,7 @@
 
 [![Quality](https://github.com/angru/analint/actions/workflows/quality.yml/badge.svg)](https://github.com/angru/analint/actions/workflows/quality.yml)
 [![codecov](https://codecov.io/gh/angru/analint/branch/main/graph/badge.svg)](https://codecov.io/gh/angru/analint)
+[![PyPI](https://img.shields.io/pypi/v/analint.svg)](https://pypi.org/project/analint/)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/analint/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/angru/analint/blob/main/LICENSE)
 

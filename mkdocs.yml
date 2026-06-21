@@ -1,0 +1,31 @@
+site_name: analint
+site_description: A Python DSL for declaring and verifying how a system behaves
+site_url: https://angru.github.io/analint/
+repo_url: https://github.com/angru/analint
+repo_name: angru/analint
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.top
+    - navigation.tracking
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle: { icon: material/brightness-7, name: Switch to dark mode }
+    - scheme: slate
+      primary: indigo
+      toggle: { icon: material/brightness-4, name: Switch to light mode }
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [.]
+
+nav:
+  - Guide: index.md
+  - For AI agents: agents.md

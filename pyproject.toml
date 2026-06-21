@@ -55,6 +55,7 @@ dev = [
     "ruff",
     "ty",
 ]
+docs = ["mkdocs-material"]
 
 [project.optional-dependencies]
 mcp = [

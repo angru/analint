@@ -653,8 +653,8 @@ without requiring MCP. Install that directory with your agent client's normal
 skill installer; the CLI remains the execution layer.
 
 ```bash
-gh skill preview angru/analint analint
-gh skill install angru/analint analint
+gh skill preview angru/analint analint@main
+gh skill install angru/analint analint@main
 ```
 
 ---

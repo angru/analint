@@ -5,7 +5,7 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x` the public API may change between minor releases.
 
-## [0.0.1] — 2026-06-19
+## [0.0.1] — 2026-06-21
 
 First public release. The engine and CLI are mature and covered by an extensive
 test suite; this release makes them installable and documents their scope.

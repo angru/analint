@@ -139,7 +139,7 @@ def build_server() -> Any:
         """Inspect the spec model at `path`.
 
         Without `kind`/`name` — an overview (all ids by kind). With them —
-        details of one object; kind is one of: entity, actor, event,
+        details of one object; kind is one of: entity, event,
         invariant, action, lifecycle, flow, scenario.
         """
         return show_spec(path, kind, name)

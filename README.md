@@ -3,7 +3,7 @@
 [![Quality](https://github.com/angru/analint/actions/workflows/quality.yml/badge.svg)](https://github.com/angru/analint/actions/workflows/quality.yml)
 [![codecov](https://codecov.io/gh/angru/analint/branch/main/graph/badge.svg)](https://codecov.io/gh/angru/analint)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://pypi.org/project/analint/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/angru/analint/blob/main/LICENSE)
 
 **A Python DSL for declaring and verifying how a system behaves.**
 
@@ -42,7 +42,7 @@ SCENARIOS
          ↳  correctly blocked — rules rejected this data as expected
 ```
 
-It is not limited to business analytics: the same primitives describe game rules and narrative consistency — see [`examples/cloak/`](examples/cloak/spec.py), the classic *Cloak of Darkness* IF benchmark expressed as a verifiable spec.
+It is not limited to business analytics: the same primitives describe game rules and narrative consistency — see [`examples/cloak/`](https://github.com/angru/analint/blob/main/examples/cloak/spec.py), the classic *Cloak of Darkness* IF benchmark expressed as a verifiable spec.
 
 ---
 
@@ -639,10 +639,10 @@ layout, including single-file specs.)
 
 ```bash
 pip install analint[mcp]
-analint-mcp        # stdio MCP server with tools: check, show, affects
+analint-mcp        # stdio MCP server: check, show, affects, explore, trace
 ```
 
-The same three operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with `what_if`, and validate after editing.
+The same five operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with `what_if`, explore reachable states, inspect traces, and validate after editing.
 
 ---
 
@@ -687,17 +687,17 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 | Example | What it shows |
 |---|---|
-| [`examples/ecommerce/`](examples/ecommerce/spec.py) | Single file: invariants, pre/post, effects, payload-bound events, Reachable with `given` |
-| [`examples/taskboard/`](examples/taskboard/) | Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions |
-| [`examples/cloak/`](examples/cloak/spec.py) | A text-adventure game as a verifiable spec: the engine finds the walkthrough (`Reachable(WON)`), proves you can't get stuck (`NoDeadEnd`) |
-| [`examples/trollbridge/`](examples/trollbridge/spec.py) | **Deliberately broken**: all scenarios green, but the engine finds an economy softlock and an unmodelled death — bugs example-based testing cannot see |
-| [`examples/fulfillment/`](examples/fulfillment/) | An order-fulfillment **saga** as a pure domain model: 16 actions with compensations for every failure; `NoDeadEnd` proves no reachable state is a dead end — a clean settlement stays reachable from every state (recoverability, not a guarantee that every run finishes) |
-| [`examples/coin/`](examples/coin/spec.py) | A line-by-line translation of **Quint's flagship tutorial** (the Solidity subcurrency) — reproduces the supply-overflow violation from the Quint lesson with a trace; see `research/15` for the honest comparison |
-| [`examples/branch_protection/`](examples/branch_protection/README.md) | First **external evidence model**: GitHub protected-branch PR policy, proven unbypassable across every action order; measured requirement-change series (`research/23`) |
-| [`examples/oauth/`](examples/oauth/README.md) | Second **external evidence model**: OAuth 2.0 auth-code + PKCE — two clients, relational token provenance, replay revocation; explicit multi-file `Contract` split + a Quint port (`research/24`) |
-| [`examples/mafia/`](examples/mafia/README.md) | **Mafia/Werewolf** from Quint: the citizens cannot win under *every* nondeterministic role assignment (declarative `Initial`, role-generic `Param` actions; `research/16`) |
-| [`examples/sunless_crypt/`](examples/sunless_crypt/README.md) | A dungeon crawl that is both **checked and played**: the same spec is verified by `analint check` and run as a text game by `examples/play.py` (`research/21`) |
-| [`examples/k8s_replicaset/`](examples/k8s_replicaset/README.md) | The **project-sized dogfood**: a Kubernetes ReplicaSet reconciling Pods under a count/pods ResourceQuota — multiplicity + presence + `Count` + `ownerReference` provenance, reachability/safety only (liveness deliberately out of scope; `research/26` §P4.5) |
+| [`examples/ecommerce/`](https://github.com/angru/analint/blob/main/examples/ecommerce/spec.py) | Single file: invariants, pre/post, effects, payload-bound events, Reachable with `given` |
+| [`examples/taskboard/`](https://github.com/angru/analint/tree/main/examples/taskboard) | Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions |
+| [`examples/cloak/`](https://github.com/angru/analint/blob/main/examples/cloak/spec.py) | A text-adventure game as a verifiable spec: the engine finds the walkthrough (`Reachable(WON)`), proves you can't get stuck (`NoDeadEnd`) |
+| [`examples/trollbridge/`](https://github.com/angru/analint/blob/main/examples/trollbridge/spec.py) | **Deliberately broken**: all scenarios green, but the engine finds an economy softlock and an unmodelled death — bugs example-based testing cannot see |
+| [`examples/fulfillment/`](https://github.com/angru/analint/tree/main/examples/fulfillment) | An order-fulfillment **saga** as a pure domain model: 16 actions with compensations for every failure; `NoDeadEnd` proves no reachable state is a dead end — a clean settlement stays reachable from every state (recoverability, not a guarantee that every run finishes) |
+| [`examples/coin/`](https://github.com/angru/analint/blob/main/examples/coin/spec.py) | A line-by-line translation of **Quint's flagship tutorial** (the Solidity subcurrency) — reproduces the supply-overflow violation from the Quint lesson with a trace; see `research/15` for the honest comparison |
+| [`examples/branch_protection/`](https://github.com/angru/analint/blob/main/examples/branch_protection/README.md) | First **external evidence model**: GitHub protected-branch PR policy, proven unbypassable across every action order; measured requirement-change series (`research/23`) |
+| [`examples/oauth/`](https://github.com/angru/analint/blob/main/examples/oauth/README.md) | Second **external evidence model**: OAuth 2.0 auth-code + PKCE — two clients, relational token provenance, replay revocation; explicit multi-file `Contract` split + a Quint port (`research/24`) |
+| [`examples/mafia/`](https://github.com/angru/analint/blob/main/examples/mafia/README.md) | **Mafia/Werewolf** from Quint: the citizens cannot win under *every* nondeterministic role assignment (declarative `Initial`, role-generic `Param` actions; `research/16`) |
+| [`examples/sunless_crypt/`](https://github.com/angru/analint/blob/main/examples/sunless_crypt/README.md) | A dungeon crawl that is both **checked and played**: the same spec is verified by `analint check` and run as a text game by `examples/play.py` (`research/21`) |
+| [`examples/k8s_replicaset/`](https://github.com/angru/analint/blob/main/examples/k8s_replicaset/README.md) | The **project-sized dogfood**: a Kubernetes ReplicaSet reconciling Pods under a count/pods ResourceQuota — multiplicity + presence + `Count` + `ownerReference` provenance, reachability/safety only (liveness deliberately out of scope; `research/26` §P4.5) |
 
 ---
 
@@ -715,9 +715,9 @@ over a silent pass. It deliberately does **not** model liveness or temporal
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, running the tests,
+See [CONTRIBUTING.md](https://github.com/angru/analint/blob/main/CONTRIBUTING.md) for development setup, running the tests,
 and the review-gated workflow.
 
 ## License
 
-[MIT](LICENSE) © angru
+[MIT](https://github.com/angru/analint/blob/main/LICENSE) © angru

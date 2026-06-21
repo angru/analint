@@ -1,9 +1,11 @@
 """MCP server exposing the analint spec to AI agents.
 
-Three tools over the same core as the CLI:
-  - check(path, what_if?)   — validate the spec, optionally with a hypothesis patch
-  - show(path, kind?, name?) — overview or details of one model object
-  - affects(target, path)   — impact analysis for a field / entity / action
+Five tools over the same core as the CLI:
+  - check(path, what_if?)    — validate the spec, optionally with a hypothesis patch
+  - explore(path, query?, …) — bounded reachability exploration artifact
+  - trace(path, query)       — a query's witness/counterexample as states and changes
+  - show(path, kind?, name?) — overview, a kind's ids, or details of one object
+  - affects(target, path)    — impact analysis for a field / entity / action
 
 Run: `analint-mcp` (stdio transport). Requires the optional dependency:
 `pip install analint[mcp]`.
@@ -43,6 +45,7 @@ def explore_spec(
             return artifact.to_dict()
         if max_graph_states is None:
             return {
+                "schema": "analint.error/v1",
                 "error": "include_graph=true requires max_graph_states",
                 "kind": "usage",
                 "details": [],
@@ -68,17 +71,23 @@ def trace_spec(path: str = ".", query: str = "", what_if: str | None = None) -> 
 def show_spec(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:
-        return {"error": "no spec found", "load_errors": [str(e) for e in load_errors]}
-    if kind is None or name is None:
-        return q.spec_overview(spec)
-    return q.describe(spec, kind, name)
+        return _no_spec(load_errors)
+    return q.show(spec, kind, name)
 
 
 def affects_target(target: str, path: str = ".") -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:
-        return {"error": "no spec found", "load_errors": [str(e) for e in load_errors]}
+        return _no_spec(load_errors)
     return q.affects(spec, target)
+
+
+def _no_spec(load_errors: list) -> dict:
+    return {
+        "schema": "analint.error/v1",
+        "error": "no spec found",
+        "load_errors": [str(e) for e in load_errors],
+    }
 
 
 def build_server() -> Any:

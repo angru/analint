@@ -14,6 +14,7 @@ def report_json(result: ValidationResult, strict: bool = False) -> None:
 def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
     verdict = result.effective_verdict(strict)
     return {
+        "schema": "analint.check/v1",
         "spec": {"id": result.spec_id, "name": result.spec_name},
         "verdict": verdict.value,
         "passed": verdict == "PASS",

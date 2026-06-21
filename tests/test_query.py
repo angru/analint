@@ -79,6 +79,35 @@ def test_affects_unknown_target():
     assert "error" in payload
 
 
+# ── agent contract: schema versions, show alignment, format validation ─────────
+
+
+def test_machine_facing_json_carries_a_schema():
+    spec = _spec(TASKBOARD)
+    assert q.spec_overview(spec)["schema"] == "analint.overview/v1"
+    assert q.show(spec, "action")["schema"] == "analint.show/v1"
+    assert q.describe(spec, "action", "create_card")["schema"] == "analint.show/v1"
+    assert q.affects(spec, "Board.card_count")["schema"] == "analint.affects/v1"
+
+
+def test_check_json_carries_a_schema():
+    from analint.reporter.json_reporter import result_to_dict
+
+    assert result_to_dict(validate(TASKBOARD))["schema"] == "analint.check/v1"
+
+
+def test_show_kind_without_name_lists_items():
+    # q.show is shared by CLI and MCP, so they cannot diverge on this path
+    payload = q.show(_spec(TASKBOARD), "action")
+    assert payload["kind"] == "action"
+    assert "create_card" in payload["items"]
+
+
+def test_cli_rejects_invalid_format():
+    result = runner.invoke(app, ["check", str(CLOAK), "--format", "xml"])
+    assert result.exit_code == 2  # usage error, not a silent fall back to terminal
+
+
 # ── what-if ───────────────────────────────────────────────────────────────────
 
 

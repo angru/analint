@@ -41,7 +41,12 @@ class ExplorationError(Exception):
         self.details = details or []
 
     def to_dict(self) -> dict[str, object]:
-        return {"error": self.message, "kind": self.kind, "details": self.details}
+        return {
+            "schema": "analint.error/v1",
+            "error": self.message,
+            "kind": self.kind,
+            "details": self.details,
+        }
 
 
 def explore_path(
@@ -136,6 +141,7 @@ def trace_query(
     exp = next(iter(cache.values()), None)
     if result.witness_key is None or exp is None:
         return {
+            "schema": "analint.trace/v1",
             "query": query_id,
             "status": result.status,
             "root": None,
@@ -178,6 +184,7 @@ def _build_trace(query_id: str, status: str, witness_key: object, exp: Explorati
         for src, action_id, tgt in reversed(steps_back)
     ]
     return {
+        "schema": "analint.trace/v1",
         "query": query_id,
         "status": status,
         "root": {"index": exp.roots.get(root_key, 1), "node": node(root_key)},

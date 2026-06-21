@@ -106,8 +106,14 @@ def _scenarios_of(spec: Spec, action_id: str) -> list[str]:
 # ── Overview ───────────────────────────────────────────────────────────────────
 
 
+OVERVIEW_SCHEMA = "analint.overview/v1"
+SHOW_SCHEMA = "analint.show/v1"
+AFFECTS_SCHEMA = "analint.affects/v1"
+
+
 def spec_overview(spec: Spec) -> dict:
     return {
+        "schema": OVERVIEW_SCHEMA,
         "spec": {
             "id": spec.id,
             "name": spec.name,
@@ -144,6 +150,21 @@ def spec_overview(spec: Spec) -> dict:
 # ── show <kind> <name> ─────────────────────────────────────────────────────────
 
 
+def show(spec: Spec, kind: str | None = None, name: str | None = None) -> dict:
+    """Unified `show`: overview (no kind), a kind's ids (kind, no name), or one
+    object (kind + name). Shared by the CLI and MCP so they never diverge."""
+    if kind is None:
+        return spec_overview(spec)
+    if name is None:
+        overview = spec_overview(spec)
+        key = kind if kind in overview else kind + "s"
+        if key in overview:
+            return {"schema": SHOW_SCHEMA, "kind": kind, "items": overview[key]}
+        kinds = [k for k in overview if k not in ("schema", "spec", "contracts")]
+        return {"schema": SHOW_SCHEMA, "error": f"unknown kind '{kind}'", "kinds": kinds}
+    return describe(spec, kind, name)
+
+
 def describe(spec: Spec, kind: str, name: str) -> dict:
     dispatch = {
         "entity": _describe_entity,
@@ -157,8 +178,8 @@ def describe(spec: Spec, kind: str, name: str) -> dict:
     }
     fn = dispatch.get(kind)
     if fn is None:
-        return {"error": f"unknown kind '{kind}'", "kinds": sorted(dispatch)}
-    return fn(spec, name)
+        return {"schema": SHOW_SCHEMA, "error": f"unknown kind '{kind}'", "kinds": sorted(dispatch)}
+    return {"schema": SHOW_SCHEMA, **fn(spec, name)}
 
 
 def _describe_contract(spec: Spec, name: str) -> dict:
@@ -339,6 +360,10 @@ def affects(spec: Spec, target: str) -> dict:
 
     Target forms: 'Entity.field', 'Entity' (or event name), or an action id.
     """
+    return {"schema": AFFECTS_SCHEMA, **_affects(spec, target)}
+
+
+def _affects(spec: Spec, target: str) -> dict:
     if "." in target:
         entity_name, field_name = target.split(".", 1)
         return _affects_field(spec, entity_name, field_name)

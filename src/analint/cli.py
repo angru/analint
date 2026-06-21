@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Never
 
@@ -23,6 +24,11 @@ if TYPE_CHECKING:
 #   2 — usage error (click default)
 #   3 — the spec could not be loaded
 #   4 — inconclusive: a query exhausted max_states without a verdict (proved nothing)
+
+
+class OutputFormat(StrEnum):
+    terminal = "terminal"
+    json = "json"
 
 
 class _DefaultToCheck(TyperGroup):
@@ -75,8 +81,8 @@ def _root(
 @app.command()
 def check(
     path: Path = typer.Argument(Path("."), help="Directory with spec.py, or a spec file"),
-    format: str = typer.Option(
-        "terminal", "--format", "-f", help="Output format: terminal or json"
+    format: OutputFormat = typer.Option(
+        OutputFormat.terminal, "--format", "-f", help="Output format: terminal or json"
     ),
     scenario: list[str] | None = typer.Option(
         None, "--scenario", "-s", help="Run only this scenario id"
@@ -137,8 +143,8 @@ def explore(
     query: str | None = typer.Option(
         None, "--query", help="Explore this query id's state space (default: the canonical initial)"
     ),
-    format: str = typer.Option(
-        "terminal", "--format", "-f", help="Output format: terminal or json"
+    format: OutputFormat = typer.Option(
+        OutputFormat.terminal, "--format", "-f", help="Output format: terminal or json"
     ),
     include_graph: bool = typer.Option(
         False, "--include-graph", help="Emit the full node/edge graph in JSON (default: compact)"
@@ -191,8 +197,8 @@ def trace(
     path: Path = typer.Option(
         Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
     ),
-    format: str = typer.Option(
-        "terminal", "--format", "-f", help="Output format: terminal or json"
+    format: OutputFormat = typer.Option(
+        OutputFormat.terminal, "--format", "-f", help="Output format: terminal or json"
     ),
     what_if: Path | None = typer.Option(
         None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
@@ -219,7 +225,7 @@ def trace(
 @app.command()
 def show(
     kind: str | None = typer.Argument(
-        None, help="entity | actor | event | invariant | action | lifecycle | flow | scenario"
+        None, help="entity | event | invariant | action | lifecycle | flow | scenario"
     ),
     name: str | None = typer.Argument(None, help="id or class name"),
     path: Path = typer.Option(
@@ -228,17 +234,7 @@ def show(
 ) -> None:
     """Inspect the model: overview, or details of one object. Output is JSON."""
     spec = _load_spec_or_exit(path)
-    if kind is None:
-        _emit(q.spec_overview(spec))
-        return
-    if name is None:
-        overview = q.spec_overview(spec)
-        key = kind if kind in overview else kind + "s"
-        if key in overview:
-            _emit({kind: overview[key]})
-            return
-        _emit_error({"error": f"unknown kind '{kind}'", "kinds": list(overview)[1:]})
-    payload = q.describe(spec, kind, name)
+    payload = q.show(spec, kind, name)
     if "error" in payload:
         _emit_error(payload)
     _emit(payload)

@@ -505,16 +505,22 @@ best-documented version first; the upload is the last step, gated on explicit go
       `Transition` wrapper; do not infer terminal from missing keys
     - no deprecation aliases; migrate examples/tests + snapshot in the same pass;
       document the whole-entity terminal rule precisely (no semantic change)
-  - [ ] **Freeze agent contracts:** version check/show/affects/trace JSON, align
-    CLI/MCP `show`, validate `--format`, update stale tool descriptions.
+  - [x] **Freeze agent contracts:** every machine-facing JSON now carries a
+    `schema` id (`analint.check/v1`, `.overview/v1`, `.show/v1`, `.affects/v1`,
+    `.trace/v1`, `.error/v1`; exploration was already `.exploration/v1`); `q.show`
+    is shared by CLI and MCP so `show <kind>` without a name behaves identically;
+    `--format` is a validated enum (invalid → usage error, no silent terminal
+    fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
+    tools). Regression-tested; characterization snapshot unaffected.
   - [ ] **Additive pass — decoupled, last or 0.0.2 (the only new public surface):**
     `Key(...)` scope-key value expression + explicit canonical scope presence +
     fixed `Initial(given=...)`. Removes the parallel-identity-param workaround in
     OAuth/Kubernetes but ADDS a symbol/AST node — design and version its
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.
-  - [x] Migrate examples/tests and confirm the subtractive `__all__`; final C
-    completion still waits for the agent-contract decision and any chosen
-    additive pass.
+  - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
+    complete for documentation purposes** — the contract (DSL surface + agent JSON
+    schemas) is frozen; the additive `Key` pass is explicitly deferred to 0.0.2
+    and does not gate docs (block B).
 - **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
   - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed
   - [ ] Getting started / first spec; DSL reference; CLI + MCP reference

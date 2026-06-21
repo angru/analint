@@ -1,0 +1,1813 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Python DSL for declaring and verifying how a system behaves">
+      
+      
+      
+        <link rel="canonical" href="https://angru.github.io/analint/">
+      
+      
+      
+        <link rel="next" href="agents/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>analint</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#analint" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="analint" class="md-header__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            analint
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="analint" class="md-nav__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    analint
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dsl-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSL reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DSL reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predicates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Action">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameterized-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameterized actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-multiplicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded multiplicity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finite-quantifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finite quantifiers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reachability-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reachability queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composition
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-if-check-a-hypothesis-without-touching-the-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What-if: check a hypothesis without touching the spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-server-for-ai-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server (for AI agents)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-linter-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the linter checks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the linter checks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#structural" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenario-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reachability-queries_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reachability (queries)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For AI agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick start
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dsl-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DSL reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DSL reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#entity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#predicates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Action">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameterized-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameterized actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-multiplicity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded multiplicity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finite-quantifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finite quantifiers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenario" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reachability-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reachability queries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composition
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-if-check-a-hypothesis-without-touching-the-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What-if: check a hypothesis without touching the spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mcp-server-for-ai-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server (for AI agents)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-skill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent Skill
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-linter-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the linter checks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What the linter checks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#structural" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scenario-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reachability-queries_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reachability (queries)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contributing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contributing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="analint">analint</h1>
+<p><a href="https://github.com/angru/analint/actions/workflows/quality.yml"><img alt="Quality" src="https://github.com/angru/analint/actions/workflows/quality.yml/badge.svg" /></a>
+<a href="https://codecov.io/gh/angru/analint"><img alt="codecov" src="https://codecov.io/gh/angru/analint/branch/main/graph/badge.svg" /></a>
+<a href="https://pypi.org/project/analint/"><img alt="PyPI" src="https://img.shields.io/pypi/v/analint.svg" /></a>
+<a href="https://pypi.org/project/analint/"><img alt="Python" src="https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue.svg" /></a>
+<a href="https://github.com/angru/analint/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green.svg" /></a></p>
+<p><strong>A Python DSL for declaring and verifying how a system behaves.</strong></p>
+<p>Requirements live in Word, Confluence, and Miro — readable by humans, but impossible to check for contradictions, diff, or hand to an AI agent. Code is the other extreme: too low-level. analint sits in the middle: <strong>Python that reads like a specification and checks like one.</strong></p>
+<div class="highlight"><pre><span></span><code><span class="n">checkout</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">,</span>
+        <span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Set</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">status</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">),</span>
+        <span class="n">Subtract</span><span class="p">(</span><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">sc_broke</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Insufficient balance&quot;</span><span class="p">,</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">checkout</span><span class="p">,</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Order</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="s2">&quot;c1&quot;</span><span class="p">),</span>
+        <span class="n">Wallet</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="s2">&quot;c1&quot;</span><span class="p">),</span>  <span class="c1"># 10 &lt; 50 → blocked</span>
+    <span class="p">],</span>
+    <span class="n">expected</span><span class="o">=</span><span class="n">Expect</span><span class="o">.</span><span class="n">FAIL</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>analint examples/ecommerce/
+
+SCENARIOS
+  PASS  checkout/happy           (6 rules)
+  PASS  checkout/no-funds        (6 rules)
+         ↳  PRE failed: Wallet.balance &gt;= Order.total
+         ↳  correctly blocked — rules rejected this data as expected
+</code></pre></div>
+<p>It is not limited to business analytics: the same primitives describe game rules and narrative consistency — see <a href="https://github.com/angru/analint/blob/main/examples/cloak/spec.py"><code>examples/cloak/</code></a>, the classic <em>Cloak of Darkness</em> IF benchmark expressed as a verifiable spec.</p>
+<hr />
+<h2 id="installation">Installation</h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>analint
+<span class="c1"># or with uv:</span>
+uv<span class="w"> </span>add<span class="w"> </span>analint
+</code></pre></div>
+<hr />
+<h2 id="quick-start">Quick start</h2>
+<p>Create <code>spec.py</code> and run <code>analint .</code> in the same directory.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Entity</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">,</span> <span class="n">Spec</span><span class="p">,</span> <span class="n">Expect</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">price</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">stock</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Budget</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">buy</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Item</span><span class="o">.</span><span class="n">price</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">Budget</span><span class="o">.</span><span class="n">amount</span> <span class="o">&gt;=</span> <span class="n">Item</span><span class="o">.</span><span class="n">price</span><span class="p">,</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">sc_ok</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Happy path&quot;</span><span class="p">,</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">buy</span><span class="p">,</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Item</span><span class="p">(</span><span class="n">price</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">stock</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">Budget</span><span class="p">(</span><span class="n">amount</span><span class="o">=</span><span class="mf">20.0</span><span class="p">)],</span>
+<span class="p">)</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;shop&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Shop&quot;</span><span class="p">)</span>   <span class="c1"># everything above is discovered automatically</span>
+</code></pre></div>
+<p>ids are derived from variable names (<code>buy</code>, <code>sc_ok</code>) — set <code>id=</code> explicitly only when you want a different one.</p>
+<hr />
+<h2 id="dsl-reference">DSL reference</h2>
+<p>The DSL has three layers: <strong>state</strong> (Entity, Event), <strong>constraints</strong> (Invariant, predicates), and <strong>transitions</strong> (Action, Lifecycle). Scenarios and Flows tie them together with concrete examples.</p>
+<h3 id="entity">Entity</h3>
+<p>Typed system state. Annotate fields normally; class-level access returns a
+<code>FieldDescriptor</code> usable in predicate expressions. Use <code>Field(...)</code> for
+constraints on one value, and attach a <code>Lifecycle(...)</code> directly to a field
+whose states have declared transitions.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Entity</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">Lifecycle</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">OrderStatus</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+    <span class="n">PENDING</span>   <span class="o">=</span> <span class="s2">&quot;pending&quot;</span>
+    <span class="n">PAID</span>      <span class="o">=</span> <span class="s2">&quot;paid&quot;</span>
+    <span class="n">CANCELLED</span> <span class="o">=</span> <span class="s2">&quot;cancelled&quot;</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Order</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">OrderStatus</span> <span class="o">=</span> <span class="n">Lifecycle</span><span class="p">(</span>
+        <span class="n">initial</span><span class="o">=</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span>
+        <span class="n">transitions</span><span class="o">=</span><span class="p">{</span>
+            <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">:</span> <span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+            <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">:</span> <span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">terminal</span><span class="o">=</span><span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+    <span class="p">)</span>
+    <span class="n">total</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">gt</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>                 <span class="c1"># required, must be positive</span>
+    <span class="n">customer_id</span><span class="p">:</span> <span class="nb">str</span>
+
+<span class="n">Order</span><span class="o">.</span><span class="n">total</span>                           <span class="c1"># class level → FieldDescriptor (for predicates)</span>
+<span class="n">Order</span><span class="p">(</span><span class="n">total</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="s2">&quot;c1&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">total</span>   <span class="c1"># instance level → 50.0</span>
+</code></pre></div>
+<p><code>Field(default, ge=..., gt=..., le=..., lt=...)</code> validates constructed
+instances, checks post-action values, and supplies finite numeric bounds to the
+reachability engine. <code>Field(default, values=[...])</code> declares an explicit
+finite scalar domain. With <code>saturate=True</code>, numeric values clamp at the
+declared <code>ge</code>/<code>le</code> thresholds instead of making the transition invalid.</p>
+<h3 id="predicates">Predicates</h3>
+<p>Comparison operators on fields build predicate objects; combinators are plain functions:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span>
+<span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span>          <span class="c1"># field-to-field comparison</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">And</span><span class="p">,</span> <span class="n">Or</span><span class="p">,</span> <span class="n">Not</span><span class="p">,</span> <span class="n">Implies</span><span class="p">,</span> <span class="n">In</span><span class="p">,</span> <span class="n">IsNull</span><span class="p">,</span> <span class="n">IsNotNull</span>
+
+<span class="n">And</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">)</span>
+<span class="n">Implies</span><span class="p">(</span><span class="n">Hook</span><span class="o">.</span><span class="n">holds_cloak</span><span class="p">,</span> <span class="n">Not</span><span class="p">(</span><span class="n">Player</span><span class="o">.</span><span class="n">has_cloak</span><span class="p">))</span>               <span class="c1"># if A then B</span>
+<span class="n">In</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">status</span><span class="p">,</span> <span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">])</span>
+</code></pre></div>
+<p>Arithmetic over fields builds expression nodes — including named, reusable
+ones (Quint-style derived values):</p>
+<div class="highlight"><pre><span></span><code><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">-</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+<span class="n">total_supply</span> <span class="o">=</span> <span class="n">Alice</span><span class="o">.</span><span class="n">coins</span> <span class="o">+</span> <span class="n">Bob</span><span class="o">.</span><span class="n">coins</span> <span class="o">+</span> <span class="n">Eve</span><span class="o">.</span><span class="n">coins</span>   <span class="c1"># named expression</span>
+<span class="n">supply_fits</span>  <span class="o">=</span> <span class="n">AlwaysHolds</span><span class="p">(</span><span class="n">total_supply</span> <span class="o">&lt;=</span> <span class="n">MAX_SUPPLY</span><span class="p">)</span>
+</code></pre></div>
+<p>Predicates are values — name them and reuse them:</p>
+<div class="highlight"><pre><span></span><code><span class="n">board_is_active</span> <span class="o">=</span> <span class="n">Board</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">BoardStatus</span><span class="o">.</span><span class="n">ACTIVE</span>
+
+<span class="n">create_card</span>  <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">board_is_active</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+<span class="n">archive_card</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">board_is_active</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="invariant">Invariant</h3>
+<p>A relation that must hold in <strong>every</strong> state — checked before an action and
+re-checked after its effects. Put constraints involving one field on
+<code>Field(...)</code>; use <code>Invariant</code> for relationships between fields or entities.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Implies</span><span class="p">,</span> <span class="n">Invariant</span>
+
+<span class="n">delivered_means_paid</span> <span class="o">=</span> <span class="n">Invariant</span><span class="p">(</span>
+    <span class="n">Implies</span><span class="p">(</span>
+        <span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">DELIVERED</span><span class="p">,</span>
+        <span class="n">Payment</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">PaymentStatus</span><span class="o">.</span><span class="n">CAPTURED</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;A delivered order must have a captured payment&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>An invariant is skipped in scenarios whose <code>given</code> does not include the entities it references.</p>
+<h3 id="action">Action</h3>
+<p>A state transition: what must hold before (<code>pre</code>), what changes (<code>effect</code>), and
+what must hold after (<code>post</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Subtract</span>
+
+<span class="n">checkout</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Customer Checkout&quot;</span><span class="p">,</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">,</span>
+        <span class="n">Product</span><span class="o">.</span><span class="n">stock</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span>
+    <span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span>                                       <span class="c1"># facts about the next state</span>
+        <span class="n">Set</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">status</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">),</span>
+        <span class="n">Subtract</span><span class="p">(</span><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">),</span>
+        <span class="n">Subtract</span><span class="p">(</span><span class="n">Product</span><span class="o">.</span><span class="n">stock</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="n">post</span><span class="o">=</span><span class="p">[</span><span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">],</span>       <span class="c1"># optional double-entry check</span>
+    <span class="n">emits</span><span class="o">=</span><span class="p">[</span><span class="n">OrderPlaced</span><span class="p">(</span><span class="n">order_id</span><span class="o">=</span><span class="n">Order</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="n">Order</span><span class="o">.</span><span class="n">customer_id</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Effects are simultaneous facts, not a program.</strong> Every right-hand side is evaluated against the <em>pre</em>-state; the order of the list carries no meaning; two effects on the same field are a structural error.</p>
+<p>Current semantic boundary: event-driven causality is modelled through state, not
+a dispatch primitive.</p>
+<table>
+<thead>
+<tr>
+<th>Effect</th>
+<th>Next-state fact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Set(field, value)</code></td>
+<td>field becomes the value — a literal, an enum, or an <strong>expression over the pre-state</strong>: <code>Set(src.coins, src.coins - amount)</code> is the canonical form</td>
+</tr>
+<tr>
+<td><code>Subtract(field, amount)</code> / <code>Add(field, amount)</code></td>
+<td>sugar for <code>Set(field, field ∓ amount)</code></td>
+</tr>
+<tr>
+<td><code>Create(ref, **fields)</code> / <code>Delete(ref)</code></td>
+<td>a slot in a <code>Scope</code> becomes present / absent — presence as a next-state fact (see <a href="#bounded-multiplicity">Bounded multiplicity</a>)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="parameterized-actions">Parameterized actions</h4>
+<p>A family of similar transitions is one declaration over finite domains —
+never a host-language loop:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Param</span>
+
+<span class="n">src</span>    <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;src&quot;</span><span class="p">,</span> <span class="n">AliceCoins</span><span class="p">,</span> <span class="n">BobCoins</span><span class="p">,</span> <span class="n">EveCoins</span><span class="p">)</span>
+<span class="n">dst</span>    <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;dst&quot;</span><span class="p">,</span> <span class="n">AliceCoins</span><span class="p">,</span> <span class="n">BobCoins</span><span class="p">,</span> <span class="n">EveCoins</span><span class="p">)</span>
+<span class="n">amount</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;amount&quot;</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># integer range — same vocabulary as Field</span>
+
+<span class="n">send</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">amount</span><span class="p">],</span>
+    <span class="n">where</span><span class="o">=</span><span class="p">[</span><span class="n">src</span> <span class="o">!=</span> <span class="n">dst</span><span class="p">],</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="o">.</span><span class="n">coins</span> <span class="o">&gt;=</span> <span class="n">amount</span><span class="p">,</span> <span class="n">dst</span><span class="o">.</span><span class="n">coins</span> <span class="o">&lt;=</span> <span class="n">MAX_BALANCE</span> <span class="o">-</span> <span class="n">amount</span><span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Subtract</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">coins</span><span class="p">,</span> <span class="n">amount</span><span class="p">),</span> <span class="n">Add</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">coins</span><span class="p">,</span> <span class="n">amount</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The engine expands every binding that satisfies <code>where</code> into a concrete
+action (<code>send(src=AliceCoins, dst=BobCoins, amount=2)</code>); traces and reports
+use the parametric names. A scenario picks one binding:
+<code>action=send.bind(src=BobCoins, dst=EveCoins, amount=2)</code>.</p>
+<h4 id="bounded-multiplicity">Bounded multiplicity</h4>
+<p><code>Scope</code> declares a fixed finite set of identified instances of one entity
+type. Instance refs work in predicates and effects, and can be a <code>Param</code>
+domain:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Absent</span><span class="p">,</span> <span class="n">Present</span><span class="p">,</span> <span class="n">Scope</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Account</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">balance</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+<span class="n">accounts</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="n">Account</span><span class="p">,</span> <span class="n">keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;alice&quot;</span><span class="p">,</span> <span class="s2">&quot;bob&quot;</span><span class="p">,</span> <span class="s2">&quot;eve&quot;</span><span class="p">])</span>
+<span class="n">alice</span> <span class="o">=</span> <span class="n">accounts</span><span class="p">[</span><span class="s2">&quot;alice&quot;</span><span class="p">]</span>
+
+<span class="n">src</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;src&quot;</span><span class="p">,</span> <span class="n">accounts</span><span class="p">)</span>
+<span class="n">dst</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;dst&quot;</span><span class="p">,</span> <span class="n">accounts</span><span class="p">)</span>
+
+<span class="n">transfer</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">],</span>
+    <span class="n">where</span><span class="o">=</span><span class="p">[</span><span class="n">src</span> <span class="o">!=</span> <span class="n">dst</span><span class="p">],</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Subtract</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">Add</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span>
+<span class="p">)</span>
+
+<span class="n">alice_pays_bob</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">transfer</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">alice</span><span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">accounts</span><span class="p">[</span><span class="s2">&quot;bob&quot;</span><span class="p">]),</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">alice</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+        <span class="n">accounts</span><span class="p">[</span><span class="s2">&quot;bob&quot;</span><span class="p">](</span><span class="n">balance</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+        <span class="n">Absent</span><span class="p">(</span><span class="n">accounts</span><span class="p">[</span><span class="s2">&quot;eve&quot;</span><span class="p">]),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">alice_exists</span> <span class="o">=</span> <span class="n">Present</span><span class="p">(</span><span class="n">alice</span><span class="p">)</span>
+</code></pre></div>
+<p>The universe is fixed, but membership is explicit. A normal scoped snapshot is
+present; <code>Absent(ref)</code> marks an allocated slot as absent; <code>Present(ref)</code> is a
+predicate usable in guards and queries. In scenarios, omitted scoped slots are
+also absent. Reachability defaults every scoped slot to present unless
+<code>given=[Absent(ref)]</code> says otherwise. Field reads and ordinary effects on an
+absent slot are rejected.</p>
+<p><code>Create(ref, **fields)</code> and <code>Delete(ref)</code> change that membership as next-state
+facts, symmetric to <code>Set</code> over a value:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Create</span><span class="p">,</span> <span class="n">Delete</span>
+
+<span class="n">open_account</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Create</span><span class="p">(</span><span class="n">accounts</span><span class="p">[</span><span class="s2">&quot;eve&quot;</span><span class="p">],</span> <span class="n">balance</span><span class="o">=</span><span class="mi">0</span><span class="p">)])</span>  <span class="c1"># eve must be absent</span>
+<span class="n">close_account</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Delete</span><span class="p">(</span><span class="n">alice</span><span class="p">)])</span>                       <span class="c1"># alice must be present</span>
+</code></pre></div>
+<p><code>Create</code> requires the slot absent and makes it present (unspecified fields take
+their defaults); <code>Delete</code> requires it present and makes it absent. The
+mismatched pre-state is rejected before any effect runs, so <code>Expect.FAIL</code>
+covers it. A slot's presence may change at most once per action, and the same
+slot may not be both (de)allocated and written by <code>Set</code>/<code>Add</code>/<code>Subtract</code>. The
+key universe stays fixed, so reachability, quantifiers and aggregates simply
+range over whichever slots are present in each state.</p>
+<h4 id="finite-quantifiers">Finite quantifiers</h4>
+<p><code>Bound</code> introduces a named variable over a <code>Scope</code>; <code>ForAll</code> and <code>Exists</code>
+remain explicit predicate AST nodes and work in invariants, action guards,
+scenario assertions, and reachability queries:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bound</span><span class="p">,</span> <span class="n">Count</span><span class="p">,</span> <span class="n">Exists</span><span class="p">,</span> <span class="n">ForAll</span><span class="p">,</span> <span class="n">Max</span><span class="p">,</span> <span class="n">Min</span><span class="p">,</span> <span class="n">Sum</span>
+
+<span class="n">account</span> <span class="o">=</span> <span class="n">Bound</span><span class="p">(</span><span class="s2">&quot;account&quot;</span><span class="p">,</span> <span class="n">accounts</span><span class="p">)</span>
+
+<span class="n">all_balances_valid</span> <span class="o">=</span> <span class="n">AlwaysHolds</span><span class="p">(</span>
+    <span class="n">ForAll</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">someone_is_full</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span>
+    <span class="n">Exists</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span> <span class="o">==</span> <span class="mi">5</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">total_balance</span> <span class="o">=</span> <span class="n">Sum</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span><span class="p">)</span>
+<span class="n">nonempty_accounts</span> <span class="o">=</span> <span class="n">Count</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">balance_range</span> <span class="o">=</span> <span class="n">Max</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span><span class="p">)</span> <span class="o">-</span> <span class="n">Min</span><span class="p">(</span><span class="n">account</span><span class="p">,</span> <span class="n">account</span><span class="o">.</span><span class="n">balance</span><span class="p">)</span>
+</code></pre></div>
+<p>Quantifiers and aggregates are finite and exhaustive over the <strong>present</strong>
+instances in the registered scope. Aggregate nodes are ordinary arithmetic
+expressions: they can be compared, composed with field math, used in effect
+right-hand sides, and checked by the reachability engine. Over an empty
+present set, <code>ForAll</code> is true, <code>Exists</code> is false, <code>Count</code> and <code>Sum</code> are zero,
+while <code>Min</code>/<code>Max</code> report an evaluation error.</p>
+<h3 id="event">Event</h3>
+<p>An observable domain fact, with a typed payload. Emitting binds payload fields to expressions over the state (the kernel materialises them). An action's <code>pre</code> may constrain an event payload by referencing the event's fields (the event instance lives in the scenario's <code>given</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Event</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">OrderPlaced</span><span class="p">(</span><span class="n">Event</span><span class="p">):</span>
+    <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">total</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="n">checkout</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">emits</span><span class="o">=</span><span class="p">[</span><span class="n">OrderPlaced</span><span class="p">(</span><span class="n">order_id</span><span class="o">=</span><span class="n">Order</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">)])</span>
+
+<span class="n">notify_vip</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">OrderPlaced</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">],</span>     <span class="c1"># payload condition</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Add</span><span class="p">(</span><span class="n">Manager</span><span class="o">.</span><span class="n">alerts</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The linter validates payload bindings (fields exist, types match). Emitting an
+event does not trigger another action — event-driven causality is modelled
+through state (see <code>examples/fulfillment</code>, a saga chained via status fields).</p>
+<h3 id="lifecycle">Lifecycle</h3>
+<p>Valid states of an entity field and the allowed transitions between them.
+The lifecycle is declared as the field's default, so the state definition,
+initial value, transitions, and terminal states stay together.</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Order</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">OrderStatus</span> <span class="o">=</span> <span class="n">Lifecycle</span><span class="p">(</span>
+        <span class="n">initial</span><span class="o">=</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span>
+        <span class="n">transitions</span><span class="o">=</span><span class="p">{</span>
+            <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">:</span> <span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">,</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+            <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">:</span> <span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+        <span class="p">},</span>
+        <span class="n">terminal</span><span class="o">=</span><span class="p">[</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">CANCELLED</span><span class="p">],</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p><code>terminal</code> states have teeth: an entity whose lifecycle field is in a terminal state cannot be modified by any action, and a transition out of a terminal state is a structural error.</p>
+<h3 id="scenario">Scenario</h3>
+<p>A concrete example: initial state, one action, expected outcome.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scenario</span><span class="p">,</span> <span class="n">Expect</span><span class="p">,</span> <span class="n">Assert</span><span class="p">,</span> <span class="n">Emitted</span>
+
+<span class="n">sc_happy</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Successful purchase&quot;</span><span class="p">,</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">checkout</span><span class="p">,</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Order</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">status</span><span class="o">=</span><span class="n">OrderStatus</span><span class="o">.</span><span class="n">PENDING</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="s2">&quot;c1&quot;</span><span class="p">),</span>
+        <span class="n">Wallet</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">customer_id</span><span class="o">=</span><span class="s2">&quot;c1&quot;</span><span class="p">),</span>
+        <span class="n">Product</span><span class="p">(</span><span class="n">stock</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">price</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Widget&quot;</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="n">then</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">,</span>
+        <span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">==</span> <span class="mf">50.0</span><span class="p">,</span>
+        <span class="n">Emitted</span><span class="p">(</span><span class="n">OrderPlaced</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="n">expected</span><span class="o">=</span><span class="n">Expect</span><span class="o">.</span><span class="n">PASS</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>expected=Expect.FAIL</code> documents a blocked path: the scenario is <strong>correct</strong> when at least one rule rejects the data.</p>
+<p>For an event-payload scenario, put the event instance in <code>given</code> — its payload
+is then visible to <code>pre</code>. This checks one local transition:</p>
+<div class="highlight"><pre><span></span><code><span class="n">Scenario</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">notify_vip</span><span class="p">,</span> <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">OrderPlaced</span><span class="p">(</span><span class="n">order_id</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="mf">500.0</span><span class="p">),</span> <span class="n">Manager</span><span class="p">(</span><span class="n">alerts</span><span class="o">=</span><span class="mi">0</span><span class="p">)])</span>
+</code></pre></div>
+<h3 id="flow">Flow</h3>
+<p>An ordered, <strong>executed</strong> journey: each action runs through
+the same transition kernel — its post-state feeds the next — and checkpoints
+(<code>Assert</code> / <code>Emitted</code>) interleaved in <code>steps</code> are checked against the state
+reached so far. The first rejected action or failed checkpoint fails the flow
+(and the run) with a trace; a reached state that breaks an invariant fails it too.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flow</span><span class="p">,</span> <span class="n">Assert</span><span class="p">,</span> <span class="n">Emitted</span>
+
+<span class="n">purchase_flow</span> <span class="o">=</span> <span class="n">Flow</span><span class="p">(</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Cart</span><span class="p">(</span><span class="n">items</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">Wallet</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mi">100</span><span class="p">)],</span>
+    <span class="n">steps</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">add_item</span><span class="p">,</span>
+        <span class="n">Assert</span><span class="p">(</span><span class="n">Cart</span><span class="o">.</span><span class="n">items</span> <span class="o">==</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="n">checkout</span><span class="p">,</span>
+        <span class="n">Assert</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">OrderStatus</span><span class="o">.</span><span class="n">PAID</span><span class="p">),</span>
+        <span class="n">Emitted</span><span class="p">(</span><span class="n">OrderPaid</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Full customer purchase journey&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>given=</code> is the initial state — a partial snapshot (the same one a scenario
+uses): only the listed entities are present, unspecified <code>Scope</code> slots are
+absent, and a step that needs an unlisted entity is rejected. It is required;
+<code>given=[]</code> means an empty world and is useful only when the flow creates
+everything it needs.</p>
+<h3 id="reachability-queries">Reachability queries</h3>
+<p>Scenarios check states you thought of. Queries <strong>explore every reachable state</strong> (BFS over the model) and answer questions you can't answer by hand — each verdict comes with a trace:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Reachable</span><span class="p">,</span> <span class="n">Unreachable</span><span class="p">,</span> <span class="n">AlwaysHolds</span><span class="p">,</span> <span class="n">NoDeadEnd</span><span class="p">,</span> <span class="n">DeadActions</span>
+
+<span class="n">bridge_is_reachable</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span><span class="n">Quest</span><span class="o">.</span><span class="n">bridge_crossed</span><span class="p">)</span>
+<span class="n">no_softlock</span>         <span class="o">=</span> <span class="n">NoDeadEnd</span><span class="p">(</span><span class="n">goal</span><span class="o">=</span><span class="n">Quest</span><span class="o">.</span><span class="n">bridge_crossed</span><span class="p">)</span>
+<span class="n">hp_never_negative</span>   <span class="o">=</span> <span class="n">AlwaysHolds</span><span class="p">(</span><span class="n">Hero</span><span class="o">.</span><span class="n">hp</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">no_gold_from_air</span>    <span class="o">=</span> <span class="n">Unreachable</span><span class="p">(</span><span class="n">Hero</span><span class="o">.</span><span class="n">gold</span> <span class="o">&gt;</span> <span class="mi">6</span><span class="p">)</span>     <span class="c1"># regression guard</span>
+<span class="n">every_action_used</span>   <span class="o">=</span> <span class="n">DeadActions</span><span class="p">()</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>QUERIES
+  PASS  bridge_is_reachable        (Reachable, 9 states)
+         ↳ reachable: buy_sword → fight_troll → cross_bridge
+  FAIL  no_softlock                (NoDeadEnd, 9 states)
+         ↳ dead end: after buy_potion the goal can no longer be reached
+  FAIL  hp_never_negative          (AlwaysHolds, 9 states)
+         ↳ breaks: buy_sword → fight_troll → cross_bridge ⇒ Hero.hp=-1
+</code></pre></div>
+<p>The softlock above is invisible to every scenario in the spec — nobody writes a test for a situation they didn't think of. The explorer finds it in milliseconds with the shortest trace.</p>
+<ul>
+<li>The <strong>initial state</strong> is built from entity field defaults; <code>given=[...]</code>
+  supplies or overrides instances. <code>given_any=[[...], [...]]</code> declares an
+  explicit finite set of roots.</li>
+<li><code>initial=Initial(vary=[...], where=[...])</code> declares an initial relation.
+  <code>vary</code> fields range over <code>bool</code>, <code>Enum</code>, bounded integer <code>Field</code>, or
+  <code>Field(values=[...])</code> domains; ordinary predicates filter the Cartesian
+  product. <code>BoundField</code> varies a field across an entire <code>Scope</code>.</li>
+<li>Queries quantify over every admissible root, and traces name the originating
+  configuration (<code>init #2 ⊢ …</code>).</li>
+<li>Numeric <code>Field(ge=..., le=...)</code> constraints keep the state space finite.
+  Driving a field out of range is an error with a trace; <code>saturate=True</code>
+  clamps instead, for counters where only thresholds matter.</li>
+<li>If the state space exceeds <code>max_states</code> (default 10 000), the query reports <strong>INCONCLUSIVE</strong> instead of pretending.</li>
+<li>During exploration the engine also reports <strong>violated invariants</strong> and <strong>undeclared lifecycle transitions</strong> (an effect performing <code>A → C</code> when the lifecycle only allows <code>A → B</code>).</li>
+<li>An ad-hoc query without editing the spec: put it in a file and run <code>analint check . --what-if query.py</code>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bound</span><span class="p">,</span> <span class="n">Count</span><span class="p">,</span> <span class="n">Initial</span>
+
+<span class="n">player</span> <span class="o">=</span> <span class="n">Bound</span><span class="p">(</span><span class="s2">&quot;player&quot;</span><span class="p">,</span> <span class="n">players</span><span class="p">)</span>
+<span class="n">role_assignments</span> <span class="o">=</span> <span class="n">Initial</span><span class="p">(</span>
+    <span class="n">vary</span><span class="o">=</span><span class="p">[</span><span class="n">player</span><span class="o">.</span><span class="n">role</span><span class="p">],</span>
+    <span class="n">where</span><span class="o">=</span><span class="p">[</span><span class="n">Count</span><span class="p">(</span><span class="n">player</span><span class="p">,</span> <span class="n">player</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="n">Role</span><span class="o">.</span><span class="n">MAFIA</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">mafia_can_win</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span><span class="n">Game</span><span class="o">.</span><span class="n">winner</span> <span class="o">==</span> <span class="n">Role</span><span class="o">.</span><span class="n">MAFIA</span><span class="p">,</span> <span class="n">initial</span><span class="o">=</span><span class="n">role_assignments</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="spec">Spec</h3>
+<p>The root aggregate — usually just metadata:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Spec</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;ecommerce&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;E-commerce Platform&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Everything else is discovered from the modules your entry point imports. Explicit lists (<code>entities=[...]</code>, <code>actions=[...]</code>) are supported when precision matters; a non-empty list is used as-is.</p>
+<h3 id="composition">Composition</h3>
+<p>Reusable model fragments expose an explicit <code>Contract</code>; one root <code>Spec</code>
+imports those contracts:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># payments.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Contract</span>
+
+<span class="n">payments_api</span> <span class="o">=</span> <span class="n">Contract</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;payments&quot;</span><span class="p">,</span>
+    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;1.0.0&quot;</span><span class="p">,</span>
+    <span class="n">entities</span><span class="o">=</span><span class="p">[</span><span class="n">Payment</span><span class="p">],</span>
+    <span class="n">events</span><span class="o">=</span><span class="p">[</span><span class="n">PaymentCaptured</span><span class="p">],</span>
+    <span class="n">invariants</span><span class="o">=</span><span class="p">[</span><span class="n">payment_amount_is_positive</span><span class="p">],</span>
+    <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="n">capture_payment</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="c1"># spec.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Spec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.payments</span><span class="w"> </span><span class="kn">import</span> <span class="n">payments_api</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;checkout&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Checkout&quot;</span><span class="p">,</span>
+    <span class="n">imports</span><span class="o">=</span><span class="p">[</span><span class="n">payments_api</span><span class="p">],</span>
+    <span class="n">scenarios</span><span class="o">=</span><span class="p">[</span><span class="n">capture_payment_happy</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Composition is deliberately explicit: when <code>imports=</code> is present,
+auto-discovery is disabled for the root. Only contract contents and objects
+listed directly on <code>Spec</code> are included, so private implementation actions do
+not leak through Python's import graph. Duplicate ids and incomplete contract
+surfaces are reported by structural validation. Multiple <code>Spec</code> objects in one
+import graph are a load error rather than being merged implicitly.</p>
+<p><code>analint show contract payments -p .</code> reports the exact exported surface.
+<code>--what-if</code> still adds hypothesis objects on top of the composed model.</p>
+<hr />
+<h2 id="project-layout">Project layout</h2>
+<p>The spec is loaded through a <strong>single entry point</strong> — <code>spec.py</code> — and its import graph defines what is in the spec:</p>
+<div class="highlight"><pre><span></span><code>spec.py             ← single file is enough for small projects
+
+# or, multi-file (use relative imports):
+myproject/
+  __init__.py
+  entities.py       ← Entity subclasses + enums
+  events.py         ← Event subclasses
+  invariants.py     ← Invariant instances + reusable predicates
+  actions.py        ← Action instances
+  flows.py          ← Flow instances
+  scenarios.py      ← Scenario instances
+  spec.py           ← imports the tops of the graph + Spec(id=..., name=...)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># myproject/spec.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Spec</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">flows</span><span class="p">,</span> <span class="n">scenarios</span>  <span class="c1"># noqa: F401</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span><span class="nb">id</span><span class="o">=</span><span class="s2">&quot;myproject&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;My Project&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>A <code>.py</code> file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model.</p>
+<hr />
+<h2 id="cli">CLI</h2>
+<div class="highlight"><pre><span></span><code>analint check [PATH]              # validate: structural checks + scenario runs
+  -f, --format terminal|json
+  -s, --scenario ID   -t, --tag TAG
+  --strict                        # warnings become errors
+  --what-if FILE.py               # add the file&#39;s objects to the model for this
+                                  # run only — test a hypothesis without editing the spec
+
+analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
+  analint show -p .                  # overview: all ids by kind
+  analint show contract payments -p . # exact imported contract surface
+  analint show action checkout -p .  # pre/effect/post/emits/scenarios of one action
+  analint show lifecycle Order.status -p .      # transitions, terminal, unreachable states
+
+analint affects TARGET -p PATH    # impact analysis before changing something (JSON)
+  analint affects Wallet.balance -p .   # who reads/writes the field, invariants, lifecycles
+  analint affects checkout -p .         # what the action touches + event-linked actions
+
+analint PATH                      # shorthand for `analint check PATH`
+</code></pre></div>
+<p>Exit codes: <code>0</code> ok · <code>1</code> findings (errors, failed scenarios, warnings with <code>--strict</code>) · <code>2</code> usage error · <code>3</code> spec could not be loaded · <code>4</code> inconclusive (a query exhausted its exploration budget without a verdict). JSON output carries a three-valued <code>verdict</code> (<code>PASS</code>/<code>FAIL</code>/<code>INCONCLUSIVE</code>); <code>passed</code> is <code>true</code> only on an effective <code>PASS</code> and reflects <code>--strict</code>.</p>
+<h3 id="what-if-check-a-hypothesis-without-touching-the-spec">What-if: check a hypothesis without touching the spec</h3>
+<p>A patch is a standalone file whose objects are added on top of the model for one
+run. It must reference the spec's objects to build predicates over them; the
+loaded spec's entry module is always importable under the stable alias
+<code>analint_spec</code>, regardless of whether the spec is a package or a single file:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># /tmp/hypothesis.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Invariant</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">analint_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>          <span class="c1"># the loaded spec, by stable alias</span>
+
+<span class="n">max_two</span> <span class="o">=</span> <span class="n">Invariant</span><span class="p">(</span><span class="n">Board</span><span class="o">.</span><span class="n">card_count</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;At most 2 cards per board&quot;</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>analint check . --what-if /tmp/hypothesis.py
+  FAIL  archive-card/happy
+         ↳  INVARIANT failed: At most 2 cards per board
+</code></pre></div>
+<p>(A packaged spec can also be imported by its real package name, e.g.
+<code>from myproject.entities import Board</code>, but <code>analint_spec</code> works for every
+layout, including single-file specs.)</p>
+<h3 id="mcp-server-for-ai-agents">MCP server (for AI agents)</h3>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>analint<span class="o">[</span>mcp<span class="o">]</span>
+analint-mcp<span class="w">        </span><span class="c1"># stdio MCP server: check, show, affects, explore, trace</span>
+</code></pre></div>
+<p>The same five operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with <code>what_if</code>, explore reachable states, inspect traces, and validate after editing.</p>
+<h3 id="agent-skill">Agent Skill</h3>
+<p>The portable <a href="https://github.com/angru/analint/tree/main/skills/analint"><code>analint</code> Agent Skill</a>
+teaches coding agents the <code>show → affects → what-if → apply → check</code> workflow
+without requiring MCP. Install that directory with your agent client's normal
+skill installer; the CLI remains the execution layer.</p>
+<div class="highlight"><pre><span></span><code>gh<span class="w"> </span>skill<span class="w"> </span>preview<span class="w"> </span>angru/analint<span class="w"> </span>analint@main
+gh<span class="w"> </span>skill<span class="w"> </span>install<span class="w"> </span>angru/analint<span class="w"> </span>analint@main
+</code></pre></div>
+<hr />
+<h2 id="what-the-linter-checks">What the linter checks</h2>
+<h3 id="structural">Structural</h3>
+<ul>
+<li>Missing/duplicate ids; duplicate class names from double imports</li>
+<li>Predicates reference registered entities/events and existing fields</li>
+<li>Event payload bindings: fields exist, annotation types match</li>
+<li>Two effects on the same field (simultaneity violation)</li>
+<li>Field constraints on construction and after effects</li>
+<li>Transitions out of <code>terminal</code> states</li>
+<li>Scenario <code>given</code> covers the entities the action references (warning)</li>
+<li>Scenario <code>given</code> states reachable from the lifecycle initial state (warning)</li>
+<li>Actions without scenarios (warning); files not imported by the entry point (warning)</li>
+</ul>
+<h3 id="scenario-execution">Scenario execution</h3>
+<ol>
+<li><strong>Invariants</strong> and <strong>pre</strong> — checked against <code>given</code></li>
+<li><strong>Terminal guard</strong> — an entity in a terminal lifecycle state must not be modified</li>
+<li><strong>Effects</strong> applied simultaneously → post-state</li>
+<li><strong>post</strong>, invariants, and field constraints — checked against the post-state</li>
+<li><strong>then</strong> (<code>Assert</code>, <code>Emitted</code>) — checked against the post-state</li>
+</ol>
+<p>If <code>expected=Expect.FAIL</code>: the scenario passes when steps 1–2 block the action.</p>
+<h3 id="reachability-queries_1">Reachability (queries)</h3>
+<p>BFS over all reachable states; every query answers with a trace of action ids:</p>
+<ul>
+<li><code>Reachable(p)</code> — a witness path exists / FAIL with "explored all N states"</li>
+<li><code>Unreachable(p)</code> — regression guard; FAIL shows the counterexample path</li>
+<li><code>AlwaysHolds(p)</code> — invariant over the whole space, not just scenarios</li>
+<li><code>NoDeadEnd(goal)</code> — softlock detector: a reachable state from which the goal is gone</li>
+<li><code>DeadActions()</code> — actions never enabled in any reachable state</li>
+<li>en route: invariant violations and undeclared lifecycle transitions, with traces</li>
+</ul>
+<hr />
+<h2 id="examples">Examples</h2>
+<table>
+<thead>
+<tr>
+<th>Example</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/ecommerce/spec.py"><code>examples/ecommerce/</code></a></td>
+<td>Single file: invariants, pre/post, effects, payload-bound events, Reachable with <code>given</code></td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/tree/main/examples/taskboard"><code>examples/taskboard/</code></a></td>
+<td>Multi-file spec: 7 entities, 8 actions, 16 scenarios, lifecycles with terminal states, event-driven actions</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/cloak/spec.py"><code>examples/cloak/</code></a></td>
+<td>A text-adventure game as a verifiable spec: the engine finds the walkthrough (<code>Reachable(WON)</code>), proves you can't get stuck (<code>NoDeadEnd</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/trollbridge/spec.py"><code>examples/trollbridge/</code></a></td>
+<td><strong>Deliberately broken</strong>: all scenarios green, but the engine finds an economy softlock and an unmodelled death — bugs example-based testing cannot see</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/tree/main/examples/fulfillment"><code>examples/fulfillment/</code></a></td>
+<td>An order-fulfillment <strong>saga</strong> as a pure domain model: 16 actions with compensations for every failure; <code>NoDeadEnd</code> proves no reachable state is a dead end — a clean settlement stays reachable from every state (recoverability, not a guarantee that every run finishes)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/coin/spec.py"><code>examples/coin/</code></a></td>
+<td>A line-by-line translation of <strong>Quint's flagship tutorial</strong> (the Solidity subcurrency) — reproduces the supply-overflow violation from the Quint lesson with a trace; see <code>research/15</code> for the honest comparison</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/branch_protection/README.md"><code>examples/branch_protection/</code></a></td>
+<td>First <strong>external evidence model</strong>: GitHub protected-branch PR policy, proven unbypassable across every action order; measured requirement-change series (<code>research/23</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/oauth/README.md"><code>examples/oauth/</code></a></td>
+<td>Second <strong>external evidence model</strong>: OAuth 2.0 auth-code + PKCE — two clients, relational token provenance, replay revocation; explicit multi-file <code>Contract</code> split + a Quint port (<code>research/24</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/mafia/README.md"><code>examples/mafia/</code></a></td>
+<td><strong>Mafia/Werewolf</strong> from Quint: the citizens cannot win under <em>every</em> nondeterministic role assignment (declarative <code>Initial</code>, role-generic <code>Param</code> actions; <code>research/16</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/sunless_crypt/README.md"><code>examples/sunless_crypt/</code></a></td>
+<td>A dungeon crawl that is both <strong>checked and played</strong>: the same spec is verified by <code>analint check</code> and run as a text game by <code>examples/play.py</code> (<code>research/21</code>)</td>
+</tr>
+<tr>
+<td><a href="https://github.com/angru/analint/blob/main/examples/k8s_replicaset/README.md"><code>examples/k8s_replicaset/</code></a></td>
+<td>The <strong>project-sized dogfood</strong>: a Kubernetes ReplicaSet reconciling Pods under a count/pods ResourceQuota — multiplicity + presence + <code>Count</code> + <code>ownerReference</code> provenance, reachability/safety only (liveness deliberately out of scope; <code>research/26</code> §P4.5)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="status">Status</h2>
+<p>This is the <strong>first public release (<code>0.0.1</code>)</strong>. The engine and CLI are mature and
+covered by 350+ tests, but the API is not yet frozen and may change before <code>1.0</code> —
+pin a version if you depend on it.</p>
+<p>analint performs <strong>bounded reachability</strong> over a finite state graph. It checks
+safety and reachability — invariants, <code>Reachable</code>, <code>NoDeadEnd</code>, dead actions — and
+returns an honest completeness verdict, preferring <code>INCONCLUSIVE</code> / <code>NOT_CHECKED</code>
+over a silent pass. It deliberately does <strong>not</strong> model liveness or temporal
+"eventually" properties; that is a scope boundary, not a defect.</p>
+<h2 id="contributing">Contributing</h2>
+<p>See <a href="https://github.com/angru/analint/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> for development setup, running the tests,
+and the review-gated workflow.</p>
+<h2 id="license">License</h2>
+<p><a href="https://github.com/angru/analint/blob/main/LICENSE">MIT</a> © angru</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["content.code.copy", "navigation.top", "navigation.tracking"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -23,7 +23,7 @@ class Scenario(BaseModel):
     evaluated against the post-state.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
     id: str = ""  # filled from the variable name by the loader when empty
     name: str = ""
     description: str = ""

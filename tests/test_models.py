@@ -378,6 +378,11 @@ def test_root_models_reject_removed_actors_field(model):
         model(**kwargs)
 
 
+def test_scenario_rejects_unknown_field():
+    with pytest.raises(ValueError, match="bogus"):
+        Scenario(id="s", action=Action(id="a"), bogus=object())
+
+
 def test_scenario_given_and_expected():
     class Item(Entity):
         price: float

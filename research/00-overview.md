@@ -39,6 +39,7 @@
 | [30-dsl-contract-stabilization-review.md](30-dsl-contract-stabilization-review.md) | Pre-documentation API review: stable semantic kernel, bounded surface cleanup, rejected redesigns and freeze matrix |
 | [31-goal-and-expressiveness-closure-audit.md](31-goal-and-expressiveness-closure-audit.md) | Strict goal/capability audit: finite-state semantic closure, evidence matrix, adversarial requirements and non-goals |
 | [32-benchmarks-backends-and-terminal-ui.md](32-benchmarks-backends-and-terminal-ui.md) | Longitudinal performance benchmarks, trigger-based backend strategy, and a human-only read-only TUI gate |
+| [33-agent-skill-vs-mcp.md](33-agent-skill-vs-mcp.md) | Agent distribution decision: one portable skill over the CLI, MCP retained as the optional typed execution layer |
 
 Статус и приоритеты живут только в **[../ROADMAP.md](../ROADMAP.md)**.
 Research-файлы — датированная аргументация и история решений.
@@ -99,3 +100,8 @@ executable traces и реальные внешние модели.
   evidence models from performance benchmarks, adds ASV-style history over the
   existing workloads, defers another verifier until a measured trigger, and
   treats a TUI as an optional human navigator after API/docs stabilization.
+- The agent-distribution review (research/33) recommends one portable
+  instruction-only Agent Skill as the default local-agent onboarding path.
+  It complements rather than replaces the versioned CLI/MCP contracts; plugins
+  are deferred until marketplace distribution or automatic MCP configuration
+  has a concrete consumer.

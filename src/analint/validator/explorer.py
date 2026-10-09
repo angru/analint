@@ -586,12 +586,15 @@ def run_query(
     if analysis is not None:
         # the full exploration of these roots would surface every action's
         # defects; the per-action slices do the same and decide DeadActions
-        per_action = cover_actions(analysis, initials, budget, cache)
+        # invariants were proven from the canonical roots only (SliceAnalysis)
+        canonical = not (query.given or query.given_any or query.initial is not None)
+        per_action = cover_actions(analysis, initials, budget, cache, canonical=canonical)
         if isinstance(query, DeadActions):
             return _eval_dead_actions_sliced(qid, spec, per_action)
-        piece = analysis.predicate_slice(
-            query.goal if isinstance(query, NoDeadEnd) else query.predicate
-        )
+        if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
+            piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
+        else:
+            piece = analysis.predicate_slice(query.predicate, canonical=canonical)
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
         result = _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
@@ -612,16 +615,29 @@ def _evaluate(query: Query, qid: str, exp: Exploration, spec: Spec) -> QueryResu
 
 
 def explore_slice(
-    analysis: SliceAnalysis, piece: Slice, initials: list[dict], max_states: int, cache: dict
+    analysis: SliceAnalysis,
+    piece: Slice,
+    initials: list[dict],
+    max_states: int,
+    cache: dict,
+    *,
+    reuse_superset: bool = False,
 ) -> tuple[Exploration, Slice]:
     """Explore one slice (research/34 §5); returns the exploration and the
     slice it actually covers. A complete exploration of a closed superset is
-    exact for every slice inside it, so it is reused rather than re-explored."""
+    exact for every slice inside it; ``reuse_superset`` answers from it instead
+    of exploring (used by the per-action coverage — a property reports its own,
+    smallest slice)."""
     if piece.vars is None:
         return explore_cached(analysis.spec, initials, max_states, cache), piece
     explored = analysis.explored.setdefault((analysis.roots_key(initials), max_states), [])
     for used, exp in explored:
-        if used.vars == piece.vars or (not exp.capped and piece.vars <= used.vars):
+        if used.key == piece.key or (
+            reuse_superset
+            and not exp.capped
+            and piece.vars <= used.vars
+            and analysis.is_exact(used)
+        ):
             return exp, used
     roots, numbers, inert = analysis.project_roots(piece, initials)
     exp = explore(
@@ -632,18 +648,28 @@ def explore_slice(
 
 
 def cover_actions(
-    analysis: SliceAnalysis, initials: list[dict], max_states: int, cache: dict
+    analysis: SliceAnalysis,
+    initials: list[dict],
+    max_states: int,
+    cache: dict,
+    *,
+    canonical: bool,
 ) -> dict[int, Exploration]:
     """Every action explored in its own slice from these roots — the sliced
     counterpart of one full exploration: it surfaces each action's defects and
     decides its fireability. Keyed by id(action)."""
-    key = (analysis.roots_key(initials), max_states)
+    key = (analysis.roots_key(initials), max_states, canonical)
     if key not in analysis.covered:
         # largest slices first, so the nested ones reuse their explorations
-        pieces = [(action, analysis.action_slice(action)) for action in analysis.spec.actions]
+        pieces = [
+            (action, analysis.action_slice(action, canonical=canonical))
+            for action in analysis.spec.actions
+        ]
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         analysis.covered[key] = {
-            id(action): explore_slice(analysis, piece, initials, max_states, cache)[0]
+            id(action): explore_slice(
+                analysis, piece, initials, max_states, cache, reuse_superset=True
+            )[0]
             for action, piece in pieces
         }
     return analysis.covered[key]
@@ -718,16 +744,34 @@ def verify_invariants(
 
     cache = {} if cache is None else cache
     if analysis is not None:
-        # defects parity with the full canonical exploration (see cover_actions)
-        cover_actions(analysis, initials, max_states, cache)
-        results = []
+        # Phase 1: each invariant on its unconstrained slice. That model prunes
+        # less than the whole one, so a PASS there is final — and makes the
+        # invariant trusted: it never prunes, other slices need not include it.
+        checked = []
         for inv in spec.invariants:
             exp, used = explore_slice(
-                analysis, analysis.invariant_slice(inv), initials, max_states, cache
+                analysis,
+                analysis.invariant_slice(inv, unconstrained=True),
+                initials,
+                max_states,
+                cache,
             )
             result = _verify_one_invariant(inv, exp)
+            if result.status == QueryStatus.PASS:
+                analysis.trusted.add(id(inv))
+            checked.append((inv, result, used))
+        # Phase 2: a FAIL is true of the whole model only on an exact slice.
+        results = []
+        for inv, result, used in checked:
+            if result.status == QueryStatus.FAIL and not analysis.is_exact(used):
+                exp, used = explore_slice(
+                    analysis, analysis.invariant_slice(inv), initials, max_states, cache
+                )
+                result = _verify_one_invariant(inv, exp)
             result.slice = used.summary()
             results.append(result)
+        # defects parity with the full canonical exploration (see cover_actions)
+        cover_actions(analysis, initials, max_states, cache, canonical=True)
         return results, None
     exp = explore_cached(spec, initials, max_states, cache)
     return [_verify_one_invariant(inv, exp) for inv in spec.invariants], exp

@@ -246,9 +246,10 @@ def validate(
                 run_query(query, spec, explorations, max_states=max_states, analysis=analysis)
             )
 
+    used = analysis.explorations() if analysis is not None else []
     # Surface the transition defects every exploration found — a broken action
     # must fail the run, not hide behind a green invariant.
-    for exp in [*explorations.values(), *(analysis.explorations() if analysis else [])]:
+    for exp in [*explorations.values(), *used]:
         _merge_exploration_findings(exp)
 
     return result

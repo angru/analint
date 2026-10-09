@@ -170,6 +170,14 @@ own slice for defect parity and DeadActions. Do not regress:
 - the characterization snapshot pins the **monolithic** path
   (`validate(sliced=False)`); `tests/test_slicing.py` gates slicing against
   it on every example, plus planted-defect probes, one per closure rule;
+- terminal-lock reads join a slice only for `NoDeadEnd` (a lock only disables;
+  closing it creates dead ends);
+- invariants join a slice as pruning constraints only until proven: they are
+  first checked on unconstrained slices (a PASS there is final). A slice whose
+  mentioned invariants are all proven stays unconstrained. A FAIL found on a
+  non-exact slice is re-checked constrained. Non-exact explorations contribute
+  no findings. Trust is per canonical roots; own-root queries are always
+  constrained;
 - the one documented divergence: the whole model counts a state that breaks an
   invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does
   not. That violation still fails the run in its own invariant's slice;

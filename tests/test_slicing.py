@@ -300,3 +300,98 @@ def test_queries_with_different_roots_never_share_a_slice_exploration():
     for _ in range(50):  # give the allocator every chance to reuse ids
         assert str(run_query(disarmed, spec, cache, analysis=analysis).status) == "PASS"
         assert str(run_query(armed, spec, cache, analysis=analysis).status) == "FAIL"
+
+
+class _Life(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+def _closable_counter() -> Spec:
+    class Ticket(Entity):
+        status: _Life = Lifecycle(
+            _Life.OPEN, transitions={_Life.OPEN: [_Life.CLOSED]}, terminal=[_Life.CLOSED]
+        )
+        x: int = Field(0, ge=0, le=2)
+
+    inc = Action(id="inc", pre=[Ticket.x < 2], effect=[Add(Ticket.x, 1)])
+    close = Action(id="close", effect=[Set(Ticket.status, _Life.CLOSED)])
+    return Spec(
+        id="s",
+        name="s",
+        entities=[Ticket],
+        actions=[inc, close],
+        invariants=[Invariant(Ticket.x <= 2, id="x_bounded")],
+    )
+
+
+def test_terminal_lock_dead_ends_are_seen_by_no_dead_end():
+    # Closing freezes the ticket: x < 2 then has no way to reach 2.
+    spec = _closable_counter()
+    ticket = spec.entities[0]
+    assert _sliced_vs_whole(spec, query=NoDeadEnd(ticket.x == 2, id="x_reaches_2")) == (
+        "FAIL",
+        "FAIL",
+    )
+
+
+def test_terminal_lock_alone_does_not_pull_the_closer_into_a_slice():
+    # A lock only disables, so for reachability the closer is irrelevant.
+    spec = _closable_counter()
+    ticket = spec.entities[0]
+    assert _sliced_vs_whole(spec, query=Reachable(ticket.x == 2, id="x_can_reach_2")) == (
+        "PASS",
+        "PASS",
+    )
+    assert _sliced_vs_whole(spec) == ("PASS", "PASS")
+    piece = SliceAnalysis(spec).invariant_slice(spec.invariants[0])
+    assert [a.id for a in piece.actions] == ["inc"]
+
+
+# ── invariant trust (SliceAnalysis docstring) ─────────────────────────────────
+
+_TRUST_SPEC = """
+from analint import Action, Add, Entity, Field, Implies, Invariant, Reachable, Spec
+
+
+class A(Entity):
+    x: int = Field(0, ge=0, le=3)
+
+
+class B(Entity):
+    y: int = Field(0, ge=0, le=3)
+
+
+inc_x = Action(id="inc_x", pre=[A.x < 3], effect=[Add(A.x, 1)])
+inc_y = Action(id="inc_y", pre=[B.y < 3], effect=[Add(B.y, 1)])
+spec = Spec(
+    id="trust",
+    name="trust",
+    entities=[A, B],
+    actions=[inc_x, inc_y],
+    invariants=[Invariant({invariant}, id="j")],
+    queries=[Reachable(A.x == 3, id="x_reaches_3")],
+)
+"""
+
+
+def _run_both(tmp_path, invariant: str):
+    entry = tmp_path / "spec.py"
+    entry.write_text(_TRUST_SPEC.format(invariant=invariant))
+    return validate(entry), validate(entry, sliced=False)
+
+
+def test_a_failing_invariant_keeps_constraining_the_slices(tmp_path):
+    # j prunes at x == 2, so x == 3 is unreachable in the whole model; an
+    # unconstrained slice would walk past the violation and call it reachable.
+    sliced, whole = _run_both(tmp_path, "A.x <= 1")
+    assert [q.status for q in whole.query_results] == ["FAIL"]
+    assert _shape(sliced) == _shape(whole)
+
+
+def test_a_proven_mixed_invariant_does_not_glue_independent_processes(tmp_path):
+    # j mentions A and B but always holds: once proven it prunes nothing, so
+    # the query's slice stays with A's action alone.
+    sliced, whole = _run_both(tmp_path, "Implies(A.x == 3, B.y >= 0)")
+    assert _shape(sliced) == _shape(whole)
+    assert sliced.query_results[0].slice["actions"] == 1

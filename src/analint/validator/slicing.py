@@ -171,9 +171,11 @@ def _action_writes(action: Action) -> set[Var]:
     return writes
 
 
-def _action_vars(action: Action, lock_fields: dict[type, list[str]]) -> set[Var]:
-    """Everything the action's outcome depends on or changes."""
+def _action_vars(action: Action, lock_fields: dict[type, list[str]]) -> tuple[set[Var], set[Var]]:
+    """Everything the action's outcome depends on or changes, and — apart —
+    the lifecycle fields its terminal lock reads (see ``SliceAnalysis._close``)."""
     out = _action_writes(action)
+    locks: set[Var] = set()
     for pred in [*action.pre, *action.post]:
         _pred_vars(pred, out)
     touched = set()
@@ -193,12 +195,12 @@ def _action_vars(action: Action, lock_fields: dict[type, list[str]]) -> set[Var]
         if isinstance(key, InstanceRef):
             out.add((key, PRESENT))  # presence guard
         for name in lock_fields.get(_entity_cls(key), ()):
-            out.add((key, name))  # terminal lock
+            locks.add((key, name))  # terminal lock
     for emitted in action.emits:
         if not isinstance(emitted, type):
             for value in emitted.__dict__.values():
                 _operand_vars(value, out)
-    return out
+    return out, locks
 
 
 # ── slices ───────────────────────────────────────────────────────────────────
@@ -206,11 +208,23 @@ def _action_vars(action: Action, lock_fields: dict[type, list[str]]) -> set[Var]
 
 @dataclass(frozen=True)
 class Slice:
-    """``vars is None`` means the whole model (an unsliceable property)."""
+    """``vars is None`` means the whole model (an unsliceable property).
+
+    ``constrained`` — built with every invariant that mentions a slice variable
+    (the whole model treats invariants as pruning constraints). A slice built
+    without that rule is exact only while those invariants are proven
+    (``SliceAnalysis.is_exact``)."""
 
     vars: frozenset | None
     actions: tuple
     invariants: tuple
+    constrained: bool = True
+
+    @property
+    def key(self) -> tuple:
+        """Identity of what an exploration of this slice sees (by object id —
+        DSL objects must never be compared with ==)."""
+        return (self.vars, tuple(id(i) for i in self.invariants))
 
     def summary(self) -> dict:
         fields = (
@@ -222,8 +236,19 @@ class Slice:
 
 
 class SliceAnalysis:
-    """Per-spec dependency index: who writes each variable, which invariants
-    read it — built once per validate() run."""
+    """Per-spec dependency index (who writes each variable, which invariants
+    read it) plus the per-run slicing state.
+
+    Invariants as constraints. The whole model does not expand a state that
+    breaks an invariant, so an invariant mentioning a slice variable can prune
+    the slice's behaviour — the constrained closure pulls it in, and with it
+    everything it reads. That often glues independent processes together. But
+    a model in which no invariant is ever violated prunes nothing: an invariant
+    proven (PASS) without pruning holds in the whole model too and never prunes
+    there. So invariants are first verified on unconstrained slices; any slice
+    whose mentioned invariants are all proven stays unconstrained and exact.
+    This trust is about the canonical roots the invariants were proven from;
+    other roots always use constrained slices."""
 
     def __init__(self, spec: Spec) -> None:
         self.spec = spec
@@ -232,6 +257,7 @@ class SliceAnalysis:
             if lc.terminal:
                 lock_fields.setdefault(lc.entity_cls, []).append(lc.field_name)
         self.whole = Slice(None, tuple(spec.actions), tuple(spec.invariants))
+        self.trusted: set[int] = set()  # ids of invariants proven over the canonical roots
         # Keyed by id(); each value pins its object so the id cannot be reused by
         # another root set while this analysis lives (a reused id would hand one
         # query's roots another query's exploration).
@@ -239,16 +265,19 @@ class SliceAnalysis:
         self._roots_keys: dict[int, tuple[list, tuple]] = {}
         # (roots, budget) -> [(slice, exploration)] explored in this run
         self.explored: dict[tuple, list] = {}
-        self.covered: dict[tuple, dict] = {}  # (roots, budget) -> cover_actions result
-        self._action_slices: dict[int, Slice] = {}
+        self.covered: dict[tuple, dict] = {}  # (roots, budget, canonical) -> cover result
+        self._action_slices: dict[tuple, Slice] = {}
         self.sliceable = True
         self.action_vars: dict[int, set[Var]] = {}
+        self.lock_vars: dict[int, set[Var]] = {}
         self.writers: dict[Var, list[Action]] = {}
         self.inv_vars: dict[int, set[Var]] = {}
         self.readers: dict[Var, list[Invariant]] = {}
         try:
             for action in spec.actions:
-                self.action_vars[id(action)] = _action_vars(action, lock_fields)
+                self.action_vars[id(action)], self.lock_vars[id(action)] = _action_vars(
+                    action, lock_fields
+                )
                 for var in _action_writes(action):
                     self.writers.setdefault(var, []).append(action)
             for inv in spec.invariants:
@@ -260,33 +289,90 @@ class SliceAnalysis:
         except _Unsliceable:
             self.sliceable = False
 
-    def predicate_slice(self, *predicates: Any) -> Slice:
+    # ── slices of the things a run checks ────────────────────────────────────
+
+    def predicate_slice(self, *predicates: Any, locks: bool = False, canonical: bool) -> Slice:
         seed: set[Var] = set()
         try:
             for pred in predicates:
                 _pred_vars(pred, seed)
         except _Unsliceable:
             return self.whole
-        return self._close(seed, ())
+        return self._resolve(seed, (), (), locks=locks, canonical=canonical)
 
-    def invariant_slice(self, inv: Invariant) -> Slice:
+    def invariant_slice(self, inv: Invariant, *, unconstrained: bool = False) -> Slice:
         if not self.sliceable:
             return self.whole
-        return self._close(set(self.inv_vars[id(inv)]), (), (inv,))
+        seed = set(self.inv_vars[id(inv)])
+        if unconstrained:
+            # no invariant inside, not even this one: the unconstrained model
+            # prunes nothing, and invariants over the same variables then share
+            # one exploration (the invariant is checked over its states)
+            return self._close(seed, (), (), constrained=False)
+        return self._resolve(seed, (), (inv,), canonical=True)
 
-    def action_slice(self, action: Action) -> Slice:
+    def action_slice(self, action: Action, *, canonical: bool) -> Slice:
         """The cone of an action itself — for its fireability and defects."""
         if not self.sliceable:
             return self.whole
-        piece = self._action_slices.get(id(action))
+        key = (id(action), canonical)
+        piece = self._action_slices.get(key)
         if piece is None:
-            piece = self._close(set(self.action_vars[id(action)]), (action,))
-            self._action_slices[id(action)] = piece
+            seed = set(self.action_vars[id(action)])
+            piece = self._resolve(seed, (action,), (), canonical=canonical)
+            self._action_slices[key] = piece
         return piece
 
-    def _close(self, seed: set[Var], actions: tuple, invariants: tuple = ()) -> Slice:
+    def is_exact(self, piece: Slice) -> bool:
+        """Constrained slices always are; an unconstrained one is while every
+        invariant that mentions its variables (and is not inside it) is proven."""
+        if piece.vars is None or piece.constrained:
+            return True
+        inside = {id(inv) for inv in piece.invariants}
+        return all(
+            id(inv) in self.trusted or id(inv) in inside
+            for var in piece.vars
+            for inv in self.readers.get(var, ())
+        )
+
+    def _resolve(
+        self,
+        seed: set[Var],
+        actions: tuple,
+        invariants: tuple,
+        *,
+        locks: bool = False,
+        canonical: bool,
+    ) -> Slice:
         if not self.sliceable:
             return self.whole
+        if canonical:
+            free = self._close(seed, actions, invariants, locks=locks, constrained=False)
+            if self.is_exact(free):
+                return free
+        return self._close(seed, actions, invariants, locks=locks, constrained=True)
+
+    def _close(
+        self,
+        seed: set[Var],
+        actions: tuple,
+        invariants: tuple = (),
+        *,
+        locks: bool = False,
+        constrained: bool,
+    ) -> Slice:
+        """The least closed variable set containing ``seed``.
+
+        Terminal-lock reads join only with ``locks``. A terminal state is
+        absorbing, so a lock can only ever *disable* the actions it guards:
+        leaving its field out (frozen at its root value) changes no reachable
+        state, fireability or defect — every relevant firing in the full model
+        happens while the lock is open. It does change ``NoDeadEnd``: the states
+        after the lock closes are dead ends the slice would not see, so NoDeadEnd
+        slices pass ``locks=True``.
+
+        Invariants mentioning a slice variable join only when ``constrained``
+        (see the class docstring)."""
         in_actions = {id(a) for a in actions}
         in_invariants = {id(i) for i in invariants}
         variables: set[Var] = set()
@@ -300,7 +386,9 @@ class SliceAnalysis:
                 if id(action) not in in_actions:
                     in_actions.add(id(action))
                     work.extend(self.action_vars[id(action)])
-            for inv in self.readers.get(var, ()):
+                    if locks:
+                        work.extend(self.lock_vars[id(action)])
+            for inv in self.readers.get(var, ()) if constrained else ():
                 if id(inv) not in in_invariants:
                     in_invariants.add(id(inv))
                     work.extend(self.inv_vars[id(inv)])
@@ -308,7 +396,10 @@ class SliceAnalysis:
             frozenset(variables),
             tuple(a for a in self.spec.actions if id(a) in in_actions),
             tuple(i for i in self.spec.invariants if id(i) in in_invariants),
+            constrained,
         )
+
+    # ── exploration bookkeeping ──────────────────────────────────────────────
 
     def roots_key(self, initials: list[dict]) -> tuple:
         from analint.validator.explorer import state_key
@@ -320,7 +411,12 @@ class SliceAnalysis:
         return cached[1]
 
     def explorations(self) -> list:
-        return [exp for runs in self.explored.values() for _, exp in runs]
+        """The explorations whose findings are true of the whole model: an
+        unconstrained one whose invariants were not all proven may have run
+        past a state the whole model would not expand."""
+        return [
+            exp for runs in self.explored.values() for piece, exp in runs if self.is_exact(piece)
+        ]
 
     def sliced_spec(self, piece: Slice) -> Spec:
         if piece.vars is None:

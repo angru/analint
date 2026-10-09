@@ -1,7 +1,53 @@
 from analint import Spec
 
-# The entry point's import graph defines the spec.
-from . import queries, scenarios  # noqa: F401
+from .actions import (
+    authorize_payment,
+    cancel_by_customer,
+    capture_payment,
+    close_lost_order,
+    compensate_failed_payment,
+    confirm_delivery,
+    confirm_order,
+    decline_payment,
+    dispatch,
+    refund_after_cancel,
+    refund_lost,
+    reject_out_of_stock,
+    release_after_cancel,
+    report_lost,
+    reserve_stock,
+    supplier_restock,
+)
+from .invariants import delivered_means_paid
+from .queries import (
+    every_step_used,
+    happy_path_exists,
+    no_free_goods,
+    no_money_for_nothing,
+    refund_path_exists,
+    settlement_always_reachable,
+)
+from .scenarios import (
+    sc_authorize,
+    sc_cancel,
+    sc_cancel_window_closed,
+    sc_capture,
+    sc_close_lost,
+    sc_close_lost_needs_refund,
+    sc_compensate_failed,
+    sc_confirm,
+    sc_decline,
+    sc_delivery,
+    sc_dispatch,
+    sc_lost,
+    sc_refund,
+    sc_refund_lost,
+    sc_reject,
+    sc_release,
+    sc_reserve,
+    sc_reserve_needs_stock,
+    sc_restock,
+)
 
 spec = Spec(
     id="fulfillment",
@@ -10,4 +56,52 @@ spec = Spec(
     description="A pure domain model of an order saga: reservation, payment, "
     "shipment, and a compensation for every failure — verified to have no "
     "dead-end state (settlement always stays reachable, not inevitable)",
+    actions=[
+        supplier_restock,
+        reserve_stock,
+        reject_out_of_stock,
+        authorize_payment,
+        decline_payment,
+        compensate_failed_payment,
+        confirm_order,
+        capture_payment,
+        cancel_by_customer,
+        refund_after_cancel,
+        release_after_cancel,
+        dispatch,
+        confirm_delivery,
+        report_lost,
+        refund_lost,
+        close_lost_order,
+    ],
+    invariants=[delivered_means_paid],
+    scenarios=[
+        sc_restock,
+        sc_reserve,
+        sc_reject,
+        sc_reserve_needs_stock,
+        sc_authorize,
+        sc_decline,
+        sc_compensate_failed,
+        sc_confirm,
+        sc_capture,
+        sc_cancel,
+        sc_cancel_window_closed,
+        sc_refund,
+        sc_release,
+        sc_dispatch,
+        sc_delivery,
+        sc_lost,
+        sc_refund_lost,
+        sc_close_lost,
+        sc_close_lost_needs_refund,
+    ],
+    queries=[
+        settlement_always_reachable,
+        happy_path_exists,
+        refund_path_exists,
+        no_free_goods,
+        no_money_for_nothing,
+        every_step_used,
+    ],
 )

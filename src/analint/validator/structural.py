@@ -948,6 +948,13 @@ def _unregistered_bound_scope(variable: Bound, loc: str) -> Finding:
     )
 
 
+def _known_absent(context: dict, instance: InstanceRef) -> bool:
+    # A member missing from the context (a scenario given that omits it) is
+    # unknown, not absent: it stays required, so a partial given cannot make a
+    # quantifier or aggregate applicable over incomplete data.
+    return instance in context and not is_present(context, instance)
+
+
 def _operand_refs(
     operand: Any, context: dict | None = None
 ) -> list[FieldDescriptor | InstanceField]:
@@ -957,7 +964,7 @@ def _operand_refs(
     if isinstance(operand, _Count):
         refs: list[FieldDescriptor | InstanceField] = []
         for instance in operand.variable.scope:
-            if context is not None and not is_present(context, instance):
+            if context is not None and _known_absent(context, instance):
                 continue
             refs.extend(
                 _collect_field_refs(
@@ -968,7 +975,7 @@ def _operand_refs(
     if isinstance(operand, (_Sum, _Min, _Max)):
         refs = []
         for instance in operand.variable.scope:
-            if context is not None and not is_present(context, instance):
+            if context is not None and _known_absent(context, instance):
                 continue
             refs.extend(
                 _operand_refs(bind_operand(operand.operand, operand.variable, instance), context)
@@ -982,7 +989,7 @@ def _operand_refs(
 def _collect_field_refs(
     pred: Predicate, context: dict | None = None
 ) -> list[FieldDescriptor | InstanceField]:
-    """All structural references, or only present quantified members with a context.
+    """All structural references, or all but known-absent quantified members with a context.
 
     Direct references remain required even when absent. Structural validation
     and slicing omit context and continue to inspect the entire finite universe.
@@ -998,7 +1005,7 @@ def _collect_field_refs(
         refs.extend(_collect_field_refs(pred.right, context))
     elif isinstance(pred, (_ForAll, _Exists)):
         for instance in pred.variable.scope:
-            if context is not None and not is_present(context, instance):
+            if context is not None and _known_absent(context, instance):
                 continue
             refs.extend(
                 _collect_field_refs(

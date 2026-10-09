@@ -64,7 +64,10 @@ def _invariant_keys(inv: Invariant, context: dict) -> frozenset:
     cached = inv.__dict__.get("_analint_keys")
     if cached is None or cached[0] is not inv.expression:
         keys = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression))
-        free = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression, {}))
+        none_present = {key: Absent(key) for key in keys if isinstance(key, InstanceRef)}
+        free = frozenset(
+            field_context_key(ref) for ref in _collect_field_refs(inv.expression, none_present)
+        )
         cached = (inv.expression, keys, keys != free)
         inv.__dict__["_analint_keys"] = cached
     if cached[2]:

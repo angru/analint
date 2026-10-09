@@ -74,3 +74,14 @@ def test_empty_minimum_is_an_evaluation_error_not_unchecked(slots):
     (result,), _ = verify_invariants(spec, initials)
     assert result.status == "FAIL"
     assert "evaluation error" in result.findings[0].message
+
+
+def test_member_missing_from_given_is_unknown_not_absent(slots):
+    """A scenario ``given`` that omits a scoped member says nothing about it;
+    only an explicit ``Absent`` snapshot makes a member absent. Otherwise a
+    partial given would let an aggregate pass over missing data."""
+    _, scope, bound = slots
+    a, b = scope["a"], scope["b"]
+    capped = Invariant(Sum(bound, bound.value) <= 1, id="capped")
+    assert not invariant_is_applicable(capped, {a: a(value=1)})
+    assert invariant_is_applicable(capped, {a: a(value=1), b: Absent(b)})

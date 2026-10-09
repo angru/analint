@@ -584,7 +584,14 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   ✅ step 2 (2026-10-10): reference closure — entities, events, scopes and
   inline lifecycles are derived from listed behaviour (also after a what-if
   merge); characterization snapshot unchanged; "not registered" probes now
-  assert derivation, a second `Scope` per entity is still an error
+  assert derivation, a second `Scope` per entity is still an error.
+  ✅ step 3 (2026-10-10): every example lists its behaviour (taskboard as
+  per-process contracts). Snapshot unchanged except three reviewed R7 witness
+  reorderings (branch_protection, k8s_replicaset), and all examples also
+  match it under a no-scan emulation of step 4. Migration found and fixed two
+  engine gaps: listed `Param` declarations orphaned in auto mode, and
+  `--what-if` objects dropped by explicit lists. Next: step 4 (breaking,
+  needs the user's go-ahead), step 5 docs
 - ✅ **A. Engine hygiene** (f9fe90c..8e96ad3): shared canonical exploration,
   state-key layout, cached guard plan/invariant keys, silent rejections,
   trace-on-defect, copy-on-write effects, `deque` — ~5× on

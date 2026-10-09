@@ -193,7 +193,17 @@ and explained, never regenerated mechanically (`tests/snapshots/README.md`).
    second universe over the same entity is introduced.
 3. **Migrate the examples** one by one to explicit roots while auto mode
    still exists, so each migration passes the characterization gate on its
-   own.
+   own. *Done (2026-10-10):* single-file examples list their behaviour in
+   the `Spec` in declaration order; taskboard uses per-process contracts;
+   fulfillment lists its saga modules' objects in the `Spec`. Deltas: only
+   equal-length witness reorderings from R7 (branch_protection
+   `merge_is_achievable`; k8s_replicaset `bare_pods_can_starve_a_replicaset`,
+   `both_converged_is_reachable`), graph hashes unchanged. A test-only
+   plugin that rebuilt every root without the scan matched the snapshot for
+   all examples, so step 4 is expected to be snapshot-neutral for them.
+   Two engine gaps surfaced and were fixed first: auto mode passed already
+   expanded `Param` actions as declarations (bogus orphan warnings), and a
+   non-empty list ignored `--what-if` objects (R6).
 4. **Remove auto-population (R1, R5, R7)**: delete `_auto_populate`'s scan
    path, the mixed per-field mode and the membership use of
    `collect_from_modules`; keep R6. Probes 2, 5 and 6.

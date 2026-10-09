@@ -584,16 +584,25 @@ myproject/
   actions.py        ← Action instances
   flows.py          ← Flow instances
   scenarios.py      ← Scenario instances
-  spec.py           ← imports the tops of the graph + Spec(id=..., name=...)
+  spec.py           ← lists the behaviour: Contract(s) + Spec(imports=[...])
 ```
 
 ```python
 # myproject/spec.py
-from analint import Spec
-from . import flows, scenarios  # noqa: F401
+from analint import Contract, Spec
 
-spec = Spec(id="myproject", name="My Project")
+from .actions import archive_card, create_card
+from .scenarios import sc_archive_ok, sc_create_ok
+
+cards = Contract(id="cards", actions=[create_card, archive_card],
+                 scenarios=[sc_create_ok, sc_archive_ok])
+spec = Spec(id="myproject", name="My Project", imports=[cards])
 ```
+
+Entities, events, scopes and lifecycles need not be listed: they follow from
+the behaviour that references them (research/35). A `Spec` with no lists still
+auto-discovers every object bound in the spec modules; that mode is scheduled
+for removal, and every example already lists its behaviour.
 
 A `.py` file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model. Likewise, a behaviour object (action, invariant, scenario, flow, query) defined in a spec module but not part of the model produces a warning — a forgotten registration never silently drops behaviour.
 

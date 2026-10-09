@@ -723,6 +723,7 @@ def verify_invariants(
     max_states: int = 10_000,
     cache: dict | None = None,
     analysis: SliceAnalysis | None = None,
+    explorations: dict[str, Exploration] | None = None,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
     model. ``initials`` is the pre-built canonical state set (see
@@ -734,7 +735,11 @@ def verify_invariants(
     behind a green invariant. This makes invariants a checked property of the
     model itself, not something only asserted when a user happens to write an
     ``AlwaysHolds`` query.
+
+    ``explorations``, when given, receives the exploration each final result
+    was decided on (by invariant id), so a trace replays exactly the check.
     """
+    explorations = {} if explorations is None else explorations
     if not spec.invariants:
         return [], None
 
@@ -779,6 +784,7 @@ def verify_invariants(
                 analysis.trusted.add(id(inv))
             result.elapsed_ms = (perf_counter() - started) * 1000
             checked.append((inv, result, used))
+            explorations[inv.id] = exp
         # Phase 2: a FAIL is true of the whole model only on an exact slice.
         results = []
         for inv, result, used in checked:
@@ -789,6 +795,7 @@ def verify_invariants(
                     analysis, analysis.invariant_slice(inv), initials, max_states, cache
                 )
                 result = _verify_one_invariant(inv, exp)
+                explorations[inv.id] = exp
                 result.elapsed_ms = elapsed_ms + (perf_counter() - started) * 1000
             result.slice = used.summary()
             results.append(result)
@@ -803,6 +810,7 @@ def verify_invariants(
         result = _verify_one_invariant(inv, exp)
         result.elapsed_ms = (perf_counter() - started) * 1000
         results.append(result)
+        explorations[inv.id] = exp
         started = perf_counter()
     return results, exp
 

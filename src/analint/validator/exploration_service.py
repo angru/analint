@@ -24,13 +24,13 @@ from analint.validator.artifact_builder import (
 from analint.validator.engine import prepare_model
 from analint.validator.explorer import (
     Exploration,
-    _verify_one_invariant,
     build_canonical_initials,
     explore,
-    explore_cached,
     resolve_query_initials,
     run_query,
+    verify_invariants,
 )
+from analint.validator.slicing import SliceAnalysis
 
 
 class ExplorationError(Exception):
@@ -108,13 +108,17 @@ def trace_query(
     query_id: str,
     *,
     what_if: str | Path | None = None,
+    sliced: bool = True,
 ) -> dict[str, object]:
     """The witness/counterexample of a query or invariant as states and changes
     (schema-aligned with the artifact's node ids). A passing property with no
     example returns ``witness: None`` and an explanatory message — not an error.
-    Both use the whole model, matching ``explore``; invariant traces start from
-    the canonical initial and use the canonical budget. Query payloads retain
-    their ``query`` key; invariant payloads use ``invariant`` instead."""
+    Queries use the whole model, matching ``explore``. An invariant is decided
+    exactly as ``check`` decides it (canonical initial and budget, sliced unless
+    ``sliced=False``), so a FAIL found on a slice is traceable even when the
+    whole model exceeds the budget; fields outside the slice (listed under
+    ``slice``) then keep their initial values. Query payloads retain their ``query`` key;
+    invariant payloads use ``invariant`` instead."""
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
     if prepared.spec is None:
         raise ExplorationError(
@@ -156,8 +160,17 @@ def trace_query(
         source_kind, kind = "query", result.kind
     else:
         assert invariant is not None  # the id lookup above rejected an unknown property
-        exp = explore_cached(spec, initials, spec.max_states, cache)
-        result = _verify_one_invariant(invariant, exp)
+        decided: dict[str, Exploration] = {}
+        results, _ = verify_invariants(
+            spec,
+            initials,
+            max_states=spec.max_states,
+            cache=cache,
+            analysis=SliceAnalysis(spec) if sliced else None,
+            explorations=decided,
+        )
+        result = next(r for r in results if r.invariant_id == invariant.id)
+        exp = decided.get(invariant.id)
         source_kind, kind = "invariant", "Invariant"
     if result.witness_key is None or exp is None:
         return {
@@ -168,9 +181,17 @@ def trace_query(
             "steps": [],
             "final_state": {},
             "witness": None,
-            "message": f"{kind} '{query_id}' has no witness/counterexample to trace",
+            "message": (
+                f"{kind} '{query_id}' is INCONCLUSIVE: the budget ran out before a "
+                f"witness/counterexample was found"
+                if result.status == "INCONCLUSIVE"
+                else f"{kind} '{query_id}' has no witness/counterexample to trace"
+            ),
         }
-    return _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
+    trace = _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
+    if getattr(result, "slice", None):
+        trace["slice"] = result.slice
+    return trace
 
 
 def _build_trace(

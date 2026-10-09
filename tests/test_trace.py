@@ -163,7 +163,7 @@ def test_invariant_counterexample_uses_one_exploration(tmp_path, monkeypatch):
 
     monkeypatch.setattr(explorer, "explore", counted)
     spec = _write(tmp_path, _INVARIANT_SPEC)
-    t = trace_query(spec, "limit")
+    t = trace_query(spec, "limit", sliced=False)
     assert calls == [1]
     assert t["schema"] == "analint.trace/v1"
     assert t["invariant"] == "limit"
@@ -225,7 +225,51 @@ def test_invariant_without_counterexample(tmp_path, budget, status):
     assert t["witness"] is None
     assert t["root"] is None
     assert t["steps"] == []
-    assert "no witness" in t["message"]
+    assert ("budget ran out" if status == "INCONCLUSIVE" else "no witness") in t["message"]
+
+
+_NOISY_SPEC = """
+from analint import Action, Add, Entity, Field, Invariant, Set, Spec
+
+class Box(Entity):
+    n: int = Field(0, ge=0, le=3)
+
+class Noise(Entity):
+    a: bool = False
+    b: bool = False
+    c: bool = False
+    d: bool = False
+
+tick = Action(id='tick', pre=[Box.n < 3], effect=[Add(Box.n, 1)])
+flip_a = Action(id='flip_a', effect=[Set(Noise.a, True)])
+flip_b = Action(id='flip_b', effect=[Set(Noise.b, True)])
+flip_c = Action(id='flip_c', effect=[Set(Noise.c, True)])
+flip_d = Action(id='flip_d', effect=[Set(Noise.d, True)])
+limit = Invariant(Box.n <= 2)
+spec = Spec(id='s', name='S', max_states=12)
+"""
+
+
+def test_invariant_trace_uses_the_slice_check_decided_on(tmp_path):
+    """The whole model (64 states) exceeds the budget before n reaches 3; the
+    invariant's slice (Box.n only) finds the FAIL that ``check`` reports, and
+    the trace must show it instead of INCONCLUSIVE."""
+    from analint.validator.engine import validate
+
+    spec = _write(tmp_path, _NOISY_SPEC)
+    (checked,) = validate(spec).invariant_results
+    assert checked.status == "FAIL"
+
+    t = trace_query(spec, "limit")
+    assert t["status"] == "FAIL"
+    assert [step["action"] for step in t["steps"]] == checked.trace == ["tick"] * 3
+    # fields outside the slice keep their initial values
+    assert t["final_state"] == {"Box.n": 3} | {f"Noise.{f}": False for f in "abcd"}
+    assert t["slice"] == checked.slice
+
+    whole = trace_query(spec, "limit", sliced=False)
+    assert whole["status"] == "INCONCLUSIVE"
+    assert whole["root"] is None
 
 
 def test_invariant_evaluation_error_has_initial_state_witness(tmp_path):

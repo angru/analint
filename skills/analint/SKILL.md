@@ -73,8 +73,10 @@ analint trace QUERY_ID -p PATH --format json
 analint trace INVARIANT_ID -p PATH --format json
 ```
 
-Invariant traces use the canonical initial and budget. Traces search the whole
-model; `check` uses property slices by default. A failed invariant's result has
+Invariant traces are decided exactly as `check` decides them: canonical initial
+and budget, on the invariant's slice (`--no-slice` for the whole model), so a
+FAIL found on a slice is traceable even when the whole model exceeds the
+budget. Query traces search the whole model. A failed invariant's result has
 an `invariant` key, the originating root, state changes and the final state.
 
 Use terminal output for humans and JSON for decisions or automation.

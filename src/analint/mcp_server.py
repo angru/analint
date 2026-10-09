@@ -76,11 +76,13 @@ def explore_spec(
         return exc.to_dict()
 
 
-def trace_spec(path: str = ".", query: str = "", what_if: str | None = None) -> dict:
+def trace_spec(
+    path: str = ".", query: str = "", what_if: str | None = None, slice: bool = True
+) -> dict:
     from analint.validator.exploration_service import ExplorationError, trace_query
 
     try:
-        return trace_query(path, query, what_if=what_if)
+        return trace_query(path, query, what_if=what_if, sliced=slice)
     except ExplorationError as exc:
         return exc.to_dict()
 
@@ -150,17 +152,22 @@ def build_server() -> Any:
         return explore_spec(path, query, what_if, include_graph, max_graph_states)
 
     @mcp.tool()
-    def trace(path: str = ".", query: str = "", what_if: str | None = None) -> dict:
+    def trace(
+        path: str = ".", query: str = "", what_if: str | None = None, slice: bool = True
+    ) -> dict:
         """A query or invariant's witness/counterexample as states and changes.
 
         `query` is a query or invariant id. Returns the root, a step list
         (`action`/`source`/`target`/`changes`) and the `final_state`, with node ids
         matching the exploration artifact. A passing property with no example
         returns `witness: null` and a message rather than an error.
-        Invariants use the canonical initial and budget; their payload has an
-        `invariant` key in place of `query`. Traces explore the whole model.
+        Invariants are decided exactly as `check` decides them (canonical
+        initial and budget, on their slice unless `slice` is false; the payload
+        then carries `slice`, and fields outside it keep their initial values);
+        their payload has an `invariant` key in place of `query`. Query traces
+        explore the whole model.
         """
-        return trace_spec(path, query, what_if)
+        return trace_spec(path, query, what_if, slice)
 
     @mcp.tool()
     def show(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:

@@ -222,12 +222,17 @@ def trace(
     what_if: Path | None = typer.Option(
         None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
     ),
+    no_slice: bool = typer.Option(
+        False,
+        "--no-slice",
+        help="Trace an invariant on the whole model instead of its slice (as check --no-slice)",
+    ),
 ) -> None:
     """Show a query or invariant's witness/counterexample as states and changes."""
     from analint.validator.exploration_service import ExplorationError, trace_query
 
     try:
-        result = trace_query(path, query, what_if=what_if)
+        result = trace_query(path, query, what_if=what_if, sliced=not no_slice)
     except ExplorationError as exc:
         if format == "json":
             print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))

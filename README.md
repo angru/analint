@@ -626,7 +626,9 @@ analint affects TARGET -p PATH    # impact analysis before changing something (J
 analint trace PROPERTY_ID -p PATH # query witness or invariant counterexample, with state changes
   -f, --format terminal|json
   --what-if FILE.py               # trace a property added by a hypothesis
-                                  # whole-model search; invariants use Spec.initial/max_states
+  --no-slice                      # invariants: whole model instead of check's slice
+                                  # queries search the whole model; invariants are
+                                  # decided as check decides them (Spec.initial/max_states)
 
 analint PATH                      # shorthand for `analint check PATH`
 ```

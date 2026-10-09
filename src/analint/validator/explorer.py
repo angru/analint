@@ -541,7 +541,10 @@ def resolve_query_initials(query: Query, spec: Spec) -> tuple[list[dict] | None,
     return initials, None
 
 
-def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
+def run_query(
+    query: Query, spec: Spec, cache: dict, *, max_states: int | None = None
+) -> QueryResult:
+    """``max_states`` overrides the query's own budget (``check --max-states``)."""
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
@@ -554,7 +557,7 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
             findings=[Finding(Severity.ERROR, f"query:{qid}", error or "bad initial state")],
         )
 
-    exp = explore_cached(spec, initials, query.max_states, cache)
+    exp = explore_cached(spec, initials, max_states or query.max_states, cache)
 
     if isinstance(query, Reachable):
         return _eval_reachable(query, qid, exp, expect_reachable=True)

@@ -142,7 +142,10 @@ def validate(
     scenario_ids: list[str] | None = None,
     tags: list[str] | None = None,
     extra: Path | None = None,
+    max_states: int | None = None,
 ) -> ValidationResult:
+    """``max_states`` overrides every exploration budget for this run — the
+    spec's canonical one and each query's — without mutating the model."""
     prepared = prepare_model(path, what_if=extra)
     spec, load_errors = prepared.spec, prepared.load_errors
 
@@ -220,7 +223,7 @@ def validate(
             spec,
             canonical_initials,
             build_error=canonical_error,
-            max_states=spec.max_states,
+            max_states=max_states or spec.max_states,
             cache=explorations,
         )
         # Surface the transition defects the canonical exploration found — a
@@ -232,7 +235,7 @@ def validate(
         from analint.validator.explorer import run_query
 
         for query in spec.queries:
-            result.query_results.append(run_query(query, spec, explorations))
+            result.query_results.append(run_query(query, spec, explorations, max_states=max_states))
         for exp in explorations.values():
             _merge_exploration_findings(exp)
 

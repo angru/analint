@@ -140,7 +140,10 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
     q_open = sum(1 for q in result.query_results if q.status == "INCONCLUSIVE")
     i_passed = sum(1 for i in result.invariant_results if i.status == "PASS")
     i_failed = sum(1 for i in result.invariant_results if i.status == "FAIL")
-    i_open = sum(1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED"))
+    # "budget ran out" and "could not be checked at all" need different fixes,
+    # so they are never merged into one "unchecked" count (research/34 §2.4)
+    i_open = sum(1 for i in result.invariant_results if i.status == "INCONCLUSIVE")
+    i_skipped = sum(1 for i in result.invariant_results if i.status == "NOT_CHECKED")
     f_passed = sum(1 for fr in result.flow_results if fr.passed)
     f_failed = sum(1 for fr in result.flow_results if not fr.passed)
 
@@ -156,12 +159,14 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
         if q_open:
             q_parts.append(f"[yellow]{q_open} inconclusive[/yellow]")
         parts.append(f"queries: {', '.join(q_parts)}")
-    if i_passed or i_failed or i_open:
+    if i_passed or i_failed or i_open or i_skipped:
         i_parts = [f"[green]{i_passed} ok[/green]"]
         if i_failed:
             i_parts.append(f"[red]{i_failed} failed[/red]")
         if i_open:
-            i_parts.append(f"[yellow]{i_open} unchecked[/yellow]")
+            i_parts.append(f"[yellow]{i_open} inconclusive[/yellow]")
+        if i_skipped:
+            i_parts.append(f"[yellow]{i_skipped} not checked[/yellow]")
         parts.append(f"invariants: {', '.join(i_parts)}")
     if f_passed or f_failed:
         f_parts = [f"[green]{f_passed} ok[/green]"]

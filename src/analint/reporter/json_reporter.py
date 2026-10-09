@@ -92,8 +92,15 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
             ),
             "invariants_passed": sum(1 for i in result.invariant_results if i.status == "PASS"),
             "invariants_failed": sum(1 for i in result.invariant_results if i.status == "FAIL"),
+            # kept for v1 compatibility: inconclusive + not_checked
             "invariants_unchecked": sum(
                 1 for i in result.invariant_results if i.status in ("INCONCLUSIVE", "NOT_CHECKED")
+            ),
+            "invariants_inconclusive": sum(
+                1 for i in result.invariant_results if i.status == "INCONCLUSIVE"
+            ),
+            "invariants_not_checked": sum(
+                1 for i in result.invariant_results if i.status == "NOT_CHECKED"
             ),
             "flows_passed": sum(1 for fr in result.flow_results if fr.passed),
             "flows_failed": sum(1 for fr in result.flow_results if not fr.passed),

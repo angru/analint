@@ -108,3 +108,67 @@ def test_strict_warning_makes_json_and_exit_agree():
     assert strict["verdict"] == "FAIL"
     assert runner.invoke(app, ["check", str(warns)]).exit_code == 0
     assert runner.invoke(app, ["check", str(warns), "--strict"]).exit_code == 1
+
+
+# ── Budget exhaustion vs not checkable; the --max-states override ─────────────
+
+_BOUNDED = """
+from analint import Action, Add, Entity, Field, Invariant, Spec, Unreachable
+
+
+class Gauge(Entity):
+    n: int = Field(0, ge=0, le=20)
+
+
+class Needs(Entity):
+    x: int  # no default: the canonical state cannot be built for it
+
+
+tick = Action(id="tick", pre=[Gauge.n < 20], effect=[Add(Gauge.n, 1)])
+in_range = Invariant(Gauge.n <= 20)
+never_99 = Unreachable(Gauge.n == 99, id="never_99")
+spec = Spec(id="b", name="B", entities=[Gauge], actions=[tick], invariants=[in_range])
+"""
+
+
+def test_summary_separates_inconclusive_from_not_checked(tmp_path):
+    entry = tmp_path / "spec.py"
+    entry.write_text(_BOUNDED)
+    capped = result_to_dict(validate(entry, max_states=5))["summary"]
+    assert (capped["invariants_inconclusive"], capped["invariants_not_checked"]) == (1, 0)
+
+    # Needs has no default, so the canonical state cannot be built at all
+    unbuildable = tmp_path / "unbuildable" / "spec.py"
+    unbuildable.parent.mkdir()
+    unbuildable.write_text(
+        _BOUNDED.replace("entities=[Gauge]", "entities=[Gauge, Needs]")
+        .replace("invariants=[in_range]", "invariants=[in_range, needs_x]")
+        .replace("spec = Spec(", "needs_x = Invariant(Needs.x >= 0)\nspec = Spec(")
+    )
+    summary = result_to_dict(validate(unbuildable))["summary"]
+    assert (summary["invariants_inconclusive"], summary["invariants_not_checked"]) == (0, 2)
+    assert summary["invariants_unchecked"] == 2  # v1 field: their sum
+
+
+def test_max_states_override_does_not_mutate_the_model(tmp_path):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        _BOUNDED.replace("invariants=[in_range])", "invariants=[in_range], queries=[never_99])")
+    )
+
+    capped = validate(entry, max_states=5)
+    assert [q.status for q in capped.query_results] == ["INCONCLUSIVE"]
+    assert capped.query_results[0].states_explored == 5
+
+    again = validate(entry)  # same loaded objects: the override must not stick
+    assert [q.status for q in again.query_results] == ["PASS"]
+    assert [i.status for i in again.invariant_results] == ["PASS"]
+
+
+def test_cli_max_states_reaches_every_exploration():
+    res = runner.invoke(app, ["check", str(INCONCLUSIVE), "--max-states", "7", "-f", "json"])
+    assert res.exit_code == 4, res.output
+    assert '"states_explored": 7' in res.output
+
+    bad = runner.invoke(app, ["check", str(INCONCLUSIVE), "--max-states", "0"])
+    assert bad.exit_code == 2

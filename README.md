@@ -582,7 +582,7 @@ from . import flows, scenarios  # noqa: F401
 spec = Spec(id="myproject", name="My Project")
 ```
 
-A `.py` file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model.
+A `.py` file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model. Likewise, a behaviour object (action, invariant, scenario, flow, query) defined in a spec module but not part of the model produces a warning — a forgotten registration never silently drops behaviour.
 
 ---
 
@@ -595,6 +595,8 @@ analint check [PATH]              # validate: structural checks + scenario runs
   --strict                        # warnings become errors
   --what-if FILE.py               # add the file's objects to the model for this
                                   # run only — test a hypothesis without editing the spec
+  --max-states N                  # override every exploration budget for this run
+                                  # (canonical invariant check and each query)
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind

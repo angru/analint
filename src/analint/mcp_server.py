@@ -21,8 +21,15 @@ from analint.reporter.json_reporter import result_to_dict
 from analint.validator.engine import build_spec, validate
 
 
-def check_spec(path: str = ".", what_if: str | None = None) -> dict:
-    result = validate(Path(path), extra=Path(what_if) if what_if else None)
+def check_spec(path: str = ".", what_if: str | None = None, max_states: int | None = None) -> dict:
+    if max_states is not None and max_states < 1:
+        return {
+            "schema": "analint.error/v1",
+            "error": "max_states must be a positive integer",
+            "kind": "usage",
+            "details": [],
+        }
+    result = validate(Path(path), extra=Path(what_if) if what_if else None, max_states=max_states)
     return result_to_dict(result)
 
 
@@ -96,14 +103,16 @@ def build_server() -> Any:
     mcp = FastMCP("analint")
 
     @mcp.tool()
-    def check(path: str = ".", what_if: str | None = None) -> dict:
+    def check(path: str = ".", what_if: str | None = None, max_states: int | None = None) -> dict:
         """Validate the analint spec at `path` (structural checks + scenario runs).
 
         `what_if` — optional path to a standalone .py file whose objects
         (invariants, scenarios, actions) are added to the model for this run
         only: use it to test a hypothesis before editing the spec.
+        `max_states` — optional override of every exploration budget for this
+        run (an INCONCLUSIVE verdict means the budget ran out).
         """
-        return check_spec(path, what_if)
+        return check_spec(path, what_if, max_states)
 
     @mcp.tool()
     def explore(

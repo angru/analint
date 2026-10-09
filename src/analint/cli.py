@@ -96,9 +96,17 @@ def check(
         "--what-if",
         help="Also load this .py file into the model (hypothesis check, spec files untouched)",
     ),
+    max_states: int | None = typer.Option(
+        None,
+        "--max-states",
+        min=1,
+        help="Override every exploration budget (canonical and per query) for this run",
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
-    result = validate(path, scenario_ids=scenario or None, tags=tag or None, extra=what_if)
+    result = validate(
+        path, scenario_ids=scenario or None, tags=tag or None, extra=what_if, max_states=max_states
+    )
 
     if format == "json":
         report_json(result, strict)

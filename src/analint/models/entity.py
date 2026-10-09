@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from analint.models.lifecycle import Lifecycle
@@ -233,7 +234,10 @@ class EntityMeta(type):
         return cls
 
 
+@cache
 def all_fields(cls: type) -> dict[str, FieldDescriptor]:
+    # Cached: a class's fields are fixed once EntityMeta built it, and this sits
+    # on the exploration hot path. Callers must treat the result as read-only.
     fields: dict[str, FieldDescriptor] = {}
     for klass in reversed(cls.__mro__):
         fields.update(getattr(klass, "_own_fields", {}))

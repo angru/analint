@@ -86,8 +86,8 @@ class InstanceRef:
         instance.__dict__["_analint_present"] = True
         return instance
 
-    def __hash__(self) -> int:
-        return id(self)
+    # Identity equality and hashing are the object defaults (C-level): a Python
+    # __hash__ here ran millions of times per exploration (dict keys).
 
     def __repr__(self) -> str:
         return f"{self.entity_cls.__name__}[{self.key!r}]"

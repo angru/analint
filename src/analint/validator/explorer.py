@@ -16,6 +16,7 @@ import copy
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from enum import Enum
+from functools import lru_cache
 from itertools import product
 from math import prod
 from typing import Any
@@ -105,18 +106,31 @@ class Exploration:
 # ── State helpers ──────────────────────────────────────────────────────────────
 
 
+@lru_cache(maxsize=256)
+def _state_layout(keys: tuple) -> tuple:
+    """Sorted (label, key, scoped, field names) for a context's key set — the
+    same for every state of one exploration, so computed once, not per state."""
+    return tuple(
+        (
+            context_key_label(key),
+            key,
+            isinstance(key, InstanceRef),
+            tuple(sorted(all_fields(key.entity_cls if isinstance(key, InstanceRef) else key))),
+        )
+        for key in sorted(keys, key=context_key_label)
+    )
+
+
 def state_key(ctx: dict) -> tuple:
     items = []
-    for key in sorted(ctx, key=context_key_label):
-        inst = ctx[key]
-        cls = type(inst)
-        if isinstance(key, InstanceRef):
-            present = is_present(ctx, key)
-            items.append((context_key_label(key), "@present", present))
+    for label, key, scoped, fields in _state_layout(tuple(ctx)):
+        values = ctx[key].__dict__
+        if scoped:
+            present = values.get("_analint_present", True)
+            items.append((label, "@present", present))
             if not present:
                 continue
-        for f in sorted(all_fields(cls)):
-            items.append((context_key_label(key), f, inst.__dict__.get(f)))
+        items.extend((label, f, values.get(f)) for f in fields)
     return tuple(items)
 
 

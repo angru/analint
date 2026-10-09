@@ -480,7 +480,7 @@ does implicitly: the terminal lock as "client active" guards, presence as a
 | DeadActions (P11) | PASS | no direct form (a ghost variable changes the state space) | — | — |
 | scenarios | 42 + 1 flow | 11 ported as `run` tests | — | — |
 | planted defect (no free-margin guard) | the same 7-action counterexample, as one line | the same 7 actions in the same order; 211 lines of state dumps | — | — |
-| authoring SLOC | 614 model + 343 scenarios | 332 model + 49 (11 scenarios) | — | — |
+| authoring SLOC | 614 model + 343 scenarios (607 after research/35 R2 closure dropped the contracts' `entities=`/`scopes=` lists, 2026-10-10) | 332 model + 49 (11 scenarios) | — | — |
 
 Findings:
 

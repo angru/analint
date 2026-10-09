@@ -354,7 +354,6 @@ flow_onboarding = Flow(
 profile = Contract(
     id="profile",
     name="Client profile, verification and security codes",
-    entities=[Client],
     actions=[
         confirm_contacts,
         fill_details,

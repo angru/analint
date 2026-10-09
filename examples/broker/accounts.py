@@ -29,7 +29,6 @@ from analint import (
 
 from .domain import (
     BUDGET,
-    Account,
     AccountKind,
     AccountStatus,
     Client,
@@ -255,8 +254,6 @@ sc_disabled_account_cannot_close = Scenario(
 trading_accounts = Contract(
     id="trading_accounts",
     name="Trading accounts and positions",
-    entities=[Client, Account],
-    scopes=[accounts],
     actions=[
         open_account,
         archive,

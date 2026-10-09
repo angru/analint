@@ -34,7 +34,6 @@ from analint import (
 from .domain import (
     BUDGET,
     MONEY_CAP,
-    Account,
     AccountStatus,
     Client,
     ClientStatus,
@@ -292,8 +291,6 @@ sc_terminate_with_money_is_rejected = Scenario(
 payments = Contract(
     id="payments",
     name="Deposits, withdrawals and closing the profile",
-    entities=[Client, Account],
-    scopes=[accounts],
     actions=[
         deposit,
         verify_card,

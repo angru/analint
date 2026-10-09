@@ -60,6 +60,19 @@ money properties read the tier, account status and security code, so their
 slice is the whole coupled model; it needs ~16k states, so the spec declares
 `max_states = BUDGET` (50k) instead of the 10k default.
 
+## Quint port (research/34 §7–§8 D)
+`broker.qnt` encodes the same abstraction, choosing the increment with
+`--step=stepM1|stepM2|stepM3`. TLC finds exactly the same number of distinct
+states as analint at every increment (132 / 1,770 / 15,912). NoDeadEnd and
+DeadActions have no Quint form; 11 of the scenarios are ported as `run` tests.
+
+```bash
+quint typecheck examples/broker/broker.qnt
+quint test examples/broker/broker.qnt --main=broker
+quint verify examples/broker/broker.qnt --main=broker --backend=tlc \
+  --step=stepM3 --invariant=allInvariants          # needs Java (OpenJDK 17)
+```
+
 ## Run
 ```bash
 uv run analint check examples/broker            # all PASS

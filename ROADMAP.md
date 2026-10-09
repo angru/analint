@@ -598,8 +598,13 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   example, plus 7 planted-defect probes (one per closure rule); superset
   reuse keeps coupled specs at parity; `--no-slice`. Issue-#3 shape: n=20
   independent lifecycles (~10¹⁸ states) all PASS in 0.02 s (research/34 §8)
-- **D. Quint port** of M1–M6 (TLC exhaustive, Apalache bounded/inductive),
-  state counts cross-validated
+- ✅ **D. Quint port of M1–M3** (`examples/broker/broker.qnt`): TLC distinct
+  states identical at every increment (132 / 1,770 / 15,912); same verdicts and
+  witness lengths. TLC core 1.2 s vs a full analint `check` of 2.7 s, but ~6 s
+  wall (JVM). Apalache bounded is impractical at diameter 29, and its
+  inductive proof needs an encoding rewrite. No NoDeadEnd / DeadActions in
+  Quint. Quint is ~1.85× more compact (research/34 §8 D)
+- `analint trace` for failing invariants (found in D; small)
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
 

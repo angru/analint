@@ -464,6 +464,48 @@ cross-cutting properties are common.
 **D. Quint port of M1–M6** + the §7 protocol, run against each increment as
 it lands. State-count cross-validation is mandatory.
 
+*D result (2026-10-09, `examples/broker/broker.qnt`, Quint 0.32.0, TLC 2.19,
+Apalache 0.56.1, OpenJDK 17).* The port writes out what the analint kernel
+does implicitly: the terminal lock as "client active" guards, presence as a
+`present` flag with canonical absent values, and a safety-preserving stutter.
+
+| Check (M3 unless noted) | analint | Quint → TLC | Quint → Apalache | `quint run` |
+|---|---|---|---|---|
+| distinct states M1 / M2 / M3 | 132 / 1,770 / 15,912 | **identical** | — | — |
+| 9 invariants | PASS; full `check` (incl. 42 scenarios, NoDeadEnd, DeadActions) 2.7 s sliced / 3.3 s whole | PASS; 1.2 s checking, ~6 s wall (JVM + translation) | bounded: 5 steps 7.5 s, 10 → 19.6 s, 15 → 252 s; diameter is 29 | 10k × 31-step traces, no violation, 8 s (not a proof) |
+| inductive proof | — | — | not finished in 20 min with a record-set `typeOK`; needs a per-field encoding plus a strengthening | — |
+| 4 Reachable | PASS, witnesses 7/7/3/7 actions | witnesses with the same lengths | — | witness found, 12 steps (not shortest) |
+| 2 Unreachable | PASS | PASS | — | — |
+| NoDeadEnd (P7) | PASS | no form: AG EF is CTL, not LTL | — | — |
+| DeadActions (P11) | PASS | no direct form (a ghost variable changes the state space) | — | — |
+| scenarios | 42 + 1 flow | 11 ported as `run` tests | — | — |
+| planted defect (no free-margin guard) | the same 7-action counterexample, as one line | the same 7 actions in the same order; 211 lines of state dumps | — | — |
+| authoring SLOC | 614 model + 343 scenarios | 332 model + 49 (11 scenarios) | — | — |
+
+Findings:
+
+1. **Same transition system.** Distinct-state counts match at every
+   increment; verdicts, shortest-witness lengths and even the planted
+   counterexample's action order agree. The comparison is apples to apples.
+2. **Speed at this size.** TLC's core check is faster, but its wall time is
+   dominated by JVM start-up and translation, so a full analint `check` wins
+   end to end. For local properties, analint's slices explore 22 states where
+   TLC explores all 15,912; TLC has no slicing.
+3. **Apalache is not a drop-in.** Bounded depth grows super-linearly and the
+   diameter (29) is out of reach. Inductive proof needs an encoding rewrite
+   plus expert strengthening.
+4. **Expressiveness gaps on the Quint side:** no recoverability (`NoDeadEnd`),
+   no DeadActions, scenarios ported by hand. The kernel's implicit rules
+   (terminal lock, presence, Field bounds, lifecycle edges) must be re-encoded
+   by hand; a mistake there diverges silently unless state counts are
+   cross-checked.
+5. **Quint is ~1.85× more compact.** analint's extra lines come from action
+   names and labels, `Contract` lists (entities disappear with research/35
+   step 2) and formatter line breaks. Brevity, not semantics; worth keeping in
+   mind for the DSL surface.
+6. **analint gap found:** `analint trace` serves queries only; a failing
+   *invariant* has a trace in `check` but no state-diff view.
+
 **E. Decision synthesis (new research note).** Inputs: tables from B2 and D.
 Possible outcomes:
 

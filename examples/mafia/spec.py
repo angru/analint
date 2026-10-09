@@ -438,4 +438,27 @@ spec = Spec(
     # `correct_game_status` invariant is auto-verified under each of them — the
     # same "under EVERY assignment" quantification the headline theorem uses.
     initial=any_role_assignment,
+    actions=[
+        mafia_kills,
+        mafia_kills_last_citizen,
+        vote,
+        hang_mafia,
+        hang_citizen,
+        hang_last_citizen,
+        votes_tied,
+    ],
+    invariants=[correct_game_status],
+    scenarios=[
+        sc_night_kill,
+        sc_citizen_cannot_kill,
+        sc_kill_last_citizen_ends_game,
+        sc_vote,
+        sc_player_cannot_vote_twice,
+        sc_dead_player_cannot_vote,
+        sc_town_hangs_the_mafia,
+        sc_town_hangs_a_citizen,
+        sc_hanging_last_citizen_ends_game,
+        sc_tie_skips_hanging,
+    ],
+    queries=[mafia_can_win, citizens_cannot_win, status_is_always_correct],
 )

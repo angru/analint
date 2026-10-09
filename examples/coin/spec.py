@@ -196,4 +196,18 @@ spec = Spec(
     description="Solidity subcurrency, translated from Quint's coin.qnt — "
     "deliberately red: the supply-overflow violation from the "
     "Quint lesson is reproduced with a trace",
+    actions=[mint, send],
+    scenarios=[
+        sc_send_without_mint,
+        sc_mint_then_send,
+        sc_no_overdraft,
+        sc_receiver_overflow_blocked,
+        sc_minting_works,
+    ],
+    queries=[
+        balances_stay_in_range,
+        supply_never_overflows,
+        everyone_can_get_paid,
+        every_method_callable,
+    ],
 )

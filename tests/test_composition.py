@@ -257,3 +257,23 @@ def test_what_if_entity_is_derived_and_can_fail(tmp_path):
 
     by_id = {r.invariant_id: r for r in result.invariant_results}
     assert by_id["probe_is_armed"].status == "FAIL"
+
+
+def test_listed_param_action_is_a_member_without_imports(tmp_path):
+    """A Spec without imports that lists a Param action keeps its declaration:
+    the rebuilt Spec must not see the already-expanded instances as declared."""
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        _PARAM_SPEC.replace(
+            'spec = Spec(id="p", name="p", imports=[part])',
+            'spec = Spec(id="p", name="p", actions=[tick])',
+        )
+    )
+
+    model = prepare_model(entry)
+
+    assert [action.id for action in model.spec.actions] == [
+        "tick(c=Counter['a'])",
+        "tick(c=Counter['b'])",
+    ]
+    assert _orphans(model) == []

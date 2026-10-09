@@ -351,7 +351,9 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         lifecycles=_resolve(spec.lifecycles, "lifecycles"),
         flows=_resolve(spec.flows, "flows"),
         invariants=_resolve(spec.invariants, "invariants"),
-        actions=_resolve(spec.actions, "actions"),
+        # the declarations, not their Param expansion: the rebuilt Spec expands
+        # them again, and membership (orphans) is about the declaration
+        actions=_resolve(spec._declared_actions, "actions"),
         scenarios=_resolve(spec.scenarios, "scenarios"),
         queries=_resolve(spec.queries, "queries"),
         initial=spec.initial,

@@ -623,6 +623,11 @@ analint affects TARGET -p PATH    # impact analysis before changing something (J
   analint affects Wallet.balance -p .   # who reads/writes the field, invariants, lifecycles
   analint affects checkout -p .         # what the action touches + event-linked actions
 
+analint trace PROPERTY_ID -p PATH # query witness or invariant counterexample, with state changes
+  -f, --format terminal|json
+  --what-if FILE.py               # trace a property added by a hypothesis
+                                  # whole-model search; invariants use Spec.initial/max_states
+
 analint PATH                      # shorthand for `analint check PATH`
 ```
 
@@ -661,6 +666,12 @@ analint-mcp        # stdio MCP server: check, show, affects, explore, trace
 ```
 
 The same five operations as the CLI, callable as agent tools — an agent can inspect the model, run impact analysis before a change, test a hypothesis with `what_if`, explore reachable states, inspect traces, and validate after editing.
+
+`trace` accepts query and invariant ids. Its `analint.trace/v1` result identifies
+the target with `query` or `invariant`, then reports the root, action steps with
+field changes, and final state. A property without a witness returns
+`witness: null` and its status; an initial-state violation has a root and zero
+steps. Query and invariant ids must be distinct for tracing.
 
 ### Agent Skill
 

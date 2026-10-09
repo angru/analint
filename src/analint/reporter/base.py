@@ -83,6 +83,7 @@ class InvariantResult:
     trace: list[str] | None = None  # action ids from the initial state to the violation
     slice: dict | None = None  # the slice it was checked on; None = whole model
     elapsed_ms: float | None = None  # includes both passes when a slice is rechecked
+    witness_key: Any = None  # internal state key for state-diff traces; not serialized
 
 
 @dataclass

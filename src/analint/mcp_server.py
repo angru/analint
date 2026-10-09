@@ -3,7 +3,7 @@
 Five tools over the same core as the CLI:
   - check(path, what_if?)    — validate the spec, optionally with a hypothesis patch
   - explore(path, query?, …) — bounded reachability exploration artifact
-  - trace(path, query)       — a query's witness/counterexample as states and changes
+  - trace(path, query)       — a query or invariant's witness/counterexample as state changes
   - show(path, kind?, name?) — overview, a kind's ids, or details of one object
   - affects(target, path)    — impact analysis for a field / entity / action
 
@@ -151,12 +151,14 @@ def build_server() -> Any:
 
     @mcp.tool()
     def trace(path: str = ".", query: str = "", what_if: str | None = None) -> dict:
-        """A query's witness/counterexample as states and changes (not just action ids).
+        """A query or invariant's witness/counterexample as states and changes.
 
-        `query` is the query id. Returns the root, a step list
+        `query` is a query or invariant id. Returns the root, a step list
         (`action`/`source`/`target`/`changes`) and the `final_state`, with node ids
         matching the exploration artifact. A passing property with no example
         returns `witness: null` and a message rather than an error.
+        Invariants use the canonical initial and budget; their payload has an
+        `invariant` key in place of `query`. Traces explore the whole model.
         """
         return trace_spec(path, query, what_if)
 

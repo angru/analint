@@ -192,7 +192,8 @@ def explore(
 
 
 def _print_trace(t: dict) -> None:
-    print(f"analint trace  query: {t['query']}  status: {t['status']}")
+    kind = "invariant" if "invariant" in t else "query"
+    print(f"analint trace  {kind}: {t[kind]}  status: {t['status']}")
     if t.get("root") is None:
         print(f"  {t.get('message', 'no witness/counterexample to trace')}")
         return
@@ -211,7 +212,7 @@ def _print_trace(t: dict) -> None:
 
 @app.command()
 def trace(
-    query: str = typer.Argument(..., help="The query id whose witness/counterexample to trace"),
+    query: str = typer.Argument(..., help="The query or invariant id to trace"),
     path: Path = typer.Option(
         Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
     ),
@@ -222,7 +223,7 @@ def trace(
         None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
     ),
 ) -> None:
-    """Show a query's witness/counterexample as states and changes, step by step."""
+    """Show a query or invariant's witness/counterexample as states and changes."""
     from analint.validator.exploration_service import ExplorationError, trace_query
 
     try:

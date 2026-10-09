@@ -608,7 +608,10 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   wall (JVM). Apalache bounded is impractical at diameter 29, and its
   inductive proof needs an encoding rewrite. No NoDeadEnd / DeadActions in
   Quint. Quint is ~1.85× more compact (research/34 §8 D)
-- `analint trace` for failing invariants (found in D; small)
+- ✅ `analint trace` for failing invariants (2026-10-09): canonical whole-model
+  counterexamples with state diffs, shared invariant evaluation, initial/multi-root
+  and evaluation-error witnesses; CLI + MCP. Query trace JSON stays unchanged;
+  invariant payloads use `invariant` instead of `query` in `analint.trace/v1`.
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
 

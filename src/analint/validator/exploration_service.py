@@ -24,8 +24,10 @@ from analint.validator.artifact_builder import (
 from analint.validator.engine import prepare_model
 from analint.validator.explorer import (
     Exploration,
+    _verify_one_invariant,
     build_canonical_initials,
     explore,
+    explore_cached,
     resolve_query_initials,
     run_query,
 )
@@ -107,9 +109,12 @@ def trace_query(
     *,
     what_if: str | Path | None = None,
 ) -> dict[str, object]:
-    """The witness/counterexample of a query as a sequence of states and changes
+    """The witness/counterexample of a query or invariant as states and changes
     (schema-aligned with the artifact's node ids). A passing property with no
-    example returns ``witness: None`` and an explanatory message — not an error."""
+    example returns ``witness: None`` and an explanatory message — not an error.
+    Both use the whole model, matching ``explore``; invariant traces start from
+    the canonical initial and use the canonical budget. Query payloads retain
+    their ``query`` key; invariant payloads use ``invariant`` instead."""
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
     if prepared.spec is None:
         raise ExplorationError(
@@ -124,36 +129,58 @@ def trace_query(
 
     spec = prepared.spec
     query = next((q for q in spec.queries if q.id == query_id), None)
-    if query is None:
+    invariant = next((inv for inv in spec.invariants if inv.id == query_id), None)
+    if query is not None and invariant is not None:
+        raise ExplorationError(
+            "ambiguous_property",
+            f"'{query_id}' names both a query and an invariant; give them distinct ids",
+        )
+    if query is None and invariant is None:
         raise ExplorationError(
             "unknown_query",
-            f"no query with id '{query_id}'",
-            sorted(q.id for q in spec.queries if q.id),
+            f"no query or invariant with id '{query_id}'",
+            sorted(p.id for p in [*spec.queries, *spec.invariants] if p.id),
         )
-    initials, error = resolve_query_initials(query, spec)
+    initials, error = (
+        resolve_query_initials(query, spec) if query is not None else build_canonical_initials(spec)
+    )
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")
 
     # run_query is the single query interpretation; reuse its cached exploration so
     # the witness key and the parent-walk share one state graph (no second search).
     cache: dict = {}
-    result = run_query(query, spec, cache)
-    exp = next(iter(cache.values()), None)
+    if query is not None:
+        result = run_query(query, spec, cache)
+        exp = next(iter(cache.values()), None)
+        source_kind, kind = "query", result.kind
+    else:
+        assert invariant is not None  # the id lookup above rejected an unknown property
+        exp = explore_cached(spec, initials, spec.max_states, cache)
+        result = _verify_one_invariant(invariant, exp)
+        source_kind, kind = "invariant", "Invariant"
     if result.witness_key is None or exp is None:
         return {
             "schema": "analint.trace/v1",
-            "query": query_id,
+            source_kind: query_id,
             "status": result.status,
             "root": None,
             "steps": [],
             "final_state": {},
             "witness": None,
-            "message": f"{result.kind} '{query_id}' has no witness/counterexample to trace",
+            "message": f"{kind} '{query_id}' has no witness/counterexample to trace",
         }
-    return _build_trace(query_id, result.status, result.witness_key, exp)
+    return _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
 
 
-def _build_trace(query_id: str, status: str, witness_key: object, exp: Exploration) -> dict:
+def _build_trace(
+    query_id: str,
+    status: str,
+    witness_key: object,
+    exp: Exploration,
+    *,
+    source_kind: str = "query",
+) -> dict:
     rendered: dict = {}
 
     def render(key: object) -> dict:
@@ -185,7 +212,7 @@ def _build_trace(query_id: str, status: str, witness_key: object, exp: Explorati
     ]
     return {
         "schema": "analint.trace/v1",
-        "query": query_id,
+        source_kind: query_id,
         "status": status,
         "root": {"index": exp.roots.get(root_key, 1), "node": node(root_key)},
         "steps": steps,

@@ -70,7 +70,12 @@ analint check PATH --format json
 ```bash
 analint explore PATH --query QUERY_ID --format json
 analint trace QUERY_ID -p PATH --format json
+analint trace INVARIANT_ID -p PATH --format json
 ```
+
+Invariant traces use the canonical initial and budget. Traces search the whole
+model; `check` uses property slices by default. A failed invariant's result has
+an `invariant` key, the originating root, state changes and the final state.
 
 Use terminal output for humans and JSON for decisions or automation.
 

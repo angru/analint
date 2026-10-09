@@ -825,6 +825,7 @@ def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
                 status=QueryStatus.FAIL,
                 states_explored=len(exp.states),
                 trace=exp.trace_to(key),
+                witness_key=key,
                 findings=[Finding(Severity.ERROR, loc, f"evaluation error: {exc}")],
             )
         if not ok:
@@ -834,6 +835,7 @@ def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
                 status=QueryStatus.FAIL,
                 states_explored=len(exp.states),
                 trace=exp.trace_to(key),
+                witness_key=key,
                 findings=[
                     Finding(
                         Severity.ERROR,

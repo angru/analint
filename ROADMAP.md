@@ -603,6 +603,12 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     Presence-layout caching preserves the static fast path. The only baseline
     delta is 20 broker scenario rule counts (+4 formerly skipped empty-domain
     checks); verdicts, findings, graph hashes and traces are unchanged.
+  - ✅ M4 model implemented as `benchmarks/broker/m4.py` (2026-10-10): seven
+    entities, 93 expanded actions, 58 scenarios and two flows; leverage,
+    high-margin caps, class-dependent margin buckets, ordered stop out and
+    negative-balance protection. M1–M3/Quint remain the fixed baseline. Risk
+    equity is a separate settlement bucket; P&L-to-cash coupling is not claimed.
+    At a 2k budget, KYC invariants prove on 22 states; the coupled checks cap.
 - ✅ **C. Cone-of-influence slicing** per property, default for `check`
   (`validator/slicing.py`): exact, gated against the monolithic path on every
   example, plus 7 planted-defect probes (one per closure rule); superset

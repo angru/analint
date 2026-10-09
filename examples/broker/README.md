@@ -80,3 +80,35 @@ uv run analint check examples/broker --no-slice  # same verdicts, whole model pe
 uv run analint show -p examples/broker
 uv run analint affects Client.tier -p examples/broker
 ```
+
+## M4 risk extension (2026-10-10)
+
+The measured M1–M3 example and Quint port stay at their original abstraction.
+`benchmarks/broker/m4.py` composes those contracts with a risk contract. It has
+7 entity types, 93 expanded actions, 58 scenarios and two executable flows.
+
+The risk contract adds four equity buckets, equity/history eligibility for
+uncapped leverage, a temporary effective cap during high-margin periods,
+margin-call/stop-out buckets, least-profitable-order-first liquidation, and
+negative-balance protection only after a full stop out. A cent account reaches
+stop out at zero equity; other classes may remain in margin call. A period starts
+after the service has lowered all effective caps; uncapped *selection* can
+persist while the effective cap is low (P10).
+
+The two-slot risk and order universes are fixed. M4 permits only one concurrent
+risk account and one open order; the other slot is an alternative identity, not
+an extra concurrent account. Closed order slots are reclaimable. Risk equity is
+an external settlement bucket, not another cash amount: this model does not
+reconcile P&L or recapitalization with the separate M3 ledger. That boundary is
+deliberate and must be considered when interpreting dependency cones.
+
+```bash
+uv run analint check benchmarks/broker/m4.py --max-states 2000
+```
+
+The composed verification is expected to be **INCONCLUSIVE** at this budget.
+Scenarios and flows execute successfully; they demonstrate the declared
+transitions but do not prove safety over every composed reachable state.
+The four KYC invariants still prove on 22-state slices. The risk and money cones
+exhaust the budget. No check is permanently `NOT_CHECKED` because a reserved
+slot is absent: M4 exposed and regression-tested that applicability bug.

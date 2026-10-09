@@ -621,7 +621,7 @@ def test_initial_relation_is_structurally_validated():
         queries=[query],
     )
     findings = validate_structural(spec)
-    assert any("not registered in spec.scopes" in finding.message for finding in findings)
+    assert any("more than one Scope" in finding.message for finding in findings)
 
 
 def test_mafia_theorem_quantifies_over_role_assignments():
@@ -713,8 +713,8 @@ def test_canonical_verification_surfaces_transition_defects():
 
 
 def test_spec_initial_is_structurally_validated():
-    """Spec.initial is part of the model, so a foreign vary field is an error
-    even with no queries (review 67be4f8, P1#2)."""
+    """Spec.initial is part of the model, so its vary fields join the model
+    even with no queries (review 67be4f8, P1#2; research/35 R2)."""
 
     class Registered(Entity):
         enabled: bool = False
@@ -723,8 +723,9 @@ def test_spec_initial_is_structurally_validated():
         enabled: bool = False
 
     spec = Spec(id="s", name="S", entities=[Registered], initial=Initial(vary=[Foreign.enabled]))
-    findings = validate_structural(spec)
-    assert any("Foreign" in f.message and "not in spec.entities" in f.message for f in findings)
+    # reference closure (research/35 R2): the initial relation's entity joins the model
+    assert spec.entities == [Registered, Foreign]
+    assert not [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
 
 
 def test_invariant_inconclusive_when_an_action_is_excluded():
@@ -755,9 +756,9 @@ def test_invariant_inconclusive_when_an_action_is_excluded():
     assert any("excluded" in f.message for f in res.findings)
 
 
-def test_spec_initial_given_must_be_registered():
-    """given= snapshots seed canonical roots, so a foreign entity is an error
-    (review c893ca0, P2)."""
+def test_spec_initial_given_entities_are_derived():
+    """given= snapshots seed canonical roots, so their entities join the model
+    (review c893ca0, P2; research/35 R2)."""
 
     class Registered(Entity):
         enabled: bool = False
@@ -771,8 +772,8 @@ def test_spec_initial_given_must_be_registered():
         entities=[Registered],
         initial=Initial(vary=[Registered.enabled], given=[Foreign()]),
     )
-    findings = validate_structural(spec)
-    assert any("Foreign" in f.message and "not in spec.entities" in f.message for f in findings)
+    # reference closure (research/35 R2): a given snapshot's entity joins the model
+    assert spec.entities == [Registered, Foreign]
 
 
 def test_spec_max_states_must_be_positive():

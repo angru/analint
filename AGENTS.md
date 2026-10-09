@@ -123,6 +123,11 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
   the import graph
 - multiple `Spec` objects in one import graph are a load error; use one root
   `Spec` plus imported contracts instead of implicit merging
+- reference closure (research/35 R2, `Spec.close_references`): entities,
+  events, scopes and inline lifecycles referenced by listed behaviour
+  (pre/effects/post/emits, scenario/flow `given`, `Initial`, quantifier
+  binders, `Param` domains) join the model without being listed; behaviour is
+  never derived. Two `Scope`s over one entity type stay a structural error
 - a `.py` file in the directory not reachable from the entry point → warning (engine.`_unloaded_file_warnings`)
 - a behaviour object (action/invariant/scenario/flow/query) bound in a spec
   module but absent from the model → orphan warning (engine.`_orphan_warnings`,

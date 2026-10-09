@@ -231,5 +231,5 @@ def test_presence_targets_are_structurally_validated():
     )
     errors = [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
     assert any("outside a quantifier" in finding.message for finding in errors)
-    assert any("not registered in spec.scopes" in finding.message for finding in errors)
+    assert any("more than one Scope" in finding.message for finding in errors)
     assert any("where= only filters parameterized" in finding.message for finding in errors)

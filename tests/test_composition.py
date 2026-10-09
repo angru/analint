@@ -2,6 +2,7 @@ from pathlib import Path
 
 from analint import Action, Contract, Entity, Spec
 from analint.query import describe, spec_overview
+from analint.reporter.base import Severity
 from analint.validator.engine import build_spec, prepare_model, validate
 from analint.validator.structural import validate_structural
 
@@ -171,3 +172,88 @@ def test_explicit_list_reports_the_omitted_action(tmp_path):
 
     assert [action.id for action in model.spec.actions] == ["listed"]
     assert _orphans(model) == ["action:forgotten"]
+
+
+def test_reference_closure_derives_model_from_behaviour():
+    """research/35 R2 probe 3: an entity referenced only by a scenario's
+    ``given`` (and lifecycles, events, scopes reached from behaviour) join the
+    model without being listed."""
+    from enum import StrEnum
+
+    from analint import Event, Lifecycle, Scenario, Scope, Set
+
+    class Phase(StrEnum):
+        OPEN = "open"
+        DONE = "done"
+
+    class Task(Entity):
+        phase: Phase = Lifecycle(Phase.OPEN, transitions={Phase.OPEN: [Phase.DONE]})
+
+    class Witness(Entity):
+        seen: bool = False
+
+    class Closed(Event):
+        ok: bool = True
+
+    class Slot(Entity):
+        used: bool = False
+
+    slots = Scope(Slot, keys=["a"], id="slots")
+    close = Action(
+        id="close",
+        pre=[Task.phase == Phase.OPEN],
+        effect=[Set(Task.phase, Phase.DONE), Set(slots["a"].used, True)],
+        emits=[Closed],
+    )
+    sc = Scenario(id="close/ok", name="close", action=close, given=[Task(), Witness()])
+    spec = Spec(id="s", name="s", imports=[Contract(id="tasks", actions=[close], scenarios=[sc])])
+
+    assert spec.entities == [Task, Slot, Witness]
+    assert spec.events == [Closed]
+    assert spec.scopes == [slots]
+    assert [lc.initial for lc in spec.lifecycles] == [Phase.OPEN]
+    assert not [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
+
+
+def test_two_scopes_over_one_entity_across_contracts_is_an_error():
+    """research/35 R2 probe 4: closure must not silently merge two universes."""
+    from analint import Scope, Set
+
+    class Slot(Entity):
+        used: bool = False
+
+    left = Scope(Slot, keys=["a"], id="left")
+    right = Scope(Slot, keys=["b"], id="right")
+    use_left = Action(id="use_left", effect=[Set(left["a"].used, True)])
+    use_right = Action(id="use_right", effect=[Set(right["b"].used, True)])
+    spec = Spec(
+        id="s",
+        name="s",
+        imports=[
+            Contract(id="l", actions=[use_left]),
+            Contract(id="r", actions=[use_right]),
+        ],
+    )
+
+    assert spec.scopes == [left, right]
+    errors = [f.message for f in validate_structural(spec) if f.severity == Severity.ERROR]
+    assert any("more than one Scope" in m for m in errors)
+
+
+def test_what_if_entity_is_derived_and_can_fail(tmp_path):
+    """A what-if invariant over an entity bound nowhere (so no module scan can
+    see it) is derived by closure and verified: FAIL, not skipped."""
+    patch = tmp_path / "hypothesis.py"
+    patch.write_text(
+        "from analint import Entity, Invariant\n"
+        "def _domain():\n"
+        "    class Probe(Entity):\n"
+        "        armed: bool = False\n"
+        "    return Probe\n"
+        "probe_is_armed = Invariant(_domain().armed == True)\n"
+    )
+
+    result = validate(FIXTURES / "composed", extra=patch)
+
+    by_id = {r.invariant_id: r for r in result.invariant_results}
+    assert by_id["probe_is_armed"].status == "FAIL"

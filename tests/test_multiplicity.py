@@ -157,7 +157,7 @@ def test_instance_ref_from_unregistered_scope_is_rejected():
         actions=[action],
     )
     errors = [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
-    assert any("not registered in spec.scopes" in f.message for f in errors)
+    assert any("more than one Scope" in f.message for f in errors)
 
 
 def test_plain_snapshot_is_rejected_for_scoped_entity():

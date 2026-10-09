@@ -580,7 +580,11 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   merging its file. Steps: naming pass + orphan warning → reference closure →
   migrate examples one by one (characterization-gated) → remove
   auto-population (breaking, 0.0.2) → docs/skill. ✅ step 1 (naming pass +
-  orphan warning, e3611a5; also fixed unnamed composed `Param` action ids)
+  orphan warning, e3611a5; also fixed unnamed composed `Param` action ids).
+  ✅ step 2 (2026-10-10): reference closure — entities, events, scopes and
+  inline lifecycles are derived from listed behaviour (also after a what-if
+  merge); characterization snapshot unchanged; "not registered" probes now
+  assert derivation, a second `Scope` per entity is still an error
 - ✅ **A. Engine hygiene** (f9fe90c..8e96ad3): shared canonical exploration,
   state-key layout, cached guard plan/invariant keys, silent rejections,
   trace-on-defect, copy-on-write effects, `deque` — ~5× on

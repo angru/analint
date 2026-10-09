@@ -384,6 +384,7 @@ def _extend_composed_spec(spec: Spec, collected: dict) -> None:
     spec._declared_actions = _deduplicate_by_identity(
         [*spec._declared_actions, *collected["actions"]]
     )
+    spec.close_references()
 
 
 def _deduplicate_by_identity(objects: list) -> list:

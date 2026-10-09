@@ -185,6 +185,12 @@ and explained, never regenerated mechanically (`tests/snapshots/README.md`).
    counts as a member through its declaration.
 2. **Reference closure (R2)**, additive: `Contract`/`Spec` lists for
    entities, events, scopes and lifecycles become optional. Probes 3 and 4.
+   *Done (2026-10-10):* `Spec.close_references` walks the listed behaviour,
+   `initial` and scopes, and is re-run after a what-if merge. It applies in
+   auto mode too; the characterization snapshot is unchanged. Tests that
+   expected "not in spec.entities/events" or "not registered in
+   spec.scopes" now assert derivation, or "more than one Scope" where a
+   second universe over the same entity is introduced.
 3. **Migrate the examples** one by one to explicit roots while auto mode
    still exists, so each migration passes the characterization gate on its
    own.

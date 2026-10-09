@@ -298,7 +298,7 @@ def test_quantifier_scope_must_be_registered():
         actions=[action],
     )
     errors = [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
-    assert any("not registered in spec.scopes" in finding.message for finding in errors)
+    assert any("more than one Scope" in finding.message for finding in errors)
 
 
 def test_aggregate_scope_must_be_registered():
@@ -313,7 +313,7 @@ def test_aggregate_scope_must_be_registered():
         actions=[action],
     )
     errors = [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
-    assert any("not registered in spec.scopes" in finding.message for finding in errors)
+    assert any("more than one Scope" in finding.message for finding in errors)
 
 
 def test_exists_does_not_hide_evaluation_error_after_a_witness():

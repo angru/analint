@@ -561,7 +561,7 @@ def test_event_instance():
     assert ev.total == 50.0
 
 
-def test_structural_event_not_registered():
+def test_emitted_event_is_derived():
     from analint.reporter.base import Severity
     from analint.validator.structural import validate_structural
 
@@ -583,7 +583,9 @@ def test_structural_event_not_registered():
     )
     findings = validate_structural(spec)
     errors = [f for f in findings if f.severity == Severity.ERROR]
-    assert any("OrderPlaced" in f.message and "not in spec.events" in f.message for f in errors)
+    # derived from the action's emits (research/35 R2), not an error
+    assert spec.events == [OrderPlaced]
+    assert not errors
 
 
 def test_event_payload_template_binds_fields():

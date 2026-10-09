@@ -230,7 +230,7 @@ def test_create_target_must_be_an_instance_ref():
     assert any("must be an InstanceRef" in f.message for f in _errors(_spec([bad])))
 
 
-def test_create_on_unregistered_scope_rejected():
+def test_create_on_second_scope_rejected():
     other = Scope(Account, keys=["zoe"], id="other")
     bad = Action(id="bad", effect=[Create(other["zoe"], balance=0)])
-    assert any("not registered in spec.scopes" in f.message for f in _errors(_spec([bad])))
+    assert any("more than one Scope" in f.message for f in _errors(_spec([bad])))

@@ -123,5 +123,6 @@ def test_expression_refs_feed_coverage_warnings():
         id="s", name="S", entities=[Wallet], actions=[act], scenarios=[sc], invariants=[inv]
     )
     errors = [f for f in validate_structural(spec) if f.severity == Severity.ERROR]
-    # the invariant's expression references Order, which is not registered
-    assert any("'Order' not in spec.entities" in f.message for f in errors)
+    # the invariant's expression references Order: derived (research/35 R2)
+    assert Order in spec.entities
+    assert not errors

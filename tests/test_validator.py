@@ -13,11 +13,14 @@ def test_simple_spec_passes():
     assert result.failed_count == 0
 
 
-def test_broken_spec_catches_phantom_entity():
+def test_broken_spec_derives_phantom_entity():
     result = validate(FIXTURES / "broken_spec.py")
     errors = [f for f in result.structural_findings if f.severity == Severity.ERROR]
-    messages = " ".join(f.message for f in errors)
-    assert "Phantom" in messages
+    assert not errors
+    # Phantom is derived from the action's pre (research/35 R2); the scenario's
+    # given still lacks it, which surfaces as a missing-entity warning
+    warnings = " ".join(f.message for f in result.structural_findings)
+    assert "Phantom" in warnings
 
 
 def test_broken_spec_has_warnings_for_missing_given():

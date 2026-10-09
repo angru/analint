@@ -14,7 +14,8 @@ class Phantom(Entity):
 
 
 # The action references Budget (omitted from given → warning)
-# and Phantom (omitted from spec.entities → error).
+# and Phantom (omitted from spec.entities → derived by reference closure,
+# then missing from given → warning).
 buy = Action(
     id="buy",
     name="Buy",
@@ -39,7 +40,7 @@ sc_missing_entity = Scenario(
 spec = Spec(
     id="broken",
     name="Broken Spec",
-    entities=[Item, Budget],  # Phantom intentionally omitted
+    entities=[Item, Budget],  # Phantom intentionally omitted (derived)
     actions=[buy],
     scenarios=[sc_missing_entity],
 )

@@ -20,6 +20,17 @@
 # When this file and the checker disagree, do NOT bless the new output: either fix
 # a regression, or update this entry with a reviewed explanation.
 
+[broker]
+verdict = "PASS"
+exit_code = 0
+broken = false
+failed_scenarios = []
+failed_queries = []
+failed_invariants = []
+failed_flows = []
+warning_locations = []
+source = "Neutral composite of common retail-broker practice; scaling benchmark (research/34 §6)"
+
 [branch_protection]
 verdict = "PASS"
 exit_code = 0

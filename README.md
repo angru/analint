@@ -721,6 +721,7 @@ BFS over all reachable states; every query answers with a trace of action ids:
 | [`examples/mafia/`](https://github.com/angru/analint/blob/main/examples/mafia/README.md) | **Mafia/Werewolf** from Quint: the citizens cannot win under *every* nondeterministic role assignment (declarative `Initial`, role-generic `Param` actions; `research/16`) |
 | [`examples/sunless_crypt/`](https://github.com/angru/analint/blob/main/examples/sunless_crypt/README.md) | A dungeon crawl that is both **checked and played**: the same spec is verified by `analint check` and run as a text game by `examples/play.py` (`research/21`) |
 | [`examples/k8s_replicaset/`](https://github.com/angru/analint/blob/main/examples/k8s_replicaset/README.md) | The **project-sized dogfood**: a Kubernetes ReplicaSet reconciling Pods under a count/pods ResourceQuota — multiplicity + presence + `Count` + `ownerReference` provenance, reachability/safety only (liveness deliberately out of scope; `research/26` §P4.5) |
+| [`examples/broker/`](https://github.com/angru/analint/blob/main/examples/broker/README.md) | The **scaling benchmark**: a generic retail broker (client verification, trading accounts, payments) as one `Contract` per process — independent processes stay on small slices (22 states) while the coupled money model needs ~16k; measured change series (`research/34`) |
 
 ---
 

@@ -221,6 +221,30 @@ the draft above:
   The violation fails the run in its own slice, so the run verdict is
   unchanged (pinned by a test).
 
+**Refinements found by the broker benchmark (B1).** The first composed model
+glued every slice into the whole model through two mechanisms. Each was
+removed by an exact argument:
+
+- *Terminal-lock reads* (rule 2 above). Every action touching an entity reads
+  its terminal lifecycle field, so a `terminate` action that read all the
+  money pulled the money into every verification slice. A terminal state is
+  absorbing, so a lock only ever *disables*: dropping its field (frozen at the
+  root value) changes no reachable state, fireability or defect. It does
+  change `NoDeadEnd`, because a closed lock creates dead ends, so NoDeadEnd
+  slices keep lock reads.
+- *Invariants as constraints* (rule 3 above). A mixed invariant (tier +
+  deposits) joined the money model to verification. Invariants are now
+  checked first on unconstrained slices (no invariant prunes there). That
+  model is a superset of the whole one, so a PASS there is final, and a proven
+  invariant never prunes. A slice whose mentioned invariants are all proven
+  stays unconstrained. A FAIL found on a non-exact slice is re-checked on the
+  constrained one. Explorations of non-exact slices contribute no findings.
+  This trust holds for the canonical roots; queries with their own roots use
+  constrained slices.
+
+Both are pinned by planted probes; the over-trusting and under-trusting
+mutations each fail one.
+
 **Known limit:** a cross-cutting property, such as a sum over all accounts or
 an invariant reading a hub field written by many actions, gets a large cone,
 and the explosion returns. The broker benchmark is meant to measure how often
@@ -406,6 +430,32 @@ witness has the same length as the whole-model one. The singleton reproducer
 of §2.1 went from 5.1 s and `INCONCLUSIVE` to 0.2 s and `PASS` through the CLI.
 Coupled examples (OAuth, k8s, sunless crypt) are within noise of
 `--no-slice`.
+
+*B1 result (2026-10-09, `examples/broker`).* Neutral composite, three
+contracts, 33 actions, 7 lifecycles, 9 invariants, 8 queries, 42 scenarios, 1
+flow, all PASS. Change series, `check` sliced / `--no-slice`:
+
+| Increment | actions | whole-model states | verification slice | money slice | time |
+|---|---:|---:|---|---|---|
+| M1 profile | 15 | 132 | 22 | — | 0.01 s / 0.01 s |
+| M2 + accounts | 27 | 1,770 | 22 | — | 0.09 s / 0.25 s |
+| M3 + payments | 33 | 15,912 | 22 | 15,912 | 2.7 s / 3.3 s |
+
+Findings:
+
+1. Independent processes stay on their slices: the verification properties
+   explore 22 states at every increment.
+2. The money properties are genuinely cross-cutting: a deposit reads the tier,
+   the account state and the client status, and a withdrawal also reads the
+   security code. Their slice is the whole coupled model. That is the honest
+   coupling, not an engine artefact, and it needs ~16k states (the spec
+   declares a 50k budget).
+3. Two engine artefacts that glued *independent* processes were found and
+   removed exactly (see §5 refinements).
+4. The new conservation invariant caught inconsistent test data in seven M2
+   scenarios (money on an account that was never deposited).
+
+Exit criterion met: P1–P3, P7, P8, P11, P12 have definitive verdicts.
 
 **B2. Broker model M4–M6 in analint**, measured with and without slicing.
 Record the cone size of each property. This is the evidence for whether

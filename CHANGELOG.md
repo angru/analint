@@ -19,6 +19,8 @@ All notable changes to this project are documented here. The format is based on
   for one run.
 - Warning for a behaviour object defined in a spec module but not part of the
   model.
+- `examples/broker`: a generic retail broker (verification, trading accounts,
+  payments) as one `Contract` per process — the scaling benchmark.
 
 ### Changed
 

@@ -586,9 +586,13 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   `independent_lifecycles` with identical verdicts (table: research/34 §8);
   `INCONCLUSIVE`/`NOT_CHECKED` split in summaries; `check --max-states`.
   Per-check `elapsed_ms` moved to C (attributable only per slice)
-- **B1/B2. Broker model** — a neutral composite of common practice (KYC, trading accounts,
-  payments, leverage/stop out, partners), increments M1–M6 with a measured
-  change series
+- ✅ **B1. Broker model M1–M3** (`examples/broker`, one `Contract` per process):
+  33 actions, all PASS; verification slices stay at 22 states from M1 to M3,
+  and the genuinely coupled money model is ~16k states. It exposed two slice
+  artefacts (terminal-lock reads, invariants as constraints), both removed
+  exactly (research/34 §5, §8)
+- **B2. Broker model M4–M6** — leverage/margin/stop out, partners,
+  multiplicity; measured with and without slicing
 - ✅ **C. Cone-of-influence slicing** per property, default for `check`
   (`validator/slicing.py`): exact, gated against the monolithic path on every
   example, plus 7 planted-defect probes (one per closure rule); superset

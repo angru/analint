@@ -221,6 +221,430 @@
       }
     }
   },
+  "broker": {
+    "verdict": "PASS",
+    "warnings": 0,
+    "scenarios": {
+      "sc_contacts_start_onboarding": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_details_raise_the_tier": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_profile_after_details": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_identity_before_profile_is_rejected": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "2d1d2611a95fd0a1"
+      },
+      "sc_identity_approval_raises_the_tier": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_first_identity_failure_allows_resubmission": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_last_failure_locks_the_document": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_locked_document_cannot_be_resubmitted": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "affffc7b808a0a74"
+      },
+      "sc_support_reopens_a_locked_identity": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_address_before_identity_is_rejected": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "c26fea9e5e55ab75"
+      },
+      "sc_address_approval_completes_verification": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_first_address_failure_allows_resubmission": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_last_address_failure_locks_it": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_support_reopens_a_locked_address": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_code_is_issued": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_code_expires": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_open_real_standard": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_unregistered_cannot_open": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "54c3061073dd18a9"
+      },
+      "sc_archive_idle_account": {
+        "status": "PASS",
+        "rules": 14,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_archive_with_open_position_is_rejected": {
+        "status": "PASS",
+        "rules": 14,
+        "findings_hash": "ccf95de971c8f9f6"
+      },
+      "sc_restore_archived": {
+        "status": "PASS",
+        "rules": 12,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_disable_by_compliance": {
+        "status": "PASS",
+        "rules": 12,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_support_reactivates": {
+        "status": "PASS",
+        "rules": 12,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_delete_inactive_demo": {
+        "status": "PASS",
+        "rules": 13,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_demo_trades_without_money": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_archived_account_cannot_trade": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "3a8d51e6a5398376"
+      },
+      "sc_gated_region_needs_full_verification_to_trade": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "697827e82d3cf768"
+      },
+      "sc_close_position": {
+        "status": "PASS",
+        "rules": 14,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_disabled_account_cannot_close": {
+        "status": "PASS",
+        "rules": 14,
+        "findings_hash": "189b9f5214a3b9bb"
+      },
+      "sc_first_deposit_at_low_tier": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_deposit_over_tier_limit_is_rejected": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "54e07a9d9128f1e6"
+      },
+      "sc_deposit_into_archived_account_is_rejected": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "c07a53aa1931532e"
+      },
+      "sc_gated_region_needs_full_verification_to_deposit": {
+        "status": "PASS",
+        "rules": 16,
+        "findings_hash": "3885b2932dcf05d3"
+      },
+      "sc_verify_card": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_withdrawal_spends_the_code": {
+        "status": "PASS",
+        "rules": 19,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_withdrawal_without_code_is_rejected": {
+        "status": "PASS",
+        "rules": 19,
+        "findings_hash": "d5e630b73ac8f36d"
+      },
+      "sc_withdrawal_to_ineligible_card_is_rejected": {
+        "status": "PASS",
+        "rules": 19,
+        "findings_hash": "acda33e3cd610f67"
+      },
+      "sc_withdrawal_beyond_free_margin_is_rejected": {
+        "status": "PASS",
+        "rules": 19,
+        "findings_hash": "791bd614b84d3a4c"
+      },
+      "sc_pay_withdrawal": {
+        "status": "PASS",
+        "rules": 11,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_reject_withdrawal_refunds": {
+        "status": "PASS",
+        "rules": 11,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_terminate_empty_profile": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_terminate_with_money_is_rejected": {
+        "status": "PASS",
+        "rules": 11,
+        "findings_hash": "825ff4bc70235601"
+      }
+    },
+    "queries": {
+      "verification_can_complete": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": [
+          "confirm_contacts",
+          "fill_details",
+          "complete_profile",
+          "submit_identity",
+          "approve_identity",
+          "submit_address",
+          "approve_address"
+        ],
+        "findings_hash": "9a2fb46b35b48863"
+      },
+      "final_rejection_can_happen": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": [
+          "confirm_contacts",
+          "fill_details",
+          "complete_profile",
+          "submit_identity",
+          "reject_identity",
+          "submit_identity",
+          "lock_identity"
+        ],
+        "findings_hash": "7c2a768ee30db64f"
+      },
+      "verification_never_stuck": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "no_cent_demo": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "archived_account_exists": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": [
+          "confirm_contacts",
+          "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
+          "archive(acct=Account['main'])"
+        ],
+        "findings_hash": "d85b2d9622c6eeeb"
+      },
+      "money_round_trip": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": [
+          "confirm_contacts",
+          "fill_details",
+          "request_code",
+          "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
+          "deposit(acct=Account['main'])",
+          "request_withdrawal(acct=Account['main'])",
+          "pay_withdrawal(acct=Account['main'])"
+        ],
+        "findings_hash": "29a2b8f9fc935105"
+      },
+      "gated_region_deposits_only_when_verified": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "every_action_is_usable": {
+        "status": "PASS",
+        "states": 15912,
+        "exploration": "9c8a0214353d2ae3",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "explorations": {
+      "9c8a0214353d2ae3": {
+        "states": 15912,
+        "edges": 53424,
+        "states_hash": "a5219486c950a572",
+        "edges_hash": "06eee0f3024db103",
+        "roots": 3,
+        "roots_hash": "66c9d2a7688ec132",
+        "findings_hash": "e3b0c44298fc1c14",
+        "fired": [
+          "approve_address",
+          "approve_identity",
+          "archive(acct=Account['main'])",
+          "close_position(acct=Account['main'])",
+          "code_expires",
+          "complete_profile",
+          "confirm_contacts",
+          "delete_inactive_demo(acct=Account['main'])",
+          "deposit(acct=Account['main'])",
+          "disable(acct=Account['main'])",
+          "fill_details",
+          "lock_address",
+          "lock_identity",
+          "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
+          "open_account(acct=Account['main'], kind=<AccountKind.PROFESSIONAL: 'professional'>, mode=<Mode.DEMO: 'demo'>)",
+          "open_account(acct=Account['main'], kind=<AccountKind.PROFESSIONAL: 'professional'>, mode=<Mode.REAL: 'real'>)",
+          "open_account(acct=Account['main'], kind=<AccountKind.STANDARD: 'standard'>, mode=<Mode.DEMO: 'demo'>)",
+          "open_account(acct=Account['main'], kind=<AccountKind.STANDARD: 'standard'>, mode=<Mode.REAL: 'real'>)",
+          "open_position(acct=Account['main'])",
+          "pay_withdrawal(acct=Account['main'])",
+          "reject_address",
+          "reject_identity",
+          "reject_withdrawal(acct=Account['main'])",
+          "request_code",
+          "request_withdrawal(acct=Account['main'])",
+          "restore(acct=Account['main'])",
+          "submit_address",
+          "submit_identity",
+          "support_reactivates(acct=Account['main'])",
+          "support_reopens_address",
+          "support_reopens_identity",
+          "terminate",
+          "verify_card"
+        ],
+        "excluded": {},
+        "incomplete": []
+      }
+    },
+    "invariants": {
+      "full_tier_means_both_documents": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "both_documents_mean_full_tier": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "address_needs_identity": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "documents_need_a_profile": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "deposits_within_tier_limit": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "money_is_conserved": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "margin_stays_covered": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "demo_holds_no_money": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "terminated_client_holds_no_funds": {
+        "status": "PASS",
+        "states": 15912,
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    },
+    "flows": {
+      "flow_onboarding": {
+        "passed": true,
+        "actions_run": 9,
+        "trace": [
+          "confirm_contacts",
+          "fill_details",
+          "complete_profile",
+          "submit_identity",
+          "reject_identity",
+          "submit_identity",
+          "approve_identity",
+          "submit_address",
+          "approve_address"
+        ],
+        "findings_hash": "e3b0c44298fc1c14"
+      }
+    }
+  },
   "cloak": {
     "verdict": "PASS",
     "warnings": 0,

@@ -49,10 +49,13 @@ def _finding_digest(findings) -> str:
     return _digest((str(f.severity), f.location, f.message) for f in findings)
 
 
-def _query_fingerprint(spec, query) -> tuple[dict, str, dict]:
-    cache: dict = {}
+def _query_fingerprint(spec, query, cache: dict) -> tuple[dict, str, dict]:
+    # one cache per example: explorations are deterministic, so queries over
+    # the same roots and budget share one instead of re-exploring it
+    before = set(cache)
     qr = run_query(query, spec, cache)
-    exp = next(iter(cache.values()))
+    new = set(cache) - before
+    exp = cache[new.pop()] if new else _exploration_for(spec, query, cache)
     incomplete = []
     if exp.capped:
         incomplete.append("capped")
@@ -85,6 +88,15 @@ def _query_fingerprint(spec, query) -> tuple[dict, str, dict]:
     return query_fingerprint, exploration_id, exploration_fingerprint
 
 
+def _exploration_for(spec, query, cache: dict):
+    """The cached exploration a query reused (same roots and budget)."""
+    from analint.validator.explorer import resolve_query_initials, state_key
+
+    initials, _ = resolve_query_initials(query, spec)
+    roots = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
+    return cache[(roots, query.max_states)]
+
+
 def _characterize(path: Path) -> dict:
     """Deterministic, order- and timing-independent fingerprint of one example."""
     # the monolithic path is the semantic oracle; slicing is gated against it
@@ -94,8 +106,11 @@ def _characterize(path: Path) -> dict:
     assert spec is not None
     queries = {}
     explorations = {}
+    cache: dict = {}
     for query in spec.queries:
-        query_fingerprint, exploration_id, exploration_fingerprint = _query_fingerprint(spec, query)
+        query_fingerprint, exploration_id, exploration_fingerprint = _query_fingerprint(
+            spec, query, cache
+        )
         queries[query.id] = query_fingerprint
         explorations.setdefault(exploration_id, exploration_fingerprint)
     return {

@@ -166,6 +166,7 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
     from analint.models.flow import Flow
     from analint.models.invariant import Invariant
     from analint.models.lifecycle import Lifecycle
+    from analint.models.param import refresh_bound_ids
     from analint.models.query import QUERY_TYPES
     from analint.models.scenario import Scenario
     from analint.models.scope import Scope
@@ -202,6 +203,8 @@ def collect_from_modules(modules: list[ModuleType]) -> dict:
             elif isinstance(obj, _INSTANCE_TYPES):
                 if not obj.id:
                     obj.id = var_name
+                    if isinstance(obj, Action) and obj.params:
+                        refresh_bound_ids(obj)
                 if id(obj) in seen_instances:
                     continue
                 seen_instances.add(id(obj))

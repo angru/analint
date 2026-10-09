@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from analint.models.action import Action
 from analint.models.contract import Contract
@@ -55,6 +55,9 @@ class Spec(BaseModel):
     # Exploration budget for automatic invariant verification over the canonical
     # model. A finite model larger than this reports INCONCLUSIVE; raise it here.
     max_states: int = Field(default=10_000, gt=0)
+    # Actions as declared, before Param expansion — membership of a
+    # parameterized action is about the declaration, not its bound instances.
+    _declared_actions: list[Action] = PrivateAttr(default_factory=list)
 
     def model_post_init(self, __context: Any) -> None:
         content_fields = (
@@ -77,6 +80,7 @@ class Spec(BaseModel):
         # runner, the explorer and the queries only ever see bound actions.
         from analint.models.param import expand_action
 
+        self._declared_actions = list(self.actions)
         if any(a.params for a in self.actions):
             self.actions = [bound for a in self.actions for bound in expand_action(a)]
 

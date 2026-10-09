@@ -123,6 +123,9 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 - multiple `Spec` objects in one import graph are a load error; use one root
   `Spec` plus imported contracts instead of implicit merging
 - a `.py` file in the directory not reachable from the entry point → warning (engine.`_unloaded_file_warnings`)
+- a behaviour object (action/invariant/scenario/flow/query) bound in a spec
+  module but absent from the model → orphan warning (engine.`_orphan_warnings`,
+  research/35 R4); explicit membership must not silently drop behaviour
 
 ### Reachability engine (explorer.py)
 

@@ -84,10 +84,13 @@ Observed consequences:
   Two different `Scope` objects over one entity type are a structural error.
   Behaviour (actions, invariants, scenarios, flows, queries) is never derived;
   it is always listed.
-- **R3 Ids.** A naming pass assigns empty ids from module variable names *by
-  identity* and only to model members. The scan no longer decides
-  membership. A member that is not bound to any module variable needs an
-  explicit `id=`; the existing missing-id structural error covers it.
+- **R3 Ids.** The naming pass fills empty ids from module variable names for
+  every DSL object bound in a spec module, as before. A name never confers
+  membership, so naming non-members is harmless. After naming a `Param`
+  action, the pass re-derives the ids of instances that were bound earlier:
+  a `Spec`/`Contract` expands them at import time, before the loader runs. A
+  member not bound to any module variable needs an explicit `id=`; the
+  existing missing-id structural error covers it.
 - **R4 Orphan warning.** A behaviour object bound in a spec module but absent
   from the model produces `WARNING loader:<module>.<name> — defined but not
   part of the model`. It is visible in JSON, and `--strict` makes it fail as
@@ -175,7 +178,11 @@ and explained, never regenerated mechanically (`tests/snapshots/README.md`).
 
 1. **Naming pass + orphan warning (R3, R4)**, behaviour-neutral: in auto
    mode nothing is orphaned yet. Probe 1 is written here against the
-   explicit mode.
+   explicit mode. *Done:* it also fixed a latent bug: in composed mode, a
+   `Param` action without an explicit `id` kept empty instance ids (a
+   missing-id structural error), because expansion ran before naming.
+   `Spec` now records its declared actions, so a parameterized action
+   counts as a member through its declaration.
 2. **Reference closure (R2)**, additive: `Contract`/`Spec` lists for
    entities, events, scopes and lifecycles become optional. Probes 3 and 4.
 3. **Migrate the examples** one by one to explicit roots while auto mode

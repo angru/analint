@@ -130,6 +130,7 @@ def prepare_model(path: Path, *, what_if: Path | None = None) -> PreparedModel:
     structural: list[Finding] = []
     if spec is not None:
         structural.extend(_unloaded_file_warnings(path, modules))
+        structural.extend(_orphan_warnings(spec, modules))
         structural.extend(validate_structural(spec))
     return PreparedModel(
         spec=spec, modules=modules, load_errors=load_errors, structural_findings=structural
@@ -255,6 +256,44 @@ def _unloaded_file_warnings(path: Path, modules: list) -> list[Finding]:
     return findings
 
 
+def _orphan_warnings(spec: Spec, modules: list) -> list[Finding]:
+    """Warn about behaviour defined in the spec modules but absent from the model.
+
+    Explicit membership trades silent inclusion for possible silent omission: a
+    forgotten action is behaviour nobody explores, which can turn a check green.
+    Surfacing it keeps the omission visible (research/35 R4).
+    """
+    collected = collect_from_modules(modules)
+    members = {
+        id(obj)
+        for obj in (
+            *spec._declared_actions,
+            *spec.actions,
+            *spec.invariants,
+            *spec.scenarios,
+            *spec.flows,
+            *spec.queries,
+        )
+    }
+    return [
+        Finding(
+            Severity.WARNING,
+            f"{kind}:{obj.id}",
+            f"'{obj.id}' is defined in the spec modules but is not part of the model "
+            f"— list it in the Spec or a Contract, or delete it",
+        )
+        for kind, key in (
+            ("action", "actions"),
+            ("invariant", "invariants"),
+            ("scenario", "scenarios"),
+            ("flow", "flows"),
+            ("query", "queries"),
+        )
+        for obj in collected[key]
+        if id(obj) not in members
+    ]
+
+
 def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -> Spec:
     """Fill empty list fields from auto-discovered instances.
 
@@ -320,6 +359,9 @@ def _extend_composed_spec(spec: Spec, collected: dict) -> None:
 
     added_actions = [bound for action in collected["actions"] for bound in expand_action(action)]
     spec.actions = _deduplicate_by_identity([*spec.actions, *added_actions])
+    spec._declared_actions = _deduplicate_by_identity(
+        [*spec._declared_actions, *collected["actions"]]
+    )
 
 
 def _deduplicate_by_identity(objects: list) -> list:

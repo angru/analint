@@ -362,18 +362,13 @@ def bind_action(action: Action, binding: Binding) -> Action:
         )
 
     key = _binding_key(action, binding)
-    suffix = ", ".join(f"{p.name}={_label(binding[p.name])}" for p in action.params)
     cached = _BIND_MEMO.get(key)
     if cached is not None:
-        # bind() may run before the loader fills the base id from the variable
-        # name — refresh the derived id once the base action got its name
-        if not cached.id and action.id:
-            cached.id = f"{action.id}({suffix})"
-            cached.family = action.id
+        _refresh_bound_id(action, key, cached)
         return cached
 
     concrete = Action(
-        id=f"{action.id}({suffix})" if action.id else "",
+        id=f"{action.id}({_suffix(key)})" if action.id else "",
         name=action.name,
         description=action.description,
         family=action.id,
@@ -386,6 +381,26 @@ def bind_action(action: Action, binding: Binding) -> Action:
     concrete._bindings = dict(binding)
     _BIND_MEMO[key] = concrete
     return concrete
+
+
+def _suffix(key: tuple) -> str:
+    return ", ".join(f"{name}={_label(value)}" for name, value in key[1])
+
+
+def _refresh_bound_id(action: Action, key: tuple, bound: Action) -> None:
+    # binding may run before the loader fills the base id from the variable
+    # name (a Spec/Contract is built at import time) — derive it once named
+    if not bound.id and action.id:
+        bound.id = f"{action.id}({_suffix(key)})"
+        bound.family = action.id
+
+
+def refresh_bound_ids(action: Action) -> None:
+    """Re-derive the ids of ``action``'s already-bound instances after the loader
+    named it. Touches only existing bindings — no where-clause re-evaluation."""
+    for key, bound in _BIND_MEMO.items():
+        if key[0] == id(action):
+            _refresh_bound_id(action, key, bound)
 
 
 def expand_action(action: Action) -> list[Action]:

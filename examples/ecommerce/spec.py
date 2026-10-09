@@ -154,11 +154,14 @@ paid_is_reachable = Reachable(
     label="an order can actually get paid",
 )
 
-# ── Spec — everything above is discovered automatically ───────────────────────
+# ── Spec — lists the behaviour; entities and events follow by reference ───────
 
 spec = Spec(
     id="ecommerce",
     name="E-commerce Platform",
     version="0.9.0",
     description="Online store — business behaviour spec",
+    actions=[checkout],
+    scenarios=[sc_happy, sc_no_funds, sc_no_stock, sc_already_paid],
+    queries=[paid_is_reachable],
 )

@@ -143,9 +143,14 @@ def validate(
     tags: list[str] | None = None,
     extra: Path | None = None,
     max_states: int | None = None,
+    sliced: bool = True,
 ) -> ValidationResult:
     """``max_states`` overrides every exploration budget for this run — the
-    spec's canonical one and each query's — without mutating the model."""
+    spec's canonical one and each query's — without mutating the model.
+
+    ``sliced`` checks each invariant/query on its cone of influence instead of
+    the whole model (research/34 §5); ``False`` keeps the monolithic path for
+    differential testing (``check --no-slice``)."""
     prepared = prepare_model(path, what_if=extra)
     spec, load_errors = prepared.spec, prepared.load_errors
 
@@ -216,28 +221,35 @@ def validate(
     # Shared by the canonical invariant check and the queries: a default-source
     # query with the same roots and budget reuses the canonical exploration.
     explorations: dict = {}
+    analysis = None
+    if sliced and (spec.invariants or spec.queries):
+        from analint.validator.slicing import SliceAnalysis
+
+        analysis = SliceAnalysis(spec)
     if spec.invariants:
         from analint.validator.explorer import verify_invariants
 
-        result.invariant_results, canonical_exp = verify_invariants(
+        result.invariant_results, _ = verify_invariants(
             spec,
             canonical_initials,
             build_error=canonical_error,
             max_states=max_states or spec.max_states,
             cache=explorations,
+            analysis=analysis,
         )
-        # Surface the transition defects the canonical exploration found — a
-        # broken action there must fail the run, not hide behind a green invariant.
-        if canonical_exp is not None:
-            _merge_exploration_findings(canonical_exp)
 
     if spec.queries:
         from analint.validator.explorer import run_query
 
         for query in spec.queries:
-            result.query_results.append(run_query(query, spec, explorations, max_states=max_states))
-        for exp in explorations.values():
-            _merge_exploration_findings(exp)
+            result.query_results.append(
+                run_query(query, spec, explorations, max_states=max_states, analysis=analysis)
+            )
+
+    # Surface the transition defects every exploration found — a broken action
+    # must fail the run, not hide behind a green invariant.
+    for exp in [*explorations.values(), *(analysis.explorations() if analysis else [])]:
+        _merge_exploration_findings(exp)
 
     return result
 

@@ -60,6 +60,8 @@ class QueryResult:
     # the witness/counterexample state key (an internal explorer tuple); kept for
     # the trace projection and NOT serialized into the public JSON.
     witness_key: Any = None
+    # the slice the query was checked on (research/34 §5); None = whole model
+    slice: dict | None = None
 
 
 @dataclass
@@ -76,6 +78,7 @@ class InvariantResult:
     findings: list[Finding] = field(default_factory=list)
     states_explored: int = 0
     trace: list[str] | None = None  # action ids from the initial state to the violation
+    slice: dict | None = None  # the slice it was checked on; None = whole model
 
 
 @dataclass

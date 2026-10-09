@@ -201,6 +201,26 @@ through a *mixed invariant*. Each must still surface as `FAIL`
 (review-gated-workflow lesson: the probes must show that a defect surfaces,
 not only that two paths agree).
 
+**As implemented (phase C, `validator/slicing.py`).** Four decisions refine
+the draft above:
+
+- *A slice state is a full state.* Instead of projecting states, the slice
+  explores only its actions and invariants over the full context. Out-of-slice
+  fields stay at their root values, so every slice trace is a real full-model
+  trace (the slice → full direction needs no argument). Roots are deduplicated
+  by their projection, preferring a root the full model would expand. A root
+  that is illegal under an out-of-slice invariant is kept but not expanded.
+- *Superset reuse.* A complete exploration of a closed superset is exact for
+  every slice inside it. Per-action slices run largest first and reuse it, so
+  tightly coupled specs pay ~nothing extra (examples: within noise of the
+  whole-model path).
+- *Fallback.* An AST node the walker does not know makes that property
+  whole-model.
+- *Documented divergence.* The whole model counts a state that breaks an
+  invariant outside the slice as a `NoDeadEnd` dead end; the slice does not.
+  The violation fails the run in its own slice, so the run verdict is
+  unchanged (pinned by a test).
+
 **Known limit:** a cross-cutting property, such as a sum over all accounts or
 an invariant reading a hub field written by many actions, gets a large cone,
 and the explosion returns. The broker benchmark is meant to measure how often
@@ -368,6 +388,24 @@ variables) and its completeness. `analint check --no-slice` keeps the
 monolithic path for differential testing. *Exit:* the conformance test and
 planted-defect probes from §5 pass; the K=7 reproducer is all `PASS` (exact)
 in < 1 s; issue #3 gets a reply that the private spec can be rechecked.
+
+*Result (2026-10-09).* Conformance holds on all 11 examples: identical verdicts,
+per-check statuses, witness-trace lengths and exploration finding locations.
+Seven planted-defect probes cover effect right-hand sides, guards, post,
+Create/Delete, invariants joining, inert roots and writers joining; disabling
+each closure rule fails at least one probe. `independent_lifecycles(n)`:
+
+| n | whole-model states | sliced `validate()` | verdicts |
+|---:|---:|---:|---|
+| 7 | 2,097,152 (capped at 10k → INCONCLUSIVE) | 0.01 s | all PASS, exact |
+| 10 | ~1.1 × 10⁹ | 0.01 s | all PASS, exact |
+| 20 | ~1.2 × 10¹⁸ | 0.02 s | all PASS, exact |
+
+Each invariant explores 8 states and the cross-component `Reachable` 64; its
+witness has the same length as the whole-model one. The singleton reproducer
+of §2.1 went from 5.1 s and `INCONCLUSIVE` to 0.2 s and `PASS` through the CLI.
+Coupled examples (OAuth, k8s, sunless crypt) are within noise of
+`--no-slice`.
 
 **B2. Broker model M4–M6 in analint**, measured with and without slicing.
 Record the cone size of each property. This is the evidence for whether

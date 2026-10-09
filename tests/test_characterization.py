@@ -87,7 +87,9 @@ def _query_fingerprint(spec, query) -> tuple[dict, str, dict]:
 
 def _characterize(path: Path) -> dict:
     """Deterministic, order- and timing-independent fingerprint of one example."""
-    result = validate(path)
+    # the monolithic path is the semantic oracle; slicing is gated against it
+    # by tests/test_slicing.py
+    result = validate(path, sliced=False)
     spec = build_spec(path)[0]
     assert spec is not None
     queries = {}

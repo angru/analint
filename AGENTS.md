@@ -55,6 +55,7 @@ src/analint/
     state_checks.py         ← shared invariant checks over a state (scenario + flow)
     rule_checker.py         ← evaluate(pred, context) and resolve(operand, context)
     explorer.py             ← bounded reachability: BFS, traces, query + canonical invariant verification
+    slicing.py              ← cone-of-influence slices: each check explores only its slice
 
   reporter/                 ← Finding/ScenarioResult/ValidationResult, terminal + JSON output
 
@@ -151,6 +152,28 @@ validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
 - actions with event-payload preconditions are **excluded** from exploration
   and reported (`Exploration.excluded`); DeadActions lists them as "not
   assessed", not dead — full event-pool semantics is future work (research/07)
+
+**Property slicing (validator/slicing.py, research/34 §5).** `check` runs
+every invariant and query on its slice, the least closed variable set. An
+action that writes a slice variable joins the slice with all its reads and
+writes, including guards, effect right-hand sides, post, emitted payloads,
+presence guards and the terminal lock. An invariant that mentions a slice
+variable joins with all its variables. Each action is also explored in its
+own slice for defect parity and DeadActions. Do not regress:
+- a slice state is a full state (out-of-slice fields stay at root values), so
+  slice traces are real traces; roots are deduplicated by projection, and a root
+  illegal under an out-of-slice invariant is kept but **not expanded**;
+- an unknown AST node makes the property fall back to the whole model, never a
+  smaller slice;
+- a complete exploration of a closed superset may answer a smaller slice; a
+  capped one may not;
+- the characterization snapshot pins the **monolithic** path
+  (`validate(sliced=False)`); `tests/test_slicing.py` gates slicing against
+  it on every example, plus planted-defect probes, one per closure rule;
+- the one documented divergence: the whole model counts a state that breaks an
+  invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does
+  not. That violation still fails the run in its own invariant's slice;
+- `explore` / `trace` remain whole-model.
 
 ### Bounded multiplicity
 

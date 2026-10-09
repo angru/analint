@@ -48,6 +48,7 @@ from analint.models.scope import (
 from analint.reporter.base import Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
+from analint.validator.slicing import Slice, SliceAnalysis
 from analint.validator.state_checks import invariant_is_applicable
 from analint.validator.structural import _collect_field_refs, _describe
 
@@ -384,7 +385,17 @@ def _field_annotation(entity_cls: type, field_name: str) -> Any:
 # ── Exploration ────────────────────────────────────────────────────────────────
 
 
-def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploration:
+def explore(
+    spec: Spec,
+    initial_ctxs: list[dict],
+    max_states: int,
+    *,
+    root_numbers: list[int] | None = None,
+    inert_roots: frozenset[int] = frozenset(),
+) -> Exploration:
+    """BFS from ``initial_ctxs``. ``root_numbers`` keeps the 1-based labels of a
+    subset of a larger root set (slices); roots at ``inert_roots`` positions
+    are kept as states but not expanded (illegal in the full model)."""
     exp = Exploration()
 
     # Actions whose preconditions reference event payloads are not explorable:
@@ -413,7 +424,8 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
     # Seed the BFS with every admissible initial state; identical roots merge
     # naturally through the state key (research/16: multi-root exploration).
     queue: deque[StateKey] = deque()
-    for index, ctx in enumerate(initial_ctxs, start=1):
+    for pos, ctx in enumerate(initial_ctxs):
+        index = root_numbers[pos] if root_numbers is not None else pos + 1
         key0 = state_key(ctx)
         if key0 in exp.states:
             continue
@@ -423,7 +435,7 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
         exp.roots[key0] = index
         # An initial state that already violates an invariant is illegal: keep it
         # as a witness but do not explore from it, exactly as for any successor.
-        if not _report_invariant_violations(spec, ctx, key0, exp):
+        if not _report_invariant_violations(spec, ctx, key0, exp) and pos not in inert_roots:
             queue.append(key0)
     while queue:
         if len(exp.states) >= max_states:
@@ -542,9 +554,15 @@ def resolve_query_initials(query: Query, spec: Spec) -> tuple[list[dict] | None,
 
 
 def run_query(
-    query: Query, spec: Spec, cache: dict, *, max_states: int | None = None
+    query: Query,
+    spec: Spec,
+    cache: dict,
+    *,
+    max_states: int | None = None,
+    analysis: SliceAnalysis | None = None,
 ) -> QueryResult:
-    """``max_states`` overrides the query's own budget (``check --max-states``)."""
+    """``max_states`` overrides the query's own budget (``check --max-states``).
+    With ``analysis`` the query is checked on its slice (research/34 §5)."""
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
@@ -557,8 +575,31 @@ def run_query(
             findings=[Finding(Severity.ERROR, f"query:{qid}", error or "bad initial state")],
         )
 
-    exp = explore_cached(spec, initials, max_states or query.max_states, cache)
+    budget = max_states or query.max_states
+    if not isinstance(query, (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)):
+        return QueryResult(
+            query_id=qid,
+            kind=kind,
+            status="FAIL",
+            findings=[Finding(Severity.ERROR, f"query:{qid}", f"unknown query type {kind}")],
+        )
+    if analysis is not None:
+        # the full exploration of these roots would surface every action's
+        # defects; the per-action slices do the same and decide DeadActions
+        per_action = cover_actions(analysis, initials, budget, cache)
+        if isinstance(query, DeadActions):
+            return _eval_dead_actions_sliced(qid, spec, per_action)
+        piece = analysis.predicate_slice(
+            query.goal if isinstance(query, NoDeadEnd) else query.predicate
+        )
+        exp, used = explore_slice(analysis, piece, initials, budget, cache)
+        result = _evaluate(query, qid, exp, spec)
+        result.slice = used.summary()
+        return result
+    return _evaluate(query, qid, explore_cached(spec, initials, budget, cache), spec)
 
+
+def _evaluate(query: Query, qid: str, exp: Exploration, spec: Spec) -> QueryResult:
     if isinstance(query, Reachable):
         return _eval_reachable(query, qid, exp, expect_reachable=True)
     if isinstance(query, Unreachable):
@@ -567,14 +608,45 @@ def run_query(
         return _eval_always(query, qid, exp)
     if isinstance(query, NoDeadEnd):
         return _eval_no_dead_end(query, qid, exp)
-    if isinstance(query, DeadActions):
-        return _eval_dead_actions(query, qid, exp, spec)
-    return QueryResult(
-        query_id=qid,
-        kind=kind,
-        status="FAIL",
-        findings=[Finding(Severity.ERROR, f"query:{qid}", f"unknown query type {kind}")],
+    return _eval_dead_actions(query, qid, exp, spec)
+
+
+def explore_slice(
+    analysis: SliceAnalysis, piece: Slice, initials: list[dict], max_states: int, cache: dict
+) -> tuple[Exploration, Slice]:
+    """Explore one slice (research/34 §5); returns the exploration and the
+    slice it actually covers. A complete exploration of a closed superset is
+    exact for every slice inside it, so it is reused rather than re-explored."""
+    if piece.vars is None:
+        return explore_cached(analysis.spec, initials, max_states, cache), piece
+    explored = analysis.explored.setdefault((analysis.roots_key(initials), max_states), [])
+    for used, exp in explored:
+        if used.vars == piece.vars or (not exp.capped and piece.vars <= used.vars):
+            return exp, used
+    roots, numbers, inert = analysis.project_roots(piece, initials)
+    exp = explore(
+        analysis.sliced_spec(piece), roots, max_states, root_numbers=numbers, inert_roots=inert
     )
+    explored.append((piece, exp))
+    return exp, piece
+
+
+def cover_actions(
+    analysis: SliceAnalysis, initials: list[dict], max_states: int, cache: dict
+) -> dict[int, Exploration]:
+    """Every action explored in its own slice from these roots — the sliced
+    counterpart of one full exploration: it surfaces each action's defects and
+    decides its fireability. Keyed by id(action)."""
+    key = (analysis.roots_key(initials), max_states)
+    if key not in analysis.covered:
+        # largest slices first, so the nested ones reuse their explorations
+        pieces = [(action, analysis.action_slice(action)) for action in analysis.spec.actions]
+        pieces.sort(key=lambda item: -len(item[1].vars or ()))
+        analysis.covered[key] = {
+            id(action): explore_slice(analysis, piece, initials, max_states, cache)[0]
+            for action, piece in pieces
+        }
+    return analysis.covered[key]
 
 
 def explore_cached(spec: Spec, initials: list[dict], max_states: int, cache: dict) -> Exploration:
@@ -607,6 +679,7 @@ def verify_invariants(
     build_error: str | None = None,
     max_states: int = 10_000,
     cache: dict | None = None,
+    analysis: SliceAnalysis | None = None,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
     model. ``initials`` is the pre-built canonical state set (see
@@ -643,7 +716,20 @@ def verify_invariants(
         ]
         return results, None
 
-    exp = explore_cached(spec, initials, max_states, {} if cache is None else cache)
+    cache = {} if cache is None else cache
+    if analysis is not None:
+        # defects parity with the full canonical exploration (see cover_actions)
+        cover_actions(analysis, initials, max_states, cache)
+        results = []
+        for inv in spec.invariants:
+            exp, used = explore_slice(
+                analysis, analysis.invariant_slice(inv), initials, max_states, cache
+            )
+            result = _verify_one_invariant(inv, exp)
+            result.slice = used.summary()
+            results.append(result)
+        return results, None
+    exp = explore_cached(spec, initials, max_states, cache)
     return [_verify_one_invariant(inv, exp) for inv in spec.invariants], exp
 
 
@@ -1027,6 +1113,58 @@ def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spe
             ),
             *notes,
         ],
+    )
+
+
+def _eval_dead_actions_sliced(
+    qid: str, spec: Spec, per_action: dict[int, Exploration]
+) -> QueryResult:
+    """DeadActions over per-action slices: an action is dead only if its own
+    slice was exhausted without firing it; a capped slice decides nothing."""
+    dead: list[str] = []
+    undecided: list[str] = []
+    excluded: dict[str, str] = {}
+    for action in spec.actions:
+        exp = per_action[id(action)]
+        if action.id in exp.excluded:
+            excluded[action.id] = exp.excluded[action.id]
+        elif action.id not in exp.fired:
+            (undecided if exp.capped else dead).append(action.id)
+    distinct = {id(exp): exp for exp in per_action.values()}.values()
+    explored = sum(len(exp.states) for exp in distinct)
+    findings = []
+    if dead:
+        findings.append(
+            Finding(
+                Severity.ERROR,
+                f"query:{qid}",
+                f"never enabled in any reachable state: {', '.join(sorted(dead))}",
+            )
+        )
+    if undecided:
+        findings.append(
+            Finding(
+                Severity.WARNING,
+                f"query:{qid}",
+                f"not decided — their slices exceeded max_states: {', '.join(sorted(undecided))}",
+            )
+        )
+    findings.extend(
+        Finding(
+            Severity.INFO,
+            f"query:{qid}",
+            f"not assessed (excluded from exploration): {aid} — {reason}",
+        )
+        for aid, reason in sorted(excluded.items())
+    )
+    status = "FAIL" if dead else "INCONCLUSIVE" if undecided else "PASS"
+    return QueryResult(
+        query_id=qid,
+        kind="DeadActions",
+        status=status,
+        states_explored=explored,
+        findings=findings,
+        slice={"per_action": True, "slices": len(distinct)},
     )
 
 

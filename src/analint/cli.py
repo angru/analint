@@ -102,10 +102,20 @@ def check(
         min=1,
         help="Override every exploration budget (canonical and per query) for this run",
     ),
+    no_slice: bool = typer.Option(
+        False,
+        "--no-slice",
+        help="Explore the whole model for every check instead of each check's slice",
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
     result = validate(
-        path, scenario_ids=scenario or None, tags=tag or None, extra=what_if, max_states=max_states
+        path,
+        scenario_ids=scenario or None,
+        tags=tag or None,
+        extra=what_if,
+        max_states=max_states,
+        sliced=not no_slice,
     )
 
     if format == "json":

@@ -486,6 +486,12 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   Driving a field out of range is an error with a trace; `saturate=True`
   clamps instead, for counters where only thresholds matter.
 - If the state space exceeds `max_states` (default 10 000), the query reports **INCONCLUSIVE** instead of pretending.
+- **Each check explores only its slice.** An invariant or query is checked on
+  its *cone of influence*: the actions that can change what it reads, what
+  those actions read, and so on. Independent processes in one spec therefore
+  do not multiply each other's states. The result is exact, not an
+  approximation, and JSON reports each check's `slice`. `check --no-slice`
+  explores the whole model for every check.
 - During exploration the engine also reports **violated invariants** and **undeclared lifecycle transitions** (an effect performing `A → C` when the lifecycle only allows `A → B`).
 - An ad-hoc query without editing the spec: put it in a file and run `analint check . --what-if query.py`.
 
@@ -597,6 +603,8 @@ analint check [PATH]              # validate: structural checks + scenario runs
                                   # run only — test a hypothesis without editing the spec
   --max-states N                  # override every exploration budget for this run
                                   # (canonical invariant check and each query)
+  --no-slice                      # explore the whole model for every check
+                                  # instead of each check's slice
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind

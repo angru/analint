@@ -589,8 +589,11 @@ and the Quint bake-off protocol: research/34. Awaiting review.
 - **B1/B2. Broker model** — a neutral composite of common practice (KYC, trading accounts,
   payments, leverage/stop out, partners), increments M1–M6 with a measured
   change series
-- **C. Cone-of-influence slicing** per property (exact projection; conformance
-  gate vs the monolithic path + planted-defect probes; `--no-slice`)
+- ✅ **C. Cone-of-influence slicing** per property, default for `check`
+  (`validator/slicing.py`): exact, gated against the monolithic path on every
+  example, plus 7 planted-defect probes (one per closure rule); superset
+  reuse keeps coupled specs at parity; `--no-slice`. Issue-#3 shape: n=20
+  independent lifecycles (~10¹⁸ states) all PASS in 0.02 s (research/34 §8)
 - **D. Quint port** of M1–M6 (TLC exhaustive, Apalache bounded/inductive),
   state counts cross-validated
 - **E. Decision synthesis:** analint alone / compact state store / Quint export

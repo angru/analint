@@ -5,6 +5,35 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x` the public API may change between minor releases.
 
+## [Unreleased]
+
+### Added
+
+- **Property slicing** (research/34 §5): `check` verifies every invariant and
+  query on its cone of influence instead of the whole model. Specs with
+  independent processes no longer pay for the product of all of them. The
+  result is exact: a conformance test pins it against the whole-model path on
+  every example. JSON reports each check's `slice`; `check --no-slice` (MCP
+  `slice=false`) restores whole-model exploration.
+- `check --max-states N` (MCP `max_states`) overrides every exploration budget
+  for one run.
+- Warning for a behaviour object defined in a spec module but not part of the
+  model.
+
+### Changed
+
+- The summary separates budget-exhausted invariants (`inconclusive`) from
+  invariants that could not be checked at all (`not checked`). JSON adds
+  `invariants_inconclusive` and `invariants_not_checked`;
+  `invariants_unchecked` remains their sum.
+- Exploration is about 5× faster on whole-model runs (shared canonical
+  exploration, copy-on-write effects, cached guard plans and state layout).
+
+### Fixed
+
+- A parameterized action without an explicit `id` composed through
+  `Contract` + `Spec(imports=...)` kept empty instance ids.
+
 ## [0.0.1] — 2026-06-21
 
 First public release. The engine and CLI are mature and covered by an extensive

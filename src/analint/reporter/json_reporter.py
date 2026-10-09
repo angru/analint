@@ -47,6 +47,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "status": qr.status,
                 "states_explored": qr.states_explored,
                 "trace": qr.trace,
+                **({"slice": qr.slice} if qr.slice is not None else {}),
                 "findings": [
                     {"severity": f.severity.value, "location": f.location, "message": f.message}
                     for f in qr.findings
@@ -61,6 +62,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "status": ir.status,
                 "states_explored": ir.states_explored,
                 "trace": ir.trace,
+                **({"slice": ir.slice} if ir.slice is not None else {}),
                 "findings": [
                     {"severity": f.severity.value, "location": f.location, "message": f.message}
                     for f in ir.findings

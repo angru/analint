@@ -578,12 +578,14 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   defined but not in the model get an orphan warning; `--what-if` keeps
   merging its file. Steps: naming pass + orphan warning → reference closure →
   migrate examples one by one (characterization-gated) → remove
-  auto-population (breaking, 0.0.2) → docs/skill
-- **A. Engine hygiene:** share the canonical exploration; lazy rejection
-  messages, precomputed guard refs, trace-on-defect, `deque`; split
-  `INCONCLUSIVE`/`NOT_CHECKED` in summaries; per-check time/states/completeness;
-  `check --max-states`; `independent_lifecycles(k)` scaling family with
-  properties
+  auto-population (breaking, 0.0.2) → docs/skill. ✅ step 1 (naming pass +
+  orphan warning, e3611a5; also fixed unnamed composed `Param` action ids)
+- ✅ **A. Engine hygiene** (f9fe90c..8e96ad3): shared canonical exploration,
+  state-key layout, cached guard plan/invariant keys, silent rejections,
+  trace-on-defect, copy-on-write effects, `deque` — ~5× on
+  `independent_lifecycles` with identical verdicts (table: research/34 §8);
+  `INCONCLUSIVE`/`NOT_CHECKED` split in summaries; `check --max-states`.
+  Per-check `elapsed_ms` moved to C (attributable only per slice)
 - **B1/B2. Broker model** — a neutral composite of common practice (KYC, trading accounts,
   payments, leverage/stop out, partners), increments M1–M6 with a measured
   change series

@@ -327,6 +327,34 @@ and a cross-component query (`workflow_product` has no properties).
 *Exit:* the issue reproducer at K=7 runs ≥ 3× faster with identical
 verdicts; snapshot unchanged.
 
+*Result (2026-10-09, commits f9fe90c..8e96ad3).* Each optimization is its
+own commit with an identical-verdict and trace check. `validate()` on
+`independent_lifecycles(n)`, median of 3:
+
+| Commit | n=7 (capped, 10k) | n=5 (complete, 32,768) |
+|---|---:|---:|
+| baseline | 6.63 s | 38.18 s |
+| share canonical exploration | 3.34 s | 17.62 s |
+| state-key path (default ref hash, cached `all_fields`, key layout) | 2.44 s | 13.39 s |
+| kernel guard plan, silent rejections, trace on defect | 2.16 s | 10.47 s |
+| copy-on-write effects, lazy diff, `deque` | 1.53 s | 7.98 s |
+| cached invariant keys | **1.35 s** | **7.62 s** |
+
+That is ~5× overall. The singleton reproducer of §2.1 through the CLI went
+from 5.1 s to 1.44 s. The exit criterion (≥ 3×, identical verdicts,
+unchanged snapshot) is met.
+
+Three new probes pin what the optimizations rely on:
+
+- an exploration defect still carries its trace;
+- a step never mutates its pre-state (copy-on-write);
+- a `--max-states` override never sticks to the loaded model.
+
+The reporting split and `--max-states` shipped. Per-check `elapsed_ms` is
+**deferred to C**: with one shared exploration, per-check time is not
+attributable; slices make it meaningful. Explorations remain exponential:
+n=7 is still `INCONCLUSIVE` at 10k states. Only C changes that.
+
 **B1. Broker model M1–M3 in analint** (independent of A; can start in
 parallel). It is written against the explicit composition root of
 research/35, with one `Contract` per process, so that work lands first.

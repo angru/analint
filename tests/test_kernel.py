@@ -202,3 +202,14 @@ def test_step_copies_targets_and_never_mutates_the_pre_state():
     assert r.post_context[Tank] is not pre_tank
     assert r.post_context[Box] is pre_box  # untouched entities are shared
     assert r.changed_fields == {Tank: {"level": (2, 3)}}
+
+
+def test_invariant_applicability_follows_a_reassigned_expression():
+    from analint.validator.state_checks import invariant_is_applicable
+
+    inv = Invariant(Box.n >= 0, id="i")
+    ctx = {Box: Box(n=1)}
+    assert invariant_is_applicable(inv, ctx)
+
+    inv.expression = Tank.level >= 0  # Tank is not in this state
+    assert not invariant_is_applicable(inv, ctx)

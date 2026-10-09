@@ -50,10 +50,23 @@ def invariant_is_applicable(inv: Invariant, context: dict) -> bool:
     The single source of truth for presence-aware applicability, shared by the
     scenario/flow state checks, the explorer's per-state check and the canonical
     invariant scanner, so they can never diverge (review 8cca900)."""
-    keys = {field_context_key(ref) for ref in _collect_field_refs(inv.expression)}
-    if not keys <= set(context):
+    keys = _invariant_keys(inv)
+    if any(key not in context for key in keys):
         return False
     return not any(isinstance(key, InstanceRef) and not is_present(context, key) for key in keys)
+
+
+def _invariant_keys(inv: Invariant) -> frozenset:
+    # The referenced keys are static per expression (only presence is per state);
+    # walking the AST for every state was an exploration hot spot. Cached on the
+    # instance, outside the dataclass fields, and keyed by the expression object
+    # so a reassigned expression is re-walked.
+    cached = inv.__dict__.get("_analint_keys")
+    if cached is None or cached[0] is not inv.expression:
+        keys = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression))
+        cached = (inv.expression, keys)
+        inv.__dict__["_analint_keys"] = cached
+    return cached[1]
 
 
 def applicable_invariants(spec: Spec, context: dict) -> list:

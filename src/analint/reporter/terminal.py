@@ -86,7 +86,10 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
 def _print_query(qr: QueryResult) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
     color = colors.get(qr.status, "white")
-    meta = f"({qr.kind}, {qr.states_explored} states{_slice_note(qr.slice)})"
+    meta = (
+        f"({qr.kind}, {qr.states_explored} states"
+        f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)})"
+    )
     console.print(f"  [{color}]{qr.status:<4}[/{color}]  {qr.query_id:<40} {meta}")
     for f in qr.findings:
         if f.severity == Severity.ERROR:
@@ -111,7 +114,7 @@ def _print_flow(fr: FlowResult) -> None:
 def _print_invariant(ir: InvariantResult) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow", "NOT_CHECKED": "yellow"}
     color = colors.get(ir.status, "white")
-    meta = f"({ir.states_explored} states{_slice_note(ir.slice)})"
+    meta = f"({ir.states_explored} states{_slice_note(ir.slice)}{_time_note(ir.elapsed_ms)})"
     console.print(f"  [{color}]{ir.status:<11}[/{color}] {ir.label:<40} {meta}")
     for f in ir.findings:
         fcolor = "red" if f.severity == Severity.ERROR else "yellow"
@@ -129,6 +132,10 @@ def _print_scenario(sr: ScenarioResult) -> None:
             console.print(f"         [yellow]↳[/yellow] [{f.location}] {f.message}")
         elif f.severity == Severity.INFO:
             console.print(f"         [dim]↳[/dim] [{f.location}] {f.message}")
+
+
+def _time_note(elapsed_ms: float | None) -> str:
+    return "" if elapsed_ms is None else f", {elapsed_ms:.1f} ms"
 
 
 def _slice_note(piece: dict | None) -> str:

@@ -20,6 +20,7 @@ from enum import Enum
 from functools import lru_cache
 from itertools import product
 from math import prod
+from time import perf_counter
 from typing import Any
 
 from analint.models.effect import Add, Set, Subtract
@@ -562,7 +563,23 @@ def run_query(
     analysis: SliceAnalysis | None = None,
 ) -> QueryResult:
     """``max_states`` overrides the query's own budget (``check --max-states``).
-    With ``analysis`` the query is checked on its slice (research/34 §5)."""
+    With ``analysis`` the query is checked on its slice (research/34 §5).
+    Timing includes root construction, action coverage, exploration and query
+    evaluation performed by this call; cached work is not charged again."""
+    started = perf_counter()
+    result = _run_query(query, spec, cache, max_states=max_states, analysis=analysis)
+    result.elapsed_ms = (perf_counter() - started) * 1000
+    return result
+
+
+def _run_query(
+    query: Query,
+    spec: Spec,
+    cache: dict,
+    *,
+    max_states: int | None,
+    analysis: SliceAnalysis | None,
+) -> QueryResult:
     qid = query.id or type(query).__name__
     kind = type(query).__name__
 
@@ -749,6 +766,7 @@ def verify_invariants(
         # invariant trusted: it never prunes, other slices need not include it.
         checked = []
         for inv in spec.invariants:
+            started = perf_counter()
             exp, used = explore_slice(
                 analysis,
                 analysis.invariant_slice(inv, unconstrained=True),
@@ -759,22 +777,34 @@ def verify_invariants(
             result = _verify_one_invariant(inv, exp)
             if result.status == QueryStatus.PASS:
                 analysis.trusted.add(id(inv))
+            result.elapsed_ms = (perf_counter() - started) * 1000
             checked.append((inv, result, used))
         # Phase 2: a FAIL is true of the whole model only on an exact slice.
         results = []
         for inv, result, used in checked:
             if result.status == QueryStatus.FAIL and not analysis.is_exact(used):
+                elapsed_ms = result.elapsed_ms or 0.0
+                started = perf_counter()
                 exp, used = explore_slice(
                     analysis, analysis.invariant_slice(inv), initials, max_states, cache
                 )
                 result = _verify_one_invariant(inv, exp)
+                result.elapsed_ms = elapsed_ms + (perf_counter() - started) * 1000
             result.slice = used.summary()
             results.append(result)
         # defects parity with the full canonical exploration (see cover_actions)
         cover_actions(analysis, initials, max_states, cache, canonical=True)
         return results, None
+    # Charge the shared exploration to the first invariant that requests it.
+    started = perf_counter()
     exp = explore_cached(spec, initials, max_states, cache)
-    return [_verify_one_invariant(inv, exp) for inv in spec.invariants], exp
+    results = []
+    for inv in spec.invariants:
+        result = _verify_one_invariant(inv, exp)
+        result.elapsed_ms = (perf_counter() - started) * 1000
+        results.append(result)
+        started = perf_counter()
+    return results, exp
 
 
 def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:

@@ -62,6 +62,9 @@ class QueryResult:
     witness_key: Any = None
     # the slice the query was checked on (research/34 §5); None = whole model
     slice: dict | None = None
+    # Wall time spent by this check, including exploration on cache misses.
+    # Shared work is charged only when performed; None means not measured.
+    elapsed_ms: float | None = None
 
 
 @dataclass
@@ -79,6 +82,7 @@ class InvariantResult:
     states_explored: int = 0
     trace: list[str] | None = None  # action ids from the initial state to the violation
     slice: dict | None = None  # the slice it was checked on; None = whole model
+    elapsed_ms: float | None = None  # includes both passes when a slice is rechecked
 
 
 @dataclass

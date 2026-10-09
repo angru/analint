@@ -46,6 +46,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "kind": qr.kind,
                 "status": qr.status,
                 "states_explored": qr.states_explored,
+                **({"elapsed_ms": round(qr.elapsed_ms, 3)} if qr.elapsed_ms is not None else {}),
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
                 "findings": [
@@ -61,6 +62,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "label": ir.label,
                 "status": ir.status,
                 "states_explored": ir.states_explored,
+                **({"elapsed_ms": round(ir.elapsed_ms, 3)} if ir.elapsed_ms is not None else {}),
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
                 "findings": [

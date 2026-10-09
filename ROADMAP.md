@@ -558,9 +558,10 @@ Still deferred until later:
   plus complete validation of representative examples, so runtime and memory can
   be compared by commit on one controlled runner. Keep normal tests free of
   timing gates; use `asv continuous` for performance-sensitive changes and
-  scheduled/manual history. First remove known harness distortion:
-  characterization currently repeats equivalent query explorations, and
-  `scripts/bench.py` must ignore non-example directories. Optimize or design
+  scheduled/manual history. Known harness distortion is removed:
+  characterization now shares equivalent query explorations, and
+  `scripts/bench.py` now ignores non-example directories and includes invariant
+  state counts (2026-10-09). Optimize or design
   another backend only from measured scaling/property/consumer triggers.
 
 ### P5. Property-local verification + broker benchmark — PROPOSED (2026-10-09)
@@ -585,7 +586,10 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   trace-on-defect, copy-on-write effects, `deque` — ~5× on
   `independent_lifecycles` with identical verdicts (table: research/34 §8);
   `INCONCLUSIVE`/`NOT_CHECKED` split in summaries; `check --max-states`.
-  Per-check `elapsed_ms` moved to C (attributable only per slice)
+  ✅ Per-check `elapsed_ms` (2026-10-09): JSON + terminal, incremental wall time
+  including slice retries; shared exploration charged to its first consumer.
+  Invariants with no canonical roots omit timing; setup and action coverage
+  outside a check are excluded.
 - ✅ **B1. Broker model M1–M3** (`examples/broker`, one `Contract` per process):
   33 actions, all PASS; verification slices stay at 22 states from M1 to M3,
   and the genuinely coupled money model is ~16k states. It exposed two slice

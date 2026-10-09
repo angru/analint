@@ -492,6 +492,13 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   do not multiply each other's states. The result is exact, not an
   approximation, and JSON reports each check's `slice`. `check --no-slice`
   explores the whole model for every check.
+- Query and invariant results include `elapsed_ms` in JSON and elapsed time in
+  terminal output. This measures work performed by that check: exploration is
+  charged on a cache miss, and an invariant's constrained recheck is included.
+  Shared exploration is charged to its first consumer, so timings depend on
+  check order. Invariants with no canonical initial state have no timing.
+  Model preparation and shared
+  action coverage outside a check are excluded; the sum is not total command time.
 - During exploration the engine also reports **violated invariants** and **undeclared lifecycle transitions** (an effect performing `A → C` when the lifecycle only allows `A → B`).
 - An ad-hoc query without editing the spec: put it in a file and run `analint check . --what-if query.py`.
 

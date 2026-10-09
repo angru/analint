@@ -33,7 +33,10 @@ def _measure(path: Path) -> dict:
         result = validate(path)
         best_ms = min(best_ms, (time.perf_counter() - t0) * 1000)
     assert result is not None
-    states = max((qr.states_explored for qr in result.query_results), default=0)
+    states = max(
+        (check.states_explored for check in [*result.query_results, *result.invariant_results]),
+        default=0,
+    )
     return {
         "verdict": str(result.verdict),
         "states_explored": states,
@@ -46,7 +49,7 @@ def main() -> None:
     parser.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     args = parser.parse_args()
 
-    names = sorted(p.name for p in EXAMPLES.iterdir() if p.is_dir())
+    names = sorted(p.name for p in EXAMPLES.iterdir() if p.is_dir() and (p / "spec.py").is_file())
     data = {name: _measure(EXAMPLES / name) for name in names}
 
     if args.json:

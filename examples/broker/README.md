@@ -112,3 +112,28 @@ transitions but do not prove safety over every composed reachable state.
 The four KYC invariants still prove on 22-state slices. The risk and money cones
 exhaust the budget. No check is permanently `NOT_CHECKED` because a reserved
 slot is absent: M4 exposed and regression-tested that applicability bug.
+
+## M5 partners (2026-10-10)
+
+`benchmarks/broker/m5.py` adds partner status, referral attribution and a reward
+wallet: 10 entity types, 105 actions and 72 scenarios. The capability matrix is
+an illustrative policy, not a claim about a specific provider:
+
+| Status | New attribution | New commission | Accrued withdrawal |
+|---|---|---|---|
+| active | yes | yes | yes |
+| link blocked | no | yes | yes |
+| on hold | yes | no | no |
+| blocked (irreversible) | no | no | yes |
+
+Partner changes and withdrawals consume a fresh client security code.
+Withdrawal assumes an active client; the partner's terminal lock does not freeze
+the separate reward wallet. Commission is one award of one or two abstract units
+depending on level, conserved between accrued and paid totals. Qualification is
+an environment flag; promotion and automatic downgrade act on it. Historical
+attribution and rewards remain after blocking. Negative scenarios check that
+blocking prevents *new* attribution and rewards.
+
+The shared security code couples this process to cash payments. At the same 2k
+budget, the four KYC invariants still prove locally; composed reward, payment
+and risk checks remain inconclusive. Scenario success is not a complete proof.

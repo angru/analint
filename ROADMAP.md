@@ -609,6 +609,11 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     negative-balance protection. M1–M3/Quint remain the fixed baseline. Risk
     equity is a separate settlement bucket; P&L-to-cash coupling is not claimed.
     At a 2k budget, KYC invariants prove on 22 states; the coupled checks cap.
+  - ✅ M5 partners (2026-10-10), `benchmarks/broker/m5.py`: ten entities,
+    105 actions, 72 scenarios; explicit restriction/capability matrix, tier
+    changes, fresh-code consumption and withdrawals from a separate accrued
+    wallet after irreversible blocking. Security-code coupling enlarges the
+    cones; KYC invariants still prove on 22-state slices, other checks cap at 2k.
 - ✅ **C. Cone-of-influence slicing** per property, default for `check`
   (`validator/slicing.py`): exact, gated against the monolithic path on every
   example, plus 7 planted-defect probes (one per closure rule); superset

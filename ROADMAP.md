@@ -563,6 +563,37 @@ Still deferred until later:
   `scripts/bench.py` must ignore non-example directories. Optimize or design
   another backend only from measured scaling/property/consumer triggers.
 
+### P5. Property-local verification + broker benchmark — PROPOSED (2026-10-09)
+
+Trigger: angru/analint#3 (independent lifecycles → whole-spec BFS pays for
+their product; local checks INCONCLUSIVE). Diagnosis, slice contract, sources
+and the Quint bake-off protocol: research/34. Awaiting review.
+
+- **0. Explicit composition root (research/35; reopens the research/30 freeze
+  of `Contract`/`Spec`)** — before B1, so the broker
+  model is written as one `Contract` per process. The model is exactly what
+  `Spec` and its `Contract`s reference: no globals scan for membership and no
+  per-field mixed mode. Entities, events, lifecycles and scopes are derived by
+  reference closure. Ids come from a naming pass over members only. Objects
+  defined but not in the model get an orphan warning; `--what-if` keeps
+  merging its file. Steps: naming pass + orphan warning → reference closure →
+  migrate examples one by one (characterization-gated) → remove
+  auto-population (breaking, 0.0.2) → docs/skill
+- **A. Engine hygiene:** share the canonical exploration; lazy rejection
+  messages, precomputed guard refs, trace-on-defect, `deque`; split
+  `INCONCLUSIVE`/`NOT_CHECKED` in summaries; per-check time/states/completeness;
+  `check --max-states`; `independent_lifecycles(k)` scaling family with
+  properties
+- **B1/B2. Broker model** — a neutral composite of common practice (KYC, trading accounts,
+  payments, leverage/stop out, partners), increments M1–M6 with a measured
+  change series
+- **C. Cone-of-influence slicing** per property (exact projection; conformance
+  gate vs the monolithic path + planted-defect probes; `--no-slice`)
+- **D. Quint port** of M1–M6 (TLC exhaustive, Apalache bounded/inductive),
+  state counts cross-validated
+- **E. Decision synthesis:** analint alone / compact state store / Quint export
+  backend / partial-order reduction — chosen from B2+D measurements
+
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 
 Понижено разворотом от 13 июня 2026 (research/17 §3): обоснования IR были

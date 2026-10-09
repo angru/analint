@@ -339,7 +339,7 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
     def _resolve(explicit: list, key: str) -> list:
         return list(explicit) if explicit else collected[key]
 
-    return Spec(
+    populated = Spec(
         id=spec.id,
         name=spec.name,
         version=spec.version,
@@ -359,10 +359,15 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         initial=spec.initial,
         max_states=spec.max_states,
     )
+    if patch is not None:
+        # an explicit list must not drop the hypothesis (research/35 R6); an
+        # auto-populated one already holds it, and the merge deduplicates
+        _extend_composed_spec(populated, collect_from_modules([patch]))
+    return populated
 
 
 def _extend_composed_spec(spec: Spec, collected: dict) -> None:
-    """Add only a what-if module's objects to an explicitly composed root."""
+    """Add only a what-if module's objects to an explicitly listed root."""
     from analint.models.param import expand_action
 
     for field_name in (

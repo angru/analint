@@ -277,3 +277,28 @@ def test_listed_param_action_is_a_member_without_imports(tmp_path):
         "tick(c=Counter['b'])",
     ]
     assert _orphans(model) == []
+
+
+def test_what_if_merges_into_explicit_lists_without_imports(tmp_path):
+    """research/35 R6: a Spec that lists its invariants still receives the
+    hypothesis' invariant, and it can turn the verdict to FAIL."""
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, Entity, Field, Invariant, Spec\n"
+        "class Box(Entity):\n"
+        "    n: int = Field(0, ge=0, le=2)\n"
+        "tick = Action(pre=[Box.n < 2], effect=[Add(Box.n, 1)])\n"
+        "bounded = Invariant(Box.n <= 2)\n"
+        "spec = Spec(id='s', name='s', actions=[tick], invariants=[bounded])\n"
+    )
+    patch = tmp_path / "hypothesis.py"
+    patch.write_text(
+        "from analint import Invariant\n"
+        "from analint_spec import Box\n"
+        "stays_low = Invariant(Box.n <= 1)\n"
+    )
+
+    result = validate(entry, extra=patch)
+
+    by_id = {r.invariant_id: r.status for r in result.invariant_results}
+    assert by_id == {"bounded": "PASS", "stays_low": "FAIL"}

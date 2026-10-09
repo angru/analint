@@ -32,6 +32,8 @@ from pathlib import Path
 
 import pytest
 
+from analint.models.entity import all_fields
+from analint.models.scope import InstanceRef, context_key_label
 from analint.validator.engine import build_spec, validate
 from analint.validator.explorer import run_query
 
@@ -49,6 +51,23 @@ def _finding_digest(findings) -> str:
     return _digest((str(f.severity), f.location, f.message) for f in findings)
 
 
+def _labelled_state(ctx: dict) -> tuple:
+    """The pre-compaction state key: (label, field, value) per field, sorted by
+    label; an absent scoped slot contributes only its presence flag."""
+    items = []
+    for key in sorted(ctx, key=context_key_label):
+        values = ctx[key].__dict__
+        label = context_key_label(key)
+        if isinstance(key, InstanceRef):
+            present = values.get("_analint_present", True)
+            items.append((label, "@present", present))
+            if not present:
+                continue
+        entity_cls = key.entity_cls if isinstance(key, InstanceRef) else key
+        items.extend((label, f, values.get(f)) for f in sorted(all_fields(entity_cls)))
+    return tuple(items)
+
+
 def _query_fingerprint(spec, query, cache: dict) -> tuple[dict, str, dict]:
     # one cache per example: explorations are deterministic, so queries over
     # the same roots and budget share one instead of re-exploring it
@@ -61,9 +80,12 @@ def _query_fingerprint(spec, query, cache: dict) -> tuple[dict, str, dict]:
         incomplete.append("capped")
     if exp.excluded:
         incomplete.append("excluded-semantics")
-    states_hash = _digest(exp.states)
-    edges_hash = _digest(exp.edges)
-    roots_hash = _digest(exp.roots.items())
+    # hash labelled states, so the baseline is independent of the in-memory
+    # state-key encoding (explorer.state_key stores values only)
+    labelled = {key: _labelled_state(ctx) for key, ctx in exp.states.items()}
+    states_hash = _digest(labelled.values())
+    edges_hash = _digest((labelled[src], aid, labelled[dst]) for src, aid, dst in exp.edges)
+    roots_hash = _digest((labelled[key], index) for key, index in exp.roots.items())
     findings_hash = _finding_digest(exp.findings)
     exploration_fingerprint = {
         "states": len(exp.states),

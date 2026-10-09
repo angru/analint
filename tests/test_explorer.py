@@ -826,3 +826,18 @@ def test_exploration_defect_names_the_state_it_happened_in():
     assert [f.message for f in exp.findings if f.location == "action:bump"] == [
         "field constraint violated: Meter.value must be <= 2, got 3 [after: bump → bump → bump]"
     ]
+
+
+def test_state_keys_of_different_layouts_never_collide():
+    """Keys store values only; the layout id keeps a slice's state distinct
+    from a whole-model state with the same values (explore_cached, slices)."""
+    from analint.validator.explorer import state_key
+
+    class Left(Entity):
+        on: bool = False
+
+    class Right(Entity):
+        on: bool = False
+
+    assert state_key({Left: Left()}) != state_key({Right: Right()})
+    assert state_key({Left: Left()}) == state_key({Left: Left()})

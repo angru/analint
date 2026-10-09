@@ -109,31 +109,44 @@ class Exploration:
 # ── State helpers ──────────────────────────────────────────────────────────────
 
 
+# Process-wide ids of state layouts: a key starts with its layout's id, so keys
+# of different layouts (a slice and the whole model) can never compare equal.
+_LAYOUT_IDS: dict[tuple, int] = {}
+
+
 @lru_cache(maxsize=256)
-def _state_layout(keys: tuple) -> tuple:
-    """Sorted (label, key, scoped, field names) for a context's key set — the
-    same for every state of one exploration, so computed once, not per state."""
-    return tuple(
+def _state_layout(keys: tuple) -> tuple[int, tuple]:
+    """(layout id, sorted (key, scoped, field names)) for a context's key set —
+    the same for every state of one exploration, so computed once, not per state."""
+    layout = tuple(
         (
-            context_key_label(key),
             key,
             isinstance(key, InstanceRef),
             tuple(sorted(all_fields(key.entity_cls if isinstance(key, InstanceRef) else key))),
         )
         for key in sorted(keys, key=context_key_label)
     )
+    return _LAYOUT_IDS.setdefault(layout, len(_LAYOUT_IDS)), layout
 
 
 def state_key(ctx: dict) -> tuple:
-    items = []
-    for label, key, scoped, fields in _state_layout(tuple(ctx)):
+    """The state's identity: its layout id, then field values in layout order.
+
+    Values only — field labels live in the shared layout. A scoped slot
+    contributes its presence flag and, only when present, its fields; the flag
+    precedes the fields, so the flat tuple decodes unambiguously. Labelled
+    (label, field, value) triples cost ~10x the memory (research/34 §8 E).
+    """
+    layout_id, layout = _state_layout(tuple(ctx))
+    items: list = [layout_id]
+    for key, scoped, fields in layout:
         values = ctx[key].__dict__
         if scoped:
             present = values.get("_analint_present", True)
-            items.append((label, "@present", present))
+            items.append(present)
             if not present:
                 continue
-        items.extend((label, f, values.get(f)) for f in fields)
+        items.extend([values.get(f) for f in fields])
     return tuple(items)
 
 

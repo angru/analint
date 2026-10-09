@@ -245,7 +245,7 @@ def test_invariant_not_applicable_has_no_witness(tmp_path):
         "class Flag(Entity):\n    ready: bool = False\n"
         "items = Scope(Item, keys=['a'])\n"
         "item = Bound('item', items)\n"
-        "minimum = Invariant(Min(item, item.n) >= 0)\n"
+        "minimum = Invariant(items['a'].n >= 0)\n"
         "spec = Spec(id='s', name='S', initial=Initial(vary=[Flag.ready], "
         "where=[Flag.ready == False], given=[Absent(items['a'])]))\n",
     )

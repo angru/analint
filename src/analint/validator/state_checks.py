@@ -50,22 +50,40 @@ def invariant_is_applicable(inv: Invariant, context: dict) -> bool:
     The single source of truth for presence-aware applicability, shared by the
     scenario/flow state checks, the explorer's per-state check and the canonical
     invariant scanner, so they can never diverge (review 8cca900)."""
-    keys = _invariant_keys(inv)
+    keys = _invariant_keys(inv, context)
     if any(key not in context for key in keys):
         return False
     return not any(isinstance(key, InstanceRef) and not is_present(context, key) for key in keys)
 
 
-def _invariant_keys(inv: Invariant) -> frozenset:
-    # The referenced keys are static per expression (only presence is per state);
-    # walking the AST for every state was an exploration hot spot. Cached on the
-    # instance, outside the dataclass fields, and keyed by the expression object
-    # so a reassigned expression is re-walked.
+def _invariant_keys(inv: Invariant, context: dict) -> frozenset:
+    # Keep the static fast path. Quantified/aggregate members depend on presence;
+    # their required keys must be re-derived in each state. Compare the whole
+    # universe with an empty one once to detect that dependency, and invalidate
+    # both plans when the expression is reassigned.
     cached = inv.__dict__.get("_analint_keys")
     if cached is None or cached[0] is not inv.expression:
         keys = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression))
-        cached = (inv.expression, keys)
+        free = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression, {}))
+        cached = (inv.expression, keys, keys != free)
         inv.__dict__["_analint_keys"] = cached
+    if cached[2]:
+        # Field values do not change applicability. Reuse the last presence
+        # layout, without retaining an unbounded cache of all slot subsets.
+        signature = (
+            frozenset(
+                key for key in context if isinstance(key, InstanceRef) and is_present(context, key)
+            ),
+            cached[1] - context.keys(),
+        )
+        dynamic = inv.__dict__.get("_analint_present_keys")
+        if dynamic is None or dynamic[0] is not inv.expression or dynamic[1] != signature:
+            keys = frozenset(
+                field_context_key(ref) for ref in _collect_field_refs(inv.expression, context)
+            )
+            dynamic = (inv.expression, signature, keys)
+            inv.__dict__["_analint_present_keys"] = dynamic
+        return dynamic[2]
     return cached[1]
 
 

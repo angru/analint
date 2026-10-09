@@ -227,92 +227,92 @@
     "scenarios": {
       "sc_contacts_start_onboarding": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_details_raise_the_tier": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_profile_after_details": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_identity_before_profile_is_rejected": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "2d1d2611a95fd0a1"
       },
       "sc_identity_approval_raises_the_tier": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_first_identity_failure_allows_resubmission": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_last_failure_locks_the_document": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_locked_document_cannot_be_resubmitted": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "affffc7b808a0a74"
       },
       "sc_support_reopens_a_locked_identity": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_address_before_identity_is_rejected": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "c26fea9e5e55ab75"
       },
       "sc_address_approval_completes_verification": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_first_address_failure_allows_resubmission": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_last_address_failure_locks_it": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_support_reopens_a_locked_address": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_code_is_issued": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_code_expires": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_open_real_standard": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_unregistered_cannot_open": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "54c3061073dd18a9"
       },
       "sc_archive_idle_account": {
@@ -392,7 +392,7 @@
       },
       "sc_verify_card": {
         "status": "PASS",
-        "rules": 6,
+        "rules": 10,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_withdrawal_spends_the_code": {
@@ -427,7 +427,7 @@
       },
       "sc_terminate_empty_profile": {
         "status": "PASS",
-        "rules": 7,
+        "rules": 11,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_terminate_with_money_is_rejected": {

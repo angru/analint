@@ -46,6 +46,7 @@ from analint.models.scope import (
     field_context_key,
     instance_context_key,
     is_field_ref,
+    is_present,
 )
 from analint.reporter.base import Finding, Severity
 
@@ -947,51 +948,72 @@ def _unregistered_bound_scope(variable: Bound, loc: str) -> Finding:
     )
 
 
-def _operand_refs(operand: Any) -> list[FieldDescriptor | InstanceField]:
+def _operand_refs(
+    operand: Any, context: dict | None = None
+) -> list[FieldDescriptor | InstanceField]:
     """Field references inside an operand: a descriptor or an expression tree."""
     if is_field_ref(operand):
         return [operand]
     if isinstance(operand, _Count):
         refs: list[FieldDescriptor | InstanceField] = []
         for instance in operand.variable.scope:
+            if context is not None and not is_present(context, instance):
+                continue
             refs.extend(
-                _collect_field_refs(bind_predicate(operand.predicate, operand.variable, instance))
+                _collect_field_refs(
+                    bind_predicate(operand.predicate, operand.variable, instance), context
+                )
             )
         return refs
     if isinstance(operand, (_Sum, _Min, _Max)):
         refs = []
         for instance in operand.variable.scope:
-            refs.extend(_operand_refs(bind_operand(operand.operand, operand.variable, instance)))
+            if context is not None and not is_present(context, instance):
+                continue
+            refs.extend(
+                _operand_refs(bind_operand(operand.operand, operand.variable, instance), context)
+            )
         return refs
     if isinstance(operand, _BinaryExpr):
-        return _operand_refs(operand.left) + _operand_refs(operand.right)
+        return _operand_refs(operand.left, context) + _operand_refs(operand.right, context)
     return []
 
 
-def _collect_field_refs(pred: Predicate) -> list[FieldDescriptor | InstanceField]:
+def _collect_field_refs(
+    pred: Predicate, context: dict | None = None
+) -> list[FieldDescriptor | InstanceField]:
+    """All structural references, or only present quantified members with a context.
+
+    Direct references remain required even when absent. Structural validation
+    and slicing omit context and continue to inspect the entire finite universe.
+    """
     refs: list[FieldDescriptor | InstanceField] = []
     if isinstance(pred, (_And, _Or)):
         for e in pred.exprs:
-            refs.extend(_collect_field_refs(e))
+            refs.extend(_collect_field_refs(e, context))
     elif isinstance(pred, _Not):
-        refs.extend(_collect_field_refs(pred.expr))
+        refs.extend(_collect_field_refs(pred.expr, context))
     elif isinstance(pred, _Implies):
-        refs.extend(_collect_field_refs(pred.left))
-        refs.extend(_collect_field_refs(pred.right))
+        refs.extend(_collect_field_refs(pred.left, context))
+        refs.extend(_collect_field_refs(pred.right, context))
     elif isinstance(pred, (_ForAll, _Exists)):
         for instance in pred.variable.scope:
+            if context is not None and not is_present(context, instance):
+                continue
             refs.extend(
-                _collect_field_refs(bind_predicate(pred.predicate, pred.variable, instance))
+                _collect_field_refs(
+                    bind_predicate(pred.predicate, pred.variable, instance), context
+                )
             )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
-        refs.extend(_operand_refs(pred.left))
-        refs.extend(_operand_refs(pred.right))
+        refs.extend(_operand_refs(pred.left, context))
+        refs.extend(_operand_refs(pred.right, context))
     elif isinstance(pred, _In):
-        refs.extend(_operand_refs(pred.operand))
+        refs.extend(_operand_refs(pred.operand, context))
         for value in pred.values:
-            refs.extend(_operand_refs(value))
+            refs.extend(_operand_refs(value, context))
     elif isinstance(pred, (_IsNull, _IsNotNull)):
-        refs.extend(_operand_refs(pred.operand))
+        refs.extend(_operand_refs(pred.operand, context))
     elif isinstance(pred, _Present):
         pass
     return refs

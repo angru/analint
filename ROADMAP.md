@@ -597,6 +597,12 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   exactly (research/34 §5, §8)
 - **B2. Broker model M4–M6** — leverage/margin/stop out, partners,
   multiplicity; measured with and without slicing
+  - ✅ Prerequisite found while modelling M4 (2026-10-10): quantified and
+    aggregate invariant applicability now follows present members, while direct
+    absent-slot reads still skip the invariant. Empty Min/Max remains an error.
+    Presence-layout caching preserves the static fast path. The only baseline
+    delta is 20 broker scenario rule counts (+4 formerly skipped empty-domain
+    checks); verdicts, findings, graph hashes and traces are unchanged.
 - ✅ **C. Cone-of-influence slicing** per property, default for `check`
   (`validator/slicing.py`): exact, gated against the monolithic path on every
   example, plus 7 planted-defect probes (one per closure rule); superset

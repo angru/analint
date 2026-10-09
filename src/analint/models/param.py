@@ -291,8 +291,11 @@ def _binding_key(action: Action, binding: Binding) -> tuple:
 
 
 # bind() and expansion must hand out the same objects: a scenario's bound
-# action has to be identical to the one registered by the expansion
-_BIND_MEMO: dict[tuple, Action] = {}
+# action has to be identical to the one registered by the expansion. The
+# parent is stored with its instance: it keeps the parent alive so its id()
+# cannot be reused, and a hit is checked by identity.
+# ponytail: grows for the process lifetime (MCP), WeakKeyDictionary if it matters
+_BIND_MEMO: dict[tuple, tuple[Action, Action]] = {}
 
 
 def _where_holds(action: Action, binding: Binding) -> bool:
@@ -363,9 +366,9 @@ def bind_action(action: Action, binding: Binding) -> Action:
 
     key = _binding_key(action, binding)
     cached = _BIND_MEMO.get(key)
-    if cached is not None:
-        _refresh_bound_id(action, key, cached)
-        return cached
+    if cached is not None and cached[0] is action:
+        _refresh_bound_id(action, key, cached[1])
+        return cached[1]
 
     concrete = Action(
         id=f"{action.id}({_suffix(key)})" if action.id else "",
@@ -379,7 +382,7 @@ def bind_action(action: Action, binding: Binding) -> Action:
         tags=list(action.tags),
     )
     concrete._bindings = dict(binding)
-    _BIND_MEMO[key] = concrete
+    _BIND_MEMO[key] = (action, concrete)
     return concrete
 
 
@@ -398,8 +401,8 @@ def _refresh_bound_id(action: Action, key: tuple, bound: Action) -> None:
 def refresh_bound_ids(action: Action) -> None:
     """Re-derive the ids of ``action``'s already-bound instances after the loader
     named it. Touches only existing bindings — no where-clause re-evaluation."""
-    for key, bound in _BIND_MEMO.items():
-        if key[0] == id(action):
+    for key, (parent, bound) in _BIND_MEMO.items():
+        if parent is action:
             _refresh_bound_id(action, key, bound)
 
 

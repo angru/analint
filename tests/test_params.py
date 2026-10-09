@@ -1,6 +1,6 @@
 """Parameterized actions: one declaration over finite domains (research/15)."""
 
-from analint import Action, Add, Entity, Field, Param, Scenario, Spec, Subtract
+from analint import Action, Add, Entity, Field, Param, Scenario, Set, Spec, Subtract
 from analint.reporter.base import Severity
 from analint.validator.scenario_runner import run_scenario
 from analint.validator.structural import validate_structural
@@ -165,3 +165,24 @@ def test_param_rejects_bare_int_and_mixed_forms():
         raise AssertionError("should have raised")
     except TypeError as e:
         assert "greater than" in str(e)
+
+
+def test_bind_memo_does_not_serve_another_parents_instance():
+    """The memo is keyed by id(action); a reused id must not hand out an
+    instance bound from a different (collected) parent."""
+    from analint.models.param import _BIND_MEMO, _binding_key, bind_action
+
+    class Box(Entity):
+        n: int = 0
+
+    v = Param("v", ge=0, le=1)
+    stale_parent = Action(id="stale", params=[v], effect=[Set(Box.n, v)])
+    stale = bind_action(stale_parent, {"v": 1})
+    fresh_parent = Action(id="fresh", params=[v], effect=[Set(Box.n, 0)])
+    # plant the collision an address reuse would produce
+    _BIND_MEMO[_binding_key(fresh_parent, {"v": 1})] = (stale_parent, stale)
+
+    bound = bind_action(fresh_parent, {"v": 1})
+
+    assert bound is not stale
+    assert bound.id == "fresh(v=1)"

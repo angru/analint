@@ -537,11 +537,7 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
             findings=[Finding(Severity.ERROR, f"query:{qid}", error or "bad initial state")],
         )
 
-    root_keys = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
-    cache_key = (root_keys, query.max_states)
-    if cache_key not in cache:
-        cache[cache_key] = explore(spec, initials, query.max_states)
-    exp = cache[cache_key]
+    exp = explore_cached(spec, initials, query.max_states, cache)
 
     if isinstance(query, Reachable):
         return _eval_reachable(query, qid, exp, expect_reachable=True)
@@ -561,13 +557,23 @@ def run_query(query: Query, spec: Spec, cache: dict) -> QueryResult:
     )
 
 
+def explore_cached(spec: Spec, initials: list[dict], max_states: int, cache: dict) -> Exploration:
+    """One exploration per (root set, budget) within a validate() run: the
+    canonical invariant check and default-source queries share a state space."""
+    root_keys = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
+    cache_key = (root_keys, max_states)
+    if cache_key not in cache:
+        cache[cache_key] = explore(spec, initials, max_states)
+    return cache[cache_key]
+
+
 def build_canonical_initials(spec: Spec) -> tuple[list[dict] | None, str | None]:
     """The model's canonical initial states: ``spec.initial`` expanded, or a
     single defaults-built root when it is None. Returns ``(None, error)`` when
     the relation cannot be built. Built once per run for canonical-initial
-    validation and invariant verification. (Default-source queries currently
-    rebuild their own equivalent roots in ``run_query``; sharing this build with
-    them is a deferred optimization, not a correctness concern.)"""
+    validation and invariant verification. (Default-source queries rebuild
+    equivalent roots in ``run_query``; the exploration itself is shared through
+    ``explore_cached``.)"""
     if spec.initial is not None:
         return build_initial_relation(spec, spec.initial)
     root, error = build_initial(spec, [])
@@ -580,6 +586,7 @@ def verify_invariants(
     *,
     build_error: str | None = None,
     max_states: int = 10_000,
+    cache: dict | None = None,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
     model. ``initials`` is the pre-built canonical state set (see
@@ -616,7 +623,7 @@ def verify_invariants(
         ]
         return results, None
 
-    exp = explore(spec, initials, max_states)
+    exp = explore_cached(spec, initials, max_states, {} if cache is None else cache)
     return [_verify_one_invariant(inv, exp) for inv in spec.invariants], exp
 
 

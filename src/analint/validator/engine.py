@@ -210,11 +210,18 @@ def validate(
             )
         )
 
+    # Shared by the canonical invariant check and the queries: a default-source
+    # query with the same roots and budget reuses the canonical exploration.
+    explorations: dict = {}
     if spec.invariants:
         from analint.validator.explorer import verify_invariants
 
         result.invariant_results, canonical_exp = verify_invariants(
-            spec, canonical_initials, build_error=canonical_error, max_states=spec.max_states
+            spec,
+            canonical_initials,
+            build_error=canonical_error,
+            max_states=spec.max_states,
+            cache=explorations,
         )
         # Surface the transition defects the canonical exploration found — a
         # broken action there must fail the run, not hide behind a green invariant.
@@ -224,7 +231,6 @@ def validate(
     if spec.queries:
         from analint.validator.explorer import run_query
 
-        explorations: dict = {}
         for query in spec.queries:
             result.query_results.append(run_query(query, spec, explorations))
         for exp in explorations.values():

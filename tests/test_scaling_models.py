@@ -16,7 +16,12 @@ from analint.validator.explorer import build_canonical_initials, explore
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from scaling_models import conserved_transfer, counter_grid, workflow_product
+from scaling_models import (
+    conserved_transfer,
+    counter_grid,
+    independent_lifecycles,
+    workflow_product,
+)
 
 
 def _reachable(spec, budget: int) -> int:
@@ -34,6 +39,8 @@ def _reachable(spec, budget: int) -> int:
         (conserved_transfer, (4, 4)),
         (workflow_product, (2,)),
         (workflow_product, (4,)),
+        (independent_lifecycles, (1,)),
+        (independent_lifecycles, (3,)),
     ],
 )
 def test_family_matches_its_closed_form(builder, args):

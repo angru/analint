@@ -14,11 +14,16 @@ from math import comb
 from analint import (
     Action,
     Add,
+    And,
+    DeadActions,
     Entity,
     Field,
     Initial,
+    Invariant,
     Lifecycle,
+    Or,
     Param,
+    Reachable,
     Scope,
     Set,
     Spec,
@@ -126,8 +131,73 @@ def workflow_product(n: int) -> tuple[Spec, int]:
     return spec, 4**n
 
 
+class _CStatus(StrEnum):
+    A = "a"
+    B = "b"
+    C = "c"
+    D = "d"
+    E = "e"
+
+
+# Back-edges plus a terminal state; B→C additionally requires the flag.
+_CASE_EDGES = {
+    _CStatus.A: [_CStatus.B, _CStatus.E],
+    _CStatus.B: [_CStatus.C, _CStatus.A, _CStatus.E],
+    _CStatus.C: [_CStatus.D, _CStatus.B],
+    _CStatus.D: [_CStatus.A, _CStatus.E],
+}
+
+
+def independent_lifecycles(n: int) -> tuple[Spec, int]:
+    """Issue #3's shape: ``n`` independent lifecycles with back-edges, one
+    invariant per component, a cross-component Reachable and DeadActions.
+
+    Each component reaches 8 local states ((status, flag) minus C/D without the
+    flag, which B→C requires), so the product is 8 ** n — every check pays for
+    every component unless it is sliced (research/34)."""
+
+    class Case(Entity):
+        status: _CStatus = Lifecycle(
+            initial=_CStatus.A, transitions=_CASE_EDGES, terminal=[_CStatus.E]
+        )
+        flag: bool = False
+
+    cases = Scope(Case, keys=[f"c{i}" for i in range(n)])
+    c = Param("c", cases)
+    moves = [
+        Action(
+            id=f"move_{src.name}_{dst.name}",
+            params=[c],
+            pre=[c.status == src, *([c.flag] if dst is _CStatus.C else [])],
+            effect=[Set(c.status, dst)],
+        )
+        for src, targets in _CASE_EDGES.items()
+        for dst in targets
+    ]
+    mark = Action(id="mark", params=[c], pre=[c.status == _CStatus.B], effect=[Set(c.flag, True)])
+    invariants = [
+        Invariant(Or(ref.status != _CStatus.C, ref.flag), id=f"flag_before_c_{ref.key}")
+        for ref in cases
+    ]
+    first, last = cases["c0"], cases[f"c{n - 1}"]
+    spec = Spec(
+        id="independent_lifecycles",
+        name=f"Independent lifecycles n={n}",
+        entities=[Case],
+        scopes=[cases],
+        actions=[*moves, mark],
+        invariants=invariants,
+        queries=[
+            Reachable(And(first.status == _CStatus.D, last.status == _CStatus.D), id="both_d"),
+            DeadActions(id="no_dead_actions"),
+        ],
+    )
+    return spec, 8**n
+
+
 FAMILIES = {
     "counter_grid": counter_grid,
     "conserved_transfer": conserved_transfer,
     "workflow_product": workflow_product,
+    "independent_lifecycles": independent_lifecycles,
 }

@@ -77,11 +77,19 @@ class TransitionResult:
     post_context: dict | None = None
     findings: list[Finding] = dc_field(default_factory=list)
     emitted: list = dc_field(default_factory=list)
-    changed_fields: dict = dc_field(default_factory=dict)
     # whether the action passed every pre/presence/terminal guard and began to
     # execute — true for ACCEPTED and for any defect raised after the guards
     # (effect/field/lifecycle/post), false for REJECTED and pre-evaluation errors
     entered: bool = False
+    pre_context: dict | None = dc_field(default=None, repr=False)
+
+    @property
+    def changed_fields(self) -> dict:
+        """Field-level diff of an accepted transition, computed on demand: only
+        diagnostics read it, and diffing every explored edge was a hot spot."""
+        if self.pre_context is None or self.post_context is None:
+            return {}
+        return _state_diff(self.pre_context, self.post_context)
 
 
 def _trace_str(steps: list[str]) -> str:
@@ -260,7 +268,7 @@ def step(
         Outcome.ACCEPTED,
         post_context=post,
         emitted=emitted,
-        changed_fields=_state_diff(context, post),
+        pre_context=context,
         entered=True,
     )
 
@@ -315,7 +323,12 @@ def _apply_effects(effects: list, context: dict) -> dict:
                 (target, effect.field.field_name, current + resolve(effect.amount, context))
             )
 
-    post = {cls: copy.copy(inst) for cls, inst in context.items()}
+    # Copy-on-write: only effect targets are copied (and later mutated, incl.
+    # saturating clamps); untouched entities are shared with the pre-state,
+    # which nothing mutates.
+    post = dict(context)
+    for key in {key for key, _, _ in updates}:
+        post[key] = copy.copy(post[key])
     for key, field_name, value in updates:
         entity = post.get(key)
         if entity is not None:
@@ -393,8 +406,8 @@ def _check_lifecycle_transitions(
             if type(inst_pre) is not lc.entity_cls:
                 continue
             inst_post = post.get(context_key)
-            if inst_post is None:
-                continue
+            if inst_post is None or inst_post is inst_pre:
+                continue  # absent, or untouched (shared by copy-on-write)
             # a created/deleted slot's lifecycle field is an initial assignment
             # or a teardown, not a declared transition
             if not is_present(ctx, context_key) or not is_present(post, context_key):

@@ -180,3 +180,25 @@ def test_explorer_does_not_expand_a_root_with_an_unevaluable_invariant():
     assert len(exp.states) == 1  # the illegal root is kept as a witness
     assert exp.edges == []  # but never expanded
     assert any(f.severity == Severity.ERROR for f in exp.findings)
+
+
+# ── Copy-on-write: a step never mutates its pre-state ─────────────────────────
+
+
+class Tank(Entity):
+    level: int = Field(0, ge=0, le=3, saturate=True)
+
+
+def test_step_copies_targets_and_never_mutates_the_pre_state():
+    fill = Action(id="fill", effect=[Add(Tank.level, 5)])  # clamps 2+5 to 3
+    spec = Spec(id="s", name="S", entities=[Box, Tank], actions=[fill])
+    pre = _ctx(spec, [Box(n=4), Tank(level=2)])
+    pre_tank, pre_box = pre[Tank], pre[Box]
+
+    r = step(spec, fill, pre)
+
+    assert r.post_context[Tank].level == 3
+    assert pre_tank.level == 2  # the clamp ran on the copy
+    assert r.post_context[Tank] is not pre_tank
+    assert r.post_context[Box] is pre_box  # untouched entities are shared
+    assert r.changed_fields == {Tank: {"level": (2, 3)}}

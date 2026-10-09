@@ -13,6 +13,7 @@ initial state — because a counterexample you can read beats a verdict.
 from __future__ import annotations
 
 import copy
+from collections import deque
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from enum import Enum
@@ -411,7 +412,7 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
 
     # Seed the BFS with every admissible initial state; identical roots merge
     # naturally through the state key (research/16: multi-root exploration).
-    queue: list[StateKey] = []
+    queue: deque[StateKey] = deque()
     for index, ctx in enumerate(initial_ctxs, start=1):
         key0 = state_key(ctx)
         if key0 in exp.states:
@@ -428,7 +429,7 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
         if len(exp.states) >= max_states:
             exp.capped = True
             break
-        key = queue.pop(0)
+        key = queue.popleft()
         ctx = exp.states[key]
 
         for action in spec.actions:

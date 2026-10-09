@@ -3,29 +3,49 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
+      "sc_merge_happy": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_merge_underapproved": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "c589bd7bd36633a2"
+      },
+      "sc_merge_without_code_owner": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "4fd1e1efc0ec083a"
+      },
+      "sc_merge_failing_checks": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "cf3ed1c3d7dad1da"
+      },
+      "sc_merge_behind_base": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "de0450554f0989fa"
+      },
+      "sc_merge_with_changes_requested": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "36e73599222158a3"
+      },
+      "sc_push_dismisses_approvals": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_push_keeps_changes_requested": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
       "sc_approve": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_base_advanced": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_checks_fail": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_checks_pass": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_close": {
-        "status": "PASS",
-        "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_code_owner_approve": {
@@ -38,59 +58,39 @@
         "rules": 4,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_dismiss_changes_request": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_merge_behind_base": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "de0450554f0989fa"
-      },
-      "sc_merge_failing_checks": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "cf3ed1c3d7dad1da"
-      },
-      "sc_merge_happy": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_merge_underapproved": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "c589bd7bd36633a2"
-      },
-      "sc_merge_with_changes_requested": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "36e73599222158a3"
-      },
-      "sc_merge_without_code_owner": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "4fd1e1efc0ec083a"
-      },
-      "sc_push_dismisses_approvals": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_push_keeps_changes_requested": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "sc_request_changes": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
       },
+      "sc_dismiss_changes_request": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_checks_pass": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_checks_fail": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_base_advanced": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
       "sc_update_branch": {
         "status": "PASS",
         "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_close": {
+        "status": "PASS",
+        "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
       }
     },
@@ -101,13 +101,20 @@
         "exploration": "c647d7565530740f",
         "trace": [
           "approve",
-          "checks_pass",
           "code_owner_approve",
+          "checks_pass",
           "merge"
         ],
-        "findings_hash": "d1e160561925cd2f"
+        "findings_hash": "3b21bda46a5e53a8"
       },
-      "never_merge_behind": {
+      "never_merge_underapproved": {
+        "status": "PASS",
+        "states": 121,
+        "exploration": "c647d7565530740f",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "never_merge_without_code_owner": {
         "status": "PASS",
         "states": 121,
         "exploration": "c647d7565530740f",
@@ -121,13 +128,6 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "never_merge_underapproved": {
-        "status": "PASS",
-        "states": 121,
-        "exploration": "c647d7565530740f",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "never_merge_with_changes": {
         "status": "PASS",
         "states": 121,
@@ -135,7 +135,7 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "never_merge_without_code_owner": {
+      "never_merge_behind": {
         "status": "PASS",
         "states": 121,
         "exploration": "c647d7565530740f",
@@ -177,13 +177,13 @@
       }
     },
     "invariants": {
-      "code_owner_is_an_approval": {
+      "merged_satisfied_policy": {
         "status": "PASS",
         "states": 121,
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "merged_satisfied_policy": {
+      "code_owner_is_an_approval": {
         "status": "PASS",
         "states": 121,
         "trace": null,
@@ -649,19 +649,24 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
-      "sc_clean_win": {
+      "sc_walk_west": {
         "status": "PASS",
-        "rules": 4,
+        "rules": 1,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_game_already_over": {
+      "sc_walk_back": {
         "status": "PASS",
-        "rules": 4,
-        "findings_hash": "b8a74a19ef41a77f"
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_grope": {
+      "sc_walk_south": {
         "status": "PASS",
-        "rules": 2,
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_walk_north": {
+        "status": "PASS",
+        "rules": 1,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_hang": {
@@ -674,58 +679,45 @@
         "rules": 3,
         "findings_hash": "e715c2392ebd9b53"
       },
+      "sc_grope": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
       "sc_read_in_dark": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "6e0d93cc8d7bb80b"
+      },
+      "sc_clean_win": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_trampled_lose": {
         "status": "PASS",
         "rules": 4,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_walk_back": {
+      "sc_game_already_over": {
         "status": "PASS",
-        "rules": 1,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_walk_north": {
-        "status": "PASS",
-        "rules": 1,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_walk_south": {
-        "status": "PASS",
-        "rules": 1,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_walk_west": {
-        "status": "PASS",
-        "rules": 1,
-        "findings_hash": "e3b0c44298fc1c14"
+        "rules": 4,
+        "findings_hash": "b8a74a19ef41a77f"
       }
     },
     "queries": {
-      "cloak_invariant_holds_everywhere": {
+      "win_is_reachable": {
         "status": "PASS",
         "states": 27,
         "exploration": "eb8ccfb51ad388e2",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "every_action_playable": {
-        "status": "PASS",
-        "states": 27,
-        "exploration": "eb8ccfb51ad388e2",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "game_can_always_end": {
-        "status": "PASS",
-        "states": 27,
-        "exploration": "eb8ccfb51ad388e2",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
+        "trace": [
+          "go_west",
+          "hang_cloak",
+          "go_east",
+          "go_south",
+          "read_message_win"
+        ],
+        "findings_hash": "854497f77fcf2f93"
       },
       "lose_is_reachable": {
         "status": "PASS",
@@ -744,18 +736,26 @@
         ],
         "findings_hash": "625912c74fa3f673"
       },
-      "win_is_reachable": {
+      "game_can_always_end": {
         "status": "PASS",
         "states": 27,
         "exploration": "eb8ccfb51ad388e2",
-        "trace": [
-          "go_west",
-          "hang_cloak",
-          "go_east",
-          "go_south",
-          "read_message_win"
-        ],
-        "findings_hash": "854497f77fcf2f93"
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "every_action_playable": {
+        "status": "PASS",
+        "states": 27,
+        "exploration": "eb8ccfb51ad388e2",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "cloak_invariant_holds_everywhere": {
+        "status": "PASS",
+        "states": 27,
+        "exploration": "eb8ccfb51ad388e2",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
@@ -795,14 +795,14 @@
     "verdict": "FAIL",
     "warnings": 0,
     "scenarios": {
+      "sc_send_without_mint": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "6ff381b423d5596b"
+      },
       "sc_mint_then_send": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_minting_works": {
-        "status": "PASS",
-        "rules": 1,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_no_overdraft": {
@@ -815,10 +815,10 @@
         "rules": 2,
         "findings_hash": "17ac195e21ac7be4"
       },
-      "sc_send_without_mint": {
+      "sc_minting_works": {
         "status": "PASS",
-        "rules": 2,
-        "findings_hash": "6ff381b423d5596b"
+        "rules": 1,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "queries": {
@@ -829,12 +829,15 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "every_method_callable": {
-        "status": "PASS",
+      "supply_never_overflows": {
+        "status": "FAIL",
         "states": 216,
         "exploration": "f2b9959c89a91e68",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
+        "trace": [
+          "mint(receiver=Account['alice'], amount=3)",
+          "mint(receiver=Account['bob'], amount=3)"
+        ],
+        "findings_hash": "5324cfdc58113dd0"
       },
       "everyone_can_get_paid": {
         "status": "PASS",
@@ -845,15 +848,12 @@
         ],
         "findings_hash": "bf3553fb2e026167"
       },
-      "supply_never_overflows": {
-        "status": "FAIL",
+      "every_method_callable": {
+        "status": "PASS",
         "states": 216,
         "exploration": "f2b9959c89a91e68",
-        "trace": [
-          "mint(receiver=Account['alice'], amount=3)",
-          "mint(receiver=Account['bob'], amount=3)"
-        ],
-        "findings_hash": "5324cfdc58113dd0"
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
@@ -905,11 +905,6 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
-      "checkout/already-paid": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "db2c01efef80ea73"
-      },
       "checkout/happy": {
         "status": "PASS",
         "rules": 4,
@@ -924,6 +919,11 @@
         "status": "PASS",
         "rules": 4,
         "findings_hash": "bed4add7ea407145"
+      },
+      "checkout/already-paid": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "db2c01efef80ea73"
       }
     },
     "queries": {
@@ -1337,47 +1337,17 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
-      "sc_citizen_cannot_kill": {
-        "status": "PASS",
-        "rules": 8,
-        "findings_hash": "b558bb1124a84bcf"
-      },
-      "sc_dead_player_cannot_vote": {
-        "status": "PASS",
-        "rules": 6,
-        "findings_hash": "964a3619cb8a5eeb"
-      },
-      "sc_hanging_last_citizen_ends_game": {
-        "status": "PASS",
-        "rules": 10,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_kill_last_citizen_ends_game": {
-        "status": "PASS",
-        "rules": 8,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "sc_night_kill": {
         "status": "PASS",
         "rules": 8,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_player_cannot_vote_twice": {
+      "sc_citizen_cannot_kill": {
         "status": "PASS",
-        "rules": 6,
-        "findings_hash": "5576ad6b5480a229"
+        "rules": 8,
+        "findings_hash": "b558bb1124a84bcf"
       },
-      "sc_tie_skips_hanging": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_town_hangs_a_citizen": {
-        "status": "PASS",
-        "rules": 9,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_town_hangs_the_mafia": {
+      "sc_kill_last_citizen_ends_game": {
         "status": "PASS",
         "rules": 8,
         "findings_hash": "e3b0c44298fc1c14"
@@ -1386,16 +1356,39 @@
         "status": "PASS",
         "rules": 6,
         "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_player_cannot_vote_twice": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "5576ad6b5480a229"
+      },
+      "sc_dead_player_cannot_vote": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "964a3619cb8a5eeb"
+      },
+      "sc_town_hangs_the_mafia": {
+        "status": "PASS",
+        "rules": 8,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_town_hangs_a_citizen": {
+        "status": "PASS",
+        "rules": 9,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_hanging_last_citizen_ends_game": {
+        "status": "PASS",
+        "rules": 10,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_tie_skips_hanging": {
+        "status": "PASS",
+        "rules": 5,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "queries": {
-      "citizens_cannot_win": {
-        "status": "PASS",
-        "states": 36,
-        "exploration": "e25dbfeb3159befb",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "mafia_can_win": {
         "status": "PASS",
         "states": 36,
@@ -1408,6 +1401,13 @@
           "mafia_kills_last_citizen(killer=Mahtab, victim=Max, bystander=Gabriela)"
         ],
         "findings_hash": "0ba78ea9956a319a"
+      },
+      "citizens_cannot_win": {
+        "status": "PASS",
+        "states": 36,
+        "exploration": "e25dbfeb3159befb",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "status_is_always_correct": {
         "status": "PASS",
@@ -1683,9 +1683,9 @@
     "verdict": "PASS",
     "warnings": 13,
     "scenarios": {
-      "sc_barehanded_bleeds": {
+      "sc_take_torch": {
         "status": "PASS",
-        "rules": 3,
+        "rules": 2,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_dark_hurts": {
@@ -1693,12 +1693,12 @@
         "rules": 2,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_death": {
+      "sc_barehanded_bleeds": {
         "status": "PASS",
-        "rules": 2,
+        "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_escape": {
+      "sc_slay": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
@@ -1708,62 +1708,28 @@
         "rules": 3,
         "findings_hash": "4018826775b157dd"
       },
-      "sc_no_act_when_dead": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "607cd4618f67504e"
-      },
-      "sc_slay": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_take_torch": {
-        "status": "PASS",
-        "rules": 2,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "sc_vault_needs_key": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "c2307825a5400caf"
+      },
+      "sc_escape": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_death": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_no_act_when_dead": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "607cd4618f67504e"
       }
     },
     "queries": {
-      "death_is_reachable": {
-        "status": "PASS",
-        "states": 716,
-        "exploration": "cecd38a80333849c",
-        "trace": [
-          "enter_hall",
-          "enter_crypt_dark",
-          "fight_barehanded",
-          "fight_barehanded",
-          "succumb"
-        ],
-        "findings_hash": "d789a6cf21732a8a"
-      },
-      "every_action_playable": {
-        "status": "PASS",
-        "states": 716,
-        "exploration": "cecd38a80333849c",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "no_softlock": {
-        "status": "PASS",
-        "states": 716,
-        "exploration": "cecd38a80333849c",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "stamina_never_negative": {
-        "status": "PASS",
-        "states": 716,
-        "exploration": "cecd38a80333849c",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "win_is_reachable": {
         "status": "PASS",
         "states": 716,
@@ -1785,6 +1751,40 @@
           "place_amulet"
         ],
         "findings_hash": "44d68e71e1ebbf67"
+      },
+      "death_is_reachable": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": [
+          "enter_hall",
+          "enter_crypt_dark",
+          "fight_barehanded",
+          "fight_barehanded",
+          "succumb"
+        ],
+        "findings_hash": "d789a6cf21732a8a"
+      },
+      "stamina_never_negative": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "no_softlock": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "every_action_playable": {
+        "status": "PASS",
+        "states": 716,
+        "exploration": "cecd38a80333849c",
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {
@@ -1935,15 +1935,15 @@
         "rules": 4,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "sc_buy_two_potions": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
       "sc_cannot_afford_sword": {
         "status": "PASS",
         "rules": 4,
         "findings_hash": "114280809356c87b"
+      },
+      "sc_potion": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_fight": {
         "status": "PASS",
@@ -1955,7 +1955,7 @@
         "rules": 3,
         "findings_hash": "826916b2a54ac4e6"
       },
-      "sc_potion": {
+      "sc_buy_two_potions": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
@@ -1973,12 +1973,14 @@
         ],
         "findings_hash": "e247e1e5173fc8b3"
       },
-      "every_action_playable": {
-        "status": "PASS",
+      "no_softlock": {
+        "status": "FAIL",
         "states": 9,
         "exploration": "dfa3f52f5f5c8484",
-        "trace": null,
-        "findings_hash": "e3b0c44298fc1c14"
+        "trace": [
+          "buy_potion"
+        ],
+        "findings_hash": "03308afc6bda05fa"
       },
       "hp_never_negative": {
         "status": "FAIL",
@@ -1998,14 +2000,12 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "no_softlock": {
-        "status": "FAIL",
+      "every_action_playable": {
+        "status": "PASS",
         "states": 9,
         "exploration": "dfa3f52f5f5c8484",
-        "trace": [
-          "buy_potion"
-        ],
-        "findings_hash": "03308afc6bda05fa"
+        "trace": null,
+        "findings_hash": "e3b0c44298fc1c14"
       }
     },
     "explorations": {

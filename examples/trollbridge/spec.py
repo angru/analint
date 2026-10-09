@@ -162,4 +162,21 @@ spec = Spec(
     version="1.0.0",
     description="Deliberately broken micro-RPG: the engine finds a softlock "
     "and an unmodelled death that scenarios cannot see",
+    actions=[buy_sword, buy_potion, drink_potion, fight_troll, cross_bridge],
+    invariants=[gold_not_negative],
+    scenarios=[
+        sc_buy_sword,
+        sc_cannot_afford_sword,
+        sc_potion,
+        sc_fight,
+        sc_no_crossing_with_troll,
+        sc_buy_two_potions,
+    ],
+    queries=[
+        bridge_is_reachable,
+        no_softlock,
+        hp_never_negative,
+        no_gold_from_thin_air,
+        every_action_playable,
+    ],
 )

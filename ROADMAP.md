@@ -662,6 +662,9 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   invariant payloads use `invariant` instead of `query` in `analint.trace/v1`.
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
+  - ✅ Input (2026-10-10): per-state memory profile; state keys compacted to
+    values + layout id (7.5 → 1.7 KB/state on M4, RSS 559 → 151 MiB at 50k,
+    ~18% faster, graphs identical). Not the R4 store; research/34 §8 E
   - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
     per-check timing, invariant state-diff traces and B2 fixtures are done.
     Start with E and the stored B2 records; do not restart M4–M6 implementation.

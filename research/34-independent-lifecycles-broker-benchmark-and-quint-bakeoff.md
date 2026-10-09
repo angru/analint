@@ -504,7 +504,10 @@ Findings:
    step 2) and formatter line breaks. Brevity, not semantics; worth keeping in
    mind for the DSL surface.
 6. **analint gap found:** `analint trace` serves queries only; a failing
-   *invariant* has a trace in `check` but no state-diff view.
+   *invariant* has a trace in `check` but no state-diff view. *Closed
+   (2026-10-09/10):* invariant traces with state diffs, decided on the same
+   slice as `check` (a planted KYC defect on M4 at 2k: `check` FAIL in 7
+   steps, the former whole-model trace INCONCLUSIVE; now identical).
 
 **E. Decision synthesis (new research note).** Inputs: tables from B2 and D.
 Possible outcomes:
@@ -519,6 +522,18 @@ Possible outcomes:
 
 **Deferred until E decides:** R4, R5, R6 and any native/Rust work
 (research/17 §3 conditions still apply).
+
+**E input — where the memory goes (2026-10-10).** tracemalloc on the M4
+whole model: 7,460 B per explored state, ~6.5 KB of it the state *key*
+(a `(label, field, value)` triple per field, ~90 fields). Keys are now the
+values plus a shared layout id (engine hygiene in the spirit of A, not the R4
+store: contexts stay in memory, nothing spills): 1,704 B/state; at 50k states
+RSS 559 → 151 MiB and 9.5 → 7.8 s, graphs identical (characterization). What
+remains is the value tuple (~770 B) and the copy-on-write context (~350 B), so
+a further ~2× needs dropping stored contexts (rebuild from the key on demand),
+which is the first real R4 step. M4's whole graph still exceeds 50k states;
+its exact size is unknown, so the R6 (TLC) cross-check of M4 needs either a
+reduced configuration both tools can finish or a disk-backed run.
 
 ## 9. Should the private spec switch to Quint now?
 

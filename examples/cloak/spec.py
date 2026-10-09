@@ -254,11 +254,42 @@ cloak_invariant_holds_everywhere = AlwaysHolds(
     label="the cloak is never in two places",
 )
 
-# ── Spec — everything above is discovered automatically ───────────────────────
+# ── Spec — lists the behaviour; entities and events follow by reference ───────
 
 spec = Spec(
     id="cloak-of-darkness",
     name="Cloak of Darkness",
     version="1.0.0",
     description="The classic IF benchmark expressed as verifiable game rules",
+    actions=[
+        go_west,
+        go_east,
+        go_south,
+        go_north,
+        hang_cloak,
+        grope_in_dark,
+        read_message_win,
+        read_message_lose,
+    ],
+    invariants=[cloak_in_one_place],
+    scenarios=[
+        sc_walk_west,
+        sc_walk_back,
+        sc_walk_south,
+        sc_walk_north,
+        sc_hang,
+        sc_hang_from_foyer,
+        sc_grope,
+        sc_read_in_dark,
+        sc_clean_win,
+        sc_trampled_lose,
+        sc_game_already_over,
+    ],
+    queries=[
+        win_is_reachable,
+        lose_is_reachable,
+        game_can_always_end,
+        every_action_playable,
+        cloak_invariant_holds_everywhere,
+    ],
 )

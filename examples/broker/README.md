@@ -137,3 +137,63 @@ blocking prevents *new* attribution and rewards.
 The shared security code couples this process to cash payments. At the same 2k
 budget, the four KYC invariants still prove locally; composed reward, payment
 and risk checks remain inconclusive. Scenario success is not a complete proof.
+
+## M6 multiplicity and measurements (2026-10-10)
+
+`benchmarks/broker/m6.py` raises the capacities to two concurrent risk accounts
+and open orders, and adds two payment-method slots. It has 12 entity types,
+129 expanded actions, 86 scenarios and two flows. Scenarios distinguish the
+worst order from a better one, reject protection after a partial stop, and
+show that another account's losses do not determine the local liquidation order.
+
+Payment methods require ownership and currency agreement for funding/payouts.
+Funding makes a method eligible; requesting a payout consumes a fresh code and
+holds funds. Settlement pays them, rejection refunds them, and no cancellation
+transition exists. A separate two-unit settlement ledger conserves these rails'
+funds. As with risk equity and partner commissions, it is not folded into the
+M3 cash ledger: P1 and profile-termination money checks still cover M3 cash only.
+Consolidated P&L, all-balance termination and multiple M3 cash accounts remain
+modelling follow-ups, not guarantees of this benchmark.
+
+Run the reproducible harness from the repository:
+
+```bash
+uv run python scripts/bench_broker.py --max-states 2000 --repeats 2 --json
+uv run python scripts/bench_broker.py --max-states 10000 --repeats 2 --memory --json
+uv run analint check benchmarks/broker/m6.py --max-states 10000 --no-slice
+```
+
+The harness overrides **every** query and canonical budget equally; imported
+M1–M3 queries otherwise retain their 50k budgets. It records per-check verdicts,
+states, timings and cone fields, source/engine digests, Python/platform and peak
+traced memory in a separate run. Import closures are preloaded. Timings are
+informational; comparisons are within one runner and repeat count. Full records
+live in `benchmarks/broker/results-10000.json`.
+The corresponding 2k runs are in `benchmarks/broker/results-2000.json`.
+
+Initial measurement (macOS arm64, CPython 3.14.5, median of two runs, no profiling
+during timing):
+
+| Increment | actions | 2k budget sliced / whole | 10k budget sliced / whole | peak MiB at 10k sliced / whole | KYC invariants |
+|---|---:|---|---|---|---|
+| M4 | 93 | 0.98 / 0.37 s | 6.36 / 2.04 s | 291 / 70 | 4 PASS on 22 states |
+| M5 | 105 | 0.98 / 0.38 s | 6.08 / 2.01 s | 329 / 73 | 4 PASS on 22 states |
+| M6 | 129 | 1.08 / 0.46 s | 6.52 / 2.35 s | 391 / 91 | 4 PASS on 22 states |
+
+**All six composed runs are INCONCLUSIVE.** Whole-model verification proves
+none of the KYC invariants before the cap; slicing proves all four, but spends
+more time exploring distinct genuinely coupled cones. The other invariants
+remain capped, with no FAIL or NOT_CHECKED results at these budgets. At 10k,
+M4/M5 find some existential witnesses; M6's new multiplicity/risk witnesses are
+not established by the capped canonical search. Its scenarios/flows are
+executable fixture witnesses, not a canonical reachability proof.
+
+The implication for P5 E is limited: slicing retains exact local proofs, but
+does not make this coupled model fully tractable. These capped measurements
+do not give the total state-space size or justify a native/export backend yet.
+First measure the distinct large cones at larger budgets on a controlled runner,
+and resolve the modelling boundaries above before drawing a product decision.
+Peak traced allocations reach 391 MiB for M6 with multiple capped slices versus
+91 MiB for one capped whole-model exploration. This motivates profiling retained
+graphs/state storage (R4); it does not prove that a compact store can finish the
+unexplored state product.

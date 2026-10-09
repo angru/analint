@@ -595,8 +595,11 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   and the genuinely coupled money model is ~16k states. It exposed two slice
   artefacts (terminal-lock reads, invariants as constraints), both removed
   exactly (research/34 §5, §8)
-- **B2. Broker model M4–M6** — leverage/margin/stop out, partners,
-  multiplicity; measured with and without slicing
+- ✅ **B2. Bounded broker M4–M6 fixtures and measurements** (2026-10-10) —
+  leverage/margin/stop out, partners and multiplicity; measured at 2k/10k
+  with and without slicing. This completes the increment/measurement work,
+  **not** exhaustive verification of the composed model or financial-ledger
+  consolidation. Exact total graph size remains unknown (budget exhausted).
   - ✅ Prerequisite found while modelling M4 (2026-10-10): quantified and
     aggregate invariant applicability now follows present members, while direct
     absent-slot reads still skip the invariant. Empty Min/Max remains an error.
@@ -614,6 +617,23 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     changes, fresh-code consumption and withdrawals from a separate accrued
     wallet after irreversible blocking. Security-code coupling enlarges the
     cones; KYC invariants still prove on 22-state slices, other checks cap at 2k.
+  - ✅ M6, `benchmarks/broker/m6.py`: 12 entities, 129 actions, 86 scenarios
+    and two flows. Two concurrent risk accounts/orders/payment methods;
+    worst-order/partial-stop probes and owned/currency-matched payment rails.
+    M3 cash, risk equity, commissions and method settlement remain separate
+    abstractions; all-balance termination and multiple M3 cash ledgers are not
+    modelled. Tests pin those declared capacities and exercise a planted missing
+    liquidation-priority guard.
+  - ✅ Harness: `scripts/bench_broker.py`, equal budget override for every
+    check, per-property cone/status/state/timing records and optional separate
+    tracemalloc run. `benchmarks/broker/results-10000.json` stores full data and
+    model/engine digests. All composed runs are INCONCLUSIVE. Slicing proves
+    four KYC invariants on 22 states; whole-model checks prove none before the
+    cap. At 10k the initial medians are ~6.1–6.5 s sliced / 2.0–2.4 s whole:
+    multiple large cones cost more, while providing additional definitive results.
+    Peak traced allocations at 10k are ~291/70 MiB (M4), 329/73 (M5), 391/91
+    (M6), sliced/whole. Retained capped graphs and state storage now have a
+    measured memory trigger for R4 profiling, without implying a complete proof.
 - ✅ **C. Cone-of-influence slicing** per property, default for `check`
   (`validator/slicing.py`): exact, gated against the monolithic path on every
   example, plus 7 planted-defect probes (one per closure rule); superset
@@ -631,6 +651,15 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   invariant payloads use `invariant` instead of `query` in `analint.trace/v1`.
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
+  - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
+    per-check timing, invariant state-diff traces and B2 fixtures are done.
+    Start with E and the stored B2 records; do not restart M4–M6 implementation.
+    First enumerate/reuse distinct large cones on a controlled runner with a
+    higher budget, record completeness and memory, and assess the cost of
+    consolidating the separate settlement abstractions. M4–M6 have no Quint
+    port or complete canonical graph yet. Keep INCONCLUSIVE explicit; a faster
+    capped whole-model run is not a stronger proof. Do not choose a backend
+    solely from these capped timings.
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 

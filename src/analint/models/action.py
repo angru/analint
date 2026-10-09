@@ -52,6 +52,8 @@ class Action(BaseModel):
     # Structured parameter bindings of a concrete instance (param name → value),
     # set by bind_action. Private: surfaced only through the exploration artifact.
     _bindings: dict[str, Any] | None = PrivateAttr(default=None)
+    # static guard/effect layout cached by the transition kernel (validator.kernel)
+    _kernel_plan: Any = PrivateAttr(default=None)
 
     @field_validator("emits", "pre", "post", "effect", "params", "where", mode="before")
     @classmethod

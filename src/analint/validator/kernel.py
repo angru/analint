@@ -98,30 +98,78 @@ def _after(action: Action, trace: list[str] | None) -> str:
     return f" [after: {_trace_str([*trace, action.id])}]" if trace is not None else ""
 
 
+@dataclass(frozen=True)
+class _Plan:
+    """The static part of an action's guards and effects, computed once."""
+
+    guards: tuple  # (predicate, context keys it reads)
+    touched: frozenset  # Set/Add/Subtract target keys
+    creates: tuple
+    deletes: tuple
+    frozen: frozenset  # targets the terminal lock protects (touched + deleted)
+
+
+def _plan(action: Action) -> _Plan:
+    # Cached on the action: pre/effect are fixed after construction, and walking
+    # their ASTs on every transition dominated exploration (research/34 §2.3).
+    plan = action._kernel_plan
+    if plan is None:
+        touched = frozenset(
+            field_context_key(e.field)
+            for e in action.effect
+            if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
+        )
+        deletes = tuple(e for e in action.effect if isinstance(e, Delete))
+        plan = _Plan(
+            guards=tuple(
+                (pred, frozenset(field_context_key(r) for r in _collect_field_refs(pred)))
+                for pred in action.pre
+            ),
+            touched=touched,
+            creates=tuple(e for e in action.effect if isinstance(e, Create)),
+            deletes=deletes,
+            frozen=touched | {e.target for e in deletes},
+        )
+        action._kernel_plan = plan
+    return plan
+
+
 def step(
     spec: Spec,
     action: Action,
     context: dict,
     *,
     trace: list[str] | None = None,
+    explain: bool = True,
 ) -> TransitionResult:
     """Evaluate one transition. See module docstring for outcome semantics.
 
     ``trace`` is the action-id path that reached ``context``; when given, defect
     findings are decorated with it so a counterexample reads end-to-end. Pass
     ``None`` (the default) for a single, context-free transition.
+
+    ``explain=False`` skips building the reason of a REJECTED outcome (the
+    explorer discards it); outcomes and defect findings are unchanged.
     """
-    lifecycles = list(spec.lifecycles)
+    lifecycles = spec.lifecycles
+    plan = _plan(action)
 
     # ── pre guards: a false/absent precondition rejects; an error is a defect ──
-    for pred in action.pre:
-        refs = _collect_field_refs(pred)
-        if any(field_context_key(r) not in context for r in refs):
+    for pred, keys in plan.guards:
+        if any(key not in context for key in keys):
             # the predicate reads an entity intentionally absent from this state
-            return _rejected(action, f"PRE not applicable: {_describe(pred)}")
+            return (
+                _rejected(action, f"PRE not applicable: {_describe(pred)}")
+                if explain
+                else _silently_rejected()
+            )
         try:
             if not evaluate(pred, context):
-                return _rejected(action, f"PRE failed: {_describe(pred)}")
+                return (
+                    _rejected(action, f"PRE failed: {_describe(pred)}")
+                    if explain
+                    else _silently_rejected()
+                )
         except Exception as exc:
             return _defect(
                 action,
@@ -129,36 +177,41 @@ def step(
             )
 
     # ── presence guards (Set/Add/Subtract target, Create, Delete) ─────────────
-    touched = {
-        field_context_key(e.field)
-        for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
-    }
-    for target in touched:
+    for target in plan.touched:
         if isinstance(target, InstanceRef) and not is_present(context, target):
-            return _rejected(
-                action, f"cannot modify absent entity {target!r} with Set/Add/Subtract"
+            return (
+                _rejected(action, f"cannot modify absent entity {target!r} with Set/Add/Subtract")
+                if explain
+                else _silently_rejected()
             )
-    for effect in action.effect:
-        if isinstance(effect, Create) and is_present(context, effect.target):
-            return _rejected(action, f"cannot create already-present entity {effect.target!r}")
-        if isinstance(effect, Delete) and not is_present(context, effect.target):
-            return _rejected(action, f"cannot delete absent entity {effect.target!r}")
+    for effect in plan.creates:
+        if is_present(context, effect.target):
+            return (
+                _rejected(action, f"cannot create already-present entity {effect.target!r}")
+                if explain
+                else _silently_rejected()
+            )
+    for effect in plan.deletes:
+        if not is_present(context, effect.target):
+            return (
+                _rejected(action, f"cannot delete absent entity {effect.target!r}")
+                if explain
+                else _silently_rejected()
+            )
 
     # ── terminal-state lock: an entity in a terminal lifecycle state is frozen,
     # against field changes and against deletion alike (a Create targets an
     # absent slot, which has no terminal state, so it is exempt) ──────────────
-    frozen_targets = touched | {
-        effect.target for effect in action.effect if isinstance(effect, Delete)
-    }
     for lc in lifecycles:
         if not lc.terminal:
             continue
-        for target in frozen_targets:
+        for target in plan.frozen:
             if _key_entity_cls(target) is not lc.entity_cls:
                 continue
             inst = context.get(target)
             if inst is not None and getattr(inst, lc.field_name, None) in lc.terminal:
+                if not explain:
+                    return _silently_rejected()
                 return TransitionResult(
                     Outcome.REJECTED,
                     findings=[
@@ -210,6 +263,10 @@ def step(
         changed_fields=_state_diff(context, post),
         entered=True,
     )
+
+
+def _silently_rejected() -> TransitionResult:
+    return TransitionResult(Outcome.REJECTED)
 
 
 def _rejected(action: Action, message: str) -> TransitionResult:

@@ -31,6 +31,7 @@ from analint.validator.engine import validate
 from analint.validator.explorer import (
     build_canonical_initials,
     build_initial,
+    explore,
     run_query,
     verify_invariants,
 )
@@ -807,3 +808,20 @@ def test_canonical_invariant_over_a_deleted_slot_stays_pass():
     )
     (res,), _ = _verify(spec)
     assert res.status == "PASS"
+
+
+def test_exploration_defect_names_the_state_it_happened_in():
+    # The explorer steps without building traces and re-runs a defective step
+    # with its trace: the reported defect must still say where it happened.
+    class Meter(Entity):
+        value: int = Field(0, ge=0, le=2)
+
+    bump = Action(id="bump", effect=[Add(Meter.value, 1)])
+    spec = Spec(id="m", name="m", entities=[Meter], actions=[bump])
+    initials, _ = build_canonical_initials(spec)
+
+    exp = explore(spec, initials, 100)
+
+    assert [f.message for f in exp.findings if f.location == "action:bump"] == [
+        "field constraint violated: Meter.value must be <= 2, got 3 [after: bump → bump → bump]"
+    ]

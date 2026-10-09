@@ -434,13 +434,15 @@ def explore(spec: Spec, initial_ctxs: list[dict], max_states: int) -> Exploratio
         for action in spec.actions:
             if action.id in exp.excluded:
                 continue
-            result = step(spec, action, ctx, trace=exp.trace_to(key))
+            result = step(spec, action, ctx, explain=False)
             if result.entered:
                 exp.fired.add(action.id)
             if result.outcome is Outcome.REJECTED:
                 continue  # a guard disabled the action; its reason is a scenario concern
             if result.outcome is Outcome.DEFECT:
-                for finding in result.findings:
+                # step is pure: re-run it with the trace only now that a defect
+                # needs one (building the trace for every step was a hot spot)
+                for finding in step(spec, action, ctx, trace=exp.trace_to(key)).findings:
                     exp.report_once(finding.severity, finding.location, finding.message)
                 continue
 

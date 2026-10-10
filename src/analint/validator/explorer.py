@@ -13,7 +13,9 @@ initial state — because a counterexample you can read beats a verdict.
 from __future__ import annotations
 
 import copy
+from array import array
 from collections import deque
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from enum import Enum
@@ -53,24 +55,72 @@ from analint.validator.slicing import Slice, SliceAnalysis
 from analint.validator.state_checks import invariant_holds, invariant_is_applicable
 from analint.validator.structural import _collect_field_refs, _describe
 
-StateKey = tuple[Any, ...]
+StateKey = bytes
 Query = Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
 
 # ── Exploration result ─────────────────────────────────────────────────────────
 
 
-@dataclass
 class Exploration:
-    states: dict = dc_field(default_factory=dict)  # key → context
-    order: list = dc_field(default_factory=list)  # keys in BFS order
-    edges: list = dc_field(default_factory=list)  # (key, action_id, key)
-    parents: dict = dc_field(default_factory=dict)  # key → (prev_key, action_id)
-    roots: dict = dc_field(default_factory=dict)  # root key → 1-based initial index
-    fired: set = dc_field(default_factory=set)  # action ids ever enabled
-    findings: list = dc_field(default_factory=list)  # violations met en route
-    excluded: dict = dc_field(default_factory=dict)  # action id → why it is not explorable
-    capped: bool = False
-    _seen: set = dc_field(default_factory=set)
+    """The explored graph, stored compactly (research/36 R4).
+
+    States are numbered in BFS order; a state is its key (``state_key``: a few
+    bytes per entity) and its context is rebuilt from the key on demand rather
+    than kept. Parents and edges are integer arrays. ``states``, ``order``,
+    ``parents`` and ``edges`` keep the key-based read interface.
+    """
+
+    def __init__(self) -> None:
+        self.keys: list[StateKey] = []  # index → key, in BFS order
+        self.index: dict[StateKey, int] = {}  # key → index
+        self.parent = array("i")  # index → parent index (-1 for a root)
+        self.via = array("i")  # index → action code that reached it (-1 for a root)
+        self.edge_src = array("i")
+        self.edge_action = array("i")
+        self.edge_dst = array("i")
+        self.action_ids: list[str] = []  # action code → id
+        self._action_codes: dict[str, int] = {}
+        self.roots: dict = {}  # root key → 1-based initial index
+        self.fired: set = set()  # action ids ever enabled
+        self.findings: list = []  # violations met en route
+        self.excluded: dict = {}  # action id → why it is not explorable
+        self.capped = False
+        self._seen: set = set()
+
+    # ── building ─────────────────────────────────────────────────────────────
+
+    def action_code(self, action_id: str) -> int:
+        code = self._action_codes.get(action_id)
+        if code is None:
+            code = self._action_codes[action_id] = len(self.action_ids)
+            self.action_ids.append(action_id)
+        return code
+
+    def add_state(self, key: StateKey, parent: int, via: int) -> int:
+        idx = len(self.keys)
+        self.keys.append(key)
+        self.index[key] = idx
+        self.parent.append(parent)
+        self.via.append(via)
+        return idx
+
+    # ── key-based read interface ─────────────────────────────────────────────
+
+    @property
+    def order(self) -> list[StateKey]:
+        return self.keys
+
+    @property
+    def states(self) -> _States:
+        return _States(self)
+
+    @property
+    def parents(self) -> _Parents:
+        return _Parents(self)
+
+    @property
+    def edges(self) -> _Edges:
+        return _Edges(self)
 
     def report_once(self, severity: Severity, loc: str, message: str) -> None:
         """Deduplicated finding — a model error would otherwise repeat per state."""
@@ -80,20 +130,20 @@ class Exploration:
         self.findings.append(Finding(severity, loc, message))
 
     def trace_to(self, key: StateKey) -> list[str]:
+        return self._trace(self.index[key])
+
+    def _trace(self, idx: int) -> list[str]:
         steps: list[str] = []
-        while True:
-            prev, action_id = self.parents[key]
-            if prev is None:
-                return list(reversed(steps))
-            steps.append(action_id)
-            key = prev
+        while self.parent[idx] >= 0:
+            steps.append(self.action_ids[self.via[idx]])
+            idx = self.parent[idx]
+        return list(reversed(steps))
 
     def root_of(self, key: StateKey) -> StateKey:
-        while True:
-            prev, _ = self.parents[key]
-            if prev is None:
-                return key
-            key = prev
+        idx = self.index[key]
+        while self.parent[idx] >= 0:
+            idx = self.parent[idx]
+        return self.keys[idx]
 
     def origin(self, key: StateKey) -> str:
         """A trace prefix naming the initial state, when there are several.
@@ -106,12 +156,82 @@ class Exploration:
         return f"init #{self.roots[self.root_of(key)]} ⊢ "
 
 
+class _States(Mapping[StateKey, dict]):
+    """key → context, rebuilt from the key (a fresh context on every read)."""
+
+    def __init__(self, exp: Exploration) -> None:
+        self._exp = exp
+
+    def __getitem__(self, key: StateKey) -> dict:
+        if key not in self._exp.index:
+            raise KeyError(key)
+        return decode_state(key)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._exp.index
+
+    def __iter__(self) -> Iterator[StateKey]:
+        return iter(self._exp.keys)
+
+    def __len__(self) -> int:
+        return len(self._exp.keys)
+
+
+class _Parents(Mapping[StateKey, tuple]):
+    """key → (parent key, action id); (None, None) for a root."""
+
+    def __init__(self, exp: Exploration) -> None:
+        self._exp = exp
+
+    def __getitem__(self, key: StateKey) -> tuple:
+        exp = self._exp
+        idx = exp.index[key]
+        if exp.parent[idx] < 0:
+            return (None, None)
+        return (exp.keys[exp.parent[idx]], exp.action_ids[exp.via[idx]])
+
+    def __iter__(self) -> Iterator[StateKey]:
+        return iter(self._exp.keys)
+
+    def __len__(self) -> int:
+        return len(self._exp.keys)
+
+
+class _Edges(Sequence):
+    """(source key, action id, target key) per explored transition."""
+
+    def __init__(self, exp: Exploration) -> None:
+        self._exp = exp
+
+    def __len__(self) -> int:
+        return len(self._exp.edge_src)
+
+    def __getitem__(self, i: Any) -> Any:  # int → edge, slice → list of edges
+        if isinstance(i, slice):
+            return [self[j] for j in range(*i.indices(len(self)))]
+        exp = self._exp
+        return (
+            exp.keys[exp.edge_src[i]],
+            exp.action_ids[exp.edge_action[i]],
+            exp.keys[exp.edge_dst[i]],
+        )
+
+    def __eq__(self, other: object) -> bool:
+        return list(self) == other if isinstance(other, list) else NotImplemented
+
+
 # ── State helpers ──────────────────────────────────────────────────────────────
 
 
-# Process-wide ids of state layouts: a key starts with its layout's id, so keys
-# of different layouts (a slice and the whole model) can never compare equal.
+# Process-wide state layouts and their value tables. A key starts with its
+# layout's id, so keys of different layouts (a slice and the whole model) can
+# never compare equal. Each entity slot of a layout interns its value tuples:
+# the key stores one small code per slot, and each distinct tuple is kept once.
 _LAYOUT_IDS: dict[tuple, int] = {}
+_LAYOUTS: list[tuple] = []  # layout id → layout
+_SLOT_CODES: list[list[dict]] = []  # layout id → slot → value tuple → code
+_SLOT_VALUES: list[list[list]] = []  # layout id → slot → code → value tuple
+_SLOT_INSTANCES: list[list[dict]] = []  # layout id → slot → code → decoded instance
 
 
 @lru_cache(maxsize=256)
@@ -126,28 +246,120 @@ def _state_layout(keys: tuple) -> tuple[int, tuple]:
         )
         for key in sorted(keys, key=context_key_label)
     )
-    return _LAYOUT_IDS.setdefault(layout, len(_LAYOUT_IDS)), layout
+    layout_id = _LAYOUT_IDS.get(layout)
+    if layout_id is None:
+        layout_id = _LAYOUT_IDS[layout] = len(_LAYOUTS)
+        _LAYOUTS.append(layout)
+        _SLOT_CODES.append([{} for _ in layout])
+        _SLOT_VALUES.append([[] for _ in layout])
+        _SLOT_INSTANCES.append([{} for _ in layout])
+    return layout_id, layout
 
 
-def state_key(ctx: dict) -> tuple:
-    """The state's identity: its layout id, then field values in layout order.
+_ESCAPE = 0xFFFF  # a code that does not fit 16 bits follows as two halves
 
-    Values only — field labels live in the shared layout. A scoped slot
-    contributes its presence flag and, only when present, its fields; the flag
-    precedes the fields, so the flat tuple decodes unambiguously. Labelled
-    (label, field, value) triples cost ~10x the memory (research/34 §8 E).
+
+def _put(out: array, code: int) -> None:
+    if code < _ESCAPE:
+        out.append(code)
+    else:
+        out.extend((_ESCAPE, code & 0xFFFF, code >> 16))
+
+
+def state_key(ctx: dict) -> StateKey:
+    """The state's identity: its layout id, then one code per entity slot.
+
+    A slot's code names its interned value tuple — the field values in layout
+    order, preceded by the presence flag for a scoped slot (an absent slot is
+    just ``(False,)``). Equal values give equal tuples, so equality is exactly
+    the field-by-field equality of the values (research/36 R4). Raises
+    ``TypeError`` for an unhashable field value.
     """
     layout_id, layout = _state_layout(tuple(ctx))
-    items: list = [layout_id]
-    for key, scoped, fields in layout:
+    out = [layout_id]
+    big = layout_id >= _ESCAPE
+    for table, seen, (key, scoped, fields) in zip(
+        _SLOT_CODES[layout_id], _SLOT_VALUES[layout_id], layout, strict=True
+    ):
         values = ctx[key].__dict__
         if scoped:
-            present = values.get("_analint_present", True)
-            items.append(present)
-            if not present:
-                continue
-        items.extend([values.get(f) for f in fields])
-    return tuple(items)
+            if values.get("_analint_present", True):
+                value = (True, *map(values.get, fields))
+            else:
+                value = (False,)
+        else:
+            value = tuple(map(values.get, fields))
+        code = table.get(value)
+        if code is None:
+            code = table[value] = len(seen)
+            seen.append(value)
+        if code >= _ESCAPE:  # a known code may be big too, not only a new one
+            big = True
+        out.append(code)
+    if not big:  # 16-bit codes: one C-level pack
+        return array("H", out).tobytes()
+    escaped = array("H")
+    for code in out:
+        _put(escaped, code)
+    return escaped.tobytes()
+
+
+def _codes(key: StateKey) -> Sequence[int]:
+    codes = memoryview(key).cast("H")
+    if _ESCAPE not in codes:
+        return codes
+    out: list[int] = []
+    i = 0
+    while i < len(codes):
+        if codes[i] == _ESCAPE:
+            out.append(codes[i + 1] | codes[i + 2] << 16)
+            i += 3
+        else:
+            out.append(codes[i])
+            i += 1
+    return out
+
+
+def decode_state(key: StateKey) -> dict:
+    """Rebuild the context a key was made from: a fresh dict of entity
+    instances with the same field values and presence markers (absent slots
+    read as ``Absent``).
+
+    Instances are interned per distinct value tuple and shared between decoded
+    contexts — treat them as read-only. Nothing mutates a state in place: the
+    kernel copies an effect's targets before writing (copy-on-write, pinned by
+    ``test_step_copies_targets_and_never_mutates_the_pre_state``)."""
+    all_codes = _codes(key)
+    layout_id, codes = all_codes[0], all_codes[1:]
+    tuples = _SLOT_VALUES[layout_id]
+    instances = _SLOT_INSTANCES[layout_id]
+    ctx: dict = {}
+    for slot, ((ctx_key, scoped, fields), code) in enumerate(
+        zip(_LAYOUTS[layout_id], codes, strict=True)
+    ):
+        inst = instances[slot].get(code)
+        if inst is None:
+            inst = instances[slot][code] = _build_instance(
+                ctx_key, scoped, fields, tuples[slot][code]
+            )
+        ctx[ctx_key] = inst
+    return ctx
+
+
+def _build_instance(ctx_key: Any, scoped: bool, fields: tuple, value: tuple) -> Any:
+    inst = object.__new__(ctx_key.entity_cls if scoped else ctx_key)
+    attrs = inst.__dict__
+    if scoped:
+        present = value[0]
+        if present:
+            attrs.update(zip(fields, value[1:], strict=True))
+        else:
+            attrs.update(dict.fromkeys(fields))  # an Absent snapshot
+        attrs["_analint_instance_ref"] = ctx_key
+        attrs["_analint_present"] = present
+    else:
+        attrs.update(zip(fields, value, strict=True))
+    return inst
 
 
 def render_state(ctx: dict) -> dict:
@@ -437,28 +649,30 @@ def explore(
 
     # Seed the BFS with every admissible initial state; identical roots merge
     # naturally through the state key (research/16: multi-root exploration).
-    queue: deque[StateKey] = deque()
+    # The frontier carries its contexts; a state's context is dropped once it
+    # is expanded and rebuilt from its key if a query needs it later.
+    queue: deque[tuple[int, dict]] = deque()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
         key0 = state_key(ctx)
-        if key0 in exp.states:
+        if key0 in exp.index:
             continue
-        exp.states[key0] = ctx
-        exp.order.append(key0)
-        exp.parents[key0] = (None, None)
+        idx0 = exp.add_state(key0, -1, -1)
         exp.roots[key0] = index
         # An initial state that already violates an invariant is illegal: keep it
         # as a witness but do not explore from it, exactly as for any successor.
         if not _report_invariant_violations(spec, ctx, key0, exp) and pos not in inert_roots:
-            queue.append(key0)
+            queue.append((idx0, ctx))
+    codes = [exp.action_code(action.id) for action in spec.actions]
+    index_get = exp.index.get
+    add_src, add_act, add_dst = exp.edge_src.append, exp.edge_action.append, exp.edge_dst.append
     while queue:
-        if len(exp.states) >= max_states:
+        if len(exp.keys) >= max_states:
             exp.capped = True
             break
-        key = queue.popleft()
-        ctx = exp.states[key]
+        idx, ctx = queue.popleft()
 
-        for action in spec.actions:
+        for action, code in zip(spec.actions, codes, strict=True):
             if action.id in exp.excluded:
                 continue
             result = step(spec, action, ctx, explain=False)
@@ -469,14 +683,16 @@ def explore(
             if result.outcome is Outcome.DEFECT:
                 # step is pure: re-run it with the trace only now that a defect
                 # needs one (building the trace for every step was a hot spot)
-                for finding in step(spec, action, ctx, trace=exp.trace_to(key)).findings:
+                for finding in step(spec, action, ctx, trace=exp._trace(idx)).findings:
                     exp.report_once(finding.severity, finding.location, finding.message)
                 continue
 
             post = result.post_context
             if not action.effect:
                 # an accepted effectless action is a self-loop with its post held true
-                exp.edges.append((key, action.id, key))
+                add_src(idx)
+                add_act(code)
+                add_dst(idx)
                 continue
             assert post is not None
             try:
@@ -489,15 +705,16 @@ def explore(
                     f"the engine supports scalar, enum, str and bool fields only",
                 )
                 continue
-            exp.edges.append((key, action.id, k2))
-            if k2 in exp.states:
+            known = index_get(k2)
+            idx2 = exp.add_state(k2, idx, code) if known is None else known
+            add_src(idx)
+            add_act(code)
+            add_dst(idx2)
+            if known is not None:
                 continue
-            exp.states[k2] = post
-            exp.order.append(k2)
-            exp.parents[k2] = (key, action.id)
             if _report_invariant_violations(spec, post, k2, exp):
                 continue  # illegal state: reported, not expanded further
-            queue.append(k2)
+            queue.append((idx2, post))
 
     return exp
 
@@ -792,7 +1009,7 @@ def verify_invariants(
         # Phase 1: each invariant on its unconstrained slice. That model prunes
         # less than the whole one, so a PASS there is final — and makes the
         # invariant trusted: it never prunes, other slices need not include it.
-        checked = []
+        pending = []
         for inv in spec.invariants:
             started = perf_counter()
             exp, used = explore_slice(
@@ -802,12 +1019,16 @@ def verify_invariants(
                 max_states,
                 cache,
             )
-            result = _verify_one_invariant(inv, exp)
+            pending.append((inv, exp, used, (perf_counter() - started) * 1000))
+            explorations[inv.id] = exp
+        # invariants sharing an exploration are checked in one pass over it
+        verdicts = _verify_grouped([(inv, exp) for inv, exp, _, _ in pending])
+        checked = []
+        for (inv, _, used, explore_ms), result in zip(pending, verdicts, strict=True):
+            result.elapsed_ms = (result.elapsed_ms or 0.0) + explore_ms
             if result.status == QueryStatus.PASS:
                 analysis.trusted.add(id(inv))
-            result.elapsed_ms = (perf_counter() - started) * 1000
             checked.append((inv, result, used))
-            explorations[inv.id] = exp
         # Phase 2: a FAIL is true of the whole model only on an exact slice.
         results = []
         for inv, result, used in checked:
@@ -828,55 +1049,106 @@ def verify_invariants(
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()
     exp = explore_cached(spec, initials, max_states, cache)
-    results = []
+    explore_ms = (perf_counter() - started) * 1000
+    results = _verify_invariants(spec.invariants, exp)
+    results[0].elapsed_ms = (results[0].elapsed_ms or 0.0) + explore_ms
     for inv in spec.invariants:
-        result = _verify_one_invariant(inv, exp)
-        result.elapsed_ms = (perf_counter() - started) * 1000
-        results.append(result)
         explorations[inv.id] = exp
-        started = perf_counter()
     return results, exp
 
 
 def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
+    return _verify_invariants([inv], exp)[0]
+
+
+def _verify_grouped(pairs: list[tuple[Invariant, Exploration]]) -> list[InvariantResult]:
+    """Verify (invariant, exploration) pairs, scanning each exploration once."""
+    groups: dict[int, list[int]] = {}
+    for i, (_, exp) in enumerate(pairs):
+        groups.setdefault(id(exp), []).append(i)
+    results: list = [None] * len(pairs)
+    for members in groups.values():
+        exp = pairs[members[0]][1]
+        verdicts = _verify_invariants([pairs[i][0] for i in members], exp)
+        for i, result in zip(members, verdicts, strict=True):
+            results[i] = result
+    return results
+
+
+def _verify_invariants(invs: list[Invariant], exp: Exploration) -> list[InvariantResult]:
+    """One pass over the explored states (each rebuilt from its key once) for
+    all ``invs``; each invariant stops at its first violation in BFS order.
+    ``elapsed_ms`` is each invariant's own evaluation time; the shared
+    decoding is charged to the first."""
+    failed: dict[int, InvariantResult] = {}
+    evaluated: set[int] = set()
+    spent = [0.0] * len(invs)
+    for key in exp.order:
+        if len(failed) == len(invs):
+            break
+        started = perf_counter()
+        ctx = decode_state(key)  # keys of exp.order are all explored
+        spent[0] += perf_counter() - started
+        for i, inv in enumerate(invs):
+            if i in failed:
+                continue
+            started = perf_counter()
+            outcome = _check_invariant_at(inv, exp, key, ctx)
+            spent[i] += perf_counter() - started
+            if outcome is None:
+                continue
+            evaluated.add(i)
+            if isinstance(outcome, InvariantResult):
+                failed[i] = outcome
+    results = [
+        failed[i] if i in failed else _invariant_outcome(inv, exp, i in evaluated)
+        for i, inv in enumerate(invs)
+    ]
+    for result, seconds in zip(results, spent, strict=True):
+        result.elapsed_ms = seconds * 1000
+    return results
+
+
+def _check_invariant_at(
+    inv: Invariant, exp: Exploration, key: StateKey, ctx: dict
+) -> InvariantResult | bool | None:
+    """None — not applicable here; True — holds; a FAIL ``InvariantResult``
+    otherwise."""
+    if not invariant_is_applicable(inv, ctx):
+        return None  # presence-aware: a referenced entity/slot is absent here
+    try:
+        ok = invariant_holds(inv, ctx)
+    except Exception as exc:
+        return _invariant_failure(inv, exp, key, f"evaluation error: {exc}")
+    if ok:
+        return True
+    label = inv.label or _describe(inv.expression)
+    return _invariant_failure(
+        inv,
+        exp,
+        key,
+        f"invariant '{label}' is violated: {exp.origin(key)}{_trace_str(exp.trace_to(key))}",
+    )
+
+
+def _invariant_failure(
+    inv: Invariant, exp: Exploration, key: StateKey, message: str
+) -> InvariantResult:
+    return InvariantResult(
+        invariant_id=inv.id,
+        label=inv.label or _describe(inv.expression),
+        status=QueryStatus.FAIL,
+        states_explored=len(exp.states),
+        trace=exp.trace_to(key),
+        witness_key=key,
+        findings=[Finding(Severity.ERROR, f"invariant:{inv.id}", message)],
+    )
+
+
+def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> InvariantResult:
+    """The verdict of an invariant that no explored state violated."""
     label = inv.label or _describe(inv.expression)
     loc = f"invariant:{inv.id}"
-    evaluated = False
-    for key in exp.order:
-        ctx = exp.states[key]
-        if not invariant_is_applicable(inv, ctx):
-            continue  # presence-aware: a referenced entity/slot is absent here
-        evaluated = True
-        try:
-            ok = invariant_holds(inv, ctx)
-        except Exception as exc:
-            return InvariantResult(
-                invariant_id=inv.id,
-                label=label,
-                status=QueryStatus.FAIL,
-                states_explored=len(exp.states),
-                trace=exp.trace_to(key),
-                witness_key=key,
-                findings=[Finding(Severity.ERROR, loc, f"evaluation error: {exc}")],
-            )
-        if not ok:
-            return InvariantResult(
-                invariant_id=inv.id,
-                label=label,
-                status=QueryStatus.FAIL,
-                states_explored=len(exp.states),
-                trace=exp.trace_to(key),
-                witness_key=key,
-                findings=[
-                    Finding(
-                        Severity.ERROR,
-                        loc,
-                        f"invariant '{label}' is violated: {exp.origin(key)}"
-                        f"{_trace_str(exp.trace_to(key))}",
-                    )
-                ],
-            )
-
     if not evaluated:
         return InvariantResult(
             invariant_id=inv.id,
@@ -951,7 +1223,7 @@ def _scan_states(exp: Exploration, predicate: Predicate) -> _Scan:
     scan = _Scan()
     refs = _collect_field_refs(predicate)
     for key in exp.order:
-        ctx = exp.states[key]
+        ctx = decode_state(key)  # keys of exp.order are all explored
         if any(field_context_key(r) not in ctx for r in refs):
             continue
         scan.applicable += 1
@@ -1070,7 +1342,7 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     applicable = 0
     errors: list[str] = []
     for key in exp.order:
-        ctx = exp.states[key]
+        ctx = decode_state(key)  # keys of exp.order are all explored
         if any(field_context_key(r) not in ctx for r in refs):
             continue
         applicable += 1
@@ -1121,7 +1393,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
     errors: list[str] = []
     goal_states = set()
     for key in exp.order:
-        ctx = exp.states[key]
+        ctx = decode_state(key)  # keys of exp.order are all explored
         if any(field_context_key(r) not in ctx for r in refs):
             continue
         applicable += 1
@@ -1148,11 +1420,12 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
             ],
         )
 
-    reverse: dict = {}
-    for src, _, dst in exp.edges:
-        reverse.setdefault(dst, set()).add(src)
-    co_reachable = set(goal_states)
-    stack = list(goal_states)
+    # backward reachability over integer state indices (no key tuples per edge)
+    reverse: dict[int, list[int]] = {}
+    for src, dst in zip(exp.edge_src, exp.edge_dst, strict=True):
+        reverse.setdefault(dst, []).append(src)
+    co_reachable = {exp.index[key] for key in goal_states}
+    stack = list(co_reachable)
     while stack:
         node = stack.pop()
         for prev in reverse.get(node, ()):
@@ -1160,8 +1433,8 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                 co_reachable.add(prev)
                 stack.append(prev)
 
-    for key in exp.order:  # BFS order → shortest trace to the first dead end
-        if key not in co_reachable:
+    for idx, key in enumerate(exp.order):  # BFS order → shortest trace to the first dead end
+        if idx not in co_reachable:
             trace = exp.trace_to(key)
             return QueryResult(
                 query_id=qid,

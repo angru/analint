@@ -151,6 +151,10 @@ an action is enabled when its `pre` holds and no terminal-lifecycle entity is
 touched. En route the explorer reports invariant violations, `Field`
 constraint violations (hard bounds prune the branch; `saturate=True` clamps), and
 undeclared lifecycle transitions — all with traces (`Exploration.trace_to`).
+States are stored compactly (research/36 R4): a state is its key (16-bit
+codes of interned per-slot value tuples), its context is rebuilt on demand
+(`decode_state`, shared read-only instances), parents/edges are integer
+arrays; `Exploration.states/parents/edges` keep the key-based read interface.
 Explorations are cached per (initial state key, max_states) within one
 validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
 

@@ -24,6 +24,7 @@ from analint.validator.artifact_builder import (
 from analint.validator.engine import prepare_model
 from analint.validator.explorer import (
     Exploration,
+    StateKey,
     build_canonical_initials,
     explore,
     resolve_query_initials,
@@ -204,19 +205,19 @@ def trace_query(
 def _build_trace(
     query_id: str,
     status: str,
-    witness_key: object,
+    witness_key: StateKey,
     exp: Exploration,
     *,
     source_kind: str = "query",
 ) -> dict:
     rendered: dict = {}
 
-    def render(key: object) -> dict:
+    def render(key: StateKey) -> dict:
         if key not in rendered:
             rendered[key] = _render_state(exp.states[key])
         return rendered[key]
 
-    def node(key: object) -> str:
+    def node(key: StateKey) -> str:
         return canonical_digest(render(key))
 
     steps_back: list[tuple] = []

@@ -56,15 +56,24 @@ def _family_of(actions_by_id: dict, action_id: str) -> str:
     return action.family if (action is not None and action.family) else action_id
 
 
+def _depths(exp: Exploration) -> list[int]:
+    """BFS depth of every state, in one pass: a parent always precedes its child."""
+    depth = [0] * len(exp.keys)
+    for idx, parent in enumerate(exp.parent):
+        if parent >= 0:
+            depth[idx] = depth[parent] + 1
+    return depth
+
+
 def _summary(
     exp: Exploration, spec: Spec, actions_by_id: dict, max_states: int | None
-) -> tuple[dict, dict, list]:
-    """Summary + completeness computed straight from the exploration (no rendering,
-    no digests). Returns ``(summary, completeness, valid_edges)`` where valid edges
-    have both endpoints explored (a capped run may record an edge past the budget)."""
-    valid = [(s, a, t) for s, a, t in exp.edges if s in exp.states and t in exp.states]
-    out_degree = Counter(source for source, _, _ in valid)
-    counts = [out_degree.get(key, 0) for key in exp.order]
+) -> tuple[dict, dict]:
+    """Summary + completeness computed straight from the exploration's integer
+    arrays (no rendering, no digests). Every recorded edge joins two explored
+    states: a target is stored before its edge."""
+    out_degree = Counter(exp.edge_src)
+    counts = [out_degree.get(idx, 0) for idx in range(len(exp.keys))]
+    by_action = Counter(exp.edge_action)
 
     reasons: list[str] = []
     if exp.capped:
@@ -73,22 +82,25 @@ def _summary(
         reasons.append("excluded-semantics")
     reasons.sort()
 
+    families: Counter = Counter()
+    for code, count in by_action.items():
+        families[_family_of(actions_by_id, exp.action_ids[code])] += count
     summary = {
         "roots": len(exp.roots),
         "states": len(exp.order),
-        "edges": len(valid),
-        "max_depth": max((len(exp.trace_to(key)) for key in exp.order), default=0),
+        "edges": len(exp.edge_src),
+        "max_depth": max(_depths(exp), default=0),
         "dead_ends": sum(1 for count in counts if count == 0),
-        "self_loops": sum(1 for source, _, target in valid if source == target),
+        "self_loops": sum(
+            1 for src, dst in zip(exp.edge_src, exp.edge_dst, strict=True) if src == dst
+        ),
         "branching": {
             "min": min(counts) if counts else 0,
             "mean": round(fmean(counts), 4) if counts else 0.0,
             "max": max(counts) if counts else 0,
         },
         "fired_actions": sorted({_family_of(actions_by_id, a) for a in exp.fired}),
-        "edge_count_by_action": dict(
-            sorted(Counter(_family_of(actions_by_id, a) for _, a, _ in valid).items())
-        ),
+        "edge_count_by_action": dict(sorted(families.items())),
         "excluded_actions": {aid: reason for aid, reason in sorted(exp.excluded.items())},
     }
     completeness = {
@@ -96,7 +108,7 @@ def _summary(
         "reasons": reasons,
         "max_states": spec.max_states if max_states is None else max_states,
     }
-    return summary, completeness, valid
+    return summary, completeness
 
 
 def _findings(exp: Exploration) -> list[dict[str, str]]:
@@ -115,7 +127,8 @@ def build_exploration_artifact(
     max_states: int | None = None,
 ) -> ExplorationArtifact:
     actions_by_id = {action.id: action for action in spec.actions}
-    summary, completeness, valid_edges = _summary(exp, spec, actions_by_id, max_states)
+    summary, completeness = _summary(exp, spec, actions_by_id, max_states)
+    depths = _depths(exp)
 
     rendered = {key: _render_state(exp.states[key]) for key in exp.order}
     node_id = {key: canonical_digest(rendered[key]) for key in exp.order}
@@ -132,12 +145,12 @@ def build_exploration_artifact(
         )
 
     nodes: list[ArtifactNode] = []
-    for key in exp.order:
+    for idx, key in enumerate(exp.order):
         prev, action_id = exp.parents[key]
         nodes.append(
             ArtifactNode(
                 id=node_id[key],
-                depth=len(exp.trace_to(key)),
+                depth=depths[idx],
                 parent_edge=edge_digest(prev, action_id, key) if prev is not None else None,
                 state=rendered[key],
             )
@@ -153,7 +166,7 @@ def build_exploration_artifact(
             binding=binding_of(action_id),
             changes=_changes(rendered[source_key], rendered[target_key]),
         )
-        for source_key, action_id, target_key in valid_edges
+        for source_key, action_id, target_key in exp.edges
     ]
 
     roots = sorted(
@@ -184,7 +197,7 @@ def build_summary_artifact(
     """The compact projection: full summary/completeness, ``graph: null``, without
     rendering states or hashing nodes/edges."""
     actions_by_id = {action.id: action for action in spec.actions}
-    summary, completeness, _ = _summary(exp, spec, actions_by_id, max_states)
+    summary, completeness = _summary(exp, spec, actions_by_id, max_states)
     return ExplorationArtifact(
         spec={"id": spec.id, "version": spec.version},
         source={"kind": source_kind, "query": query_id},

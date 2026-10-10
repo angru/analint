@@ -60,6 +60,32 @@ increment: ~25k/s vs ~5k/s; M4 product: ~38k/s vs ~4k/s), and its fingerprint
 set and queue spill to disk. State count, more than speed, separates the
 tools: analint holds every state's context in memory.
 
+### 2.5 R4 compact state store (implemented 2026-10-10)
+
+A state is now its key: the layout id plus one 16-bit code per entity slot.
+The code names a value tuple interned per layout slot (an escape covers codes
+past 16 bits). Contexts are not kept: the BFS frontier carries its contexts,
+and later scans rebuild them from keys with shared, read-only instances.
+Parents and edges are integer arrays.
+
+| | before | R4 |
+|---|---|---|
+| M4 risk increment, 54,084 states (tracemalloc, retained) | 3,784 B/state | 255 B/state |
+| broker M3, 15,912 states | 1,624 B/state | 204 B/state |
+| full M4, 300k states (max RSS, same run) | 809 MiB, 8.4k states/s | 263 MiB, 8.3k states/s |
+| full M4, 2M states / 11.5M edges | (1M: 2.6 GiB) | 1.13 GiB, 316 s |
+| `check` examples/broker, m4_risk (interleaved A/B) | 1.36 s, 3.52 s | 1.46 s, 3.66 s |
+
+On the synthetic many-slot families (`scripts/bench_scaling.py`) memory per
+state is 7.6–10× lower (conserved_transfer 4,232 → 412 B, workflow_product(7)
+1,924 → 253 B), but exploration is 11–14% slower: encoding interns one value
+tuple per entity slot. Edges (12 B each, ~6–8 per state) are now the largest
+item. The 4–7% `check`
+cost comes from rebuilding contexts for scans (invariants sharing an
+exploration are verified in one pass). This moves the ceiling ~4–5× on a
+laptop; it does not reach the full M4 product (286M states would still need
+~150 GiB).
+
 ### 2.4 Slicing
 
 Slicing keeps exact local proofs where cones are small (four KYC invariants

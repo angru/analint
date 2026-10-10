@@ -680,6 +680,15 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
     ~1.8× end to end, differential-tested against the interpreter
   - Draft synthesis of the measured inputs: research/36 (for review)
+  - ✅ **R4 compact state store** (2026-10-10): a state is its key (one 16-bit
+    code per entity slot, value tuples interned per layout slot); contexts
+    are rebuilt from keys on demand, parents/edges are integer arrays. Memory
+    is 8–15× lower per explored state (M4 risk 3,784 → 255 B, broker M3
+    1,624 → 204 B). Full M4: 300k states 809 → 263 MiB at equal speed; 2M
+    states / 11.5M edges in 1.13 GiB (1M needed 2.6 GiB before). `check` is
+    4–7% slower (states decoded for scans). Graphs identical
+    (characterization unchanged); codec round-trip and >16-bit escape tests
+    (research/36 §2.5)
   - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
     per-check timing, invariant state-diff traces and B2 fixtures are done.
     Start with E and the stored B2 records; do not restart M4–M6 implementation.

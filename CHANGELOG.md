@@ -37,6 +37,8 @@ All notable changes to this project are documented here. The format is based on
   invariants that could not be checked at all (`not checked`). JSON adds
   `invariants_inconclusive` and `invariants_not_checked`;
   `invariants_unchecked` remains their sum.
+- Explored states take 8–15× less memory: a state is a compact key, and its
+  context is rebuilt on demand (research/36 R4).
 - Exploration is about 5× faster on whole-model runs (shared canonical
   exploration, copy-on-write effects, cached guard plans and state layout).
 

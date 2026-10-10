@@ -47,7 +47,7 @@ src/analint/
     root.py                 ← Spec (top-level aggregate)
 
   validator/
-    engine.py               ← orchestration: load → auto-populate → structural → scenarios → flows → invariants → queries
+    engine.py               ← orchestration: load → name + what-if merge → structural → scenarios → flows → invariants → queries
     structural.py           ← static validation (refs, cycles, payload bindings, terminal)
     kernel.py               ← step(spec, action, ctx): the one transition primitive (scenario + explorer + flow)
     scenario_runner.py      ← one transition via kernel.step + invariants/then
@@ -118,10 +118,13 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 - packaged specs (with `__init__.py`) are imported under their real qualified name — this prevents the duplicate-class-identity bug; multi-file specs must use **relative imports**
 - standalone files are imported under a synthetic unique name (nothing imports the entry itself)
 - the import closure is cached per entry path (`_CLOSURE_CACHE`) so repeated loads in one process reuse identities
-- `collect_from_modules` walks the loaded modules, collects instances, and **fills empty `id` fields from variable names**
-- `Contract(...)` exposes an explicit reusable fragment; `Spec(imports=[...])`
-  disables root auto-population so private component objects do not leak from
-  the import graph
+- `collect_from_modules` walks the loaded modules and **fills empty `id`
+  fields from variable names**; it never decides membership (research/35 R3)
+- the model is exactly what `Spec` and its imported `Contract`s list, plus the
+  reference closure below; there is no auto-population and no per-field mixed
+  mode (research/35 R1, R5); a `Spec` listing no behaviour is an "empty model"
+  structural error. `--what-if` is the one scanned module: its objects are
+  merged into a copy of the cached root (R6)
 - multiple `Spec` objects in one import graph are a load error; use one root
   `Spec` plus imported contracts instead of implicit merging
 - reference closure (research/35 R2, `Spec.close_references`): entities,
@@ -248,9 +251,11 @@ exactly one Mafia. Candidate expansion is rejected above `max_candidates`,
 never truncated, and predicate evaluation errors fail the query. A query may
 use only one of `given`, `given_any`, or `initial`.
 
-### Auto-populate Spec (engine.py)
+### Model completion (engine.py)
 
-`Spec(...)` with empty lists → `_auto_populate` fills them from collected objects. Non-empty list → used as-is. Dedup of instances is **by object identity** (`id(obj)`), never `==` — dataclass equality on predicate fields hits the overloaded operators.
+`_complete_model` names the loaded objects and merges a what-if module; it adds
+nothing else. Dedup of instances is **by object identity** (`id(obj)`), never
+`==` — dataclass equality on predicate fields hits the overloaded operators.
 
 ## Key design decisions
 

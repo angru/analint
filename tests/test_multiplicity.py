@@ -244,7 +244,7 @@ def test_terminal_lifecycle_blocks_only_target_instance():
     assert run_scenario(scenario, spec).passed
 
 
-def test_loader_discovers_scope_and_derives_its_id(tmp_path):
+def test_loader_derives_scope_by_reference_and_names_it(tmp_path):
     spec_file = tmp_path / "spec.py"
     spec_file.write_text(
         """
@@ -255,7 +255,7 @@ class Account(Entity):
 
 accounts = Scope(Account, keys=["alice", "bob"])
 seed_alice = Action(effect=[Set(accounts["alice"].balance, 1)])
-spec = Spec(id="scoped", name="Scoped")
+spec = Spec(id="scoped", name="Scoped", actions=[seed_alice])
 """
     )
     spec, _, errors = build_spec(spec_file)

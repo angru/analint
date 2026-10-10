@@ -24,6 +24,15 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- **Breaking (research/35 step 4):** the model is exactly what `Spec` and its
+  imported `Contract`s list. Module globals are no longer scanned for
+  membership, and there is no per-field mixed mode; entities, events, scopes
+  and inline lifecycles are derived from the behaviour that references them.
+  A `Spec` that lists no behaviour is an "empty model" error, and a defined
+  but unlisted action, invariant, scenario, flow or query is reported as an
+  orphan. Migrate with `Spec(..., actions=[...], scenarios=[...], ...)` or one
+  `Contract` per process. `--what-if` still merges its file's objects.
+
 - The summary separates budget-exhausted invariants (`inconclusive`) from
   invariants that could not be checked at all (`not checked`). JSON adds
   `invariants_inconclusive` and `invariants_not_checked`;

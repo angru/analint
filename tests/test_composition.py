@@ -323,3 +323,36 @@ def test_what_if_does_not_leak_into_later_loads(tmp_path):
     assert [i.id for i in plain.invariants] == ["balance_is_non_negative"]
     assert [a.id for a in plain.actions] == ["credit"]
     assert [a.id for a in plain._declared_actions] == ["credit"]
+
+
+def test_no_mixed_mode_unlisted_action_stays_out(tmp_path):
+    """research/35 R5 / probe 6: listing only invariants no longer collects the
+    module's actions; the omission is loud (orphan), never silently re-added."""
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, Entity, Field, Invariant, Spec\n"
+        "class Box(Entity):\n"
+        "    n: int = Field(0, ge=0, le=2)\n"
+        "tick = Action(pre=[Box.n < 2], effect=[Add(Box.n, 1)])\n"
+        "stays_zero = Invariant(Box.n == 0)\n"
+        "spec = Spec(id='s', name='s', invariants=[stays_zero])\n"
+    )
+
+    model = prepare_model(entry)
+
+    assert model.spec.actions == []
+    assert _orphans(model) == ["action:tick"]
+
+
+def test_empty_model_is_a_structural_error(tmp_path):
+    """research/35 R5: a Spec that lists no behaviour is an error, not a scan."""
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Spec\ntick = Action()\nspec = Spec(id='s', name='s')\n"
+    )
+
+    model = prepare_model(entry)
+
+    errors = [f.message for f in model.structural_findings if f.severity == Severity.ERROR]
+    assert any("empty model" in m for m in errors)
+    assert _orphans(model) == ["action:tick"]

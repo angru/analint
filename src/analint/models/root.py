@@ -26,10 +26,9 @@ Query = Reachable | Unreachable | AlwaysHolds | NoDeadEnd | DeadActions
 
 
 class Spec(BaseModel):
-    """Root aggregate. With empty lists (the default) everything is discovered
-    automatically from the modules imported by the spec entry point; a non-empty
-    list is used as-is. When imports are present, composition is fully explicit:
-    only contract contents and directly listed local objects are included."""
+    """Root aggregate: the model is exactly what it and its imported contracts
+    list, plus the entities, events, scopes and lifecycles that listed behaviour
+    references (research/35 R1, R2). Nothing is collected from module globals."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
     id: str

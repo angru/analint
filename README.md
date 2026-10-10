@@ -84,8 +84,10 @@ sc_ok = Scenario(
     given=[Item(price=10.0, stock=5), Budget(amount=20.0)],
 )
 
-spec = Spec(id="shop", name="Shop")   # everything above is discovered automatically
+spec = Spec(id="shop", name="Shop", actions=[buy], scenarios=[sc_ok])
 ```
+
+The model is what `Spec` lists; `Item` and `Budget` join it because `buy` uses them.
 
 ids are derived from variable names (`buy`, `sc_ok`) — set `id=` explicitly only when you want a different one.
 
@@ -516,15 +518,23 @@ mafia_can_win = Reachable(Game.winner == Role.MAFIA, initial=role_assignments)
 
 ### Spec
 
-The root aggregate — usually just metadata:
+The root aggregate lists the model's behaviour:
 
 ```python
 from analint import Spec
 
-spec = Spec(id="ecommerce", name="E-commerce Platform")
+spec = Spec(
+    id="ecommerce",
+    name="E-commerce Platform",
+    actions=[checkout],
+    scenarios=[sc_happy, sc_no_funds],
+    queries=[paid_is_reachable],
+)
 ```
 
-Everything else is discovered from the modules your entry point imports. Explicit lists (`entities=[...]`, `actions=[...]`) are supported when precision matters; a non-empty list is used as-is.
+Entities, events, scopes and lifecycles follow from the behaviour that
+references them; listing them is allowed. Nothing is collected from module
+globals: a behaviour object defined but not listed is reported as an orphan.
 
 ### Composition
 
@@ -556,10 +566,10 @@ spec = Spec(
 )
 ```
 
-Composition is deliberately explicit: when `imports=` is present,
-auto-discovery is disabled for the root. Only contract contents and objects
-listed directly on `Spec` are included, so private implementation actions do
-not leak through Python's import graph. Duplicate ids and incomplete contract
+Composition is explicit: only contract contents and objects listed directly on
+`Spec` are included (plus the entities, events, scopes and lifecycles they
+reference), so private implementation actions do not leak through Python's
+import graph. Duplicate ids and incomplete contract
 surfaces are reported by structural validation. Multiple `Spec` objects in one
 import graph are a load error rather than being merged implicitly.
 
@@ -600,9 +610,8 @@ spec = Spec(id="myproject", name="My Project", imports=[cards])
 ```
 
 Entities, events, scopes and lifecycles need not be listed: they follow from
-the behaviour that references them (research/35). A `Spec` with no lists still
-auto-discovers every object bound in the spec modules; that mode is scheduled
-for removal, and every example already lists its behaviour.
+the behaviour that references them (research/35). Nothing is collected from
+module globals; a `Spec` that lists no behaviour is an "empty model" error.
 
 A `.py` file in the directory that is not reachable from the entry point produces a warning — a forgotten import never silently shrinks the model. Likewise, a behaviour object (action, invariant, scenario, flow, query) defined in a spec module but not part of the model produces a warning — a forgotten registration never silently drops behaviour.
 

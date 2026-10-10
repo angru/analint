@@ -11,4 +11,4 @@ class Box(Entity):
 # no scenario covers this action -> guaranteed "has no scenarios" warning
 toggle = Action(id="toggle", pre=[Not(Box.open)], effect=[Set(Box.open, True)])
 
-spec = Spec(id="warns", name="Warns")
+spec = Spec(id="warns", name="Warns", actions=[toggle])

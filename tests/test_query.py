@@ -229,10 +229,11 @@ def test_unbuildable_spec_initial_fails_without_consumers(tmp_path):
     """Spec.initial is part of the model: an empty relation must fail the run
     even with no invariants or queries to consume it (review c893ca0, P1)."""
     (tmp_path / "spec.py").write_text(
-        "from analint import Entity, Field, Initial, Spec\n\n"
+        "from analint import Action, Entity, Field, Initial, Spec\n\n"
         "class Box(Entity):\n"
         "    n: int = Field(0, ge=0, le=1)\n\n"
-        "spec = Spec(id='s', name='S', entities=[Box],\n"
+        "noop = Action()\n"  # behaviour, but nothing that consumes the initial
+        "spec = Spec(id='s', name='S', entities=[Box], actions=[noop],\n"
         "            initial=Initial(vary=[Box.n], where=[Box.n != Box.n]))\n"
     )
     result = validate(tmp_path)

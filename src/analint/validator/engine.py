@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
-    """Load and auto-populate the spec model without running any checks.
+    """Load the spec model (naming, what-if merge) without running any checks.
 
     `extra` is a what-if patch: a standalone .py file whose objects (scenarios,
     invariants, actions, …) are added to the model without touching the spec
@@ -48,7 +48,7 @@ def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list
     if not specs:
         return None, modules, load_errors
     if len(specs) == 1:
-        return _auto_populate(specs[0], modules, patch), modules, load_errors
+        return _complete_model(specs[0], modules, patch), modules, load_errors
     try:
         entry = resolve_entry(path)
     except LoadError as exc:
@@ -316,61 +316,25 @@ def _orphan_warnings(spec: Spec, modules: list) -> list[Finding]:
     ]
 
 
-def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -> Spec:
-    """Fill empty list fields from auto-discovered instances.
+def _complete_model(spec: Spec, modules: list, patch: ModuleType | None = None) -> Spec:
+    """Name the loaded objects and merge the what-if module (research/35 R3, R6).
 
-    If a field is explicitly set (non-empty), it is used as-is.
-    If a field is empty (the default), it is populated from all loaded modules.
-    This lets users write Spec(id=..., name=...) and get everything for free,
-    while still allowing explicit lists when precision matters.
+    Membership is exactly what the Spec and its imported contracts list, plus
+    the entities, events, scopes and lifecycles that behaviour references
+    (R1, R2). Nothing is collected from module globals: a defined but unlisted
+    behaviour object is reported as an orphan instead (R4).
     """
-    # Composition is an explicit mode: importing implementation modules must
-    # not make their private objects part of the root model by accident.
-    if spec.imports:
-        # Keep the loader's variable-name id derivation without using the
-        # collected contents to populate the composed root.
-        collect_from_modules(modules)
-        if patch is not None:
-            # the root is cached with its import closure: merge into a copy, or
-            # the hypothesis would stay in the model for every later load
-            spec = spec.model_copy()
-            _extend_composed_spec(spec, collect_from_modules([patch]))
-        return spec
-
-    collected = collect_from_modules(modules)
-
-    def _resolve(explicit: list, key: str) -> list:
-        return list(explicit) if explicit else collected[key]
-
-    populated = Spec(
-        id=spec.id,
-        name=spec.name,
-        version=spec.version,
-        description=spec.description,
-        imports=spec.imports,
-        entities=_resolve(spec.entities, "entities"),
-        scopes=_resolve(spec.scopes, "scopes"),
-        events=_resolve(spec.events, "events"),
-        lifecycles=_resolve(spec.lifecycles, "lifecycles"),
-        flows=_resolve(spec.flows, "flows"),
-        invariants=_resolve(spec.invariants, "invariants"),
-        # the declarations, not their Param expansion: the rebuilt Spec expands
-        # them again, and membership (orphans) is about the declaration
-        actions=_resolve(spec._declared_actions, "actions"),
-        scenarios=_resolve(spec.scenarios, "scenarios"),
-        queries=_resolve(spec.queries, "queries"),
-        initial=spec.initial,
-        max_states=spec.max_states,
-    )
+    collect_from_modules(modules)  # ids from variable names; never membership
     if patch is not None:
-        # an explicit list must not drop the hypothesis (research/35 R6); an
-        # auto-populated one already holds it, and the merge deduplicates
-        _extend_composed_spec(populated, collect_from_modules([patch]))
-    return populated
+        # the root is cached with its import closure: merge into a copy, or
+        # the hypothesis would stay in the model for every later load
+        spec = spec.model_copy()
+        _extend_composed_spec(spec, collect_from_modules([patch]))
+    return spec
 
 
 def _extend_composed_spec(spec: Spec, collected: dict) -> None:
-    """Add only a what-if module's objects to an explicitly listed root."""
+    """Add a what-if module's objects to the model (research/35 R6)."""
     from analint.models.param import expand_action
 
     for field_name in (

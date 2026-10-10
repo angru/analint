@@ -73,7 +73,7 @@ def test_unreachable_counterexample_and_repeated_action(tmp_path):
         "class Box(Entity):\n    n: int = Field(0, ge=0, le=2)\n"
         "tick = Action(id='tick', pre=[Box.n < 2], effect=[Add(Box.n, 1)])\n"
         "never_two = Unreachable(Box.n == 2)\n"  # it IS reachable → FAIL counterexample
-        "spec = Spec(id='s', name='S')\n",
+        "spec = Spec(id='s', name='S', actions=[tick], queries=[never_two])\n",
     )
     t = trace_query(spec, "never_two")
     assert t["status"] == "FAIL"
@@ -90,7 +90,7 @@ def test_no_dead_end_counterexample(tmp_path):
         "class Box(Entity):\n    n: int = Field(0, ge=0, le=2)\n"
         "tick = Action(id='tick', pre=[Box.n < 2], effect=[Add(Box.n, 1)])\n"
         "can_reset = NoDeadEnd(goal=Box.n == 0)\n"  # once ticked, n==0 unreachable → FAIL
-        "spec = Spec(id='s', name='S')\n",
+        "spec = Spec(id='s', name='S', actions=[tick], queries=[can_reset])\n",
     )
     t = trace_query(spec, "can_reset")
     assert t["status"] == "FAIL"
@@ -105,7 +105,7 @@ def test_self_loops_do_not_appear_in_the_shortest_trace(tmp_path):
         "tick = Action(id='tick', pre=[Box.n < 2], effect=[Add(Box.n, 1)])\n"
         "reset = Action(id='reset', effect=[Set(Box.n, 0)])\n"  # self-loop at n=0
         "never_two = Unreachable(Box.n == 2)\n"
-        "spec = Spec(id='s', name='S')\n",
+        "spec = Spec(id='s', name='S', actions=[tick, reset], queries=[never_two])\n",
     )
     t = trace_query(spec, "never_two")
     assert t["status"] == "FAIL"
@@ -121,7 +121,7 @@ def test_presence_flip_appears_in_changes(tmp_path):
         "a = items['a']\n"
         "drop = Action(id='drop', effect=[Delete(a)])\n"
         "gone = Unreachable(Not(Present(a)))\n"  # the slot CAN be deleted → FAIL counterexample
-        "spec = Spec(id='s', name='S')\n",
+        "spec = Spec(id='s', name='S', actions=[drop], queries=[gone])\n",
     )
     t = trace_query(spec, "gone")
     assert t["status"] == "FAIL"
@@ -147,7 +147,7 @@ class Box(Entity):
 
 tick = Action(id='tick', pre=[Box.n < 2], effect=[Add(Box.n, 1)])
 limit = Invariant(Box.n <= 1)
-spec = Spec(id='s', name='S')
+spec = Spec(id='s', name='S', actions=[tick], invariants=[limit])
 """
 
 
@@ -183,8 +183,8 @@ def test_invariant_trace_matches_canonical_artifact_nodes(tmp_path, root):
     spec = _write(
         tmp_path,
         _INVARIANT_SPEC.replace(
-            "spec = Spec(id='s', name='S')",
-            f"spec = Spec(id='s', name='S', initial=Initial(vary=[Box.n], where=[Box.n == {root}]))",
+            "name='S',",
+            f"name='S', initial=Initial(vary=[Box.n], where=[Box.n == {root}]),",
         ),
     )
     t = trace_query(spec, "limit")
@@ -202,8 +202,8 @@ def test_invariant_multi_root_trace_names_violating_root(tmp_path):
     spec = _write(
         tmp_path,
         _INVARIANT_SPEC.replace(
-            "spec = Spec(id='s', name='S')",
-            "spec = Spec(id='s', name='S', initial=Initial(vary=[Box.n]))",
+            "name='S',",
+            "name='S', initial=Initial(vary=[Box.n]),",
         ),
     )
     t = trace_query(spec, "limit")
@@ -217,7 +217,7 @@ def test_invariant_without_counterexample(tmp_path, budget, status):
     spec = _write(
         tmp_path,
         _INVARIANT_SPEC.replace("Box.n <= 1", "Box.n <= 2").replace(
-            "spec = Spec(id='s', name='S')", f"spec = Spec(id='s', name='S', max_states={budget})"
+            "name='S',", f"name='S', max_states={budget},"
         ),
     )
     t = trace_query(spec, "limit")
@@ -246,7 +246,13 @@ flip_b = Action(id='flip_b', effect=[Set(Noise.b, True)])
 flip_c = Action(id='flip_c', effect=[Set(Noise.c, True)])
 flip_d = Action(id='flip_d', effect=[Set(Noise.d, True)])
 limit = Invariant(Box.n <= 2)
-spec = Spec(id='s', name='S', max_states=12)
+spec = Spec(
+    id='s',
+    name='S',
+    actions=[tick, flip_a, flip_b, flip_c, flip_d],
+    invariants=[limit],
+    max_states=12,
+)
 """
 
 
@@ -279,10 +285,12 @@ def test_query_trace_uses_the_slice_check_decided_on(tmp_path):
 
     spec = _write(
         tmp_path,
-        _NOISY_SPEC.replace("limit = Invariant(Box.n <= 2)", "")
+        _NOISY_SPEC.replace(
+            "limit = Invariant(Box.n <= 2)", "three = Reachable(Box.n == 3, max_states=12)"
+        )
+        .replace("invariants=[limit]", "queries=[three]")
         .replace("Invariant, ", "")
-        .replace("from analint import", "from analint import Reachable,")
-        + "three = Reachable(Box.n == 3, max_states=12)\n",
+        .replace("from analint import", "from analint import Reachable,"),
     )
     (checked,) = validate(spec).query_results
     assert checked.status == "PASS"
@@ -315,7 +323,7 @@ def test_invariant_not_applicable_has_no_witness(tmp_path):
         "items = Scope(Item, keys=['a'])\n"
         "item = Bound('item', items)\n"
         "minimum = Invariant(items['a'].n >= 0)\n"
-        "spec = Spec(id='s', name='S', initial=Initial(vary=[Flag.ready], "
+        "spec = Spec(id='s', name='S', invariants=[minimum], initial=Initial(vary=[Flag.ready], "
         "where=[Flag.ready == False], given=[Absent(items['a'])]))\n",
     )
     t = trace_query(spec, "minimum")
@@ -330,7 +338,7 @@ def test_ambiguous_query_and_invariant_id_is_rejected(tmp_path):
         tmp_path,
         _INVARIANT_SPEC.replace(
             "spec = Spec", "query = Reachable(Box.n == 1, id='limit')\nspec = Spec"
-        ),
+        ).replace("invariants=[limit]", "invariants=[limit], queries=[query]"),
     )
     with pytest.raises(ExplorationError) as info:
         trace_query(spec, "limit")

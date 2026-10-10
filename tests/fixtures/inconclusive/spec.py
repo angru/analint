@@ -13,4 +13,4 @@ tick = Action(id="tick", effect=[Add(Counter.n, 1)])
 # n climbs forever; the engine cannot prove this within max_states.
 never = Unreachable(Counter.n == 999_999, id="never", max_states=200)
 
-spec = Spec(id="inc", name="Inconclusive")
+spec = Spec(id="inc", name="Inconclusive", actions=[tick], queries=[never])

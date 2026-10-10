@@ -60,6 +60,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
     def warn(loc: str, msg: str) -> Finding:
         return Finding(Severity.WARNING, loc, msg)
 
+    if not (spec.actions or spec.invariants or spec.scenarios or spec.flows or spec.queries):
+        # nothing is collected from module globals any more (research/35 R5)
+        findings.append(
+            err(
+                f"spec:{spec.id}",
+                "empty model: list actions, invariants, scenarios, flows or queries "
+                "in the Spec or an imported Contract",
+            )
+        )
+
     seen_contracts: set[str] = set()
     for contract in spec.imports:
         loc = f"contract:{contract.id or '?'}"

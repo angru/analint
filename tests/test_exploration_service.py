@@ -108,7 +108,7 @@ def test_service_what_if_is_applied(tmp_path):
         "from analint import Action, Add, Entity, Field, Spec\n"
         "class Box(Entity):\n    n: int = Field(0, ge=0, le=3)\n"
         "tick = Action(id='tick', pre=[Box.n < 1], effect=[Add(Box.n, 1)])\n"
-        "spec = Spec(id='s', name='S')\n"  # auto-populate so the what-if action merges
+        "spec = Spec(id='s', name='S', actions=[tick])\n"
     )
     patch = tmp_path / "more.py"
     patch.write_text(

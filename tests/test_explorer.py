@@ -722,7 +722,14 @@ def test_spec_initial_is_structurally_validated():
     class Foreign(Entity):
         enabled: bool = False
 
-    spec = Spec(id="s", name="S", entities=[Registered], initial=Initial(vary=[Foreign.enabled]))
+    noop = Action(id="noop")
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Registered],
+        actions=[noop],
+        initial=Initial(vary=[Foreign.enabled]),
+    )
     # reference closure (research/35 R2): the initial relation's entity joins the model
     assert spec.entities == [Registered, Foreign]
     assert not [f for f in validate_structural(spec) if f.severity == Severity.ERROR]

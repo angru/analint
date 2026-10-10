@@ -113,6 +113,23 @@ The four KYC invariants still prove on 22-state slices. The risk and money cones
 exhaust the budget. No check is permanently `NOT_CHECKED` because a reserved
 slot is absent: M4 exposed and regression-tested that applicability bug.
 
+### Quint cross-check of M4 (2026-10-10)
+
+`benchmarks/broker/risk.qnt` ports the risk contract on top of `broker.qnt`.
+The risk increment alone (`benchmarks/broker/m4_risk.py`: client registered,
+active and unchanged) has **54,084** distinct states in both analint and TLC,
+and its four invariants pass in both; a planted defect yields the same
+six-action counterexample. At M6 capacity (`m6_risk.py`, two concurrent
+accounts and orders) both count **4,440,789** states (analint via
+`scripts/count_states.py`). Full M4 exceeds a million states in analint; see
+research/34 §8 B2 for the TLC run of the full product.
+
+```bash
+uv run analint check benchmarks/broker/m4_risk.py
+quint verify benchmarks/broker/risk.qnt --main=risk --backend=tlc \
+  --init=initRiskOnly --step=stepRiskOnly --invariant=riskInvariants
+```
+
 ## M5 partners (2026-10-10)
 
 `benchmarks/broker/m5.py` adds partner status, referral attribution and a reward
@@ -172,7 +189,8 @@ live in `benchmarks/broker/results-10000.json`.
 The corresponding 2k runs are in `benchmarks/broker/results-2000.json`.
 
 Initial measurement (macOS arm64, CPython 3.14.5, median of two runs, no profiling
-during timing):
+during timing; engine of 2026-10-10 before the compact state keys and compiled
+predicates — research/36 §2 has the later A/B numbers):
 
 | Increment | actions | 2k budget sliced / whole | 10k budget sliced / whole | peak MiB at 10k sliced / whole | KYC invariants |
 |---|---:|---|---|---|---|

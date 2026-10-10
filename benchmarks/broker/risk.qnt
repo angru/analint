@@ -10,12 +10,14 @@
  *    one (every action's guard already implies this);
  *  - quantifiers and Count range over present members only;
  *  - Param `where` filters become the fixed slot → owner pairing;
- *  - Capacity is the constant 1 account / 1 order of M4;
+ *  - Capacity is fixed at init: 1 account / 1 order (M4) or 2 / 2 (M6);
  *  - a safety-preserving stutter keeps quiescent states from being deadlocks.
  *
  *   quint typecheck benchmarks/broker/risk.qnt
  *   quint verify benchmarks/broker/risk.qnt --main=risk --backend=tlc \
  *     --init=initRiskOnly --step=stepRiskOnly --invariant=riskInvariants
+ *   quint verify benchmarks/broker/risk.qnt --main=risk --backend=tlc \
+ *     --init=initRiskOnlyM6 --step=stepRiskOnly --invariant=riskInvariants
  *   quint verify benchmarks/broker/risk.qnt --main=risk --backend=tlc \
  *     --init=initM4 --step=stepM4 --invariant=allM4Invariants
  *
@@ -48,8 +50,6 @@ module risk {
 
   type Order = { present: bool, owner: Owner, profit: int, status: OStatus }
 
-  pure val ACCOUNT_CAPACITY = 1
-  pure val ORDER_CAPACITY = 1
   pure val RSLOTS = Set(RPrimary, RSecondary)
   pure val OSLOTS = Set(OFirst, OSecond)
   pure val KINDS = Set(KCent, KStandard, KProfessional)
@@ -76,6 +76,9 @@ module risk {
   var orders: OSlot -> Order
   var completedTrade: bool
   var highMargin: bool
+  // constant after init (analint: the Capacity entity no action changes)
+  var accountCapacity: int
+  var orderCapacity: int
 
   // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -92,6 +95,8 @@ module risk {
       orders' = o,
       completedTrade' = trade,
       highMargin' = high,
+      accountCapacity' = accountCapacity,
+      orderCapacity' = orderCapacity,
       client' = client,
       acct' = acct,
     }
@@ -104,6 +109,8 @@ module risk {
     orders' = orders,
     completedTrade' = completedTrade,
     highMargin' = highMargin,
+    accountCapacity' = accountCapacity,
+    orderCapacity' = orderCapacity,
   }
 
   // ── M4 actions ──────────────────────────────────────────────────────────
@@ -111,7 +118,7 @@ module risk {
   action openRiskAccount(slot: RSlot, kind: Kind): bool = all {
     activeClient,
     client.onboarding != ONew,
-    presentAccounts < ACCOUNT_CAPACITY,
+    presentAccounts < accountCapacity,
     not(risk.get(slot).present),
     setAccount(slot, { ...NO_RISK, present: true, kind: kind }),
   }
@@ -125,7 +132,7 @@ module risk {
       a.equity == ESmall,
       a.margin == MHealthy,
       a.protection == PrNone,
-      openOrders < ORDER_CAPACITY,
+      openOrders < orderCapacity,
       riskStep(
         risk.set(slot, { ...a, fullyStopped: false }),
         orders.set(o, { present: true, owner: ownerOf(slot), profit: profit, status: OOpen }),
@@ -286,6 +293,8 @@ module risk {
     orders' = NO_ORDERS,
     completedTrade' = false,
     highMargin' = false,
+    accountCapacity' = 1,
+    orderCapacity' = 1,
   }
 
   // the risk increment alone: a registered, active client nothing changes
@@ -298,6 +307,23 @@ module risk {
       orders' = NO_ORDERS,
       completedTrade' = false,
       highMargin' = false,
+      accountCapacity' = 1,
+      orderCapacity' = 1,
+    }
+  }
+
+  // the same at M6 multiplicity: two concurrent risk accounts and open orders
+  action initRiskOnlyM6 = all {
+    nondet region = Set(RStandard, RDepositsGated, RTradingGated).oneOf()
+    all {
+      client' = { ...newClient(region), onboarding: OContacts },
+      acct' = ABSENT,
+      risk' = NO_RISKS,
+      orders' = NO_ORDERS,
+      completedTrade' = false,
+      highMargin' = false,
+      accountCapacity' = 2,
+      orderCapacity' = 2,
     }
   }
 
@@ -317,7 +343,7 @@ module risk {
     (a.present and a.protection == PrPaid) implies (a.fullyStopped and a.equity == EZero)
   })
   val portfolioCapacityIsRespected =
-    presentAccounts <= ACCOUNT_CAPACITY and openOrders <= ORDER_CAPACITY
+    presentAccounts <= accountCapacity and openOrders <= orderCapacity
 
   val riskInvariants = and {
     uncappedRequiresEligibility, highMarginCapsLeverage, protectionRequiresFullStop,

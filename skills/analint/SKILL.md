@@ -8,7 +8,8 @@ description: Model, inspect, validate, and safely modify executable system speci
 Use analint's CLI as the source of truth. Do not infer whether a specification is
 valid from reading Python alone.
 
-This skill targets analint `0.0.1+` and the versioned `v1` JSON schemas.
+This skill targets analint `0.0.2+` (explicit model lists; in `0.0.1` an empty
+`Spec` collected module globals) and the versioned `v1` JSON schemas.
 
 ## Start by orienting
 
@@ -57,7 +58,11 @@ positive_total = Invariant(Order.total > 0, label="Order total is positive")
 ```
 
 4. Apply the smallest source change after the result matches the intended
-   behavior.
+   behavior. A new action, invariant, scenario, flow or query must also be
+   **listed** in the root `Spec` or the `Contract` of its process. A defined
+   but unlisted object is not part of the model: `check` reports it as a
+   `defined in the spec modules but is not part of the model` warning, and it
+   silently changes nothing.
 5. Validate the actual specification:
 
 ```bash
@@ -88,6 +93,12 @@ Use terminal output for humans and JSON for decisions or automation.
 - Exit `2`: invalid command usage.
 - Exit `3`: specification load failure.
 - Exit `4`: `INCONCLUSIVE`; the exploration budget proved nothing.
+
+Each invariant and query is checked on its **slice**: only the actions and
+state that can affect it. The JSON `slice` field shows its size, and
+`states_explored` counts the slice's states. A slice is exact, not an
+approximation. If a check is `INCONCLUSIVE`, raise the budget for one run with
+`--max-states N`. Use `--no-slice` only to compare against the whole model.
 
 Never describe `INCONCLUSIVE` or `NOT_CHECKED` as success. Report excluded
 actions, vacuous predicates, capped exploration, and evaluation errors when
@@ -125,6 +136,10 @@ reachable state. It does not prove eventual completion or liveness.
 - In packaged multi-file specifications, use relative imports.
 - Ensure every model file is reachable from the entry point.
 - Use one root `Spec`; compose reusable public fragments with `Contract`.
+- The model is exactly what the `Spec` and its imported `Contract`s list
+  (actions, invariants, scenarios, flows, queries). Entities, events, scopes
+  and lifecycles follow from what that behaviour references; listing them is
+  optional. A `Spec` that lists no behaviour is an `empty model` error.
 - Let module-level variable names supply optional ids. When constructing DSL
   objects directly outside the loader, pass explicit ids where required.
 - Never compare collected DSL objects with `==`; overloaded predicate operators

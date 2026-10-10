@@ -225,7 +225,7 @@ def trace(
     no_slice: bool = typer.Option(
         False,
         "--no-slice",
-        help="Trace an invariant on the whole model instead of its slice (as check --no-slice)",
+        help="Trace on the whole model instead of the property's slice (as check --no-slice)",
     ),
 ) -> None:
     """Show a query or invariant's witness/counterexample as states and changes."""

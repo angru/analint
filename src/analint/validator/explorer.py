@@ -574,13 +574,18 @@ def run_query(
     *,
     max_states: int | None = None,
     analysis: SliceAnalysis | None = None,
+    explorations: dict[str, Exploration] | None = None,
 ) -> QueryResult:
     """``max_states`` overrides the query's own budget (``check --max-states``).
     With ``analysis`` the query is checked on its slice (research/34 §5).
+    ``explorations``, when given, receives the exploration the result was
+    decided on (by query id), so a trace replays exactly the check.
     Timing includes root construction, action coverage, exploration and query
     evaluation performed by this call; cached work is not charged again."""
     started = perf_counter()
-    result = _run_query(query, spec, cache, max_states=max_states, analysis=analysis)
+    result = _run_query(
+        query, spec, cache, max_states=max_states, analysis=analysis, explorations=explorations
+    )
     result.elapsed_ms = (perf_counter() - started) * 1000
     return result
 
@@ -592,8 +597,10 @@ def _run_query(
     *,
     max_states: int | None,
     analysis: SliceAnalysis | None,
+    explorations: dict[str, Exploration] | None = None,
 ) -> QueryResult:
     qid = query.id or type(query).__name__
+    explorations = {} if explorations is None else explorations
     kind = type(query).__name__
 
     initials, error = resolve_query_initials(query, spec)
@@ -626,10 +633,13 @@ def _run_query(
         else:
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
+        explorations[qid] = exp
         result = _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
         return result
-    return _evaluate(query, qid, explore_cached(spec, initials, budget, cache), spec)
+    exp = explore_cached(spec, initials, budget, cache)
+    explorations[qid] = exp
+    return _evaluate(query, qid, exp, spec)
 
 
 def _evaluate(query: Query, qid: str, exp: Exploration, spec: Spec) -> QueryResult:

@@ -113,12 +113,12 @@ def trace_query(
     """The witness/counterexample of a query or invariant as states and changes
     (schema-aligned with the artifact's node ids). A passing property with no
     example returns ``witness: None`` and an explanatory message — not an error.
-    Queries use the whole model, matching ``explore``. An invariant is decided
-    exactly as ``check`` decides it (canonical initial and budget, sliced unless
-    ``sliced=False``), so a FAIL found on a slice is traceable even when the
-    whole model exceeds the budget; fields outside the slice (listed under
-    ``slice``) then keep their initial values. Query payloads retain their ``query`` key;
-    invariant payloads use ``invariant`` instead."""
+    The property is decided exactly as ``check`` decides it (budgets, slices
+    and the invariant trust a query slice relies on; ``sliced=False`` for the
+    whole model), so a witness/counterexample found on a slice is traceable
+    even when the whole model exceeds the budget; fields outside the slice
+    (listed under ``slice``) then keep their initial values. Query payloads
+    retain their ``query`` key; invariant payloads use ``invariant`` instead."""
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
     if prepared.spec is None:
         raise ExplorationError(
@@ -151,27 +151,34 @@ def trace_query(
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")
 
-    # run_query is the single query interpretation; reuse its cached exploration so
-    # the witness key and the parent-walk share one state graph (no second search).
+    # Decide the property exactly as check does: the same slices, and for a
+    # query the invariant trust check establishes first, so the witness key and
+    # the parent walk share the one exploration the verdict came from.
     cache: dict = {}
+    decided: dict[str, Exploration] = {}
+    analysis = SliceAnalysis(spec) if sliced else None
+    invariant_results: list = []
+    if spec.invariants and (analysis is not None or invariant is not None):
+        canonical, canonical_error = (
+            (initials, None) if invariant is not None else build_canonical_initials(spec)
+        )
+        invariant_results, _ = verify_invariants(
+            spec,
+            canonical,
+            build_error=canonical_error,
+            max_states=spec.max_states,
+            cache=cache,
+            analysis=analysis,
+            explorations=decided,
+        )
     if query is not None:
-        result = run_query(query, spec, cache)
-        exp = next(iter(cache.values()), None)
+        result = run_query(query, spec, cache, analysis=analysis, explorations=decided)
         source_kind, kind = "query", result.kind
     else:
         assert invariant is not None  # the id lookup above rejected an unknown property
-        decided: dict[str, Exploration] = {}
-        results, _ = verify_invariants(
-            spec,
-            initials,
-            max_states=spec.max_states,
-            cache=cache,
-            analysis=SliceAnalysis(spec) if sliced else None,
-            explorations=decided,
-        )
-        result = next(r for r in results if r.invariant_id == invariant.id)
-        exp = decided.get(invariant.id)
+        result = next(r for r in invariant_results if r.invariant_id == invariant.id)
         source_kind, kind = "invariant", "Invariant"
+    exp = decided.get(query_id)
     if result.witness_key is None or exp is None:
         return {
             "schema": "analint.trace/v1",

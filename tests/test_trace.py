@@ -272,6 +272,31 @@ def test_invariant_trace_uses_the_slice_check_decided_on(tmp_path):
     assert whole["root"] is None
 
 
+def test_query_trace_uses_the_slice_check_decided_on(tmp_path):
+    """Same as for invariants: a Reachable witness found on the query's slice
+    is traced, not reported INCONCLUSIVE from the capped whole model."""
+    from analint.validator.engine import validate
+
+    spec = _write(
+        tmp_path,
+        _NOISY_SPEC.replace("limit = Invariant(Box.n <= 2)", "")
+        .replace("Invariant, ", "")
+        .replace("from analint import", "from analint import Reachable,")
+        + "three = Reachable(Box.n == 3, max_states=12)\n",
+    )
+    (checked,) = validate(spec).query_results
+    assert checked.status == "PASS"
+
+    t = trace_query(spec, "three")
+    assert t["status"] == "PASS"
+    assert [step["action"] for step in t["steps"]] == checked.trace == ["tick"] * 3
+    assert t["slice"] == checked.slice
+
+    whole = trace_query(spec, "three", sliced=False)
+    assert whole["status"] == "INCONCLUSIVE"
+    assert whole["root"] is None
+
+
 def test_invariant_evaluation_error_has_initial_state_witness(tmp_path):
     spec = _write(tmp_path, _INVARIANT_SPEC.replace("Box.n <= 1", "Box.n > 'bad'"))
     t = trace_query(spec, "limit")

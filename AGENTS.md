@@ -186,9 +186,10 @@ own slice for defect parity and DeadActions. Do not regress:
 - the one documented divergence: the whole model counts a state that breaks an
   invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does
   not. That violation still fails the run in its own invariant's slice;
-- `explore` and query `trace` remain whole-model; an invariant `trace` reuses
-  `verify_invariants` (its `explorations=` out-param), so it replays the slice
-  `check` decided on (`--no-slice` for the whole model).
+- `explore` remains whole-model; `trace` replays `check`'s pipeline
+  (`verify_invariants`/`run_query` report the exploration each result was
+  decided on via `explorations=`), so it traces the slice `check` decided on
+  (`--no-slice` for the whole model).
 
 ### Bounded multiplicity
 

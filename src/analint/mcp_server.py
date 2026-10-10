@@ -161,11 +161,10 @@ def build_server() -> Any:
         (`action`/`source`/`target`/`changes`) and the `final_state`, with node ids
         matching the exploration artifact. A passing property with no example
         returns `witness: null` and a message rather than an error.
-        Invariants are decided exactly as `check` decides them (canonical
-        initial and budget, on their slice unless `slice` is false; the payload
-        then carries `slice`, and fields outside it keep their initial values);
-        their payload has an `invariant` key in place of `query`. Query traces
-        explore the whole model.
+        The property is decided exactly as `check` decides it (budgets, and its
+        slice unless `slice` is false; the payload then carries `slice`, and
+        fields outside it keep their initial values). Invariant payloads have
+        an `invariant` key in place of `query`.
         """
         return trace_spec(path, query, what_if, slice)
 

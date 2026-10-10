@@ -53,7 +53,8 @@ src/analint/
     scenario_runner.py      ← one transition via kernel.step + invariants/then
     flow_runner.py          ← executable Flow: a journey of actions + checkpoints via kernel.step
     state_checks.py         ← shared invariant checks over a state (scenario + flow)
-    rule_checker.py         ← evaluate(pred, context) and resolve(operand, context)
+    rule_checker.py         ← evaluate/resolve (the semantics) + compile_predicate (the
+                              explorer's fast path; mirrors them, differential-tested)
     explorer.py             ← bounded reachability: BFS, traces, query + canonical invariant verification
     slicing.py              ← cone-of-influence slices: each check explores only its slice
 
@@ -136,7 +137,12 @@ The spec is loaded through a **single entry point** (`spec.py` or an explicit fi
 ### Reachability engine (explorer.py)
 
 State = field values of singleton entities plus every instance in bounded
-`Scope`; key = sorted tuple labelled by entity type or `InstanceRef`.
+`Scope`; key = a layout id followed by the values in label-sorted layout order
+(an absent slot contributes only its presence flag). Labels live in the shared
+layout, not in each key; tests that hash states render them labelled.
+Guards and invariants run as compiled closures (`compile_predicate`), which
+must stay equivalent to `evaluate` — value or exception type and message —
+as `tests/test_compiled_predicates.py` checks; change both together.
 BFS from an initial context (entity defaults, overridden by `query.given`);
 an action is enabled when its `pre` holds and no terminal-lifecycle entity is
 touched. En route the explorer reports invariant violations, `Field`

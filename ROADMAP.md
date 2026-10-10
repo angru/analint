@@ -672,6 +672,13 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   (54,084 at M4 capacity; M6 capacity in research/34 §8 B2), same planted
   counterexample. Full M4 in TLC: 286,428,912 states, all 13 invariants hold
   (2 h 16 min); analint caps at 1M (research/34 §8 B2)
+- ✅ **D for M5/M6** (2026-10-10, `benchmarks/broker/{partners,methods,m56}.qnt`):
+  the partner and payment-method increments alone (576 / 1,766 states) and
+  coupled with the client profile (12,672 / 38,852) have identical
+  distinct-state counts, witnesses and planted counterexamples in analint and
+  TLC; pinned by tests. Full M5/M6 are in Quint too (random simulation
+  only). Finding: the shared one-time security code couples every process
+  in a slice (research/34 §8 D for M5/M6)
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
   - ✅ Input (2026-10-10): per-state memory profile; state keys compacted to

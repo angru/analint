@@ -130,3 +130,26 @@ def test_risk_increment_matches_the_tlc_cross_check():
     exp = explore(spec, initials, 100_000)
     assert not exp.capped and not exp.findings
     assert len(exp.states) == 54_084 // 3
+
+
+@pytest.mark.parametrize(
+    "entry, distinct_states",
+    [
+        ("m5_partners.py", 576),  # partners.qnt, stepPartnersOnly
+        ("m6_methods.py", 1_766),  # methods.qnt, stepMethodsOnly
+        ("m5_profile_partners.py", 12_672),  # m56.qnt profilePartners
+        ("m6_profile_methods.py", 38_852),  # m56.qnt profileMethods
+    ],
+)
+def test_m5_m6_increments_match_the_tlc_cross_check(entry, distinct_states):
+    """research/34 §8 B2: TLC counts exactly these distinct states for the
+    Quint ports of the M5/M6 increments and their couplings with the client
+    profile. A drift means the kernel and the cross-checked ports diverged."""
+    from analint.validator.explorer import build_canonical_initials, explore
+
+    spec = prepare_model(ROOT / "benchmarks" / "broker" / entry).spec
+    initials, error = build_canonical_initials(spec)
+    assert initials, error
+    exp = explore(spec, initials, 100_000)
+    assert not exp.capped and not exp.findings
+    assert len(exp.states) == distinct_states

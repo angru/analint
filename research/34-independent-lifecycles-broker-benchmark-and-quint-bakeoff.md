@@ -541,6 +541,34 @@ Findings:
    slice as `check` (a planted KYC defect on M4 at 2k: `check` FAIL in 7
    steps, the former whole-model trace INCONCLUSIVE; now identical).
 
+*D result for M5/M6 (2026-10-10, `benchmarks/broker/{partners,methods,m56}.qnt`).*
+The partner and payment-method increments are ported. Each is cross-checked
+alone and coupled with the client profile, which is where the processes
+share state:
+
+| Model (analint entry) | Quint (`--main`) | distinct states (both) | witness | planted defect |
+|---|---|---|---|---|
+| partners + security code (`m5_partners.py`) | `partners` | 576 | 6 / 6 | withdrawal keeps the accrual: same 4-action counterexample |
+| payment methods + security code (`m6_methods.py`) | `methods` | 1,766 | 8 / 8 | payout without a hold: same 4 actions |
+| profile × partners (`m5_profile_partners.py`) | `profilePartners` | 12,672 | 6 / 6 | — |
+| profile × payment methods (`m6_profile_methods.py`) | `profileMethods` | 38,852 | 10 / 10 | — |
+
+TLC took ≤ 2 s of checking per model (~5–7 s wall). The full M5 and M6
+compositions are also in Quint (`m5`, `m6`): 2,000 random 40-step traces each
+hit no invariant violation, which is a smoke test, not a proof. The four
+counts are pinned in `tests/test_broker_benchmark.py`; making quantifiers
+range over absent slots breaks both payment-method pins.
+
+On the full M5/M6, analint (sliced, 100k states per check) proves only the
+four KYC invariants; everything else is INCONCLUSIVE. Even
+`rewards_are_conserved` stays undecided. The one-time security code is
+written by every process that spends it (cash withdrawals, method payouts,
+partner changes and reward withdrawals), so any slice that reads it pulls
+in all of them. Like the terminal lock, the spenders only ever *disable*
+(set the code to false). Whether "disable-only writers" can be dropped
+exactly is an open engine question for E; it would need a monotonicity
+argument over how the code is read.
+
 **E. Decision synthesis (new research note).** Inputs: tables from B2 and D.
 Possible outcomes:
 

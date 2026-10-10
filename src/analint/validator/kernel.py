@@ -405,13 +405,19 @@ def _check_lifecycle_transitions(
     trace: list[str] | None,
 ) -> TransitionResult | None:
     """A change to a lifecycle field must follow a declared transition."""
+    # untouched entities are shared by copy-on-write; scan only the changed
+    # ones, in context order, so the first defect reported is unchanged
+    changed = [(key, inst) for key, inst in ctx.items() if post.get(key) is not inst]
+    if not changed:
+        return None
     for lc in lifecycles:
-        for context_key, inst_pre in ctx.items():
-            if type(inst_pre) is not lc.entity_cls:
+        entity_cls = lc.entity_cls
+        for context_key, inst_pre in changed:
+            if type(inst_pre) is not entity_cls:
                 continue
             inst_post = post.get(context_key)
-            if inst_post is None or inst_post is inst_pre:
-                continue  # absent, or untouched (shared by copy-on-write)
+            if inst_post is None:
+                continue  # absent
             # a created/deleted slot's lifecycle field is an initial assignment
             # or a teardown, not a declared transition
             if not is_present(ctx, context_key) or not is_present(post, context_key):

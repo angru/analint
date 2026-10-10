@@ -590,8 +590,11 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   reorderings (branch_protection, k8s_replicaset), and all examples also
   match it under a no-scan emulation of step 4. Migration found and fixed two
   engine gaps: listed `Param` declarations orphaned in auto mode, and
-  `--what-if` objects dropped by explicit lists. Next: step 4 (breaking,
-  needs the user's go-ahead), step 5 docs
+  `--what-if` objects dropped by explicit lists. A third, a what-if merge
+  leaking into the cached composed root, was fixed on main as well.
+  ⏳ step 4 + step 5 docs (breaking, 0.0.2) are prepared on branch
+  `night/2026-10-10` (not merged): no scan, no mixed mode, "empty model"
+  error, CHANGELOG entry; snapshot unchanged. Merge after review
 - ✅ **A. Engine hygiene** (f9fe90c..8e96ad3): shared canonical exploration,
   state-key layout, cached guard plan/invariant keys, silent rejections,
   trace-on-defect, copy-on-write effects, `deque` — ~5× on
@@ -660,11 +663,21 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   counterexamples with state diffs, shared invariant evaluation, initial/multi-root
   and evaluation-error witnesses; CLI + MCP. Query trace JSON stays unchanged;
   invariant payloads use `invariant` instead of `query` in `analint.trace/v1`.
+  ✅ (2026-10-10) traces replay `check`'s decision (slices, budgets, invariant
+  trust), so a witness found on a slice is traceable when the whole model is
+  capped; `--no-slice` keeps the whole-model trace.
+- ✅ **D for M4/M6 risk** (2026-10-10, `benchmarks/broker/risk.qnt`): the
+  risk increment alone has identical distinct-state counts in analint and TLC
+  (54,084 at M4 capacity; M6 capacity in research/34 §8 B2), same planted
+  counterexample. Full M4 in TLC: research/34 §8 B2
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
   - ✅ Input (2026-10-10): per-state memory profile; state keys compacted to
     values + layout id (7.5 → 1.7 KB/state on M4, RSS 559 → 151 MiB at 50k,
     ~18% faster, graphs identical). Not the R4 store; research/34 §8 E
+  - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
+    ~1.8× end to end, differential-tested against the interpreter
+  - Draft synthesis of the measured inputs: research/36 (for review)
   - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
     per-check timing, invariant state-diff traces and B2 fixtures are done.
     Start with E and the stored B2 records; do not restart M4–M6 implementation.

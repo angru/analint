@@ -461,6 +461,28 @@ Exit criterion met: P1–P3, P7, P8, P11, P12 have definitive verdicts.
 Record the cone size of each property. This is the evidence for whether
 cross-cutting properties are common.
 
+*B2 Quint cross-check of M4 (2026-10-10, `benchmarks/broker/risk.qnt`,
+`benchmarks/broker/m4_risk.py`).* The risk contract is ported on top of
+`broker.qnt` (presence slots with canonical absent values, present-only
+quantifiers and counts, the `where=` slot/owner pairing, capacity 1).
+
+| | analint | Quint → TLC |
+|---|---|---|
+| risk increment alone (client registered, active, unchanged; 3 regions) | 54,084 states, complete (explore 19 s before tonight's engine changes, ~10 s after) | **54,084**, depth 20, 2.2 s core / ~7 s wall |
+| its 4 risk invariants | PASS on an 18,028-state slice, `check` 7 s | PASS |
+| planted defect (protection without resetting equity) | FAIL, 6 actions | the same 6 actions in the same order |
+| risk increment at M6 capacity (2 accounts, 2 open orders) | **4,440,789**, counted by `scripts/count_states.py` (same kernel, keys only: 38 min, 1.7 GiB, under load) | **4,440,789**, depth 23, PASS, 307 s |
+| full M4 (M3 × risk) | > 1,000,000 states: capped at 1M (258 s, 2.6 GiB RSS) | > 196,689,453 distinct after 90 min, depth ≥ 22, no violation so far (run continuing; interim) |
+
+The full M4 product is out of reach for an in-memory explorer here; the risk
+increment alone is the part both tools finish (at M6 capacity only with the
+keys-only counter, since `explore()` would need ~11 GiB), and it exercises everything M4
+added (presence, present-only `ForAll`/`Count`, `Create`/`Delete`,
+parameterized `where=`). A first Quint encoding chose all nondet parameters
+up front, so TLC enumerated ~900 successors per distinct state (71 s); choosing
+them per action gives the same count in 2.2 s. Worth knowing for any export
+backend (R6): parameter choice must be scoped to the action.
+
 **D. Quint port of M1–M6** + the §7 protocol, run against each increment as
 it lands. State-count cross-validation is mandatory.
 

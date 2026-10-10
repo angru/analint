@@ -592,9 +592,10 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   engine gaps: listed `Param` declarations orphaned in auto mode, and
   `--what-if` objects dropped by explicit lists. A third, a what-if merge
   leaking into the cached composed root, was fixed on main as well.
-  ⏳ step 4 + step 5 docs (breaking, 0.0.2) are prepared on branch
-  `night/2026-10-10` (not merged): no scan, no mixed mode, "empty model"
-  error, CHANGELOG entry; snapshot unchanged. Merge after review
+  ✅ step 4 (breaking, 0.0.2): no scan, no mixed mode, "empty model" error;
+  snapshot unchanged. Reviewed and merged to main on 2026-10-10 (a9f89aa).
+  ✅ step 5: README/AGENTS.md/CHANGELOG and the agent skill (explicit
+  listing, orphan warning, slices, `--max-states`/`--no-slice`)
 - ✅ **A. Engine hygiene** (f9fe90c..8e96ad3): shared canonical exploration,
   state-key layout, cached guard plan/invariant keys, silent rejections,
   trace-on-defect, copy-on-write effects, `deque` — ~5× on

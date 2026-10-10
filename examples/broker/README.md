@@ -121,8 +121,9 @@ active and unchanged) has **54,084** distinct states in both analint and TLC,
 and its four invariants pass in both; a planted defect yields the same
 six-action counterexample. At M6 capacity (`m6_risk.py`, two concurrent
 accounts and orders) both count **4,440,789** states (analint via
-`scripts/count_states.py`). Full M4 exceeds a million states in analint; see
-research/34 §8 B2 for the TLC run of the full product.
+`scripts/count_states.py`). Full M4 exceeds a million states in analint; TLC
+finishes it: **286,428,912** states, all M3 and risk invariants hold (2 h 16 min;
+research/34 §8 B2).
 
 ```bash
 uv run analint check benchmarks/broker/m4_risk.py

@@ -50,7 +50,7 @@ changed entities for lifecycle checks and trimming per-transition overhead:
 | broker M1–M3 (research/34 D) | 15,912 | full check 2.7 s | 1.2 s core, ~6 s wall |
 | M4 risk increment, capacity 1 | 54,084 (both) | explore ~10 s; sliced check of its 4 invariants 7 s (18,028-state slice) | 2.2 s core, ~7 s wall |
 | M6 risk increment, capacity 2 | 4,440,789 (both) | keys-only count 38 min, 1.7 GiB (under load); `explore()` would need ~11 GiB | 307 s (with M4 TLC running alongside) |
-| full M4 (M3 × risk) | > 196.7M (TLC, interim) | > 1,000,000 (capped; 258 s, 2.6 GiB) | ~2M distinct/min; > 90 min |
+| full M4 (M3 × risk) | 286,428,912 (TLC) | > 1,000,000 (capped; 258 s, 2.6 GiB) | 2 h 16 min, all 13 invariants hold |
 
 TLC finds distinct states roughly 5–10× faster than analint here (risk
 increment: ~25k/s vs ~5k/s; M4 product: ~38k/s vs ~4k/s), and its fingerprint
@@ -72,7 +72,7 @@ conservation over M3 × risk) it does not help; the cone is the product.
 2. **R4 compact store.** The next step is to stop storing contexts (rebuild
    from the key on demand) and to store edges as integer triples. Expected
    ~2–3× less memory: it moves the ceiling, it does not remove it; the M4
-   product (> 196.7M states) would still need hundreds of GiB.
+   product (286M states) would still need hundreds of GiB.
 3. **R6 export to TLC** is the only option measured to finish the full M4
    product on this machine. The hand ports show the cost: every implicit
    kernel rule (presence, present-only quantifiers, terminal lock, `where=`

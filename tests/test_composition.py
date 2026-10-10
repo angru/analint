@@ -302,3 +302,24 @@ def test_what_if_merges_into_explicit_lists_without_imports(tmp_path):
 
     by_id = {r.invariant_id: r.status for r in result.invariant_results}
     assert by_id == {"bounded": "PASS", "stays_low": "FAIL"}
+
+
+def test_what_if_does_not_leak_into_later_loads(tmp_path):
+    """The composed root is cached with its import closure; a hypothesis merged
+    into it must not survive into a later load without --what-if (MCP)."""
+    patch = tmp_path / "hypothesis.py"
+    patch.write_text(
+        "from analint import Action, Add, Invariant\n"
+        "from tests.fixtures.composed.component import Ledger\n"
+        "hypothesis = Invariant(Ledger.balance <= 3)\n"
+        "jump = Action(effect=[Add(Ledger.balance, 2)])\n"
+    )
+
+    hypothetical, _, _ = build_spec(FIXTURES / "composed", extra=patch)
+    plain, _, _ = build_spec(FIXTURES / "composed")
+
+    assert hypothetical is not None and plain is not None
+    assert [i.id for i in hypothetical.invariants][-1] == "hypothesis"
+    assert [i.id for i in plain.invariants] == ["balance_is_non_negative"]
+    assert [a.id for a in plain.actions] == ["credit"]
+    assert [a.id for a in plain._declared_actions] == ["credit"]

@@ -331,6 +331,9 @@ def _auto_populate(spec: Spec, modules: list, patch: ModuleType | None = None) -
         # collected contents to populate the composed root.
         collect_from_modules(modules)
         if patch is not None:
+            # the root is cached with its import closure: merge into a copy, or
+            # the hypothesis would stay in the model for every later load
+            spec = spec.model_copy()
             _extend_composed_spec(spec, collect_from_modules([patch]))
         return spec
 

@@ -669,7 +669,8 @@ and the Quint bake-off protocol: research/34. Awaiting review.
 - ✅ **D for M4/M6 risk** (2026-10-10, `benchmarks/broker/risk.qnt`): the
   risk increment alone has identical distinct-state counts in analint and TLC
   (54,084 at M4 capacity; M6 capacity in research/34 §8 B2), same planted
-  counterexample. Full M4 in TLC: research/34 §8 B2
+  counterexample. Full M4 in TLC: 286,428,912 states, all 13 invariants hold
+  (2 h 16 min); analint caps at 1M (research/34 §8 B2)
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
   - ✅ Input (2026-10-10): per-state memory profile; state keys compacted to

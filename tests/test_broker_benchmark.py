@@ -97,3 +97,36 @@ def test_zero_equity_margin_threshold_depends_on_account_class(cent, expected):
         expected=Expect.FAIL if expected == "FAIL" else Expect.PASS,
     )
     assert run_scenario(scenario, spec).passed
+
+
+def test_risk_increment_matches_the_tlc_cross_check():
+    """research/34 §8 B2: TLC counts 54,084 distinct states for the M4 risk
+    increment over three regions it never reads; one region is a third. A
+    drift here means the kernel's presence/quantifier/Create-Delete semantics
+    no longer match the cross-checked Quint port (benchmarks/broker/risk.qnt)."""
+    from benchmarks.broker.domain import orders, risk_accounts
+    from benchmarks.broker.risk import risk
+    from examples.broker.domain import Client, Onboarding, Region
+
+    from analint import Absent, Initial, Spec
+    from analint.validator.explorer import build_canonical_initials, explore
+
+    spec = Spec(
+        id="risk_one_region",
+        name="risk",
+        imports=[risk],
+        initial=Initial(
+            vary=[Client.region],
+            where=[Client.region == Region.STANDARD],
+            given=[
+                Client(onboarding=Onboarding.CONTACTS),
+                *(Absent(slot) for slot in risk_accounts),
+                *(Absent(slot) for slot in orders),
+            ],
+        ),
+    )
+    initials, error = build_canonical_initials(spec)
+    assert initials, error
+    exp = explore(spec, initials, 100_000)
+    assert not exp.capped and not exp.findings
+    assert len(exp.states) == 54_084 // 3

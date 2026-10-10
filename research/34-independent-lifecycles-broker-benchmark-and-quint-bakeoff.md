@@ -472,7 +472,7 @@ quantifiers and counts, the `where=` slot/owner pairing, capacity 1).
 | its 4 risk invariants | PASS on an 18,028-state slice, `check` 7 s | PASS |
 | planted defect (protection without resetting equity) | FAIL, 6 actions | the same 6 actions in the same order |
 | risk increment at M6 capacity (2 accounts, 2 open orders) | **4,440,789**, counted by `scripts/count_states.py` (same kernel, keys only: 38 min, 1.7 GiB, under load) | **4,440,789**, depth 23, PASS, 307 s |
-| full M4 (M3 × risk) | > 1,000,000 states: capped at 1M (258 s, 2.6 GiB RSS) | > 196,689,453 distinct after 90 min, depth ≥ 22, no violation so far (run continuing; interim) |
+| full M4 (M3 × risk) | > 1,000,000 states: capped at 1M (258 s, 2.6 GiB RSS) | **286,428,912**, depth 47, all nine M3 and four risk invariants hold; 2 h 16 min, 3.37 × 10⁹ states generated |
 
 The full M4 product is out of reach for an in-memory explorer here; the risk
 increment alone is the part both tools finish (at M6 capacity only with the
@@ -482,6 +482,16 @@ parameterized `where=`). A first Quint encoding chose all nondet parameters
 up front, so TLC enumerated ~900 successors per distinct state (71 s); choosing
 them per action gives the same count in 2.2 s. Worth knowing for any export
 backend (R6): parameter choice must be scoped to the action.
+
+The full M4 count is TLC-only (analint would need ~0.5 TB at its current
+per-state cost). It is consistent with the cross-checked parts: M3 (15,912
+states over three regions) times the risk increment per region (18,028) is
+286,861,536 for independent processes; the coupling (no risk account before
+registration, no risk actions after termination) removes 432,624 of them.
+The run used the per-action encoding of dfc0da6; the capacity constants added
+later do not change counts (the risk-only count was re-run: 54,084). So the
+four risk invariants and the nine M3 invariants hold on the whole bounded M4
+model, by TLC on a port validated part by part, not by analint.
 
 **D. Quint port of M1–M6** + the §7 protocol, run against each increment as
 it lands. State-count cross-validation is mandatory.

@@ -53,7 +53,7 @@ from analint.models.scope import (
     present_snapshot,
 )
 from analint.reporter.base import Finding, Severity
-from analint.validator.rule_checker import evaluate, resolve
+from analint.validator.rule_checker import compile_predicate, evaluate, resolve
 from analint.validator.structural import _collect_field_refs, _describe
 
 
@@ -110,7 +110,7 @@ def _after(action: Action, trace: list[str] | None) -> str:
 class _Plan:
     """The static part of an action's guards and effects, computed once."""
 
-    guards: tuple  # (predicate, context keys it reads)
+    guards: tuple  # (predicate, context keys it reads, compiled predicate)
     touched: frozenset  # Set/Add/Subtract target keys
     creates: tuple
     deletes: tuple
@@ -130,7 +130,11 @@ def _plan(action: Action) -> _Plan:
         deletes = tuple(e for e in action.effect if isinstance(e, Delete))
         plan = _Plan(
             guards=tuple(
-                (pred, frozenset(field_context_key(r) for r in _collect_field_refs(pred)))
+                (
+                    pred,
+                    frozenset(field_context_key(r) for r in _collect_field_refs(pred)),
+                    compile_predicate(pred),
+                )
                 for pred in action.pre
             ),
             touched=touched,
@@ -163,7 +167,7 @@ def step(
     plan = _plan(action)
 
     # ── pre guards: a false/absent precondition rejects; an error is a defect ──
-    for pred, keys in plan.guards:
+    for pred, keys, holds in plan.guards:
         if any(key not in context for key in keys):
             # the predicate reads an entity intentionally absent from this state
             return (
@@ -172,7 +176,7 @@ def step(
                 else _silently_rejected()
             )
         try:
-            if not evaluate(pred, context):
+            if not holds(context):
                 return (
                     _rejected(action, f"PRE failed: {_describe(pred)}")
                     if explain

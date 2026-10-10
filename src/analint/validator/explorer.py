@@ -50,7 +50,7 @@ from analint.reporter.base import Finding, InvariantResult, QueryResult, QuerySt
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.slicing import Slice, SliceAnalysis
-from analint.validator.state_checks import invariant_is_applicable
+from analint.validator.state_checks import invariant_holds, invariant_is_applicable
 from analint.validator.structural import _collect_field_refs, _describe
 
 StateKey = tuple[Any, ...]
@@ -508,7 +508,7 @@ def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Expl
         if not invariant_is_applicable(inv, ctx):
             continue  # a referenced entity/Scope slot is absent — not applicable here
         try:
-            ok = evaluate(inv.expression, ctx)
+            ok = invariant_holds(inv, ctx)
         except Exception as exc:
             # an unevaluable invariant is a model defect, not a pass: mark the
             # state illegal so it is kept as a witness but not expanded, matching
@@ -848,7 +848,7 @@ def _verify_one_invariant(inv: Invariant, exp: Exploration) -> InvariantResult:
             continue  # presence-aware: a referenced entity/slot is absent here
         evaluated = True
         try:
-            ok = evaluate(inv.expression, ctx)
+            ok = invariant_holds(inv, ctx)
         except Exception as exc:
             return InvariantResult(
                 invariant_id=inv.id,

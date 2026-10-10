@@ -25,7 +25,7 @@ from analint.models.scope import (
     is_present,
 )
 from analint.reporter.base import Finding, Severity
-from analint.validator.rule_checker import evaluate
+from analint.validator.rule_checker import compile_predicate, evaluate
 from analint.validator.structural import _collect_field_refs, _describe
 
 
@@ -41,6 +41,16 @@ def build_snapshot_context(spec: Spec, given: list) -> dict:
         for ref in scope:
             context.setdefault(ref, Absent(ref))
     return context
+
+
+def invariant_holds(inv: Invariant, context: dict) -> bool:
+    """``evaluate(inv.expression, context)`` through a compiled predicate cached
+    on the invariant (re-compiled when the expression is reassigned)."""
+    cached = inv.__dict__.get("_analint_compiled")
+    if cached is None or cached[0] is not inv.expression:
+        cached = (inv.expression, compile_predicate(inv.expression))
+        inv.__dict__["_analint_compiled"] = cached
+    return cached[1](context)
 
 
 def invariant_is_applicable(inv: Invariant, context: dict) -> bool:

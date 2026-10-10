@@ -679,6 +679,13 @@ and the Quint bake-off protocol: research/34. Awaiting review.
   TLC; pinned by tests. Full M5/M6 are in Quint too (random simulation
   only). Finding: the shared one-time security code couples every process
   in a slice (research/34 §8 D for M5/M6)
+- ✅ **Slicing refinement 3: disable-only writers** (2026-10-10): writers that
+  only switch a flag off (a spent one-time code, a closed profile) no longer
+  join slices through it; exact (research/34 §5), five planted probes, with a
+  mutation per condition. Full M6 at 100k/check: 13 of 17 invariants proven
+  (was 4); partner rewards on 192 states, payment methods on 38,852 (the
+  TLC-checked coupling). Two latent slice-cache bugs fixed on the way (cache
+  key and superset reuse ignored the action set)
 - **E. Decision synthesis:** analint alone / compact state store / Quint export
   backend / partial-order reduction — chosen from B2+D measurements
   - ✅ Input (2026-10-10): per-state memory profile; state keys compacted to

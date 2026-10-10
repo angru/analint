@@ -15,6 +15,9 @@ All notable changes to this project are documented here. The format is based on
   result is exact: a conformance test pins it against the whole-model path on
   every example. JSON reports each check's `slice`; `check --no-slice` (MCP
   `slice=false`) restores whole-model exploration.
+- Slices skip writers that only switch a flag off (a spent one-time code, a
+  closed profile): processes that share such a flag no longer join each
+  other's slices. Exact; NoDeadEnd and properties reading the flag keep them.
 - `check --max-states N` (MCP `max_states`) overrides every exploration budget
   for one run.
 - Warning for a behaviour object defined in a spec module but not part of the

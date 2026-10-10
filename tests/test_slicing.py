@@ -19,6 +19,7 @@ from analint import (
     Create,
     Entity,
     Field,
+    Implies,
     Initial,
     Invariant,
     Lifecycle,
@@ -395,3 +396,86 @@ def test_a_proven_mixed_invariant_does_not_glue_independent_processes(tmp_path):
     sliced, whole = _run_both(tmp_path, "Implies(A.x == 3, B.y >= 0)")
     assert _shape(sliced) == _shape(whole)
     assert sliced.query_results[0].slice["actions"] == 1
+
+
+# ── disable-only writers (a spent one-time code) ──────────────────────────────
+
+
+def _code_spec(*, code_default: bool, panic: bool = False, enabler: bool = True) -> Spec:
+    """Two processes share a one-time code: A spends it to count up, B spends
+    it to count up on its own. An optional `panic` reads the code negatively
+    without being an enabler (so the code is no disable-only flag)."""
+
+    class Session(Entity):
+        code: bool = code_default
+
+    class A(Entity):
+        x: int = Field(0, ge=0, le=2)
+
+    class B(Entity):
+        y: int = Field(0, ge=0, le=3)
+
+    actions = [
+        Action(
+            id="a_spend",
+            pre=[Session.code, A.x < 2],
+            effect=[Add(A.x, 1), Set(Session.code, False)],
+        ),
+        Action(
+            id="b_spend",
+            pre=[Session.code, B.y < 3],
+            effect=[Add(B.y, 1), Set(Session.code, False)],
+        ),
+    ]
+    if enabler:
+        actions.append(
+            Action(id="issue", pre=[Not(Session.code)], effect=[Set(Session.code, True)])
+        )
+    if panic:
+        actions.append(Action(id="panic", pre=[Not(Session.code)], effect=[Set(A.x, 2)]))
+    return Spec(id="s", name="s", entities=[Session, A, B], actions=actions)
+
+
+def test_disable_only_writer_stays_out_of_the_other_process_slice():
+    spec = _code_spec(code_default=False)
+    a_x = spec.entities[1].x
+    spec.invariants = [Invariant(a_x <= 2, id="x_bounded")]
+    analysis = SliceAnalysis(spec)
+    assert len(analysis.flags) == 1  # the code
+    piece = analysis.invariant_slice(spec.invariants[0], unconstrained=True)
+    assert sorted(a.id for a in piece.actions) == ["a_spend", "issue"]
+    assert _sliced_vs_whole(spec, query=Reachable(a_x == 2, id="x_reaches_2")) == ("PASS", "PASS")
+
+
+def test_a_property_reading_the_flag_keeps_its_disablers():
+    # only B can switch the code off here: without B the code is always on
+    spec = _code_spec(code_default=True, enabler=False)
+    session = spec.entities[0]
+    query = Unreachable(Not(session.code), id="code_never_spent")
+    assert _sliced_vs_whole(spec, query=query) == ("FAIL", "FAIL")
+
+
+def test_a_negative_guard_that_is_no_enabler_disqualifies_the_flag():
+    # panic fires only once the code is spent — by B as well as by A
+    spec = _code_spec(code_default=True, panic=True, enabler=False)
+    a_x = spec.entities[1].x
+    assert SliceAnalysis(spec).flags == {}
+    spec.invariants = [Invariant(a_x <= 1, id="x_small")]
+    assert _sliced_vs_whole(spec) == ("FAIL", "FAIL")
+
+
+def test_no_dead_end_keeps_disablers():
+    # B may spend the only code before A could, and nothing issues a new one
+    spec = _code_spec(code_default=True, enabler=False)
+    a_x = spec.entities[1].x
+    assert _sliced_vs_whole(spec, query=NoDeadEnd(a_x == 1, id="a_can_count")) == ("FAIL", "FAIL")
+
+
+def test_a_constrained_slice_keeps_disablers_of_a_flag_an_invariant_reads():
+    spec = _code_spec(code_default=False)
+    session, a = spec.entities[0], spec.entities[1]
+    spec.invariants = [Invariant(Implies(a.x == 2, Not(session.code)), id="j")]
+    analysis = SliceAnalysis(spec)
+    assert len(analysis.flags) == 1  # an invariant may read it
+    piece = analysis.predicate_slice(a.x == 1, canonical=False)  # constrained
+    assert "b_spend" in {act.id for act in piece.actions}

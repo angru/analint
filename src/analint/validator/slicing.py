@@ -35,6 +35,7 @@ model (research/14 §7 — an unsupported node is never silently ignored).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from analint.models.action import Action
@@ -46,10 +47,12 @@ from analint.models.predicate import (
     Predicate,
     _And,
     _BinaryComparison,
+    _Eq,
     _Implies,
     _In,
     _IsNotNull,
     _IsNull,
+    _Ne,
     _Not,
     _Or,
 )
@@ -203,6 +206,137 @@ def _action_vars(action: Action, lock_fields: dict[type, list[str]]) -> tuple[se
     return out, locks
 
 
+# ── disable-only flags ───────────────────────────────────────────────────────
+
+
+def _ref_var(op: Any) -> Var | None:
+    if isinstance(op, FieldDescriptor):
+        return (op.entity_cls, op.field_name)
+    if isinstance(op, InstanceField):
+        return (op.instance, op.field_name)
+    return None
+
+
+def _is_literal(value: Any) -> bool:
+    return isinstance(value, (bool, int, str, Enum)) and _ref_var(value) is None
+
+
+def _antitone(pred: Any, var: Var, off: Any, positive: bool = True) -> bool:
+    """Every read of the flag ``var`` in ``pred`` can only make it false as the
+    flag becomes ``off``: reads are positive comparisons with literals that
+    ``off`` falsifies (``flag``, ``status == ACTIVE``, ``flag != off``, an
+    ``In`` without ``off``)."""
+    if isinstance(pred, (_And, _Or)):
+        return all(_antitone(e, var, off, positive) for e in pred.exprs)
+    if isinstance(pred, _Not):
+        return _antitone(pred.expr, var, off, not positive)
+    if isinstance(pred, _Implies):
+        return _antitone(pred.left, var, off, not positive) and _antitone(
+            pred.right, var, off, positive
+        )
+    if isinstance(pred, (_ForAll, _Exists)):
+        return all(
+            _antitone(bind_predicate(pred.predicate, pred.variable, ref), var, off, positive)
+            for ref in _slots(pred.variable)
+        )
+    reads: set[Var] = set()
+    _pred_vars(pred, reads)
+    if var not in reads:
+        return True
+    true_when_off = None
+    if isinstance(pred, (_Eq, _Ne)):
+        for ref, other in ((pred.left, pred.right), (pred.right, pred.left)):
+            if _ref_var(ref) == var and _is_literal(other):
+                true_when_off = (other == off) if isinstance(pred, _Eq) else (other != off)
+    elif (
+        isinstance(pred, _In)
+        and _ref_var(pred.operand) == var
+        and all(_is_literal(value) for value in pred.values)
+    ):
+        true_when_off = off in pred.values
+    if true_when_off is None:
+        return False  # any other read (an order, an aggregate, a field-to-field test…)
+    return not true_when_off if positive else true_when_off
+
+
+def _disable_only_flags(spec: Spec) -> dict[Var, Any]:
+    """Fields that some writers only ever switch *off* — to a constant value
+    that can only disable what reads it (a spent one-time code, a closed
+    profile). Returns flag → its ``off`` value (see ``SliceAnalysis._close``).
+
+    A field qualifies when every write is a constant ``Set``; no
+    postcondition, effect right-hand side or emitted payload reads it (an
+    invariant may: see ``_close``); every action whose ``pre`` reads it reads it
+    only antitonically (``_antitone``) — or, for a boolean flag, is an
+    *enabler* whose only effect switches it back on. A lifecycle field qualifies
+    only when every write is ``off``: its declared-transition check reads the
+    old value, so no writer that stays in a slice may write it."""
+    writes: dict[Var, list[Any]] = {}
+    nonconstant: set[Var] = set()
+    strict_reads: set[Var] = set()  # reads outside pre
+    for action in spec.actions:
+        for pred in action.post:
+            _pred_vars(pred, strict_reads)
+        for effect in action.effect:
+            if isinstance(effect, Set):
+                var = (_target_key(effect), effect.field.field_name)
+                if _is_literal(effect.value):
+                    writes.setdefault(var, []).append(effect.value)
+                else:
+                    nonconstant.add(var)
+                _operand_vars(effect.value, strict_reads)
+            elif isinstance(effect, (Add, Subtract)):
+                nonconstant.add((_target_key(effect), effect.field.field_name))
+                _operand_vars(effect.amount, strict_reads)
+            elif isinstance(effect, (Create, Delete)):  # they rewrite the whole slot
+                nonconstant |= _whole_slot(effect.target)
+                if isinstance(effect, Create):
+                    for value in effect.fields.values():
+                        _operand_vars(value, strict_reads)
+        for emitted in action.emits:
+            if not isinstance(emitted, type):
+                for value in emitted.__dict__.values():
+                    _operand_vars(value, strict_reads)
+    lifecycle = {(lc.entity_cls, lc.field_name) for lc in spec.lifecycles}
+
+    flags: dict[Var, Any] = {}
+    for var, values in writes.items():
+        key, name = var
+        if var in nonconstant or var in strict_reads:
+            continue
+        is_lifecycle = (_entity_cls(key), name) in lifecycle
+        for off in sorted(set(values), key=repr):
+            if is_lifecycle and set(values) != {off}:
+                continue
+            if _flag_reads_are_safe(spec, var, off):
+                flags[var] = off
+                break
+    return flags
+
+
+def _flag_reads_are_safe(spec: Spec, var: Var, off: Any) -> bool:
+    for action in spec.actions:
+        reads: set[Var] = set()
+        for pred in action.pre:
+            _pred_vars(pred, reads)
+        if var not in reads:
+            continue
+        if all(_antitone(pred, var, off) for pred in action.pre):
+            continue
+        # a two-valued flag may be switched back on by an action doing only
+        # that: from a state where the full model has it off, it is a stutter
+        enabler = (
+            isinstance(off, bool)
+            and len(action.effect) == 1
+            and isinstance(action.effect[0], Set)
+            and (_target_key(action.effect[0]), action.effect[0].field.field_name) == var
+            and action.effect[0].value is (not off)
+        )
+        if not enabler:
+            return False
+    return True
+
+
 # ── slices ───────────────────────────────────────────────────────────────────
 
 
@@ -223,8 +357,14 @@ class Slice:
     @property
     def key(self) -> tuple:
         """Identity of what an exploration of this slice sees (by object id —
-        DSL objects must never be compared with ==)."""
-        return (self.vars, tuple(id(i) for i in self.invariants))
+        DSL objects must never be compared with ==). The actions are part of
+        it: one variable set can carry different actions (a disable-only
+        writer joins its own slice but not its enabler's)."""
+        return (
+            self.vars,
+            tuple(id(a) for a in self.actions),
+            tuple(id(i) for i in self.invariants),
+        )
 
     def summary(self) -> dict:
         fields = (
@@ -273,6 +413,8 @@ class SliceAnalysis:
         self.writers: dict[Var, list[Action]] = {}
         self.inv_vars: dict[int, set[Var]] = {}
         self.readers: dict[Var, list[Invariant]] = {}
+        self.flags: dict[Var, bool] = {}
+        self.disablers: dict[Var, set[int]] = {}
         try:
             for action in spec.actions:
                 self.action_vars[id(action)], self.lock_vars[id(action)] = _action_vars(
@@ -286,6 +428,19 @@ class SliceAnalysis:
                 self.inv_vars[id(inv)] = found
                 for var in found:
                     self.readers.setdefault(var, []).append(inv)
+            self.flags = _disable_only_flags(spec)
+            # flag → ids of the actions that only switch it off there
+            self.disablers: dict[Var, set[int]] = {
+                var: {
+                    id(action)
+                    for action in self.writers.get(var, ())
+                    for e in action.effect
+                    if isinstance(e, Set)
+                    and (_target_key(e), e.field.field_name) == var
+                    and e.value == off
+                }
+                for var, off in self.flags.items()
+            }
         except _Unsliceable:
             self.sliceable = False
 
@@ -298,18 +453,22 @@ class SliceAnalysis:
                 _pred_vars(pred, seed)
         except _Unsliceable:
             return self.whole
-        return self._resolve(seed, (), (), locks=locks, canonical=canonical)
+        # a flag the property itself reads keeps every writer: switching it
+        # off is then an observable change, not just a disabled guard
+        keep = frozenset(seed & self.flags.keys())
+        return self._resolve(seed, (), (), locks=locks, canonical=canonical, keep=keep)
 
     def invariant_slice(self, inv: Invariant, *, unconstrained: bool = False) -> Slice:
         if not self.sliceable:
             return self.whole
         seed = set(self.inv_vars[id(inv)])
+        keep = frozenset(seed & self.flags.keys())  # the invariant reads them
         if unconstrained:
             # no invariant inside, not even this one: the unconstrained model
             # prunes nothing, and invariants over the same variables then share
             # one exploration (the invariant is checked over its states)
-            return self._close(seed, (), (), constrained=False)
-        return self._resolve(seed, (), (inv,), canonical=True)
+            return self._close(seed, (), (), constrained=False, keep=keep)
+        return self._resolve(seed, (), (inv,), canonical=True, keep=keep)
 
     def action_slice(self, action: Action, *, canonical: bool) -> Slice:
         """The cone of an action itself — for its fireability and defects."""
@@ -343,14 +502,15 @@ class SliceAnalysis:
         *,
         locks: bool = False,
         canonical: bool,
+        keep: frozenset = frozenset(),
     ) -> Slice:
         if not self.sliceable:
             return self.whole
         if canonical:
-            free = self._close(seed, actions, invariants, locks=locks, constrained=False)
+            free = self._close(seed, actions, invariants, locks=locks, constrained=False, keep=keep)
             if self.is_exact(free):
                 return free
-        return self._close(seed, actions, invariants, locks=locks, constrained=True)
+        return self._close(seed, actions, invariants, locks=locks, constrained=True, keep=keep)
 
     def _close(
         self,
@@ -360,6 +520,7 @@ class SliceAnalysis:
         *,
         locks: bool = False,
         constrained: bool,
+        keep: frozenset = frozenset(),
     ) -> Slice:
         """The least closed variable set containing ``seed``.
 
@@ -372,7 +533,20 @@ class SliceAnalysis:
         slices pass ``locks=True``.
 
         Invariants mentioning a slice variable join only when ``constrained``
-        (see the class docstring)."""
+        (see the class docstring).
+
+        Disable-only writes join only with ``locks`` or for a flag in ``keep``.
+        A writer that merely switches a flag (``self.flags``) off — a spent
+        one-time code — joins through that flag no more: the flag is read only
+        antitonically, so a slice state is at least as enabled as the full one
+        (every guard that held still holds; an enabler re-setting it is a
+        stutter there), and every slice trace is a real one. A writer still
+        joins through any other variable it writes. Like a closed lock, a
+        switched-off flag can create dead ends, hence ``locks``; and a property
+        reading the flag would see the difference, hence ``keep``. An invariant
+        reading it is either proven (an exact unconstrained slice requires
+        that, and a proven invariant prunes nothing) or, in a constrained
+        slice, keeps its writers."""
         in_actions = {id(a) for a in actions}
         in_invariants = {id(i) for i in invariants}
         variables: set[Var] = set()
@@ -382,7 +556,20 @@ class SliceAnalysis:
             if var in variables:
                 continue
             variables.add(var)
+            # in a constrained slice an invariant reading the flag may prune on
+            # it, so its writers stay; an unconstrained slice is exact only
+            # while those invariants are proven, and a proven one never prunes
+            skip = (
+                self.disablers.get(var, ())
+                if var in self.flags
+                and not locks
+                and var not in keep
+                and not (constrained and var in self.readers)
+                else ()
+            )
             for action in self.writers.get(var, ()):
+                if id(action) in skip:
+                    continue  # it only switches the flag off (see above)
                 if id(action) not in in_actions:
                     in_actions.add(id(action))
                     work.extend(self.action_vars[id(action)])

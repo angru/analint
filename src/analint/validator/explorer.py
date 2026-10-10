@@ -893,6 +893,9 @@ def explore_slice(
             reuse_superset
             and not exp.capped
             and piece.vars <= used.vars
+            # more variables need not mean more actions: an effectless action,
+            # or a writer that only switches a flag off, joins only its own slice
+            and {id(a) for a in piece.actions} <= {id(a) for a in used.actions}
             and analysis.is_exact(used)
         ):
             return exp, used

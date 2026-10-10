@@ -196,6 +196,13 @@ own slice for defect parity and DeadActions. Do not regress:
   non-exact slice is re-checked constrained. Non-exact explorations contribute
   no findings. Trust is per canonical roots; own-root queries are always
   constrained;
+- disable-only writers: a writer that only sets a *flag* (`SliceAnalysis.flags`)
+  to its `off` value does not join a slice through it. A flag is constant-written,
+  read only antitonically in `pre` (or by a boolean enabler) and never in
+  post/RHS/payloads; a lifecycle flag only ever written `off`. NoDeadEnd slices,
+  properties reading the flag and constrained slices whose invariants read it
+  keep those writers. Slice identity (cache key, superset reuse) includes the
+  action set;
 - the one documented divergence: the whole model counts a state that breaks an
   invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does
   not. That violation still fails the run in its own invariant's slice;

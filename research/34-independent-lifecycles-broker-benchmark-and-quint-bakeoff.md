@@ -245,6 +245,43 @@ removed by an exact argument:
 Both are pinned by planted probes; the over-trusting and under-trusting
 mutations each fail one.
 
+**Refinement 3 — disable-only writers (2026-10-10, found on M5/M6).** A
+one-time security code is spent by every process (cash withdrawals, method
+payouts, partner changes and reward withdrawals). Closing the profile is
+read by almost every guard. Either way, every slice that reads one of them
+pulls in all the processes that write it. A *flag* is a field that:
+- is only ever written to constants;
+- is read by no postcondition, effect right-hand side or payload;
+- is read in `pre` only antitonically w.r.t. one `off` value (`code`,
+  `status == ACTIVE`, `x != off`, an `In` without `off`), or by an
+  *enabler* that only switches a boolean flag back on.
+
+A lifecycle field qualifies only when every write is `off`. A writer that
+only sets a flag `off` joins a slice through that flag no more.
+
+Exactness: slice states are real (the dropped writers simply do not fire).
+Every full state is matched by a slice state that agrees off the flags and
+is at least as *on*, because:
+- antitone guards that held still hold;
+- an enabler is a stutter there;
+- writes of other values happen on both sides.
+
+Hence it is exact for reachability, invariants, fireability and defects.
+Like a closed lock, it is not exact for `NoDeadEnd`, so NoDeadEnd slices
+keep the writers. A property that reads the flag keeps them too (it would
+see the difference). An invariant reading the flag is harmless in an
+unconstrained slice: exactness there already requires it proven, and a
+proven invariant prunes nothing. A constrained slice keeps the writers.
+Five probes pin the conditions, and each mutation (no `keep`, any negative
+guard allowed, NoDeadEnd skipping, constrained skipping, refinement off)
+fails one.
+
+Slice exploration caching and reuse had to learn that a variable set no
+longer determines the actions. The cache key now includes the action set,
+and superset reuse requires the superset's actions. Both bugs were caught
+by the existing gates (broker conformance; M4–M6 well-formedness). The
+reuse bug also affected effectless actions before.
+
 **Known limit:** a cross-cutting property, such as a sum over all accounts or
 an invariant reading a hub field written by many actions, gets a large cone,
 and the explosion returns. The broker benchmark is meant to measure how often
@@ -568,6 +605,25 @@ in all of them. Like the terminal lock, the spenders only ever *disable*
 (set the code to false). Whether "disable-only writers" can be dropped
 exactly is an open engine question for E; it would need a monotonicity
 argument over how the code is read.
+
+*Refinement 3 result (2026-10-10).* Full M5/M6, sliced, 100k states per
+check:
+
+| | before | disable-only writers |
+|---|---|---|
+| M5 invariants proven | 4 / 14 | 10 / 14 |
+| M6 invariants proven | 4 / 17 | 13 / 17 |
+| `rewards_are_conserved` | INCONCLUSIVE (whole model) | PASS on 192 states (13 actions) |
+| payment-method invariants | INCONCLUSIVE | PASS on 38,852 states — exactly the TLC-checked profile × methods coupling |
+| M3 money invariants | 15,912 states | 11,292 (closing the profile no longer joins) |
+
+The four still undecided are the risk invariants. Their slice is the risk
+increment × client verification (72 actions): opening a risk account and
+choosing leverage read the tier, so this is a genuine product. At M6
+capacity the risk increment alone has 4,440,789 states (TLC-checked), so
+even 1M states per check (10 min, 1.44 GiB RSS with R4) leaves them
+INCONCLUSIVE. 10 of 13 queries pass at that budget. This is the remaining
+case for E: a genuinely coupled cone of ~10^7–10^8 states.
 
 **E. Decision synthesis (new research note).** Inputs: tables from B2 and D.
 Possible outcomes:

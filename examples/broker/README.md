@@ -189,15 +189,17 @@ informational; comparisons are within one runner and repeat count. Full records
 live in `benchmarks/broker/results-10000.json`.
 The corresponding 2k runs are in `benchmarks/broker/results-2000.json`.
 
-Initial measurement (macOS arm64, CPython 3.14.5, median of two runs, no profiling
-during timing; engine of 2026-10-10 before the compact state keys and compiled
-predicates — research/36 §2 has the later A/B numbers):
+Measurement (macOS arm64, CPython 3.14.5, median of two runs, no profiling
+during timing; idle machine). Engine of 2026-10-10 after the compact state
+keys and compiled predicates; the first measurement (revision bae44d0) is in
+parentheses. Every verdict, summary and per-check state count is identical
+between the two.
 
 | Increment | actions | 2k budget sliced / whole | 10k budget sliced / whole | peak MiB at 10k sliced / whole | KYC invariants |
 |---|---:|---|---|---|---|
-| M4 | 93 | 0.98 / 0.37 s | 6.36 / 2.04 s | 291 / 70 | 4 PASS on 22 states |
-| M5 | 105 | 0.98 / 0.38 s | 6.08 / 2.01 s | 329 / 73 | 4 PASS on 22 states |
-| M6 | 129 | 1.08 / 0.46 s | 6.52 / 2.35 s | 391 / 91 | 4 PASS on 22 states |
+| M4 | 93 | 0.55 / 0.25 s (0.98 / 0.37) | 3.10 / 1.27 s (6.36 / 2.04) | 68 / 16 (291 / 70) | 4 PASS on 22 states |
+| M5 | 105 | 0.53 / 0.26 s (0.98 / 0.38) | 2.91 / 1.24 s (6.08 / 2.01) | 80 / 18 (329 / 73) | 4 PASS on 22 states |
+| M6 | 129 | 0.60 / 0.30 s (1.08 / 0.46) | 3.15 / 1.49 s (6.52 / 2.35) | 85 / 20 (391 / 91) | 4 PASS on 22 states |
 
 **All six composed runs are INCONCLUSIVE.** Whole-model verification proves
 none of the KYC invariants before the cap; slicing proves all four, but spends
@@ -212,7 +214,8 @@ does not make this coupled model fully tractable. These capped measurements
 do not give the total state-space size or justify a native/export backend yet.
 First measure the distinct large cones at larger budgets on a controlled runner,
 and resolve the modelling boundaries above before drawing a product decision.
-Peak traced allocations reach 391 MiB for M6 with multiple capped slices versus
-91 MiB for one capped whole-model exploration. This motivates profiling retained
+Peak traced allocations reached 391 MiB for M6 with multiple capped slices
+versus 91 MiB for one capped whole-model exploration (85 / 20 MiB after the
+compact state keys). This motivates profiling retained
 graphs/state storage (R4); it does not prove that a compact store can finish the
 unexplored state product.

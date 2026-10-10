@@ -1,9 +1,9 @@
 {
   "meta": {
-    "revision": "bae44d0935378eb7e851b1d213028b5395f9f15c",
-    "working_tree_dirty": true,
-    "model_sha256": "87eafa5a43183ab6a556e0b49417074d58973a6cb231786663e9e3af47f23a18",
-    "engine_sha256": "a6d292cf57c4f3ccd42421368b2c024d4c52a3596e0770f0db151b5882a5c224",
+    "revision": "aadf1ae876519a77d44d8d9047f16f43cdba6af3",
+    "working_tree_dirty": false,
+    "model_sha256": "59c5a2fc04f3fb1544247492a7b29359736b801dd7685464630a37b8d3a19f19",
+    "engine_sha256": "aa9dd7dec1a645bf4c20c33f65e7a241cce9d1ecc87b40270c8509adcbf03464",
     "python": "3.14.5",
     "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
     "repeats": 2,
@@ -19,8 +19,8 @@
       "actions": 93,
       "scenarios": 58,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 0.978134,
-      "median_seconds": 0.981599,
+      "min_seconds": 0.54325,
+      "median_seconds": 0.549837,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 58,
@@ -44,7 +44,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 1.361,
+          "elapsed_ms": 0.666,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -66,7 +66,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.076,
+          "elapsed_ms": 0.043,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -88,7 +88,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.057,
+          "elapsed_ms": 0.034,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -110,7 +110,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.06,
+          "elapsed_ms": 0.034,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -132,7 +132,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 209.414,
+          "elapsed_ms": 92.218,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -173,7 +173,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 10.518,
+          "elapsed_ms": 8.616,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -214,7 +214,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 9.129,
+          "elapsed_ms": 6.518,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -255,7 +255,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 7.437,
+          "elapsed_ms": 5.62,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -296,7 +296,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 8.594,
+          "elapsed_ms": 6.317,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -337,7 +337,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 130.241,
+          "elapsed_ms": 67.742,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -406,7 +406,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 7.601,
+          "elapsed_ms": 6.076,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -475,7 +475,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 9.882,
+          "elapsed_ms": 8.524,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -544,7 +544,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 12.677,
+          "elapsed_ms": 9.403,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -612,7 +612,7 @@
           "id": "verification_can_complete",
           "status": "PASS",
           "states_explored": 2002,
-          "elapsed_ms": 2.089,
+          "elapsed_ms": 2.031,
           "trace": [
             "confirm_contacts",
             "fill_details",
@@ -665,7 +665,7 @@
           "id": "final_rejection_can_happen",
           "status": "PASS",
           "states_explored": 2002,
-          "elapsed_ms": 1.984,
+          "elapsed_ms": 1.99,
           "trace": [
             "confirm_contacts",
             "fill_details",
@@ -718,7 +718,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 0.168,
+          "elapsed_ms": 0.152,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -758,7 +758,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 4.495,
+          "elapsed_ms": 4.733,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -798,7 +798,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2002,
-          "elapsed_ms": 3.429,
+          "elapsed_ms": 3.512,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -847,7 +847,7 @@
           "id": "money_round_trip",
           "status": "PASS",
           "states_explored": 2002,
-          "elapsed_ms": 2.082,
+          "elapsed_ms": 2.075,
           "trace": [
             "confirm_contacts",
             "fill_details",
@@ -900,7 +900,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2002,
-          "elapsed_ms": 3.395,
+          "elapsed_ms": 3.384,
           "trace": null,
           "slice": {
             "actions": 33,
@@ -940,7 +940,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.287,
+          "elapsed_ms": 3.281,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -1008,7 +1008,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.027,
+          "elapsed_ms": 2.978,
           "trace": null,
           "slice": {
             "actions": 93,
@@ -1076,7 +1076,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 4007,
-          "elapsed_ms": 0.16,
+          "elapsed_ms": 0.086,
           "trace": null,
           "slice": {
             "per_action": true,
@@ -1103,8 +1103,8 @@
       "actions": 93,
       "scenarios": 58,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 0.364109,
-      "median_seconds": 0.367681,
+      "min_seconds": 0.248037,
+      "median_seconds": 0.248455,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 58,
@@ -1128,7 +1128,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 235.046,
+          "elapsed_ms": 145.085,
           "trace": null,
           "findings": [
             {
@@ -1144,7 +1144,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.702,
+          "elapsed_ms": 2.024,
           "trace": null,
           "findings": [
             {
@@ -1160,7 +1160,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.047,
+          "elapsed_ms": 1.672,
           "trace": null,
           "findings": [
             {
@@ -1176,7 +1176,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 2.995,
+          "elapsed_ms": 1.671,
           "trace": null,
           "findings": [
             {
@@ -1192,7 +1192,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 8.829,
+          "elapsed_ms": 3.211,
           "trace": null,
           "findings": [
             {
@@ -1208,7 +1208,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 10.925,
+          "elapsed_ms": 9.046,
           "trace": null,
           "findings": [
             {
@@ -1224,7 +1224,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 8.889,
+          "elapsed_ms": 7.332,
           "trace": null,
           "findings": [
             {
@@ -1240,7 +1240,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 7.489,
+          "elapsed_ms": 6.283,
           "trace": null,
           "findings": [
             {
@@ -1256,7 +1256,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 8.467,
+          "elapsed_ms": 6.815,
           "trace": null,
           "findings": [
             {
@@ -1272,7 +1272,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 9.868,
+          "elapsed_ms": 8.259,
           "trace": null,
           "findings": [
             {
@@ -1288,7 +1288,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 7.666,
+          "elapsed_ms": 6.071,
           "trace": null,
           "findings": [
             {
@@ -1304,7 +1304,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 9.729,
+          "elapsed_ms": 8.231,
           "trace": null,
           "findings": [
             {
@@ -1320,7 +1320,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 12.454,
+          "elapsed_ms": 9.202,
           "trace": null,
           "findings": [
             {
@@ -1335,7 +1335,7 @@
           "id": "verification_can_complete",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 1.962,
+          "elapsed_ms": 1.919,
           "trace": null,
           "findings": [
             {
@@ -1350,7 +1350,7 @@
           "id": "final_rejection_can_happen",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 1.898,
+          "elapsed_ms": 1.935,
           "trace": null,
           "findings": [
             {
@@ -1365,7 +1365,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 0.071,
+          "elapsed_ms": 0.061,
           "trace": null,
           "findings": [
             {
@@ -1380,7 +1380,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.3,
+          "elapsed_ms": 3.308,
           "trace": null,
           "findings": [
             {
@@ -1395,7 +1395,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2005,
-          "elapsed_ms": 2.695,
+          "elapsed_ms": 2.815,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -1419,7 +1419,7 @@
           "id": "money_round_trip",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 2.023,
+          "elapsed_ms": 1.962,
           "trace": null,
           "findings": [
             {
@@ -1434,7 +1434,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 3.313,
+          "elapsed_ms": 3.358,
           "trace": null,
           "findings": [
             {
@@ -1449,7 +1449,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 2.994,
+          "elapsed_ms": 2.992,
           "trace": null,
           "findings": [
             {
@@ -1464,7 +1464,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 2.771,
+          "elapsed_ms": 2.838,
           "trace": null,
           "findings": [
             {
@@ -1479,7 +1479,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 2005,
-          "elapsed_ms": 0.078,
+          "elapsed_ms": 0.067,
           "trace": null,
           "findings": [
             {
@@ -1502,8 +1502,8 @@
       "actions": 105,
       "scenarios": 72,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 0.963252,
-      "median_seconds": 0.976098,
+      "min_seconds": 0.528395,
+      "median_seconds": 0.529719,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 72,
@@ -1527,7 +1527,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 1.233,
+          "elapsed_ms": 0.734,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -1549,7 +1549,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.071,
+          "elapsed_ms": 0.043,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -1571,7 +1571,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.056,
+          "elapsed_ms": 0.034,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -1593,7 +1593,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.06,
+          "elapsed_ms": 0.034,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -1615,7 +1615,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 166.562,
+          "elapsed_ms": 80.226,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -1663,7 +1663,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 9.298,
+          "elapsed_ms": 7.518,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -1711,7 +1711,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 7.246,
+          "elapsed_ms": 5.524,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -1759,7 +1759,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 6.384,
+          "elapsed_ms": 5.031,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -1807,7 +1807,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 7.27,
+          "elapsed_ms": 5.337,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -1855,7 +1855,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 163.4,
+          "elapsed_ms": 74.392,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -1931,7 +1931,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 7.211,
+          "elapsed_ms": 5.66,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -2007,7 +2007,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 8.628,
+          "elapsed_ms": 7.427,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -2083,7 +2083,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 11.634,
+          "elapsed_ms": 8.569,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -2159,7 +2159,7 @@
           "label": "RewardWallet.earned == (RewardWallet.accrued + RewardWallet.paid)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.317,
+          "elapsed_ms": 2.09,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2206,7 +2206,7 @@
           "id": "verification_can_complete",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.344,
+          "elapsed_ms": 2.173,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2253,7 +2253,7 @@
           "id": "final_rejection_can_happen",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 1.998,
+          "elapsed_ms": 2.021,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2300,7 +2300,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 0.194,
+          "elapsed_ms": 0.171,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2347,7 +2347,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.652,
+          "elapsed_ms": 3.712,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2394,7 +2394,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2000,
-          "elapsed_ms": 2.963,
+          "elapsed_ms": 3.071,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -2450,7 +2450,7 @@
           "id": "money_round_trip",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.151,
+          "elapsed_ms": 2.075,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2497,7 +2497,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.421,
+          "elapsed_ms": 3.414,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2544,7 +2544,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.373,
+          "elapsed_ms": 3.269,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -2619,7 +2619,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.001,
+          "elapsed_ms": 2.991,
           "trace": null,
           "slice": {
             "actions": 105,
@@ -2694,7 +2694,7 @@
           "id": "blocked_partner_can_withdraw_accrual",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.989,
+          "elapsed_ms": 2.996,
           "trace": null,
           "slice": {
             "actions": 45,
@@ -2741,7 +2741,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 4008,
-          "elapsed_ms": 0.126,
+          "elapsed_ms": 0.099,
           "trace": null,
           "slice": {
             "per_action": true,
@@ -2768,8 +2768,8 @@
       "actions": 105,
       "scenarios": 72,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 0.37727,
-      "median_seconds": 0.382502,
+      "min_seconds": 0.25495,
+      "median_seconds": 0.256687,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 72,
@@ -2793,7 +2793,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 247.311,
+          "elapsed_ms": 154.713,
           "trace": null,
           "findings": [
             {
@@ -2809,7 +2809,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.726,
+          "elapsed_ms": 2.072,
           "trace": null,
           "findings": [
             {
@@ -2825,7 +2825,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.011,
+          "elapsed_ms": 1.638,
           "trace": null,
           "findings": [
             {
@@ -2841,7 +2841,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.026,
+          "elapsed_ms": 1.653,
           "trace": null,
           "findings": [
             {
@@ -2857,7 +2857,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 8.793,
+          "elapsed_ms": 3.245,
           "trace": null,
           "findings": [
             {
@@ -2873,7 +2873,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 10.053,
+          "elapsed_ms": 8.469,
           "trace": null,
           "findings": [
             {
@@ -2889,7 +2889,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 7.997,
+          "elapsed_ms": 6.681,
           "trace": null,
           "findings": [
             {
@@ -2905,7 +2905,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 6.983,
+          "elapsed_ms": 5.832,
           "trace": null,
           "findings": [
             {
@@ -2921,7 +2921,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 7.884,
+          "elapsed_ms": 6.257,
           "trace": null,
           "findings": [
             {
@@ -2937,7 +2937,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 8.614,
+          "elapsed_ms": 7.317,
           "trace": null,
           "findings": [
             {
@@ -2953,7 +2953,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 7.259,
+          "elapsed_ms": 5.627,
           "trace": null,
           "findings": [
             {
@@ -2969,7 +2969,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 8.546,
+          "elapsed_ms": 7.31,
           "trace": null,
           "findings": [
             {
@@ -2985,7 +2985,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 11.457,
+          "elapsed_ms": 8.485,
           "trace": null,
           "findings": [
             {
@@ -3001,7 +3001,7 @@
           "label": "RewardWallet.earned == (RewardWallet.accrued + RewardWallet.paid)",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.45,
+          "elapsed_ms": 2.043,
           "trace": null,
           "findings": [
             {
@@ -3016,7 +3016,7 @@
           "id": "verification_can_complete",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 2.003,
+          "elapsed_ms": 1.923,
           "trace": null,
           "findings": [
             {
@@ -3031,7 +3031,7 @@
           "id": "final_rejection_can_happen",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 1.917,
+          "elapsed_ms": 1.945,
           "trace": null,
           "findings": [
             {
@@ -3046,7 +3046,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 0.09,
+          "elapsed_ms": 0.083,
           "trace": null,
           "findings": [
             {
@@ -3061,7 +3061,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.118,
+          "elapsed_ms": 3.208,
           "trace": null,
           "findings": [
             {
@@ -3076,7 +3076,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2008,
-          "elapsed_ms": 2.613,
+          "elapsed_ms": 2.719,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -3100,7 +3100,7 @@
           "id": "money_round_trip",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 1.996,
+          "elapsed_ms": 2.026,
           "trace": null,
           "findings": [
             {
@@ -3115,7 +3115,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 3.092,
+          "elapsed_ms": 3.139,
           "trace": null,
           "findings": [
             {
@@ -3130,7 +3130,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 2.995,
+          "elapsed_ms": 3.001,
           "trace": null,
           "findings": [
             {
@@ -3145,7 +3145,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 2.797,
+          "elapsed_ms": 2.819,
           "trace": null,
           "findings": [
             {
@@ -3160,7 +3160,7 @@
           "id": "blocked_partner_can_withdraw_accrual",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 2.857,
+          "elapsed_ms": 2.789,
           "trace": null,
           "findings": [
             {
@@ -3175,7 +3175,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 2008,
-          "elapsed_ms": 0.098,
+          "elapsed_ms": 0.084,
           "trace": null,
           "findings": [
             {
@@ -3198,8 +3198,8 @@
       "actions": 129,
       "scenarios": 86,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 1.075382,
-      "median_seconds": 1.076121,
+      "min_seconds": 0.595843,
+      "median_seconds": 0.602888,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 86,
@@ -3223,7 +3223,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 1.357,
+          "elapsed_ms": 0.782,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -3245,7 +3245,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.072,
+          "elapsed_ms": 0.045,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -3267,7 +3267,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.057,
+          "elapsed_ms": 0.035,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -3289,7 +3289,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "PASS",
           "states_explored": 22,
-          "elapsed_ms": 0.06,
+          "elapsed_ms": 0.036,
           "trace": null,
           "slice": {
             "actions": 13,
@@ -3311,7 +3311,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 149.006,
+          "elapsed_ms": 63.666,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -3378,7 +3378,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 9.019,
+          "elapsed_ms": 7.76,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -3445,7 +3445,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 5.94,
+          "elapsed_ms": 5.243,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -3512,7 +3512,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 5.701,
+          "elapsed_ms": 5.046,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -3579,7 +3579,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 7.599,
+          "elapsed_ms": 5.895,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -3646,7 +3646,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 193.431,
+          "elapsed_ms": 80.834,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -3741,7 +3741,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 7.047,
+          "elapsed_ms": 5.32,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -3836,7 +3836,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 6.258,
+          "elapsed_ms": 5.497,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -3931,7 +3931,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 10.037,
+          "elapsed_ms": 7.716,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -4026,7 +4026,7 @@
           "label": "RewardWallet.earned == (RewardWallet.accrued + RewardWallet.paid)",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 3.471,
+          "elapsed_ms": 2.216,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4093,7 +4093,7 @@
           "label": "MethodLedger.funded == ((MethodLedger.balance + MethodLedger.paid) + SUM method IN methods: method.held)",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 9.904,
+          "elapsed_ms": 8.959,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4160,7 +4160,7 @@
           "label": "FORALL method IN methods: AND(IF method.request == RequestStatus.IDLE THEN method.held == 0, IF method.request == RequestStatus.REQUESTED THEN method.held == 1)",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 16.025,
+          "elapsed_ms": 11.383,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4227,7 +4227,7 @@
           "label": "COUNT method IN methods: PRESENT(method) <= Capacity.methods",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 4.754,
+          "elapsed_ms": 3.024,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4293,7 +4293,7 @@
           "id": "verification_can_complete",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 2.18,
+          "elapsed_ms": 2.082,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4359,7 +4359,7 @@
           "id": "final_rejection_can_happen",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 2.104,
+          "elapsed_ms": 2.068,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4425,7 +4425,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 0.283,
+          "elapsed_ms": 0.251,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4491,7 +4491,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 2.434,
+          "elapsed_ms": 2.469,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4557,7 +4557,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2001,
-          "elapsed_ms": 2.224,
+          "elapsed_ms": 2.29,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -4632,7 +4632,7 @@
           "id": "money_round_trip",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 2.185,
+          "elapsed_ms": 2.148,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4698,7 +4698,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 3.622,
+          "elapsed_ms": 3.593,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -4764,7 +4764,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.412,
+          "elapsed_ms": 3.351,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -4858,7 +4858,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.634,
+          "elapsed_ms": 2.588,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -4952,7 +4952,7 @@
           "id": "blocked_partner_can_withdraw_accrual",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 3.029,
+          "elapsed_ms": 2.967,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -5018,7 +5018,7 @@
           "id": "two_methods_can_hold_payouts",
           "status": "INCONCLUSIVE",
           "states_explored": 2001,
-          "elapsed_ms": 4.807,
+          "elapsed_ms": 18.899,
           "trace": null,
           "slice": {
             "actions": 69,
@@ -5084,7 +5084,7 @@
           "id": "two_accounts_and_orders_can_coexist",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.767,
+          "elapsed_ms": 3.904,
           "trace": null,
           "slice": {
             "actions": 129,
@@ -5178,7 +5178,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 4001,
-          "elapsed_ms": 0.163,
+          "elapsed_ms": 0.136,
           "trace": null,
           "slice": {
             "per_action": true,
@@ -5205,8 +5205,8 @@
       "actions": 129,
       "scenarios": 86,
       "verdict": "INCONCLUSIVE",
-      "min_seconds": 0.459209,
-      "median_seconds": 0.460134,
+      "min_seconds": 0.301134,
+      "median_seconds": 0.301465,
       "peak_memory_bytes": null,
       "summary": {
         "passed": 86,
@@ -5230,7 +5230,7 @@
           "label": "FULL tier \u21d2 both documents approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 303.232,
+          "elapsed_ms": 173.415,
           "trace": null,
           "findings": [
             {
@@ -5246,7 +5246,7 @@
           "label": "both documents approved \u21d2 FULL tier",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.672,
+          "elapsed_ms": 2.002,
           "trace": null,
           "findings": [
             {
@@ -5262,7 +5262,7 @@
           "label": "a proof of address exists only after the identity document is approved",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.936,
+          "elapsed_ms": 1.641,
           "trace": null,
           "findings": [
             {
@@ -5278,7 +5278,7 @@
           "label": "documents are uploaded only after the economic profile",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.973,
+          "elapsed_ms": 1.64,
           "trace": null,
           "findings": [
             {
@@ -5294,7 +5294,7 @@
           "label": "deposits never exceed the verification tier's limit",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 8.675,
+          "elapsed_ms": 3.164,
           "trace": null,
           "findings": [
             {
@@ -5310,7 +5310,7 @@
           "label": "deposited = balances + payouts in flight + paid out",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 8.921,
+          "elapsed_ms": 7.485,
           "trace": null,
           "findings": [
             {
@@ -5326,7 +5326,7 @@
           "label": "an open real position always keeps its margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 5.727,
+          "elapsed_ms": 5.027,
           "trace": null,
           "findings": [
             {
@@ -5342,7 +5342,7 @@
           "label": "demo accounts never hold real money",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 5.51,
+          "elapsed_ms": 4.906,
           "trace": null,
           "findings": [
             {
@@ -5358,7 +5358,7 @@
           "label": "a closed profile holds no money",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 7.478,
+          "elapsed_ms": 5.835,
           "trace": null,
           "findings": [
             {
@@ -5374,7 +5374,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.leverage == Leverage.UNCAPPED THEN AND(risk_account.equity == Equity.SMALL, History.completed_trade == True)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 6.021,
+          "elapsed_ms": 5.407,
           "trace": null,
           "findings": [
             {
@@ -5390,7 +5390,7 @@
           "label": "IF Market.high_margin == True THEN FORALL risk_account IN risk_accounts: risk_account.effective_cap == EffectiveCap.LOW",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 6.606,
+          "elapsed_ms": 5.216,
           "trace": null,
           "findings": [
             {
@@ -5406,7 +5406,7 @@
           "label": "FORALL risk_account IN risk_accounts: IF risk_account.protection == Protection.PAID THEN AND(risk_account.fully_stopped == True, risk_account.equity == Equity.ZERO)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 6.004,
+          "elapsed_ms": 5.396,
           "trace": null,
           "findings": [
             {
@@ -5422,7 +5422,7 @@
           "label": "AND(COUNT risk_account IN risk_accounts: PRESENT(risk_account) <= Capacity.accounts, COUNT other_order IN orders: other_order.status == OrderStatus.OPEN <= Capacity.orders)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 9.94,
+          "elapsed_ms": 7.697,
           "trace": null,
           "findings": [
             {
@@ -5438,7 +5438,7 @@
           "label": "RewardWallet.earned == (RewardWallet.accrued + RewardWallet.paid)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.242,
+          "elapsed_ms": 2.043,
           "trace": null,
           "findings": [
             {
@@ -5454,7 +5454,7 @@
           "label": "MethodLedger.funded == ((MethodLedger.balance + MethodLedger.paid) + SUM method IN methods: method.held)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 9.719,
+          "elapsed_ms": 8.822,
           "trace": null,
           "findings": [
             {
@@ -5470,7 +5470,7 @@
           "label": "FORALL method IN methods: AND(IF method.request == RequestStatus.IDLE THEN method.held == 0, IF method.request == RequestStatus.REQUESTED THEN method.held == 1)",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 15.284,
+          "elapsed_ms": 10.954,
           "trace": null,
           "findings": [
             {
@@ -5486,7 +5486,7 @@
           "label": "COUNT method IN methods: PRESENT(method) <= Capacity.methods",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 4.635,
+          "elapsed_ms": 2.996,
           "trace": null,
           "findings": [
             {
@@ -5501,7 +5501,7 @@
           "id": "verification_can_complete",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.042,
+          "elapsed_ms": 1.996,
           "trace": null,
           "findings": [
             {
@@ -5516,7 +5516,7 @@
           "id": "final_rejection_can_happen",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 1.923,
+          "elapsed_ms": 1.943,
           "trace": null,
           "findings": [
             {
@@ -5531,7 +5531,7 @@
           "id": "verification_never_stuck",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 0.105,
+          "elapsed_ms": 0.089,
           "trace": null,
           "findings": [
             {
@@ -5546,7 +5546,7 @@
           "id": "no_cent_demo",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.162,
+          "elapsed_ms": 2.257,
           "trace": null,
           "findings": [
             {
@@ -5561,7 +5561,7 @@
           "id": "archived_account_exists",
           "status": "PASS",
           "states_explored": 2000,
-          "elapsed_ms": 2.013,
+          "elapsed_ms": 2.042,
           "trace": [
             "confirm_contacts",
             "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
@@ -5585,7 +5585,7 @@
           "id": "money_round_trip",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 1.994,
+          "elapsed_ms": 2.038,
           "trace": null,
           "findings": [
             {
@@ -5600,7 +5600,7 @@
           "id": "gated_region_deposits_only_when_verified",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.101,
+          "elapsed_ms": 3.086,
           "trace": null,
           "findings": [
             {
@@ -5615,7 +5615,7 @@
           "id": "verified_uncapped_during_high_margin",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.984,
+          "elapsed_ms": 3.043,
           "trace": null,
           "findings": [
             {
@@ -5630,7 +5630,7 @@
           "id": "negative_balance_can_be_protected",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.336,
+          "elapsed_ms": 2.321,
           "trace": null,
           "findings": [
             {
@@ -5645,7 +5645,7 @@
           "id": "blocked_partner_can_withdraw_accrual",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 2.779,
+          "elapsed_ms": 2.835,
           "trace": null,
           "findings": [
             {
@@ -5660,7 +5660,7 @@
           "id": "two_methods_can_hold_payouts",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 4.434,
+          "elapsed_ms": 4.603,
           "trace": null,
           "findings": [
             {
@@ -5675,7 +5675,7 @@
           "id": "two_accounts_and_orders_can_coexist",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 3.467,
+          "elapsed_ms": 3.518,
           "trace": null,
           "findings": [
             {
@@ -5690,7 +5690,7 @@
           "id": "every_action_is_usable",
           "status": "INCONCLUSIVE",
           "states_explored": 2000,
-          "elapsed_ms": 0.121,
+          "elapsed_ms": 0.112,
           "trace": null,
           "findings": [
             {

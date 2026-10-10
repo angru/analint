@@ -30,7 +30,13 @@ from analint.models.quantifier import (
     _Present,
     _Sum,
 )
-from analint.models.scope import field_context_key, is_field_ref, is_present, present_instances
+from analint.models.scope import (
+    InstanceRef,
+    field_context_key,
+    is_field_ref,
+    is_present,
+    present_instances,
+)
 
 Context = dict[Any, Any]
 
@@ -236,12 +242,14 @@ def _compile_operand(operand: Any) -> Any:
     if is_field_ref(operand):
         key = field_context_key(operand)
         name = operand.field_name
+        scoped = isinstance(key, InstanceRef)
 
         def field(ctx: Context, b: dict) -> Any:
             entity = ctx.get(key)
             if entity is None:
                 raise KeyError(f"Entity '{key!r}' not in scenario given")
-            if not is_present(ctx, key):
+            # is_present(ctx, key), inlined: the entity is already looked up
+            if scoped and not entity.__dict__.get("_analint_present", True):
                 raise KeyError(f"Entity '{key!r}' is absent")
             return getattr(entity, name)
 

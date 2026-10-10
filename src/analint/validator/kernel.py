@@ -120,7 +120,9 @@ class _Plan:
 def _plan(action: Action) -> _Plan:
     # Cached on the action: pre/effect are fixed after construction, and walking
     # their ASTs on every transition dominated exploration (research/34 §2.3).
-    plan = action._kernel_plan
+    # Read through __pydantic_private__: pydantic's __getattr__ for private
+    # attributes is a measurable cost at one call per transition.
+    plan = (action.__pydantic_private__ or {}).get("_kernel_plan")
     if plan is None:
         touched = frozenset(
             field_context_key(e.field)
@@ -167,8 +169,9 @@ def step(
     plan = _plan(action)
 
     # ── pre guards: a false/absent precondition rejects; an error is a defect ──
+    context_keys = context.keys()
     for pred, keys, holds in plan.guards:
-        if any(key not in context for key in keys):
+        if not context_keys >= keys:
             # the predicate reads an entity intentionally absent from this state
             return (
                 _rejected(action, f"PRE not applicable: {_describe(pred)}")

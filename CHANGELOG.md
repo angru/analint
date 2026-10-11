@@ -47,6 +47,8 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- An invariant never applicable in a *capped* exploration was reported
+  NOT_CHECKED ("never evaluable") instead of INCONCLUSIVE.
 - A parameterized action without an explicit `id` composed through
   `Contract` + `Spec(imports=...)` kept empty instance ids.
 

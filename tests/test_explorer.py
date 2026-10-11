@@ -5,11 +5,13 @@ import pytest
 from pydantic import ValidationError
 
 from analint import (
+    Absent,
     Action,
     Add,
     AlwaysHolds,
     Bound,
     Count,
+    Create,
     DeadActions,
     Entity,
     Event,
@@ -678,6 +680,34 @@ def test_invariant_inconclusive_when_exploration_is_capped():
     spec = _counter_spec(Invariant(_Counter.n >= 0, id="non_negative"))
     (res,), _ = _verify(spec, max_states=2)
     assert res.status == "INCONCLUSIVE"
+
+
+def test_capped_exploration_never_claims_an_invariant_is_never_evaluable():
+    class Gauge(Entity):
+        n: int = Field(0, ge=0, le=3)
+
+    class Seat(Entity):
+        taken: bool = False
+
+    seats = Scope(Seat, keys=["a"])
+    a = seats["a"]
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Gauge, Seat],
+        scopes=[seats],
+        actions=[
+            Action(id="tick", pre=[Gauge.n < 3], effect=[Add(Gauge.n, 1)]),
+            # the seat appears only at n == 3, beyond a 2-state budget
+            Action(id="make", pre=[Gauge.n == 3], effect=[Create(a)]),
+        ],
+        invariants=[Invariant(a.taken == False, id="seat_free")],  # noqa: E712
+        initial=Initial(vary=[Gauge.n], where=[Gauge.n == 0], given=[Absent(a)]),
+    )
+    (capped,), _ = _verify(spec, max_states=2)
+    assert capped.status == "INCONCLUSIVE"
+    (full,), _ = _verify(spec)
+    assert full.status == "PASS"
 
 
 def test_invariant_not_checked_when_canonical_state_cannot_be_built():

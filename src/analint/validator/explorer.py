@@ -1152,7 +1152,9 @@ def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> Inv
     """The verdict of an invariant that no explored state violated."""
     label = inv.label or _describe(inv.expression)
     loc = f"invariant:{inv.id}"
-    if not evaluated:
+    # "never evaluable" is a claim about every reachable state: a capped or
+    # partial exploration may simply not have reached an applicable one
+    if not evaluated and not exp.capped and not exp.excluded:
         return InvariantResult(
             invariant_id=inv.id,
             label=label,

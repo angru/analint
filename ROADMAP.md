@@ -298,8 +298,8 @@ snapshot-режима).
 - ✅ post-state шага становится pre-state следующего через общий transition kernel
 - ✅ «слои» как arbitrary snapshot deltas НЕ добавлены: только реальные действия
   через kernel (preconditions всегда соблюдены)
-- ⏳ exploration result artifact (roots/nodes/edges/findings/traces, completeness,
-  summary) как основа CLI/MCP/визуализации — отдельный follow-up, не model IR
+- ✅ exploration result artifact (roots/nodes/edges/findings/traces, completeness,
+  summary) как основа CLI/MCP/визуализации — done as P4.1 (`analint.exploration/v1`)
 
 #### P3. Семантическая честность словаря
 
@@ -367,7 +367,7 @@ consume меняет смысл `Event`; ломает state-chaining саги; �
 - event pool, time/concurrency primitives, `Computed`, refinement/overlays —
   remain gated on repeated real-evidence pain, which the two models did not produce
 
-#### P4. Self-contained model workbench — NEXT
+#### P4. Self-contained model workbench — ✅ complete
 
 Detailed implementation contract, JSON shape, tests and commit checkpoints:
 research/26.
@@ -564,11 +564,12 @@ Still deferred until later:
   state counts (2026-10-09). Optimize or design
   another backend only from measured scaling/property/consumer triggers.
 
-### P5. Property-local verification + broker benchmark — PROPOSED (2026-10-09)
+### P5. Property-local verification + broker benchmark — E PROPOSED (2026-10-11)
 
 Trigger: angru/analint#3 (independent lifecycles → whole-spec BFS pays for
 their product; local checks INCONCLUSIVE). Diagnosis, slice contract, sources
-and the Quint bake-off protocol: research/34. Awaiting review.
+and the Quint bake-off protocol: research/34. 0, A–D, R4 and R6 are done; the E
+decision is proposed (research/36 §4) and awaits the private-spec acceptance run.
 
 - **0. Explicit composition root (research/35; reopens the research/30 freeze
   of `Contract`/`Spec`)** — before B1, so the broker
@@ -693,7 +694,13 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     ~18% faster, graphs identical). Not the R4 store; research/34 §8 E
   - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
     ~1.8× end to end, differential-tested against the interpreter
-  - Draft synthesis of the measured inputs: research/36 (for review)
+  - Synthesis of the measured inputs: research/36 §1–§3
+  - **Proposed decision (2026-10-11, research/36 §4):** layered. By default,
+    analint with slicing and R4. `--tlc` (R6) is opt-in for cones beyond the
+    in-memory budget. R5 POR is deferred, with a measured trigger.
+    Product-sized cones are first a modelling question. Acceptance:
+    run `check` with and without `--tlc` on the private spec and apply the
+    §4 rule
   - ✅ **R4 compact state store** (2026-10-10): a state is its key (one 16-bit
     code per entity slot, value tuples interned per layout slot); contexts
     are rebuilt from keys on demand, parents/edges are integer arrays. Memory
@@ -714,7 +721,8 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     generator fails a test. It decides the open M4-risk and M6-profile queries in
     seconds. The full M4 risk cone still exceeds 30 min per check
     (research/36 §2.6). NoDeadEnd/DeadActions are not exported
-  - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
+  - **Returning-agent checkpoint (2026-10-10; superseded by the 2026-10-11
+    proposal above):** A/C, the M1–M3 Quint port,
     per-check timing, invariant state-diff traces and B2 fixtures are done.
     Start with E and the stored B2 records; do not restart M4–M6 implementation.
     First enumerate/reuse distinct large cones on a controlled runner with a

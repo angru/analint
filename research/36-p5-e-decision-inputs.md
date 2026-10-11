@@ -1,8 +1,8 @@
 # 36 — P5 E: decision inputs from the broker benchmark
 
 **Date:** 2026-10-10
-**Status:** draft for review — collects measurements for ROADMAP P5 E; it does
-not make the decision
+**Status:** decision proposed (§4, 2026-10-11), awaiting review and the
+acceptance run on the private spec; §1–§3 collect the measurements
 **Inputs:** research/34 §8 (A, B1, B2, C, D), research/35
 
 ## 1. Question
@@ -173,3 +173,49 @@ Fixed.
 Open: whether the private spec's coupled cones look like M4's money cone
 (product-sized) or like the KYC/risk cones (small). That decides between
 "analint + R4" and "analint + R6".
+
+## 4. Proposed decision (2026-10-11)
+
+**Layered, not either/or.** R4 and R6 are both implemented, and they cover
+different ranges:
+
+1. **Default: analint with slicing and the R4 store.** Every property kind
+   (including NoDeadEnd and DeadActions), scenarios, flows and traces are
+   decided in process, exactly. The practical ceiling is ~10^6 states per
+   cone on a laptop (R4: 2M states in 1.13 GiB at ~8k states/s). Slicing keeps
+   independent processes out of each other's cones, so for most properties
+   the cone, not the whole spec, sets the cost.
+2. **Opt-in second stage: `check --tlc` (R6).** For invariants and
+   Reachable/Unreachable/AlwaysHolds queries whose cone exceeds the budget, on
+   the same slice. The result is exact, or the export refuses. It is 5–10×
+   faster and disk-backed: ~10^8 states in hours (full M4: 2 h 16 min). It is
+   not the default because it needs Java and a TLC jar, costs a JVM start
+   per check, and has no form for NoDeadEnd/DeadActions.
+3. **R5 partial-order reduction: deferred.** Slicing already removes the
+   independent processes that POR would collapse for local properties. What
+   remains inside a coupled cone (e.g. two accounts' independent risk steps)
+   could still be reduced, but no measured property needs it yet. Trigger:
+   a real-spec cone beyond what `--tlc` finishes, or a NoDeadEnd/DeadActions
+   cone beyond the in-memory ceiling.
+4. **Model before engine.** The full M4 money cone is a product of separate
+   settlement abstractions (M3 cash, risk equity, method settlement).
+   Consolidating them would shrink it more than any reduction (research/34 §8
+   B2). A product-sized cone is first a question about the model.
+
+**Acceptance on the private spec** (the issue #3 trigger), run where the spec
+lives; nothing leaves the machine:
+
+```
+analint check <spec> -f json > plain.json
+analint check <spec> --tlc --tlc-timeout 1800 -f json > tlc.json
+```
+
+For each check, record `slice` (variables/actions), `states_explored`,
+`status`, `backend` and `elapsed_ms`. Decision rule:
+
+- everything PASS/FAIL without `--tlc` → nothing further; close P5;
+- INCONCLUSIVE decided by `--tlc` → done; document `--tlc` for that spec, and
+  consider per-check budgets;
+- TLC timeouts → look at which processes the cone couples. If they are
+  separate abstractions of one thing, change the model (4); otherwise
+  R5 is triggered.

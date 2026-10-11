@@ -535,6 +535,9 @@ best-documented version first; the upload is the last step, gated on explicit go
     final API cleanup, so the current artifacts were validated locally and in CI.
   - [x] Published `v0.0.1` through the GitHub Release workflow and PyPI Trusted
     Publishing; verified `uvx --from analint==0.0.1 analint --version`.
+  - [x] Released `v0.0.2` (2026-10-11) the same way: slicing, R4, `--tlc`,
+    invariant traces; breaking explicit composition root (research/35).
+    Verified `uvx --from analint==0.0.2 analint --version`.
 - [x] **Agent onboarding:** ship one portable, instruction-only `analint` skill
   in `skills/analint`; scripts, product-specific plugins and bundled MCP
   configuration remain deferred until installation friction or marketplace

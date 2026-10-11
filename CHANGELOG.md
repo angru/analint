@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format is based on
   are exported, on their slice, to TLA+ and decided by TLC (`backend: "tlc"`).
   The export mirrors the kernel exactly and refuses what it cannot mirror; a
   TLC-gated test pins state counts and verdicts against analint.
+- An INCONCLUSIVE result names the numeric fields in its slice that actions
+  change with no Field bound in that direction (the usual reason a state
+  space never closes). If there are none, it suggests raising `max_states`
+  or `--tlc`.
 - `check --max-states N` (MCP `max_states`) overrides every exploration budget
   for one run.
 - Warning for a behaviour object defined in a spec module but not part of the

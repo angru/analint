@@ -682,6 +682,50 @@ def test_invariant_inconclusive_when_exploration_is_capped():
     assert res.status == "INCONCLUSIVE"
 
 
+def _capped_hint(**field_kwargs) -> str:
+    class Meter(Entity):
+        up: int = Field(0, **field_kwargs)
+        down: int = Field(0, **field_kwargs)
+
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Meter],
+        actions=[
+            Action(id="inc", effect=[Add(Meter.up, 1)]),
+            Action(id="dec", effect=[Subtract(Meter.down, 1)]),
+        ],
+        invariants=[Invariant(Meter.up >= Meter.down, id="ordered")],
+    )
+    (res,), _ = _verify(spec, max_states=5)
+    assert res.status == "INCONCLUSIVE"
+    return res.findings[0].message
+
+
+def test_a_capped_exploration_names_the_fields_without_a_bound():
+    assert _capped_hint().endswith("Meter.down, Meter.up — bound them with Field(ge=..., le=...)")
+    # only the direction each field moves in needs a bound
+    assert "Meter.up —" in _capped_hint(ge=-99)
+    assert "Meter.down —" in _capped_hint(le=99)
+    assert _capped_hint(ge=-99, le=99).endswith("raise max_states, or decide it with --tlc")
+
+
+def test_a_capped_query_suggests_tlc_only_where_tlc_can_decide_it():
+    class Gauge(Entity):
+        n: int = Field(0, ge=0, le=99)
+
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Gauge],
+        actions=[Action(id="tick", pre=[Gauge.n < 99], effect=[Add(Gauge.n, 1)])],
+    )
+    reach = _run(Reachable(Gauge.n == 99, id="r", max_states=5), spec)
+    stuck = _run(NoDeadEnd(Gauge.n == 99, id="d", max_states=5), spec)
+    assert reach.findings[0].message.endswith("raise max_states, or decide it with --tlc")
+    assert stuck.findings[0].message.endswith("raise max_states")
+
+
 def test_capped_exploration_never_claims_an_invariant_is_never_evaluable():
     class Gauge(Entity):
         n: int = Field(0, ge=0, le=3)

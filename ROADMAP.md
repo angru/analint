@@ -319,8 +319,10 @@ consume меняет смысл `Event`; ломает state-chaining саги; �
   (закрыто ревью 4465e16)
 - ✅ `requires`: был Flow-ordering documentation, не операционный prerequisite;
   удалён в block C.
-- ⏳ предупреждение о потенциально безграничных числовых доменах — после общего
-  inconclusive verdict
+- ✅ предупреждение о потенциально безграничных числовых доменах (2026-10-11):
+  only on a capped exploration, naming the slice's fields that actions change
+  arithmetically with no Field bound in that direction; otherwise the hint is
+  "raise max_states" (plus `--tlc` where TLC can decide the check)
 - ⏳ операционный `on` (event dispatch) — только при подтверждении внешним
   evidence-кейсом, что state-протокола недостаточно (research/22 пункты 1–5)
 

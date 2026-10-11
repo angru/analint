@@ -25,12 +25,13 @@ from math import prod
 from time import perf_counter
 from typing import Any
 
-from analint.models.effect import Add, Set, Subtract
+from analint.models.effect import Add, Create, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
+from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.predicate import Predicate
-from analint.models.quantifier import BoundField, _Present
+from analint.models.quantifier import BoundField, _Present, _Sum
 from analint.models.query import (
     AlwaysHolds,
     DeadActions,
@@ -85,6 +86,7 @@ class Exploration:
         self.findings: list = []  # violations met en route
         self.excluded: dict = {}  # action id → why it is not explorable
         self.capped = False
+        self.growing: list[str] = []  # on a cap: numeric fields with no bound
         self._seen: set = set()
 
     # ── building ─────────────────────────────────────────────────────────────
@@ -669,6 +671,7 @@ def explore(
     while queue:
         if len(exp.keys) >= max_states:
             exp.capped = True
+            exp.growing = _growing_fields(spec)
             break
         idx, ctx = queue.popleft()
 
@@ -1180,7 +1183,8 @@ def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> Inv
                 Finding(
                     Severity.WARNING,
                     loc,
-                    "inconclusive: exploration hit max_states before the state space was exhausted",
+                    f"inconclusive: exploration hit max_states before the state space "
+                    f"was exhausted — {_cap_hint(exp, tlc=True)}",
                 )
             ],
         )
@@ -1553,7 +1557,59 @@ def _eval_dead_actions_sliced(
     )
 
 
+_ARITHMETIC = (_AddExpr, _SubExpr, _MulExpr, _Sum)
+
+
+def _growing_fields(spec: Spec) -> list[str]:
+    """Numeric fields that some action changes arithmetically with no Field
+    bound in that direction — the usual reason a state space never closes."""
+    found: set[str] = set()
+    for action in spec.actions:
+        for effect in action.effect:
+            writes: list[tuple[Any, Any, set[str]]] = []
+            if isinstance(effect, (Add, Subtract)):
+                amount, sign = effect.amount, 1 if isinstance(effect, Add) else -1
+                if isinstance(amount, (int, float)) and not isinstance(amount, bool):
+                    dirs = {"up"} if sign * amount > 0 else {"down"} if sign * amount < 0 else set()
+                else:
+                    dirs = {"up", "down"}
+                writes.append((*_field_owner(effect.field), dirs))
+            elif isinstance(effect, Set) and isinstance(effect.value, _ARITHMETIC):
+                writes.append((*_field_owner(effect.field), {"up", "down"}))
+            elif isinstance(effect, Create) and isinstance(effect.target, InstanceRef):
+                writes += [
+                    (effect.target.entity_cls, name, {"up", "down"})
+                    for name, value in effect.fields.items()
+                    if isinstance(value, _ARITHMETIC)
+                ]
+            for cls, name, dirs in writes:
+                fspec = all_fields(cls)[name].spec
+                if fspec is not None and fspec.values is not None:
+                    continue
+                upper = fspec is not None and (fspec.le is not None or fspec.lt is not None)
+                lower = fspec is not None and (fspec.ge is not None or fspec.gt is not None)
+                if ("up" in dirs and not upper) or ("down" in dirs and not lower):
+                    found.add(f"{cls.__name__}.{name}")
+    return sorted(found)
+
+
+def _field_owner(ref: Any) -> tuple[type, str]:
+    if isinstance(ref, InstanceField):
+        return ref.instance.entity_cls, ref.field_name
+    return ref.entity_cls, ref.field_name
+
+
+def _cap_hint(exp: Exploration, *, tlc: bool) -> str:
+    if exp.growing:
+        return (
+            f"these numeric fields change with no Field bound in that direction: "
+            f"{', '.join(exp.growing)} — bound them with Field(ge=..., le=...)"
+        )
+    return "raise max_states" + (", or decide it with --tlc" if tlc else "")
+
+
 def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
+    tlc = kind in {"Reachable", "Unreachable", "AlwaysHolds"}
     return QueryResult(
         query_id=qid,
         kind=kind,
@@ -1563,8 +1619,7 @@ def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
             Finding(
                 Severity.WARNING,
                 f"query:{qid}",
-                f"state space exceeded max_states={len(exp.states)} — "
-                f"add Field constraints to numeric fields or raise max_states",
+                f"state space exceeded max_states={len(exp.states)} — {_cap_hint(exp, tlc=tlc)}",
             )
         ],
     )

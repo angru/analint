@@ -776,8 +776,8 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 ## Status
 
-This is the **first public release (`0.0.1`)**. The engine and CLI are mature and
-covered by 350+ tests, but the API is not yet frozen and may change before `1.0` —
+This is an **early public release (`0.0.2`)**. The engine and CLI are mature and
+covered by 500+ tests, but the API is not yet frozen and may change before `1.0` —
 pin a version if you depend on it.
 
 analint performs **bounded reachability** over a finite state graph. It checks

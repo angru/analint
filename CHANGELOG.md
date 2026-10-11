@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.0.2] — 2026-10-11
+
+Scaling release: each check runs on its own slice of the model, states take
+far less memory, and checks the budget cannot finish can be handed to TLC.
+One breaking change: the model is exactly what `Spec` lists.
+
 ### Added
 
 - **Property slicing** (research/34 §5): `check` verifies every invariant and
@@ -29,6 +35,11 @@ All notable changes to this project are documented here. The format is based on
   or `--tlc`.
 - `check --max-states N` (MCP `max_states`) overrides every exploration budget
   for one run.
+- `analint trace` accepts a failing invariant: a canonical counterexample with
+  state diffs (`analint.trace/v1`, with `invariant` in place of `query`).
+  Traces follow the slice `check` decided on; `--no-slice` traces the whole
+  model.
+- Per-check timing: `elapsed_ms` in JSON, elapsed time in terminal output.
 - Warning for a behaviour object defined in a spec module but not part of the
   model.
 - `examples/broker`: a generic retail broker (verification, trading accounts,
@@ -49,10 +60,16 @@ All notable changes to this project are documented here. The format is based on
   invariants that could not be checked at all (`not checked`). JSON adds
   `invariants_inconclusive` and `invariants_not_checked`;
   `invariants_unchecked` remains their sum.
+- Quantified and aggregate invariants are evaluated over the present members
+  of a Scope; an absent member no longer makes them inapplicable. A direct
+  read of an absent slot still skips the invariant, as does a member missing
+  from a scenario `given`.
 - Explored states take 8–15× less memory: a state is a compact key, and its
   context is rebuilt on demand (research/36 R4).
 - Exploration is about 5× faster on whole-model runs (shared canonical
   exploration, copy-on-write effects, cached guard plans and state layout).
+  Guards and invariants are also compiled into closures, which mirror the
+  interpreter (another ~1.8×).
 
 ### Fixed
 
@@ -60,6 +77,8 @@ All notable changes to this project are documented here. The format is based on
   NOT_CHECKED ("never evaluable") instead of INCONCLUSIVE.
 - A parameterized action without an explicit `id` composed through
   `Contract` + `Spec(imports=...)` kept empty instance ids.
+- A long-lived process (MCP, repeated `--what-if` loads) could bind a
+  parameterized action from a collected one whose memory address was reused.
 
 ## [0.0.1] — 2026-06-21
 
@@ -98,4 +117,5 @@ test suite; this release makes them installable and documents their scope.
 - It deliberately does **not** model liveness or temporal "eventually"
   properties. This is a scope boundary, not a defect.
 
+[0.0.2]: https://github.com/angru/analint/releases/tag/v0.0.2
 [0.0.1]: https://github.com/angru/analint/releases/tag/v0.0.1

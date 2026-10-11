@@ -1,6 +1,6 @@
 # Contributing to analint
 
-Thanks for your interest in analint. This is an early public release (`0.0.1`):
+Thanks for your interest in analint. This is an early public release (`0.0.2`):
 issues, reproductions, and example specs are especially welcome.
 
 All new repository content — code, comments, docs, commit messages — is written in

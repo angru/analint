@@ -18,6 +18,11 @@ All notable changes to this project are documented here. The format is based on
 - Slices skip writers that only switch a flag off (a spent one-time code, a
   closed profile): processes that share such a flag no longer join each
   other's slices. Exact; NoDeadEnd and properties reading the flag keep them.
+- `check --tlc` (MCP `tlc`, research/36 R6): invariants and
+  Reachable/Unreachable/AlwaysHolds queries that the budget left INCONCLUSIVE
+  are exported, on their slice, to TLA+ and decided by TLC (`backend: "tlc"`).
+  The export mirrors the kernel exactly and refuses what it cannot mirror; a
+  TLC-gated test pins state counts and verdicts against analint.
 - `check --max-states N` (MCP `max_states`) overrides every exploration budget
   for one run.
 - Warning for a behaviour object defined in a spec module but not part of the

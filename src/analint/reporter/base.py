@@ -62,6 +62,7 @@ class QueryResult:
     witness_key: Any = None
     # the slice the query was checked on (research/34 §5); None = whole model
     slice: dict | None = None
+    backend: str | None = None  # "tlc" when `check --tlc` decided it (research/36 R6)
     # Wall time spent by this check, including exploration on cache misses.
     # Shared work is charged only when performed; None means not measured.
     elapsed_ms: float | None = None
@@ -82,6 +83,7 @@ class InvariantResult:
     states_explored: int = 0
     trace: list[str] | None = None  # action ids from the initial state to the violation
     slice: dict | None = None  # the slice it was checked on; None = whole model
+    backend: str | None = None  # "tlc" when `check --tlc` decided it (research/36 R6)
     elapsed_ms: float | None = None  # includes both passes when a slice is rechecked
     witness_key: Any = None  # internal state key for state-diff traces; not serialized
 

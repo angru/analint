@@ -93,6 +93,60 @@ on 22-state slices at every increment; the four risk invariants on an
 18,028-state slice of the risk increment). For genuinely coupled cones (money
 conservation over M3 × risk) it does not help; the cone is the product.
 
+### 2.6 R6 export to TLC (implemented 2026-10-11)
+
+`check --tlc` hands every check the budget left INCONCLUSIVE to TLC
+(`backends/tla.py` generates the module, `backends/tlc.py` runs it,
+`validator/tlc_fallback.py` maps the answer back). The export is generated
+from the same model analint explores, on the check's slice:
+
+- one record variable per state slot (`present__` plus its fields; an absent
+  slot is one canonical record), the projected roots as `Init`;
+- each expanded action as `enabled /\ ok /\ next-state`: `pre` in order,
+  presence guards for touched/created/deleted slots, the terminal lock; effects
+  computed from the pre-state (simultaneous), saturation clamps;
+- what the kernel treats as a defect — a hard Field bound, an undeclared
+  lifecycle edge, a false `post` — disables the transition and is checked as
+  its own TLC invariant `NoDefect_<action>`. A hit is reported as an error; the
+  check stays undecided;
+- invariants and inert roots (illegal outside the slice) as `CONSTRAINT`:
+  TLC checks these states but does not expand them, which is analint's
+  pruning;
+- the target as a TLC invariant: an invariant as `applicable => holds`
+  (and, when it reads Scope slots, a second run asks whether it is ever
+  applicable — NOT_CHECKED otherwise). Unreachable/AlwaysHolds use the
+  predicate; Reachable uses its negation, so a counterexample is the witness.
+
+The export refuses, and the check stays INCONCLUSIVE, where TLA+ would not
+follow analint: floats, `Min`/`Max` (an error on an empty scope), a read of a
+slot that may be absent without a preceding `Present` guard (analint raises
+an evaluation error there), event-payload guards. NoDeadEnd and DeadActions
+have no TLC invariant form and are not exported.
+
+Conformance (`tests/test_tlc_backend.py`, skipped without Java/jar):
+
+- distinct-state counts equal analint's on every exportable example (whole
+  model) and on every invariant slice of the examples and of the broker
+  M5/M6 increments;
+- `check --tlc` at a 5-state budget gives the same statuses and traces as
+  analint at full budget;
+- probes: terminal lock, presence guards on Create and on modification, inert
+  roots, hard bounds, the NOT_CHECKED witness. Removing any of these from the
+  generator fails a test.
+
+| run | analint alone | with `--tlc` |
+|---|---|---|
+| `check benchmarks/broker/m4_risk.py` (default budgets) | 2 queries INCONCLUSIVE | both decided (one PASS on 1,945 states; one FAIL, same as analint at full budget — the increment never verifies the client); ~3 s extra |
+| `check benchmarks/broker/m6_profile_methods.py` | 1 query INCONCLUSIVE | decided (PASS, 10,164 states, 1.2 s TLC) |
+| `check benchmarks/broker/m4.py --max-states 10000` | risk invariants INCONCLUSIVE | the risk invariant's slice (risk × KYC × orders) did not finish within the 30-minute per-check timeout |
+
+The last row is the limit: TLC moves the ceiling by roughly two orders of
+magnitude (the full M4 product took 2 h 16 min by hand), not past it.
+
+Found on the way: a capped exploration in which an invariant was never
+applicable reported NOT_CHECKED ("never evaluable") instead of INCONCLUSIVE.
+Fixed.
+
 ## 3. Reading of the options (proposal)
 
 1. **analint alone** is adequate while each property's cone stays below
@@ -108,7 +162,8 @@ conservation over M3 × risk) it does not help; the cone is the product.
    pairings) must be generated exactly, and nondet parameters must be scoped
    per action (a shared choice made TLC enumerate ~900 successors per distinct
    state). State-count equality on the risk increments is the conformance
-   gate such a generator would need.
+   gate such a generator would need. Implemented as `check --tlc` (§2.6),
+   with that gate.
 4. **R5 partial-order reduction**: the M4 product is largely interleavings of
    independent processes (M3 cash steps vs risk steps), so POR could cut it
    substantially for properties local to one process — but slicing already

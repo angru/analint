@@ -58,6 +58,12 @@ src/analint/
     explorer.py             ← bounded reachability: BFS, traces, query + canonical invariant verification
     slicing.py              ← cone-of-influence slices: each check explores only its slice
 
+    tlc_fallback.py         ← `check --tlc`: hands INCONCLUSIVE checks (on their slice) to TLC
+
+  backends/
+    tla.py                  ← TLA+ export of a (sliced) model mirroring the kernel exactly
+    tlc.py                  ← locate Java + TLC jar, run TLC, parse verdict/trace
+
   reporter/                 ← Finding/ScenarioResult/ValidationResult, terminal + JSON output
 
   loader/
@@ -210,6 +216,16 @@ own slice for defect parity and DeadActions. Do not regress:
   (`verify_invariants`/`run_query` report the exploration each result was
   decided on via `explorations=`), so it traces the slice `check` decided on
   (`--no-slice` for the whole model).
+
+**TLC backend (research/36 R6).** `check --tlc` exports each check left
+INCONCLUSIVE to TLA+ on the slice analint used and lets TLC decide it
+(`backend: "tlc"`). The export must mirror the kernel exactly; anything it
+cannot mirror raises `ExportError`, and the check stays INCONCLUSIVE. Do
+not approximate. A kernel change (guards, presence, terminal lock, effects,
+bounds, lifecycle edges, pruning) needs the same change in `backends/tla.py`.
+`tests/test_tlc_backend.py` gates it: equal state counts on examples and
+slices, and verdicts and traces equal to full-budget analint. It skips without
+Java or a TLC jar (`ANALINT_TLC_JAR`, else Quint's Apalache jar).
 
 ### Bounded multiplicity
 

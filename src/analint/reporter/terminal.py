@@ -88,7 +88,7 @@ def _print_query(qr: QueryResult) -> None:
     color = colors.get(qr.status, "white")
     meta = (
         f"({qr.kind}, {qr.states_explored} states"
-        f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)})"
+        f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)})"
     )
     console.print(f"  [{color}]{qr.status:<4}[/{color}]  {qr.query_id:<40} {meta}")
     for f in qr.findings:
@@ -114,7 +114,10 @@ def _print_flow(fr: FlowResult) -> None:
 def _print_invariant(ir: InvariantResult) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow", "NOT_CHECKED": "yellow"}
     color = colors.get(ir.status, "white")
-    meta = f"({ir.states_explored} states{_slice_note(ir.slice)}{_time_note(ir.elapsed_ms)})"
+    meta = (
+        f"({ir.states_explored} states{_slice_note(ir.slice)}"
+        f"{_time_note(ir.elapsed_ms)}{_backend_note(ir.backend)})"
+    )
     console.print(f"  [{color}]{ir.status:<11}[/{color}] {ir.label:<40} {meta}")
     for f in ir.findings:
         fcolor = "red" if f.severity == Severity.ERROR else "yellow"
@@ -136,6 +139,10 @@ def _print_scenario(sr: ScenarioResult) -> None:
 
 def _time_note(elapsed_ms: float | None) -> str:
     return "" if elapsed_ms is None else f", {elapsed_ms:.1f} ms"
+
+
+def _backend_note(backend: str | None) -> str:
+    return f", decided by {backend.upper()}" if backend else ""
 
 
 def _slice_note(piece: dict | None) -> str:

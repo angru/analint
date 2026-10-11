@@ -49,6 +49,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 **({"elapsed_ms": round(qr.elapsed_ms, 3)} if qr.elapsed_ms is not None else {}),
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
+                **({"backend": qr.backend} if qr.backend is not None else {}),
                 "findings": [
                     {"severity": f.severity.value, "location": f.location, "message": f.message}
                     for f in qr.findings
@@ -65,6 +66,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 **({"elapsed_ms": round(ir.elapsed_ms, 3)} if ir.elapsed_ms is not None else {}),
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
+                **({"backend": ir.backend} if ir.backend is not None else {}),
                 "findings": [
                     {"severity": f.severity.value, "location": f.location, "message": f.message}
                     for f in ir.findings

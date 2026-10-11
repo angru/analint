@@ -107,6 +107,14 @@ def check(
         "--no-slice",
         help="Explore the whole model for every check instead of each check's slice",
     ),
+    tlc: bool = typer.Option(
+        False,
+        "--tlc",
+        help="Hand every INCONCLUSIVE invariant/query to TLC on its slice (needs Java + TLC)",
+    ),
+    tlc_timeout: float | None = typer.Option(
+        None, "--tlc-timeout", min=1, help="Seconds per TLC run (default: no limit)"
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
     result = validate(
@@ -116,6 +124,8 @@ def check(
         extra=what_if,
         max_states=max_states,
         sliced=not no_slice,
+        tlc=tlc,
+        tlc_timeout=tlc_timeout,
     )
 
     if format == "json":

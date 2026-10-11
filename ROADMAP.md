@@ -703,6 +703,17 @@ and the Quint bake-off protocol: research/34. Awaiting review.
     4–7% slower (states decoded for scans). Graphs identical
     (characterization unchanged); codec round-trip and >16-bit escape tests
     (research/36 §2.5)
+  - ✅ **R6 export to TLC** (2026-10-11): `check --tlc` (MCP `tlc`) decides
+    invariants and Reachable/Unreachable/AlwaysHolds queries that the budget left
+    INCONCLUSIVE. Each is exported on its own slice to TLA+, generated from the
+    model (presence, terminal lock, simultaneous effects, bounds, lifecycle
+    edges, invariant/inert-root pruning; kernel defects as `NoDefect_*`), and
+    checked by TLC. What cannot be mirrored is refused, never approximated.
+    TLC-gated tests pin equal state counts on every example and slice, and verdicts
+    and traces equal to full-budget analint. Mutating any kernel rule out of the
+    generator fails a test. It decides the open M4-risk and M6-profile queries in
+    seconds. The full M4 risk cone still exceeds 30 min per check
+    (research/36 §2.6). NoDeadEnd/DeadActions are not exported
   - **Returning-agent checkpoint (2026-10-10):** A/C, the M1–M3 Quint port,
     per-check timing, invariant state-diff traces and B2 fixtures are done.
     Start with E and the stored B2 records; do not restart M4–M6 implementation.

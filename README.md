@@ -494,6 +494,16 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   do not multiply each other's states. The result is exact, not an
   approximation, and JSON reports each check's `slice`. `check --no-slice`
   explores the whole model for every check.
+- **What the budget leaves open, TLC can finish.** `check --tlc` exports every
+  INCONCLUSIVE invariant and Reachable/Unreachable/AlwaysHolds query, on the
+  slice analint used, to TLA+ and runs TLC on it. TLC keeps its states on disk
+  and runs on all cores. The export mirrors the transition kernel exactly
+  (presence, terminal lock, simultaneous effects, Field bounds, lifecycle
+  edges, pruning by invariants); state counts match analint on every example.
+  Constructs it cannot mirror (floats, `Min`/`Max`, unguarded reads of a slot
+  that may be absent) are refused and the check stays INCONCLUSIVE. Results
+  decided this way carry `"backend": "tlc"`. Needs Java and a TLC jar
+  (`ANALINT_TLC_JAR`, or the one bundled with Quint's Apalache).
 - Query and invariant results include `elapsed_ms` in JSON and elapsed time in
   terminal output. This measures work performed by that check: exploration is
   charged on a cache miss, and an invariant's constrained recheck is included.
@@ -630,6 +640,8 @@ analint check [PATH]              # validate: structural checks + scenario runs
                                   # (canonical invariant check and each query)
   --no-slice                      # explore the whole model for every check
                                   # instead of each check's slice
+  --tlc                           # decide what stayed INCONCLUSIVE with TLC
+  --tlc-timeout SECONDS           # per exported check
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind

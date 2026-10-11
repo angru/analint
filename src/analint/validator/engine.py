@@ -144,13 +144,18 @@ def validate(
     extra: Path | None = None,
     max_states: int | None = None,
     sliced: bool = True,
+    tlc: bool = False,
+    tlc_timeout: float | None = None,
 ) -> ValidationResult:
     """``max_states`` overrides every exploration budget for this run — the
     spec's canonical one and each query's — without mutating the model.
 
     ``sliced`` checks each invariant/query on its cone of influence instead of
     the whole model (research/34 §5); ``False`` keeps the monolithic path for
-    differential testing (``check --no-slice``)."""
+    differential testing (``check --no-slice``).
+
+    ``tlc`` hands every check analint left INCONCLUSIVE to TLC, on the same
+    slice (``validator/tlc_fallback.py``, research/36 R6)."""
     prepared = prepare_model(path, what_if=extra)
     spec, load_errors = prepared.spec, prepared.load_errors
 
@@ -245,6 +250,11 @@ def validate(
             result.query_results.append(
                 run_query(query, spec, explorations, max_states=max_states, analysis=analysis)
             )
+
+    if tlc:
+        from analint.validator.tlc_fallback import decide_with_tlc
+
+        decide_with_tlc(spec, result, analysis, canonical_initials, timeout=tlc_timeout)
 
     used = analysis.explorations() if analysis is not None else []
     # Surface the transition defects every exploration found — a broken action

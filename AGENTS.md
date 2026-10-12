@@ -163,6 +163,13 @@ codes of interned per-slot value tuples), its context is rebuilt on demand
 arrays; `Exploration.states/parents/edges` keep the key-based read interface.
 Explorations are cached per (initial state key, max_states) within one
 validate() run; exceeding max_states → `INCONCLUSIVE`, never a hang.
+Successor generation is incremental (`_guard_invalidation`,
+`_invariant_rechecks`). An action REJECTED in a state stays rejected in a
+successor whose transition wrote none of its guard reads (`pre`, presence
+guards, terminal lock), and a successor re-checks only the invariants that read
+what the transition wrote: the parent is legal. Any new kernel guard must be
+added to `_guard_reads`. `test_skipped_guards_and_invariants_change_nothing`
+compares the result against a run that evaluates everything.
 
 **Soundness rules (research/14 §7 — do not regress):**
 - an unknown predicate node raises `UnsupportedPredicateError`, never `True`

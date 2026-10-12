@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Exploration skips work that cannot change the result. An action a guard
+  rejected stays rejected in a successor whose transition wrote nothing the
+  guard reads, and a successor re-checks only the invariants that read what
+  the transition wrote. Graphs and findings are identical; `check` is
+  1.2–1.55× faster on the broker benchmark.
+
 ## [0.0.2] — 2026-10-11
 
 Scaling release: each check runs on its own slice of the model, states take

@@ -13,6 +13,7 @@ from analint import (
     Count,
     Create,
     DeadActions,
+    Delete,
     Entity,
     Event,
     Field,
@@ -922,3 +923,84 @@ def test_state_keys_of_different_layouts_never_collide():
 
     assert state_key({Left: Left()}) != state_key({Right: Right()})
     assert state_key({Left: Left()}) == state_key({Left: Left()})
+
+
+# ── incremental successor generation ──────────────────────────────────────────
+
+_DIFFERENTIAL = [
+    *sorted(
+        p for p in (Path(__file__).parent.parent / "examples").iterdir() if (p / "spec.py").exists()
+    ),
+    *(
+        Path(__file__).parent.parent / "benchmarks" / "broker" / f"{name}.py"
+        for name in ("m4_risk", "m5_profile_partners", "m6_methods")
+    ),
+]
+
+
+def _explored(spec, initials):
+    exp = explore(spec, initials, 20_000)
+    return (
+        exp.keys,
+        list(exp.edge_src),
+        list(exp.edge_action),
+        list(exp.edge_dst),
+        sorted(exp.fired),
+        [(f.severity, f.location, f.message) for f in exp.findings],
+        exp.capped,
+    )
+
+
+def _assert_incremental_is_exact(spec, initials, monkeypatch):
+    from analint.validator import explorer as explorer_module
+
+    fast = _explored(spec, initials)
+    everything = (1 << len(spec.actions)) - 1
+    monkeypatch.setattr(
+        explorer_module, "_guard_invalidation", lambda s: [everything] * len(s.actions)
+    )
+    monkeypatch.setattr(
+        explorer_module, "_invariant_rechecks", lambda s: [tuple(s.invariants)] * len(s.actions)
+    )
+    assert fast == _explored(spec, initials)
+
+
+@pytest.mark.parametrize("path", _DIFFERENTIAL, ids=lambda p: p.stem if p.suffix else p.name)
+def test_skipped_guards_and_invariants_change_nothing(path, monkeypatch):
+    """Skipping inherited rejections and unchanged invariants is exact: the
+    graph, findings and fired actions equal a run that evaluates everything."""
+    from analint.validator.engine import prepare_model
+
+    spec = prepare_model(path).spec
+    initials, _ = build_canonical_initials(spec)
+    if initials is None:
+        pytest.skip("no canonical initial state")
+    _assert_incremental_is_exact(spec, initials, monkeypatch)
+
+
+def test_presence_rejections_are_not_inherited_across_create_and_delete(monkeypatch):
+    # no Present in any pre: only the kernel's presence guards reject, so a
+    # rejection inherited past make/drop would lose the states after a re-make
+    class Seat(Entity):
+        taken: bool = False
+
+    class Tally(Entity):
+        made: int = Field(0, ge=0, le=3)
+
+    seats = Scope(Seat, keys=["a"])
+    a = seats["a"]
+    spec = Spec(
+        id="s",
+        name="S",
+        entities=[Seat, Tally],
+        scopes=[seats],
+        actions=[
+            Action(id="make", pre=[Tally.made < 3], effect=[Create(a), Add(Tally.made, 1)]),
+            Action(id="drop", effect=[Delete(a)]),
+            Action(id="mark", effect=[Set(a.taken, True)]),
+        ],
+        invariants=[Invariant(a.taken == False, id="unmarked")],  # noqa: E712
+    )
+    initials = [{a: Absent(a), Tally: Tally()}]
+    assert len(explore(spec, initials, 100).states) == 10
+    _assert_incremental_is_exact(spec, initials, monkeypatch)

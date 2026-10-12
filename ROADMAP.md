@@ -699,6 +699,10 @@ decision (research/36 §4) is accepted on the private spec, and #3 is closed.
     ~18% faster, graphs identical). Not the R4 store; research/34 §8 E
   - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
     ~1.8× end to end, differential-tested against the interpreter
+  - ✅ Incremental successor generation (2026-10-12): inherited rejections
+    and invariant re-checks limited to written variables; byte-identical
+    graphs, differential test plus presence mutation probes, `check`
+    1.2–1.55× faster on the broker (research/36 §2.2)
   - Synthesis of the measured inputs: research/36 §1–§3
   - ✅ **Decision (2026-10-11, research/36 §4; accepted 2026-10-12):** layered. By default,
     analint with slicing and R4. `--tlc` (R6) is opt-in for cones beyond the

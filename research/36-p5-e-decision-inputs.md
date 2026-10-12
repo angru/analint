@@ -46,6 +46,16 @@ changed entities for lifecycle checks and trimming per-transition overhead:
 | `check benchmarks/broker/m4.py --max-states 10000`, sliced + whole (equal load) | 19.7 s | 11.2 s |
 | B2 harness at 10k, M4–M6 sliced / whole (idle, `results-10000.json`) | 6.1–6.5 / 2.0–2.4 s | 2.9–3.2 / 1.2–1.5 s |
 
+Incremental successor generation (2026-10-12) skips work the parent state
+already decided. A rejected action whose guard reads were not written by the
+transition stays rejected (806k → 382k kernel calls for 20k M4-risk states),
+and only invariants reading a written variable are re-checked. Graphs are
+byte-identical. Interleaved A/B `check`: m4_risk 5.7 → 4.7 s, M4 at 10k
+7.1 → 5.5 s, `examples/broker` 3.5 → 2.7 s, m6_profile_methods 8.4 → 5.4 s.
+What remains is spread across accepted transitions (effects, field and
+lifecycle checks, keys) and the remaining guard evaluations; no single
+hot spot is left.
+
 ### 2.3 analint vs TLC on the same transition system
 
 | model | distinct states | analint | TLC (8 workers) |

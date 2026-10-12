@@ -25,7 +25,8 @@ from math import prod
 from time import perf_counter
 from typing import Any
 
-from analint.models.effect import Add, Create, Set, Subtract
+from analint.models.action import Action
+from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.initial import Initial
@@ -52,7 +53,16 @@ from analint.models.scope import (
 from analint.reporter.base import Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
-from analint.validator.slicing import Slice, SliceAnalysis
+from analint.validator.slicing import (
+    PRESENT,
+    Slice,
+    SliceAnalysis,
+    Var,
+    _action_writes,
+    _pred_vars,
+    _target_key,
+    _Unsliceable,
+)
 from analint.validator.state_checks import invariant_holds, invariant_is_applicable
 from analint.validator.structural import _collect_field_refs, _describe
 
@@ -653,7 +663,10 @@ def explore(
     # naturally through the state key (research/16: multi-root exploration).
     # The frontier carries its contexts; a state's context is dropped once it
     # is expanded and rebuilt from its key if a query needs it later.
-    queue: deque[tuple[int, dict]] = deque()
+    # Each frontier entry also carries the actions already known REJECTED in it:
+    # those its parent rejected whose guard reads the parent's transition left
+    # untouched (``_guard_invalidation``); they are skipped, not re-evaluated.
+    queue: deque[tuple[int, dict, int]] = deque()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
         key0 = state_key(ctx)
@@ -664,8 +677,11 @@ def explore(
         # An initial state that already violates an invariant is illegal: keep it
         # as a witness but do not explore from it, exactly as for any successor.
         if not _report_invariant_violations(spec, ctx, key0, exp) and pos not in inert_roots:
-            queue.append((idx0, ctx))
+            queue.append((idx0, ctx, 0))
     codes = [exp.action_code(action.id) for action in spec.actions]
+    invalidated = _guard_invalidation(spec)
+    rechecks = _invariant_rechecks(spec)
+    numbered = list(enumerate(zip(spec.actions, codes, strict=True)))
     index_get = exp.index.get
     add_src, add_act, add_dst = exp.edge_src.append, exp.edge_action.append, exp.edge_dst.append
     while queue:
@@ -673,15 +689,17 @@ def explore(
             exp.capped = True
             exp.growing = _growing_fields(spec)
             break
-        idx, ctx = queue.popleft()
+        idx, ctx, rejected = queue.popleft()
+        successors: list[tuple[int, dict, int]] = []
 
-        for action, code in zip(spec.actions, codes, strict=True):
-            if action.id in exp.excluded:
+        for i, (action, code) in numbered:
+            if rejected >> i & 1 or action.id in exp.excluded:
                 continue
             result = step(spec, action, ctx, explain=False)
             if result.entered:
                 exp.fired.add(action.id)
             if result.outcome is Outcome.REJECTED:
+                rejected |= 1 << i
                 continue  # a guard disabled the action; its reason is a scenario concern
             if result.outcome is Outcome.DEFECT:
                 # step is pure: re-run it with the trace only now that a defect
@@ -715,16 +733,116 @@ def explore(
             add_dst(idx2)
             if known is not None:
                 continue
-            if _report_invariant_violations(spec, post, k2, exp):
+            # the parent is legal: only invariants reading what changed can break
+            if _report_invariant_violations(spec, post, k2, exp, rechecks[i]):
                 continue  # illegal state: reported, not expanded further
-            queue.append((idx2, post))
+            successors.append((idx2, post, i))
+        # pushed after the loop, when this state's rejections are all known
+        queue.extend((idx2, post, rejected & ~invalidated[i]) for idx2, post, i in successors)
 
     return exp
 
 
-def _report_invariant_violations(spec: Spec, ctx: dict, key: StateKey, exp: Exploration) -> bool:
-    violated = False
+def _guard_reads(action: Action, lock_fields: dict[type, list[str]]) -> set[Var]:
+    """Every variable a REJECTED outcome of ``step`` can depend on: the ``pre``
+    reads, the presence guards and the terminal lock's lifecycle fields."""
+    reads: set[Var] = set()
+    for pred in action.pre:
+        _pred_vars(pred, reads)
+    frozen = set()
+    for effect in action.effect:
+        if isinstance(effect, (Set, Add, Subtract)):
+            frozen.add(_target_key(effect))
+        elif isinstance(effect, (Create, Delete)):
+            reads.add((effect.target, PRESENT))
+            if isinstance(effect, Delete):
+                frozen.add(effect.target)
+        else:
+            raise _Unsliceable(effect)
+    for key in frozen:
+        if isinstance(key, InstanceRef):
+            reads.add((key, PRESENT))
+        cls = key.entity_cls if isinstance(key, InstanceRef) else key
+        reads.update((key, name) for name in lock_fields.get(cls, ()))
+    return reads
+
+
+def _guard_invalidation(spec: Spec) -> list[int]:
+    """Per action (in ``spec.actions`` order): the bitmask of actions whose
+    guards may read a variable it writes. An action REJECTED in a state stays
+    REJECTED in a successor reached by an action that does not invalidate it —
+    every variable its guards read is unchanged. Guards or effects the walker
+    does not know are never skipped."""
+    lock_fields: dict[type, list[str]] = {}
+    for lc in spec.lifecycles:
+        if lc.terminal:
+            lock_fields.setdefault(lc.entity_cls, []).append(lc.field_name)
+    readers: dict[Var, int] = {}
+    unknown = 0
+    for i, action in enumerate(spec.actions):
+        try:
+            reads = _guard_reads(action, lock_fields)
+        except _Unsliceable:
+            unknown |= 1 << i
+            continue
+        for var in reads:
+            readers[var] = readers.get(var, 0) | 1 << i
+    everything = (1 << len(spec.actions)) - 1
+    masks = []
+    for action in spec.actions:
+        try:
+            writes = _action_writes(action)
+        except _Unsliceable:
+            masks.append(everything)
+            continue
+        mask = unknown
+        for var in writes:
+            mask |= readers.get(var, 0)
+        masks.append(mask)
+    return masks
+
+
+def _invariant_rechecks(spec: Spec) -> list[tuple[Invariant, ...]]:
+    """Per action (in ``spec.actions`` order): the invariants a successor it
+    reaches must re-check. Its parent was legal (every applicable invariant
+    held, none failed to evaluate), and an invariant reading no variable the
+    action writes has the same applicability and value in the successor.
+    Expressions or effects the walker does not know are always re-checked."""
+    reads: list[set[Var] | None] = []
     for inv in spec.invariants:
+        out: set[Var] = set()
+        try:
+            _pred_vars(inv.expression, out)
+        except _Unsliceable:
+            reads.append(None)
+            continue
+        reads.append(out)
+    rechecks = []
+    for action in spec.actions:
+        try:
+            writes = _action_writes(action)
+        except _Unsliceable:
+            rechecks.append(tuple(spec.invariants))
+            continue
+        rechecks.append(
+            tuple(
+                inv
+                for inv, read in zip(spec.invariants, reads, strict=True)
+                if read is None or not read.isdisjoint(writes)
+            )
+        )
+    return rechecks
+
+
+def _report_invariant_violations(
+    spec: Spec,
+    ctx: dict,
+    key: StateKey,
+    exp: Exploration,
+    invariants: Sequence[Invariant] | None = None,
+) -> bool:
+    violated = False
+    for inv in spec.invariants if invariants is None else invariants:
         if not invariant_is_applicable(inv, ctx):
             continue  # a referenced entity/Scope slot is absent — not applicable here
         try:

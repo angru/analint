@@ -569,12 +569,12 @@ Still deferred until later:
   state counts (2026-10-09). Optimize or design
   another backend only from measured scaling/property/consumer triggers.
 
-### P5. Property-local verification + broker benchmark — E PROPOSED (2026-10-11)
+### P5. Property-local verification + broker benchmark — ✅ DONE (2026-10-12)
 
 Trigger: angru/analint#3 (independent lifecycles → whole-spec BFS pays for
 their product; local checks INCONCLUSIVE). Diagnosis, slice contract, sources
 and the Quint bake-off protocol: research/34. 0, A–D, R4 and R6 are done; the E
-decision is proposed (research/36 §4) and awaits the private-spec acceptance run.
+decision (research/36 §4) is accepted on the private spec, and #3 is closed.
 
 - **0. Explicit composition root (research/35; reopens the research/30 freeze
   of `Contract`/`Spec`)** — before B1, so the broker
@@ -700,12 +700,18 @@ decision is proposed (research/36 §4) and awaits the private-spec acceptance ru
   - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
     ~1.8× end to end, differential-tested against the interpreter
   - Synthesis of the measured inputs: research/36 §1–§3
-  - **Proposed decision (2026-10-11, research/36 §4):** layered. By default,
+  - ✅ **Decision (2026-10-11, research/36 §4; accepted 2026-10-12):** layered. By default,
     analint with slicing and R4. `--tlc` (R6) is opt-in for cones beyond the
     in-memory budget. R5 POR is deferred, with a measured trigger.
     Product-sized cones are first a modelling question. Acceptance:
     run `check` with and without `--tlc` on the private spec and apply the
     §4 rule
+  - ✅ **Acceptance (2026-10-12), branch 1 of the §4 rule:** on the private
+    spec (8 entities, 64 actions), `check` ran 63.3 s → 7.6 s. Invariants
+    went 0/5 → 5/5 PASS (slices of 45–51 actions, 272–1,360 states) and
+    queries 4/7 → 6/7 PASS. `--tlc` had nothing to decide. One DeadActions
+    action stays INCONCLUSIVE within the budget. That is a budget or model
+    question for that spec (`--max-states`), not an engine gap
   - ✅ **R4 compact state store** (2026-10-10): a state is its key (one 16-bit
     code per entity slot, value tuples interned per layout slot); contexts
     are rebuilt from keys on demand, parents/edges are integer arrays. Memory

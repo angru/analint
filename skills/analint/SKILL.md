@@ -98,7 +98,9 @@ Each invariant and query is checked on its **slice**: only the actions and
 state that can affect it. The JSON `slice` field shows its size, and
 `states_explored` counts the slice's states. A slice is exact, not an
 approximation. If a check is `INCONCLUSIVE`, raise the budget for one run with
-`--max-states N`. If it is still INCONCLUSIVE and Java is available, `--tlc`
+`--max-states N`. While iterating on a large spec, pass `--cache` (MCP
+`cache=true`): unchanged slices are reused, and the report is the same as a
+fresh run's. If it is still INCONCLUSIVE and Java is available, `--tlc`
 lets TLC decide it on the same slice (`"backend": "tlc"` in JSON). An export
 refusal leaves it INCONCLUSIVE. Use `--no-slice` only to compare against the
 whole model.

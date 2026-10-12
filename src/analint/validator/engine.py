@@ -146,6 +146,7 @@ def validate(
     sliced: bool = True,
     tlc: bool = False,
     tlc_timeout: float | None = None,
+    cache: bool = False,
 ) -> ValidationResult:
     """``max_states`` overrides every exploration budget for this run — the
     spec's canonical one and each query's — without mutating the model.
@@ -155,7 +156,29 @@ def validate(
     differential testing (``check --no-slice``).
 
     ``tlc`` hands every check analint left INCONCLUSIVE to TLC, on the same
-    slice (``validator/tlc_fallback.py``, research/36 R6)."""
+    slice (``validator/tlc_fallback.py``, research/36 R6).
+
+    ``cache`` memoises explorations on disk (``validator/exploration_cache.py``):
+    the result is the one a fresh run gives."""
+    args = (path, scenario_ids, tags, extra, max_states, sliced, tlc, tlc_timeout)
+    if not cache:
+        return _validate(*args)
+    from analint.validator.exploration_cache import use_store
+
+    with use_store(None):
+        return _validate(*args)
+
+
+def _validate(
+    path: Path,
+    scenario_ids: list[str] | None,
+    tags: list[str] | None,
+    extra: Path | None,
+    max_states: int | None,
+    sliced: bool,
+    tlc: bool,
+    tlc_timeout: float | None,
+) -> ValidationResult:
     prepared = prepare_model(path, what_if=extra)
     spec, load_errors = prepared.spec, prepared.load_errors
 

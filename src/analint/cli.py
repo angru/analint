@@ -115,6 +115,12 @@ def check(
     tlc_timeout: float | None = typer.Option(
         None, "--tlc-timeout", min=1, help="Seconds per TLC run (default: no limit)"
     ),
+    cache: bool = typer.Option(
+        False,
+        "--cache",
+        help="Reuse explorations of unchanged slices from earlier runs "
+        "(~/.cache/analint, or $ANALINT_CACHE_DIR)",
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
     result = validate(
@@ -126,6 +132,7 @@ def check(
         sliced=not no_slice,
         tlc=tlc,
         tlc_timeout=tlc_timeout,
+        cache=cache,
     )
 
     if format == "json":

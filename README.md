@@ -504,6 +504,12 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   that may be absent) are refused and the check stays INCONCLUSIVE. Results
   decided this way carry `"backend": "tlc"`. Needs Java and a TLC jar
   (`ANALINT_TLC_JAR`, or the one bundled with Quint's Apalache).
+- **Repeated checks reuse unchanged work.** `check --cache` stores every
+  exploration on disk (`~/.cache/analint`, or `$ANALINT_CACHE_DIR`), keyed by
+  a digest of its slice, roots, budget and the engine itself. A later run
+  explores only the slices an edit touched. The report is the one a fresh run
+  gives, and anything the digest cannot describe is simply explored. On the
+  broker benchmark a warm `check` takes 0.6–1.0 s instead of 2.7–5.3 s.
 - Query and invariant results include `elapsed_ms` in JSON and elapsed time in
   terminal output. This measures work performed by that check: exploration is
   charged on a cache miss, and an invariant's constrained recheck is included.
@@ -642,6 +648,8 @@ analint check [PATH]              # validate: structural checks + scenario runs
                                   # instead of each check's slice
   --tlc                           # decide what stayed INCONCLUSIVE with TLC
   --tlc-timeout SECONDS           # per exported check
+  --cache                         # reuse explorations of unchanged slices
+                                  # from earlier runs (same report)
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
   analint show -p .                  # overview: all ids by kind

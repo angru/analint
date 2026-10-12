@@ -27,6 +27,7 @@ def check_spec(
     max_states: int | None = None,
     slice: bool = True,
     tlc: bool = False,
+    cache: bool = False,
 ) -> dict:
     if max_states is not None and max_states < 1:
         return {
@@ -41,6 +42,7 @@ def check_spec(
         max_states=max_states,
         sliced=slice,
         tlc=tlc,
+        cache=cache,
     )
     return result_to_dict(result)
 
@@ -123,6 +125,7 @@ def build_server() -> Any:
         max_states: int | None = None,
         slice: bool = True,
         tlc: bool = False,
+        cache: bool = False,
     ) -> dict:
         """Validate the analint spec at `path` (structural checks + scenario runs).
 
@@ -135,8 +138,10 @@ def build_server() -> Any:
         default); false explores the whole model for every check.
         `tlc` — hand every INCONCLUSIVE invariant/query to TLC on its slice
         (needs Java and a TLC jar; results carry `"backend": "tlc"`).
+        `cache` — reuse explorations of unchanged slices from earlier runs (same
+        result as a fresh run; speeds up repeated checks of a large spec).
         """
-        return check_spec(path, what_if, max_states, slice, tlc)
+        return check_spec(path, what_if, max_states, slice, tlc, cache)
 
     @mcp.tool()
     def explore(

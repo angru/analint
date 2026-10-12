@@ -289,7 +289,6 @@ def state_key(ctx: dict) -> StateKey:
     """
     layout_id, layout = _state_layout(tuple(ctx))
     out = [layout_id]
-    big = layout_id >= _ESCAPE
     for table, seen, (key, scoped, fields) in zip(
         _SLOT_CODES[layout_id], _SLOT_VALUES[layout_id], layout, strict=True
     ):
@@ -305,13 +304,26 @@ def state_key(ctx: dict) -> StateKey:
         if code is None:
             code = table[value] = len(seen)
             seen.append(value)
-        if code >= _ESCAPE:  # a known code may be big too, not only a new one
-            big = True
         out.append(code)
-    if not big:  # 16-bit codes: one C-level pack
-        return array("H", out).tobytes()
+    return _pack(out)
+
+
+def _intern(layout_id: int, slot: int, value: tuple) -> int:
+    """The code of a slot's value tuple, interning it when new."""
+    table = _SLOT_CODES[layout_id][slot]
+    code = table.get(value)
+    if code is None:
+        seen = _SLOT_VALUES[layout_id][slot]
+        code = table[value] = len(seen)
+        seen.append(value)
+    return code
+
+
+def _pack(codes: list[int]) -> StateKey:
+    if max(codes) < _ESCAPE:  # 16-bit codes: one C-level pack
+        return array("H", codes).tobytes()
     escaped = array("H")
-    for code in out:
+    for code in codes:
         _put(escaped, code)
     return escaped.tobytes()
 
@@ -623,6 +635,10 @@ def _field_annotation(entity_cls: type, field_name: str) -> Any:
 # ── Exploration ────────────────────────────────────────────────────────────────
 
 
+# The on-disk exploration memo in use (``exploration_cache.use_store``), if any.
+_STORE: Any = None
+
+
 def explore(
     spec: Spec,
     initial_ctxs: list[dict],
@@ -633,7 +649,20 @@ def explore(
 ) -> Exploration:
     """BFS from ``initial_ctxs``. ``root_numbers`` keeps the 1-based labels of a
     subset of a larger root set (slices); roots at ``inert_roots`` positions
-    are kept as states but not expanded (illegal in the full model)."""
+    are kept as states but not expanded (illegal in the full model). A pure
+    function of its arguments, so an exploration store may memoise it."""
+    if _STORE is not None:
+        return _STORE.explore(_explore, spec, initial_ctxs, max_states, root_numbers, inert_roots)
+    return _explore(spec, initial_ctxs, max_states, root_numbers, inert_roots)
+
+
+def _explore(
+    spec: Spec,
+    initial_ctxs: list[dict],
+    max_states: int,
+    root_numbers: list[int] | None,
+    inert_roots: frozenset[int],
+) -> Exploration:
     exp = Exploration()
 
     # Actions whose preconditions reference event payloads are not explorable:

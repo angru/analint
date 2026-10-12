@@ -57,6 +57,7 @@ src/analint/
                               explorer's fast path; mirrors them, differential-tested)
     explorer.py             ← bounded reachability: BFS, traces, query + canonical invariant verification
     slicing.py              ← cone-of-influence slices: each check explores only its slice
+    exploration_cache.py    ← `check --cache`: on-disk memo of explore(), keyed by a canonical digest
 
     tlc_fallback.py         ← `check --tlc`: hands INCONCLUSIVE checks (on their slice) to TLC
 
@@ -168,7 +169,14 @@ Successor generation is incremental (`_guard_invalidation`,
 successor whose transition wrote none of its guard reads (`pre`, presence
 guards, terminal lock), and a successor re-checks only the invariants that read
 what the transition wrote: the parent is legal. Any new kernel guard must be
-added to `_guard_reads`. `test_skipped_guards_and_invariants_change_nothing`
+added to `_guard_reads`. `explore()` is a pure function of its spec, roots,
+root numbers, inert roots and budget. `check --cache` memoises it on disk by a
+canonical digest of exactly those inputs (`exploration_cache.digest`). A model
+attribute the explorer starts reading must join `_canon`; an unknown node or
+value raises `_Uncacheable`, and that exploration simply runs.
+`tests/test_exploration_cache.py` holds the gates: reports must equal a
+fresh run's (in process and across processes), and each digest ingredient
+has a probe. `test_skipped_guards_and_invariants_change_nothing`
 compares the result against a run that evaluates everything.
 
 **Soundness rules (research/14 §7 — do not regress):**

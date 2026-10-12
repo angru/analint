@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `check --cache` (MCP `cache`): explorations are stored on disk
+  (`~/.cache/analint`, `$ANALINT_CACHE_DIR`), keyed by a digest of their
+  slice, roots, budget and the engine source. A repeated check explores only
+  the slices an edit touched, and reports exactly what a fresh run reports.
+  On the broker benchmark a warm run takes 0.6–1.0 s instead of 2.7–5.3 s.
+
 ### Changed
 
 - Exploration skips work that cannot change the result. An action a guard

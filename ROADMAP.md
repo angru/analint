@@ -699,6 +699,13 @@ decision (research/36 §4) is accepted on the private spec, and #3 is closed.
     ~18% faster, graphs identical). Not the R4 store; research/34 §8 E
   - ✅ Input (2026-10-10): compiled guards/invariants and kernel trimming,
     ~1.8× end to end, differential-tested against the interpreter
+  - ✅ **Exploration cache** (2026-10-12, `check --cache`): explore() memoised
+    on disk by a canonical digest of its slice, roots, budget and the engine
+    source; graphs are stored as value tuples, portable across processes.
+    Reports equal a fresh run's (differential on every example, capped and
+    uncapped, in process and across processes; digest probes and decoder
+    mutations). Warm `check` on the broker: 0.6–1.0 s instead of 2.7–5.3 s; a
+    `--what-if` hypothesis on a warm cache: 2.7 → 0.7 s
   - ✅ Incremental successor generation (2026-10-12): inherited rejections
     and invariant re-checks limited to written variables; byte-identical
     graphs, differential test plus presence mutation probes, `check`

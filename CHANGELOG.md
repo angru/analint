@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+**0.0.3 release candidate — prepared 2026-10-30; not published.**
+Adds persistent exploration caching and incremental exploration without changing
+the declared DSL semantics or the versioned JSON contracts.
+
 ### Added
 
 - Dedicated documentation pages for the first-spec tutorial, verification
@@ -28,6 +32,15 @@ All notable changes to this project are documented here. The format is based on
   guard reads, and a successor re-checks only the invariants that read what
   the transition wrote. Graphs and findings are identical; `check` is
   1.2–1.55× faster on the broker benchmark.
+
+### Fixed
+
+- The optional MCP extra is constrained to SDK 1.x, whose `FastMCP` API the
+  server uses. A fresh install previously selected incompatible SDK 2.x and
+  failed to start; clean-install CI now checks server tool discovery.
+- Source distributions include the benchmark models and scripts required by
+  their shipped tests. CI now collects the archive's tests against a clean
+  wheel installation, catching missing test inputs before release.
 
 ## [0.0.2] — 2026-10-11
 

@@ -66,3 +66,23 @@ jobs:
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
           /tmp/smoke/bin/analint --version
           /tmp/smoke/bin/analint check examples/ecommerce
+      - name: Clean-install the optional MCP server
+        run: |
+          for candidate_wheel in dist/*.whl; do
+            uv pip install --python /tmp/smoke/bin/python "${candidate_wheel}[mcp]"
+          done
+          /tmp/smoke/bin/python - <<'PY'
+          import asyncio
+          from analint.mcp_server import build_server
+
+          tools = asyncio.run(build_server().list_tools())
+          assert {tool.name for tool in tools} == {"check", "show", "affects", "explore", "trace"}
+          PY
+      - name: Collect tests from the source archive
+        run: |
+          uv venv --python ${{ matrix.python-version }} /tmp/sdist-tests
+          uv pip install --python /tmp/sdist-tests/bin/python dist/*.whl pytest
+          mkdir /tmp/sdist-project
+          tar -xzf dist/*.tar.gz -C /tmp/sdist-project
+          cd /tmp/sdist-project/analint-*
+          /tmp/sdist-tests/bin/python -m pytest --collect-only -q

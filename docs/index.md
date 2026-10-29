@@ -11,8 +11,9 @@ pip install analint
 analint check path/to/spec/
 ```
 
-Requires Python 3.12 or newer. The latest released version is **0.0.2**; this site
-tracks the repository's main branch. Features marked **unreleased**, including
+Requires Python 3.12 or newer. The latest released version is **0.0.2**; main
+prepares the unpublished **0.0.3 release candidate**. This site tracks the
+repository's main branch. Features marked **unreleased**, including
 `check --cache`, require a source checkout until the next release. For development:
 
 ```bash

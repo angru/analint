@@ -81,7 +81,7 @@ jobs:
       - name: Collect tests from the source archive
         run: |
           uv venv --python ${{ matrix.python-version }} /tmp/sdist-tests
-          uv pip install --python /tmp/sdist-tests/bin/python dist/*.whl pytest
+          uv pip install --python /tmp/sdist-tests/bin/python dist/*.whl pytest click
           mkdir /tmp/sdist-project
           tar -xzf dist/*.tar.gz -C /tmp/sdist-project
           cd /tmp/sdist-project/analint-*

@@ -1,62 +1,41 @@
 # analint — Roadmap
 
-Текущее состояние: **v1.0.1 + v1.2 expressiveness** — универсальный DSL +
-агентская поверхность +
-reachability-движок (Reachable/Unreachable/AlwaysHolds/NoDeadEnd/DeadActions,
-Field-границы, трассы-контрпримеры), Param, arithmetic AST, multi-root,
-bounded multiplicity, конечные `ForAll/Exists`, `Count/Sum/Min/Max`,
-declarative initial relations, presence semantics и `Create/Delete` в
-фиксированном universe, явные `Contract` и композиция спек, единый transition
-kernel (`validator/kernel.py`), canonical model с `Spec.initial` и
-авто-верификацией инвариантов, исполняемые `Flow`. 292 tests; two external
-evidence models (GitHub branch protection and OAuth, research/23-24). Фазы v0.9,
-v0.10 и v1.0
-ниже выполнены.
-Из v1.0 отложено: реляционные эффекты f.next и `analint simulate` — по спросу.
+Current status (2026-10-30): **0.0.2 released; semantic core and P5 complete.**
+analint declares finite system behaviour in Python and checks it through one
+transition kernel, canonical initial states, executable scenarios/flows and
+property-local reachability. Slicing, compact state storage and the opt-in TLC
+backend are released. Incremental successor generation and on-disk exploration
+caching are implemented on main and remain unreleased (see `CHANGELOG.md`).
 
-**Этот файл — единственный источник истины по статусу и приоритетам.**
-Документы `research/*` — датированные обоснования, на которые он ссылается;
-приоритеты, живущие только в research, считаются устаревшими. История смены
-приоритетов (что было → что стало → когда → почему → как откатиться) —
-в research/17 §3; критический аудит и errata — research/18.
+**This file is the single source of truth for status and priorities.**
+`research/` contains dated rationale; priorities stated only there are historical.
+Internal v0.9–v1.3 milestones below are design phases, not package versions.
+Use `uv run pytest --collect-only -q` for the current test inventory rather than
+maintaining a second test count here.
 
-Этот роадмап выведен из датированных решений в `research/`. Краткая
-логика: ядро DSL удачное (≈ планировочный домен STRIPS), узкие места —
-многословность поверхности, отсутствие движка поиска по состояниям и
-отсутствие интерфейса для AI-агентов, которые признаны главным сценарием
-(research/08).
+## Current priorities (2026-10-30)
 
----
+1. **Documentation — in progress.** The API review is complete. MkDocs Material,
+   GitHub Pages deployment and the agent guide already exist; finish the first-spec
+   tutorial, verification concepts, DSL/CLI/MCP references and examples gallery.
+   Validate runnable examples and build the site strictly in CI before deployment.
+2. **Release preparation — after documentation.** Validate the unreleased cache
+   and incremental-exploration changes, package metadata, wheel/sdist and clean
+   installation. Prepare a 0.0.3 candidate; publishing is a separate decision.
+3. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
+   canonical scope presence and fixed-only `Initial(given=...)` remain open.
+   Existing `Initial.given` can fix values alongside a non-empty `vary`; it does
+   not yet support a fixed-only relation. Design the new surface across the
+   interpreter, compiler, slicing, cache, artifacts and TLC before implementation.
+   This work does not block documentation or the cache release.
+4. **Performance — acceptance complete.** P5 and issue #3 are closed. Default to
+   slicing plus compact storage; use `--cache` for repeated checks and `--tlc`
+   for supported inconclusive properties. Further engine work requires a measured
+   bottleneck; product-sized coupled cones are first a modelling question.
 
-## Текущие приоритеты (уточнено 13 июня 2026)
-
-После закрытия всей дорожки выразительности (v1.2+) и эмпирического аудита
-движка (research/17 §1) фокус смещён с «связать спеку с реализацией» на
-**полноту и надёжность движка как инструмента, которым просто описать систему и
-проверить её согласованность — без привязки к реализации**. Второй аудит
-(research/18) обнаружил более срочные false-green и уточнил порядок.
-
-Топ-приоритеты (фаза v1.3 ниже):
-
-1. **Закрыть false-green:** ✅ `INCONCLUSIVE` не является PASS (трёхзначный
-   `verdict`, JSON `passed`=PASS-only, exit-код 4); ✅ explorer проверяет
-   `Action.post`, включая effectless actions (review 584d819 P1).
-2. ✅ **Единая transition semantics** — `validator/kernel.py` `step()` для
-   scenario, explorer и будущего Flow (закрыты explorer-`post`, lifecycle-переход
-   в scenario, `Delete` в terminal guard, emitted payload, pre-state invariant).
-3. ✅ **Canonical `Spec.initial`** + автоматическая проверка invariants по
-   reachable states (секция `InvariantResult`; статус проверки четырёхзначен,
-   общий verdict трёхзначен; NOT_CHECKED/INCONCLUSIVE вместо silent pass).
-4. ✅ **Исполняемый многошаговый trace** — `Flow` с `given` + смешанными
-   checkpoints через общий kernel, без рукописных state deltas (artifact —
-   follow-up).
-5. ✅ **Семантическая честность словаря:** `Actor/by/on/requires` и
-   documentary-only Flow удалены; `emits` остаётся исполняемым поведением.
-6. **Внешние реальные модели** как gate для дальнейшего расширения языка.
-
-Сознательно отложено (с обоснованием и условиями отката — research/17 §3):
-явный IR, тяжёлый мост к коду (pin/якоря/adapter), отдельная команда
-`analint diff`, Rust-ядро.
+New semantic primitives remain evidence-gated. Liveness/fairness, automatic event
+dispatch, unbounded structures, a general implementation bridge, a separate
+semantic-diff command and a Rust core remain outside the current work.
 
 ---
 
@@ -229,7 +208,7 @@ snapshot-режима).
 - Доменные профили-словари: `analint.narrative` (Scene/World/Character),
   `analint.systems` (Service/Operation) — алиасы, не форки (research/05)
 
-### v1.3 — Семантическое ядро (активная фаза, с 13 июня 2026)
+### v1.3 — Semantic core — complete (P0–P4; P5 accepted 2026-10-12)
 
 Базовая петля «описать систему → узнать, согласована ли она» должна работать
 надёжно и без церемоний. Research/18 уточняет порядок после проверки кода.
@@ -438,8 +417,8 @@ Plan: research/29. Unblocked now that the P4 workbench is complete.
 - ✅ **`py.typed` marker:** ship the PEP 561 marker so the `Typing :: Typed`
   classifier is honest and downstream type-checkers use analint's inline types
 
-**Remaining before the 0.0.1 PyPI upload** (the user wants the most stable,
-best-documented version first; the upload is the last step, gated on explicit go):
+**Release follow-up:** 0.0.1 and 0.0.2 are published. The completed review below
+unblocks documentation; the remaining additive work is independent.
 
 - **A. Release-engineering hardening** (auto-catch the class of bug we hit manually) ✅
   - ✅ CI `package` job: clean-room `uv build` → install the wheel into an env
@@ -451,14 +430,11 @@ best-documented version first; the upload is the last step, gated on explicit go
     version badge deferred to the publish step. **User action:** enable the repo
     at codecov.io (public repos usually tokenless; else add a `CODECOV_TOKEN`
     secret) so the coverage badge populates
-> **Sequencing decision (2026-06-20):** the docs format is **MkDocs Material**
-> (chosen), but block B is **paused behind block C**. Writing docs against an API
-> that may still move just means rewriting them — so the next step is a deliberate
-> review of the abstractions / the public "contract" to confirm they have settled.
-> This review is done by fresh eyes on purpose (the user, a separate agent, and a
-> later dedicated pass here), not folded into feature work.
+> **Sequencing update (2026-10-30):** the June API-review gate is satisfied.
+> MkDocs Material and deployment already exist; documentation is active work.
+> The additive DSL pass remains independently deferred.
 
-- **C. Abstraction / public-API stabilization — NEXT (gates B)**
+- **C. Abstraction / public-API stabilization — complete for documentation**
   - [x] Thorough review of the core abstractions and the public surface: are the
     DSL primitives (`Entity` / `Action` / `Invariant` / `Flow` / `Scope` /
     `Contract` / `Lifecycle` / queries …), the `analint` export set / `__all__`,
@@ -514,21 +490,25 @@ best-documented version first; the upload is the last step, gated on explicit go
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [ ] **Additive pass — decoupled, last or 0.0.2 (the only new public surface):**
+  - [ ] **Additive pass — deferred to a future release (new public surface):**
     `Key(...)` scope-key value expression + explicit canonical scope presence +
-    fixed `Initial(given=...)`. Removes the parallel-identity-param workaround in
+    fixed-only `Initial(given=...)` (currently `vary` must be non-empty). Removes the parallel-identity-param workaround in
     OAuth/Kubernetes but ADDS a symbol/AST node — design and version its
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.
   - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
     complete for documentation purposes** — the contract (DSL surface + agent JSON
-    schemas) is frozen; the additive `Key` pass is explicitly deferred to 0.0.2
-    and does not gate docs (block B).
-- **B. Documentation — MkDocs Material (chosen); deferred until C confirms stability**
-  - [ ] MkDocs-Material site on GitHub Pages; the 726-line README is the seed
-  - [ ] Getting started / first spec; DSL reference; CLI + MCP reference
-  - [ ] Concepts page: bounded reachability, three-valued verdict, why
-    `INCONCLUSIVE`/`NOT_CHECKED`, the deliberate no-liveness boundary
-  - [ ] Examples gallery linking the per-example READMEs; build + deploy docs in CI
+    schemas) is settled for documentation; the additive `Key` pass is deferred
+    beyond 0.0.2 and does not gate docs (block B).
+- **B. Documentation — active (2026-10-30); API gate satisfied**
+  - [x] MkDocs Material configuration, GitHub Pages deployment and agent guide
+    (`mkdocs.yml`, `docs/agents.md`, `.github/workflows/docs.yml`)
+  - [ ] Dedicated landing page and runnable first-spec tutorial
+  - [ ] DSL reference and CLI/MCP reference matching implemented signatures
+  - [ ] Verification concepts: bounds, canonical roots, verdicts, slices, cache,
+    TLC limitations and recoverability versus liveness
+  - [ ] Examples gallery linking each example's README and stating intended failures
+  - [ ] Strict documentation build on pull requests and before deployment, plus
+    execution checks for the tutorial and its planted-defect counterexample
 - **D. Pre-flight, then publish**
   - [x] Final package validation: full CI matrix, wheel/sdist build, Twine metadata
     check, and clean Python 3.12 install. The old TestPyPI `0.0.1` predates the
@@ -538,6 +518,11 @@ best-documented version first; the upload is the last step, gated on explicit go
   - [x] Released `v0.0.2` (2026-10-11) the same way: slicing, R4, `--tlc`,
     invariant traces; breaking explicit composition root (research/35).
     Verified `uvx --from analint==0.0.2 analint --version`.
+- **Next release candidate (0.0.3) — pending**
+  - [ ] Validate and describe the implemented exploration cache and incremental
+    successor generation with the documentation changes
+  - [ ] Run quality checks, wheel/sdist validation and clean-install smoke checks
+  - [ ] Prepare version/changelog changes; publish only as a separate release step
 - [x] **Agent onboarding:** ship one portable, instruction-only `analint` skill
   in `skills/analint`; scripts, product-specific plugins and bundled MCP
   configuration remain deferred until installation friction or marketplace
@@ -547,10 +532,10 @@ Explicitly NOT blocking 0.0.1: logo, exhaustive tutorials, autodoc API dump,
 coverage gate, Dependabot — all can follow the first release.
 
 Still deferred until later:
-- Quint/export bridges are deferred until an explicit external-verifier consumer
-  exists; the checked OAuth port remains comparison evidence, not architecture
-- After the artifact: state-diff traces and statistics first; Mermaid/DOT for
-  lifecycle/action dependencies later
+- Additional verifier backends beyond the implemented TLC fallback require a
+  concrete consumer; standalone Quint ports remain comparison evidence
+- State-diff traces and statistics are implemented; Mermaid/DOT visualizations
+  for lifecycle/action dependencies remain deferred
 - **Optional human TUI (research/32):** not a first-release item and not an
   agent/CI surface. Reconsider after API/docs stabilization only if repeated
   human use shows navigation or trace-review pain. Start read-only in this
@@ -743,16 +728,11 @@ decision (research/36 §4) is accepted on the private spec, and #3 is closed.
     generator fails a test. It decides the open M4-risk and M6-profile queries in
     seconds. The full M4 risk cone still exceeds 30 min per check
     (research/36 §2.6). NoDeadEnd/DeadActions are not exported
-  - **Returning-agent checkpoint (2026-10-10; superseded by the 2026-10-11
-    proposal above):** A/C, the M1–M3 Quint port,
-    per-check timing, invariant state-diff traces and B2 fixtures are done.
-    Start with E and the stored B2 records; do not restart M4–M6 implementation.
-    First enumerate/reuse distinct large cones on a controlled runner with a
-    higher budget, record completeness and memory, and assess the cost of
-    consolidating the separate settlement abstractions. M4–M6 have no Quint
-    port or complete canonical graph yet. Keep INCONCLUSIVE explicit; a faster
-    capped whole-model run is not a stronger proof. Do not choose a backend
-    solely from these capped timings.
+  - **Checkpoint (2026-10-30):** P5 is accepted and complete, including the
+    decision, compact storage, TLC, incremental exploration and disk caching.
+    Continue with the current priorities at the top of this file. The original
+    2026-10-10 M4–M6 handoff is superseded; do not repeat the completed benchmark,
+    backend comparison or synthesis work.
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
 

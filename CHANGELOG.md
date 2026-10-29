@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
-**0.0.3 release candidate — prepared 2026-10-30; not published.**
+## [0.0.3] — 2026-10-30
 Adds persistent exploration caching and incremental exploration without changing
 the declared DSL semantics or the versioned JSON contracts.
 
@@ -152,5 +152,6 @@ test suite; this release makes them installable and documents their scope.
 - It deliberately does **not** model liveness or temporal "eventually"
   properties. This is a scope boundary, not a defect.
 
+[0.0.3]: https://github.com/angru/analint/releases/tag/v0.0.3
 [0.0.2]: https://github.com/angru/analint/releases/tag/v0.0.2
 [0.0.1]: https://github.com/angru/analint/releases/tag/v0.0.1

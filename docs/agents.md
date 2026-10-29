@@ -4,8 +4,8 @@ analint is built for coding agents as first-class users: every command speaks
 JSON with a versioned `schema`, and the model is inspectable without reading
 source. There are two ways to give an agent that surface.
 
-This page documents the repository's main branch. `cache` is **unreleased**;
-other listed MCP operations are available in 0.0.2. The
+This page documents the repository's main branch. `cache` is available since
+**0.0.3**; the other listed MCP operations are available since 0.0.2. The
 [CLI reference](cli.md) covers terminal options, which are not identical to the
 MCP argument set.
 
@@ -68,7 +68,7 @@ below match the server's tool definitions.
 
 | Tool | Required arguments | Optional arguments |
 | --- | --- | --- |
-| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false` (cache unreleased) |
+| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false` (cache since 0.0.3) |
 | `show` | None | `path="."`, `kind=null`, `name=null` |
 | `affects` | `target` | `path="."` |
 | `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null` |

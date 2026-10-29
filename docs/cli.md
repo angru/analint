@@ -27,7 +27,7 @@ The overall verdict includes all of these stages.
 | `--no-slice` | Use whole-model exploration instead of property slices |
 | `--tlc` | Hand supported INCONCLUSIVE properties to TLC |
 | `--tlc-timeout SECONDS` | Timeout per exported TLC check, at least 1 second; default unlimited |
-| `--cache` | **Unreleased:** persist/reuse explorations of unchanged slices |
+| `--cache` | Since 0.0.3: persist/reuse explorations of unchanged slices |
 
 Scenario/tag filters select scenario execution; they do not turn the command
 into a scenario-only validation that skips invariants, flows or queries.

@@ -508,7 +508,7 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   that may be absent) are refused and the check stays INCONCLUSIVE. Results
   decided this way carry `"backend": "tlc"`. Needs Java and a TLC jar
   (`ANALINT_TLC_JAR`, or the one bundled with Quint's Apalache).
-- **Unreleased — repeated checks reuse unchanged work.** `check --cache` stores every
+- **Repeated checks reuse unchanged work (0.0.3).** `check --cache` stores every
   exploration on disk (`~/.cache/analint`, or `$ANALINT_CACHE_DIR`), keyed by
   a digest of its slice, roots, budget and the engine itself. A later run
   explores only the slices an edit touched. The report is the one a fresh run
@@ -652,7 +652,7 @@ analint check [PATH]              # validate: structural checks + scenario runs
                                   # instead of each check's slice
   --tlc                           # decide what stayed INCONCLUSIVE with TLC
   --tlc-timeout SECONDS           # per exported check
-  --cache                         # unreleased: reuse explorations of unchanged slices
+  --cache                         # reuse explorations of unchanged slices
                                   # from earlier runs (same report)
 
 analint show [KIND] [NAME] -p PATH   # inspect the model (JSON output)
@@ -788,8 +788,7 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 ## Status
 
-The latest published version is **0.0.2**; main prepares the **0.0.3 release
-candidate**, which is not published yet. The engine and CLI are mature and
+This is an **early public release (`0.0.3`)**. The engine and CLI are mature and
 covered by 500+ tests, but the API is not yet frozen and may change before `1.0` —
 pin a version if you depend on it.
 

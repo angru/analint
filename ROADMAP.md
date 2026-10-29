@@ -1,12 +1,12 @@
 # analint — Roadmap
 
-Current status (2026-10-30): **0.0.3 candidate prepared; 0.0.2 remains the latest
-published release. Semantic core and P5 are complete.**
+Current status (2026-10-30): **0.0.3 publication in progress; preflight complete.
+Semantic core and P5 are complete.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
 backend are released. Incremental successor generation and on-disk exploration
-caching are implemented on main and remain unreleased (see `CHANGELOG.md`).
+caching are included in 0.0.3 (see `CHANGELOG.md`).
 
 **This file is the single source of truth for status and priorities.**
 `research/` contains dated rationale; priorities stated only there are historical.
@@ -21,17 +21,16 @@ verification concepts, DSL/CLI/MCP references and examples gallery. Pull request
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 
-1. **0.0.3 release candidate — prepared.** Version and lockfile updated,
-   changelog ready, packages validated and clean installs checked across Python
-   3.12–3.14. Source-package test inputs and MCP SDK compatibility were corrected
-   during preflight. Publishing remains a separate release step; no tag or
-   package upload is part of candidate preparation.
+1. **0.0.3 publication — in progress.** Candidate CI is green across Python
+   3.12–3.14. Finalize release notes, publish through the existing GitHub Release
+   workflow and verify a fresh PyPI installation. Source-package inputs and MCP
+   SDK compatibility were corrected during preflight.
 2. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
    canonical scope presence and fixed-only `Initial(given=...)` remain open.
    Existing `Initial.given` can fix values alongside a non-empty `vary`; it does
    not yet support a fixed-only relation. Design the new surface across the
    interpreter, compiler, slicing, cache, artifacts and TLC before implementation.
-   This work does not block the cache release.
+   This work is independent of the 0.0.3 release.
 3. **Performance — acceptance complete.** P5 and issue #3 are closed. Default to
    slicing plus compact storage; use `--cache` for repeated checks and `--tlc`
    for supported inconclusive properties. Further engine work requires a measured
@@ -513,7 +512,7 @@ unblocks documentation; the remaining additive work is independent.
     and a packaged what-if exercise that leaves the root unchanged
   - [x] DSL reference (`docs/dsl.md`) and CLI/MCP references (`docs/cli.md`,
     `docs/agents.md`) matching implemented signatures, including the CLI/MCP
-    differences and versioned JSON schemas; cache explicitly marked unreleased
+    differences and versioned JSON schemas; cache availability marked since 0.0.3
   - [x] Verification concepts (`docs/concepts.md`): bounds, canonical roots,
     verdicts, slices, cache, TLC limits and recoverability versus liveness
   - [x] Examples gallery (`docs/examples.md`), with README links and intended
@@ -531,10 +530,10 @@ unblocks documentation; the remaining additive work is independent.
   - [x] Released `v0.0.2` (2026-10-11) the same way: slicing, R4, `--tlc`,
     invariant traces; breaking explicit composition root (research/35).
     Verified `uvx --from analint==0.0.2 analint --version`.
-- **0.0.3 release candidate — prepared (2026-10-30), not published**
+- **0.0.3 release — publication in progress (2026-10-30)**
   - [x] Validate and describe exploration caching, incremental successor
-    generation and documentation; version/lockfile are 0.0.3 and the changelog
-    keeps this candidate under Unreleased
+    generation and documentation; version/lockfile are 0.0.3 and release notes
+    are finalized in `CHANGELOG.md`
   - [x] Wheel/sdist build and strict Twine checks; lint, format, typing and strict
     documentation build; clean wheel installs on Python 3.12, 3.13 and 3.14
     verify version, PASS/FAIL/INCONCLUSIVE exits and fresh/cold/warm cache parity
@@ -545,8 +544,8 @@ unblocks documentation; the remaining additive work is independent.
     required by their tests. Archive test collection is a CI gate; the extracted
     candidate's full suite passed on clean Python 3.12 (579 passed, 15 expected
     skips, including TLC conformance where exportable)
-  - [ ] Publish 0.0.3 through the GitHub Release workflow as a separate release
-    action, then update the published-version references
+  - [ ] Publish 0.0.3 through the GitHub Release workflow and verify the PyPI
+    installation, then record completion here
 - [x] **Agent onboarding:** ship one portable, instruction-only `analint` skill
   in `skills/analint`; scripts, product-specific plugins and bundled MCP
   configuration remain deferred until installation friction or marketplace

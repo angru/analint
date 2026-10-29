@@ -118,7 +118,7 @@ documented difference is that whole-model `NoDeadEnd` counts a state illegal und
 an out-of-slice invariant as a dead end, while that slice does not; the invariant
 violation still fails the run in its own check.
 
-**Unreleased:** `check --cache` persists explorations by a digest of the slice,
+**Since 0.0.3:** `check --cache` persists explorations by a digest of the slice,
 roots, budget and engine source. An unchanged slice can reuse work across runs;
 model changes invalidate the relevant entries. The cache returns the same
 semantic findings as a fresh run. Check timing can change because it measures

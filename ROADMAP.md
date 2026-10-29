@@ -1,6 +1,6 @@
 # analint — Roadmap
 
-Current status (2026-10-30): **0.0.3 publication in progress; preflight complete.
+Current status (2026-10-30): **0.0.3 released and verified on PyPI.
 Semantic core and P5 are complete.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -21,10 +21,11 @@ verification concepts, DSL/CLI/MCP references and examples gallery. Pull request
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 
-1. **0.0.3 publication — in progress.** Candidate CI is green across Python
-   3.12–3.14. Finalize release notes, publish through the existing GitHub Release
-   workflow and verify a fresh PyPI installation. Source-package inputs and MCP
-   SDK compatibility were corrected during preflight.
+1. **Real-spec feedback — next.** Use published 0.0.3 on project models and
+   record any remaining inconclusive properties or repetitive DSL workarounds.
+   Prioritize concrete reproductions over speculative engine work. The release
+   itself is complete: GitHub Release, Trusted Publishing and a fresh PyPI
+   installation with the MCP extra have all been verified.
 2. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
    canonical scope presence and fixed-only `Initial(given=...)` remain open.
    Existing `Initial.given` can fix values alongside a non-empty `vary`; it does
@@ -530,7 +531,7 @@ unblocks documentation; the remaining additive work is independent.
   - [x] Released `v0.0.2` (2026-10-11) the same way: slicing, R4, `--tlc`,
     invariant traces; breaking explicit composition root (research/35).
     Verified `uvx --from analint==0.0.2 analint --version`.
-- **0.0.3 release — publication in progress (2026-10-30)**
+- **0.0.3 release — complete (2026-10-30)**
   - [x] Validate and describe exploration caching, incremental successor
     generation and documentation; version/lockfile are 0.0.3 and release notes
     are finalized in `CHANGELOG.md`
@@ -544,8 +545,11 @@ unblocks documentation; the remaining additive work is independent.
     required by their tests. Archive test collection is a CI gate; the extracted
     candidate's full suite passed on clean Python 3.12 (579 passed, 15 expected
     skips, including TLC conformance where exportable)
-  - [ ] Publish 0.0.3 through the GitHub Release workflow and verify the PyPI
-    installation, then record completion here
+  - [x] Published [v0.0.3](https://github.com/angru/analint/releases/tag/v0.0.3)
+    from `4eef653` through the existing Trusted Publishing workflow. Fresh
+    Python 3.12 installation from PyPI (`analint[mcp]==0.0.3`) verifies version,
+    PASS/FAIL/INCONCLUSIVE exits, cache parity and invalidation after an edit,
+    invariant counterexamples and discovery of all five MCP tools
 - [x] **Agent onboarding:** ship one portable, instruction-only `analint` skill
   in `skills/analint`; scripts, product-specific plugins and bundled MCP
   configuration remain deferred until installation friction or marketplace

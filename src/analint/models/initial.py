@@ -14,17 +14,17 @@ class Initial:
 
     ``vary`` contains concrete fields or ``BoundField`` values. ``where``
     filters their Cartesian product with ordinary predicate AST nodes.
-    ``given`` fixes fields and supplies entities without defaults.
+    ``given`` fixes fields and supplies entities without defaults. With no
+    varying fields, the defaults plus ``given`` form one candidate, filtered
+    by ``where`` in the same way as a varying relation.
     """
 
-    vary: list[Any]
+    vary: list[Any] = field(default_factory=list)
     where: list[Predicate] = field(default_factory=list)
     given: list[Any] = field(default_factory=list)
     max_candidates: int = 10_000
 
     def __post_init__(self) -> None:
         self.where = [normalize_predicate(predicate) for predicate in self.where]
-        if not self.vary:
-            raise TypeError("Initial vary= needs at least one field")
         if not isinstance(self.max_candidates, int) or self.max_candidates <= 0:
             raise TypeError("Initial max_candidates must be a positive integer")

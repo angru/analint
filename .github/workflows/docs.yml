@@ -18,7 +18,9 @@ jobs:
           enable-cache: true
           python-version: "3.14"
       - run: uv sync --frozen --group docs --group dev
-      - run: uv run --frozen pytest tests/test_documentation.py
+      - run: >-
+          uv run --frozen pytest tests/test_documentation.py
+          tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace
       - run: uv run --frozen --group docs mkdocs build --strict
 
   deploy:

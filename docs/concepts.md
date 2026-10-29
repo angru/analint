@@ -34,8 +34,14 @@ of canonical roots. `vary` enumerates field domains; `where` filters combination
 Domains can come from booleans, enums, lifecycle states, bounded integer fields
 or `Field(values=[...])`. A `BoundField` in `vary` expands over its scope.
 `max_candidates` limits candidate generation; exceeding it is an error, never a
-truncated selection of roots. Currently `vary` must contain at least one field;
-fixed-only `Initial(given=[...])` is deferred.
+truncated selection of roots.
+
+**Unreleased:** omit `vary` (or use `vary=[]`) for a fixed relation:
+`Initial(given=[...])` builds one candidate from defaults plus those snapshots.
+`where` still applies, so a false filter yields an error rather than a vacuous
+PASS. `Initial()` selects the defaults-built world. This does not require
+enumerating finite domains for fields that stay fixed. In 0.0.3, `vary` must
+still be non-empty. See the [fixed-root example](dsl.md#fixed-root-example-unreleased).
 
 A query can specify **one** of `given`, `given_any` or `initial`:
 

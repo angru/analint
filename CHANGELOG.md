@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Fixed initial relations: `Initial(given=[...])` or `Initial(vary=[], ...)`
+  builds one candidate from defaults plus the supplied snapshots, with the
+  usual `where` filtering and fail-closed errors. `Initial()` uses defaults.
+  Non-empty `vary` retains its existing multi-root semantics.
+
 ## [0.0.3] — 2026-10-30
 Adds persistent exploration caching and incremental exploration without changing
 the declared DSL semantics or the versioned JSON contracts.

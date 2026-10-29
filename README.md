@@ -486,6 +486,10 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   `vary` fields range over `bool`, `Enum`, bounded integer `Field`, or
   `Field(values=[...])` domains; ordinary predicates filter the Cartesian
   product. `BoundField` varies a field across an entire `Scope`.
+- **Unreleased:** `Initial(given=[...])` can omit `vary` to select one fixed
+  candidate from defaults plus those snapshots. `Initial()` uses defaults alone;
+  `where` still filters the candidate and an empty result or evaluation error
+  fails validation. This form requires a source checkout until the next release.
 - Queries quantify over every admissible root, and traces name the originating
   configuration (`init #2 ⊢ …`).
 - Numeric `Field(ge=..., le=...)` constraints keep the state space finite.

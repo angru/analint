@@ -293,6 +293,11 @@ exactly one Mafia. Candidate expansion is rejected above `max_candidates`,
 never truncated, and predicate evaluation errors fail the query. A query may
 use only one of `given`, `given_any`, or `initial`.
 
+Omitting `vary` (or using `vary=[]`) selects one candidate built from defaults
+plus `given`; `where` still applies. `Initial()` is the defaults-only form.
+An empty relation or a filter evaluation error fails closed. This fixed-root
+form is implemented on main and is not included in the 0.0.3 release.
+
 ### Model completion (engine.py)
 
 `_complete_model` names the loaded objects and merges a what-if module; it adds

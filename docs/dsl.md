@@ -208,8 +208,14 @@ occur within its quantifier/aggregate, or in the supported `Initial.vary` positi
 ## Initial
 
 `Initial(vary=[...], where=[...], given=[...], max_candidates=10000)` enumerates
-admissible roots. `vary` must be non-empty. `given` fixes other values, and `where`
-filters combinations with ordinary predicates and aggregates.
+admissible roots. `given` fixes values, and `where` filters combinations with
+ordinary predicates and aggregates.
+
+**Unreleased:** `vary` can be omitted or empty. `Initial(given=[...])` starts
+with one candidate built from defaults plus the supplied snapshots, then applies
+`where`. `Initial()` uses the defaults alone. A rejected candidate leaves no roots
+and fails validation; an evaluation error also fails. Version 0.0.3 still requires
+at least one varying field.
 
 ```python
 from analint import Initial
@@ -224,6 +230,76 @@ starting_balances = Initial(
 Attach it to `Spec.initial` for canonical verification or to a query's `initial`
 for that query only. Candidate overflow and evaluation errors fail rather than
 silently removing combinations. See [initial states](concepts.md#initial-states-and-domains).
+
+### Fixed-root example (unreleased)
+
+Save this complete source as `spec.py` in a source-checkout environment and run
+`analint check .`. Both slots start absent; creating one increments the counter.
+The required Limit value comes from `given`. An independent noise action shows
+why property slices can be smaller than `analint explore .`'s whole-model graph.
+`already_created` supplies its own fixed root and needs no action to find a witness.
+
+```python title="fixed-root-spec.py"
+from analint import (
+    Absent, Action, Add, Bound, Create, Entity, Field, Initial,
+    Invariant, Not, Present, Reachable, Scenario, Scope, Set, Spec, Sum,
+)
+
+
+class Limit(Entity):
+    max_created: int
+
+
+class Counter(Entity):
+    n: int = Field(0, ge=0, le=1)
+
+
+class Item(Entity):
+    units: int = Field(1, ge=1, le=1)
+
+
+class Noise(Entity):
+    on: bool = False
+
+
+items = Scope(Item, keys=["one", "spare"])
+one = items["one"]
+spare = items["spare"]
+item = Bound("item", items)
+
+create = Action(
+    pre=[Counter.n < Limit.max_created],
+    effect=[Create(one), Add(Counter.n, 1)],
+)
+flip_noise = Action(pre=[Not(Noise.on)], effect=[Set(Noise.on, True)])
+balanced = Invariant(Sum(item, item.units) == Counter.n)
+created = Reachable(Present(one))
+already_created = Reachable(
+    Present(one),
+    initial=Initial(given=[Limit(max_created=1), Counter(n=1), one(), Absent(spare)]),
+)
+create_once = Scenario(
+    action=create,
+    given=[Limit(max_created=1), Counter(), Absent(one), Absent(spare)],
+    then=[Present(one), Counter.n == 1],
+)
+noise_once = Scenario(action=flip_noise, given=[Noise()], then=[Noise.on])
+
+spec = Spec(
+    id="fixed_initial",
+    name="Fixed initial world",
+    initial=Initial(given=[Limit(max_created=1), Absent(one), Absent(spare)]),
+    actions=[create, flip_noise],
+    scenarios=[create_once, noise_once],
+    invariants=[balanced],
+    queries=[created, already_created],
+)
+```
+
+The canonical whole-model graph has one root and four states; the invariant and
+`created` each need only two states in their slices. Use `analint trace created`
+with `-p .` for the `create` witness, or `analint trace already_created -p .` for
+the query-specific initial-state witness.
 
 ## Event and Emitted
 

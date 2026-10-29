@@ -65,7 +65,8 @@ blocks are executed directly from the Markdown by the documentation tests,
 including a planted defect and a packaged `--what-if` hypothesis.
 
 ```bash
-uv run --frozen pytest tests/test_documentation.py
+uv run --frozen pytest tests/test_documentation.py \
+  tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace
 uv run --frozen --group docs mkdocs build --strict
 uv run --frozen --group docs mkdocs serve
 ```

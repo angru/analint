@@ -178,7 +178,8 @@ code `4` into success without an explicit policy for unresolved properties.
 From a repository checkout, the documentation is checked with:
 
 ```bash
-uv run --frozen pytest tests/test_documentation.py
+uv run --frozen pytest tests/test_documentation.py \
+  tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace
 uv run --frozen --group docs mkdocs build --strict
 ```
 

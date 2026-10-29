@@ -25,10 +25,10 @@ checks before the existing main-only deployment.
    sent for testing on a real task. Feedback is pending; no trial verdict or
    new defect is recorded yet. Reproduced correctness failures and blockers
    take priority over the planned cleanup below.
-2. **Fixed-only initial relations — ready to implement.** Allow
-   `Initial(given=[...])` without a dummy `vary`. This is an existing authoring
-   gap with repository evidence, independent of the trial's outcome.
-3. **Scoped identity and initial presence — planned separately.** Design
+2. **Fixed-only initial relations — implemented on main, unreleased.**
+   `Initial(given=[...])`, empty `vary` and `Initial()` use the existing root
+   builder without a dummy varying field. See completed queue item 2.
+3. **Scoped identity and initial presence — next design work, planned separately.** Design
    `Key(...)` and an opt-in canonical presence policy, then implement each as
    its own change with conformance coverage. See the work queue below.
 4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
@@ -64,27 +64,32 @@ Done when the trial's findings are recorded with an explicit disposition; a clea
 trial is useful evidence too. This item awaits external feedback, not speculative
 implementation. No new requirement is inferred from the trial before results arrive.
 
-### 2. Fixed-only Initial — ready; recommended next implementation
+### 2. Fixed-only Initial — complete on main (2026-10-30), unreleased
 
-Evidence: research/30 §5.7 and `src/analint/models/initial.py`, which requires a
-non-empty `vary` even when `given` already defines the intended initial world.
+Evidence: research/30 §5.7 and the constructor restriction in 0.0.3's
+`src/analint/models/initial.py`. The existing zero-field Cartesian product already
+provides one candidate; the implementation enables that input without introducing
+a second root-construction path or changing the transition kernel.
 
-- [ ] Allow omitted/empty `vary` and `Initial(given=[...])`; define a fixed
-  relation as one candidate before applying `where`, using the existing
-  defaults-plus-overrides construction.
-- [ ] Cover canonical and query-specific roots, required fields, absent scoped
-  slots, filters that reject the candidate and predicate errors. A relation
-  yielding no admissible roots or an evaluation error must never produce a
-  vacuous PASS. Keep candidate-budget validation.
-- [ ] Verify fixed-root behavior in `check`, `explore`, `trace`, slicing, cache
-  round-trips and the TLC fallback where exportable.
-- [ ] Add a runnable fixed-root example and update the Initial reference. Preserve
-  existing multi-root intent: Kubernetes currently varies quota over its full
-  domain; do not collapse those roots as a mechanical cleanup. Keep the
-  characterization snapshot unchanged unless a specific intended delta is reviewed.
+- [x] Allow omitted/empty `vary` and `Initial(given=[...])`; `Initial()` selects
+  the defaults-built candidate. Existing `where` filtering and candidate-budget
+  validation remain in force.
+- [x] Cover required values, explicit absent slots, duplicate givens, rejected
+  filters, empty-aggregate/evaluation errors, budget exhaustion and an invariant
+  violation in the initial state despite passing scenarios. Empty/invalid
+  relations do not become a vacuous PASS.
+- [x] Verify canonical/query-specific roots through `check`, `explore`, `trace`,
+  slicing and disk-cache round trips. TLC matches the four-state whole graph
+  and decides the checks left capped at one state.
+- [x] Add the runnable fixed-root model to `docs/dsl.md`, executed directly by
+  the conformance tests and docs CI. Update README, agent guidance and references
+  with an explicit unreleased label. Keep Kubernetes' quota variation and all
+  existing example sources/snapshots unchanged.
 
-Done when the fixed-root form works without an artificial varying field and all
-existing non-empty-vary models retain their verdicts, roots and traces.
+`tests/test_fixed_initial.py` contains 21 focused cases; the runnable example
+needs two states per property slice instead of four whole-model states. The
+published 0.0.3 constructor still requires a non-empty `vary`; this addition is
+for the next release. Key and canonical scope-presence policy remain open.
 
 ### 3. Key(...) for scoped identities — design first, then implementation
 
@@ -532,7 +537,7 @@ unblocks documentation; the remaining additive work is independent.
 > MkDocs Material and deployment already exist; the documentation baseline below
 > is now complete.
 > The additive DSL pass is now split into the post-release work queue above;
-> fixed-only Initial is ready, and Key/presence design remain separate.
+> fixed-only Initial is implemented on main; Key/presence design remain separate.
 
 - **C. Abstraction / public-API stabilization — complete for documentation**
   - [x] Thorough review of the core abstractions and the public surface: are the
@@ -590,9 +595,9 @@ unblocks documentation; the remaining additive work is independent.
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [ ] **Additive pass — split into post-release queue items 2–4 (not implemented):**
-    `Key(...)` scope-key value expression + explicit canonical scope presence +
-    fixed-only `Initial(given=...)` (currently `vary` must be non-empty). Removes
+  - [ ] **Additive pass — partially complete; see post-release queue items 2–4:**
+    Fixed-only `Initial(given=...)` is implemented on main (unreleased).
+    `Key(...)` and explicit canonical scope presence remain planned. Removes
     the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
     symbol/AST node — design and version its
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.

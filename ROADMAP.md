@@ -21,25 +21,119 @@ verification concepts, DSL/CLI/MCP references and examples gallery. Pull request
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 
-1. **Real-spec feedback — next.** Use published 0.0.3 on project models and
-   record any remaining inconclusive properties or repetitive DSL workarounds.
-   Prioritize concrete reproductions over speculative engine work. The release
-   itself is complete: GitHub Release, Trusted Publishing and a fresh PyPI
-   installation with the MCP extra have all been verified.
-2. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
-   canonical scope presence and fixed-only `Initial(given=...)` remain open.
-   Existing `Initial.given` can fix values alongside a non-empty `vary`; it does
-   not yet support a fixed-only relation. Design the new surface across the
-   interpreter, compiler, slicing, cache, artifacts and TLC before implementation.
-   This work is independent of the 0.0.3 release.
-3. **Performance — acceptance complete.** P5 and issue #3 are closed. Default to
-   slicing plus compact storage; use `--cache` for repeated checks and `--tlc`
-   for supported inconclusive properties. Further engine work requires a measured
-   bottleneck; product-sized coupled cones are first a modelling question.
+1. **Real-spec trial — in progress (user-reported).** Version 0.0.3 has been
+   sent for testing on a real task. Feedback is pending; no trial verdict or
+   new defect is recorded yet. Reproduced correctness failures and blockers
+   take priority over the planned cleanup below.
+2. **Fixed-only initial relations — ready to implement.** Allow
+   `Initial(given=[...])` without a dummy `vary`. This is an existing authoring
+   gap with repository evidence, independent of the trial's outcome.
+3. **Scoped identity and initial presence — planned separately.** Design
+   `Key(...)` and an opt-in canonical presence policy, then implement each as
+   its own change with conformance coverage. See the work queue below.
+4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
+   performance history conditional on a controlled runner or a reproduced
+   regression; further engine optimization requires a measured bottleneck.
 
 New semantic primitives remain evidence-gated. Liveness/fairness, automatic event
 dispatch, unbounded structures, a general implementation bridge, a separate
 semantic-diff command and a Rust core remain outside the current work.
+
+## Post-release work queue (2026-10-30)
+
+This queue splits the existing research/30 additive pass into actionable work.
+It does not reopen the completed semantic core or P5, assign a release version,
+commit to an API spelling before design, or expand the language's semantic scope.
+Work through the ready items sequentially; actionable trial feedback can interrupt
+that order. The historical completion sections below remain the record of what
+has already shipped.
+
+### 1. Triage the live 0.0.3 trial — in progress, feedback pending
+
+- [x] Release 0.0.3 sent to a real task for testing (reported by the user).
+- [ ] Collect a minimal reproduction or model excerpt, the installed version,
+  command/budget, expected result and observed verdict/findings. For performance
+  reports also record the per-check slice/state counts and cold/warm cache mode.
+- [ ] Separate checker defects from missing model assumptions, finite-domain or
+  budget limitations, and authoring/documentation friction. Turn each actionable
+  finding into a task with a reproducible acceptance case.
+- [ ] Fix reproduced false greens, incorrect results and execution blockers first;
+  preserve the case as a regression test and rerun the affected conformance paths.
+
+Done when the trial's findings are recorded with an explicit disposition; a clean
+trial is useful evidence too. This item awaits external feedback, not speculative
+implementation. No new requirement is inferred from the trial before results arrive.
+
+### 2. Fixed-only Initial — ready; recommended next implementation
+
+Evidence: research/30 §5.7 and `src/analint/models/initial.py`, which requires a
+non-empty `vary` even when `given` already defines the intended initial world.
+
+- [ ] Allow omitted/empty `vary` and `Initial(given=[...])`; define a fixed
+  relation as one candidate before applying `where`, using the existing
+  defaults-plus-overrides construction.
+- [ ] Cover canonical and query-specific roots, required fields, absent scoped
+  slots, filters that reject the candidate and predicate errors. A relation
+  yielding no admissible roots or an evaluation error must never produce a
+  vacuous PASS. Keep candidate-budget validation.
+- [ ] Verify fixed-root behavior in `check`, `explore`, `trace`, slicing, cache
+  round-trips and the TLC fallback where exportable.
+- [ ] Add a runnable fixed-root example and update the Initial reference. Preserve
+  existing multi-root intent: Kubernetes currently varies quota over its full
+  domain; do not collapse those roots as a mechanical cleanup. Keep the
+  characterization snapshot unchanged unless a specific intended delta is reviewed.
+
+Done when the fixed-root form works without an artificial varying field and all
+existing non-empty-vary models retain their verdicts, roots and traces.
+
+### 3. Key(...) for scoped identities — design first, then implementation
+
+Evidence: research/30 §5.6; OAuth's `code_id`/`_slot_is_its_id` and Kubernetes'
+`rs_owner`/`_rs_is_owner` parallel-identity declarations.
+
+- [ ] Define accepted inputs (`InstanceRef`, instance `Param`, `Bound`), key value
+  types, presence independence, static `where` use and invalid-input diagnostics.
+  Scope keys and domain foreign-key fields currently use different representations
+  in the examples; plan their alignment explicitly, with no implicit identity map.
+- [ ] Specify the closed value-expression node and its JSON/artifact representation.
+  Return the declared key value rather than an internal InstanceRef object; decide
+  whether the existing schema contracts can represent it without a version change.
+- [ ] Implement interpreter/compiler agreement, parameter/quantifier binding,
+  structural/reference analysis, slicing, cache digest/decoding and exact TLC
+  export or explicit refusal for unsupported key domains.
+- [ ] Migrate OAuth and Kubernetes identity workarounds with behavior comparisons.
+  Review any action-id, root-label or trace changes caused by aligning key domains;
+  do not bless an entire new snapshot mechanically.
+
+Done when those two evidence models express provenance through declared keys,
+without parallel identity parameters, and all verification paths agree. This is a
+convenience expression, not general joins or dynamic allocation.
+
+### 4. Explicit canonical scope presence — design queued after fixed Initial
+
+Evidence: research/30 §5.7; canonical exploration defaults scoped slots to present,
+while scenarios/flows omit unlisted slots as absent.
+
+- [ ] Design an opt-in per-scope canonical presence policy and its precedence
+  relative to fixed initial snapshots and query overrides. Preserve current
+  defaults and the scenario/flow partial-world semantics.
+- [ ] Implement root construction, model/reference handling, canonical cache
+  digest and backend behavior. Presence policy must not change the key universe
+  or the transition semantics of Create/Delete.
+- [ ] Add absent/present/mixed-root probes covering invariants, finite aggregates,
+  reachability, trace replay and cache/TLC parity. Migrate an applicable example
+  only with an explicit comparison of its initial worlds.
+
+Done when empty resource scopes can be declared directly while existing models
+retain their initial worlds and completeness guarantees.
+
+### 5. Performance history — conditional backlog
+
+The existing ASV/history proposal below remains deferred until a controlled runner
+is available or the live trial reproduces a regression. Reuse the current generated
+workloads and broker models; record commit, environment, completeness, state counts,
+cold/warm mode and memory. Keep normal tests free of timing gates. New backends,
+POR and native rewrites still require the measured triggers documented in P5.
 
 ---
 
@@ -437,7 +531,8 @@ unblocks documentation; the remaining additive work is independent.
 > **Sequencing update (2026-10-30):** the June API-review gate is satisfied.
 > MkDocs Material and deployment already exist; the documentation baseline below
 > is now complete.
-> The additive DSL pass remains independently deferred.
+> The additive DSL pass is now split into the post-release work queue above;
+> fixed-only Initial is ready, and Key/presence design remain separate.
 
 - **C. Abstraction / public-API stabilization — complete for documentation**
   - [x] Thorough review of the core abstractions and the public surface: are the
@@ -495,7 +590,7 @@ unblocks documentation; the remaining additive work is independent.
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [ ] **Additive pass — deferred to a future release (new public surface):**
+  - [ ] **Additive pass — split into post-release queue items 2–4 (not implemented):**
     `Key(...)` scope-key value expression + explicit canonical scope presence +
     fixed-only `Initial(given=...)` (currently `vary` must be non-empty). Removes
     the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
@@ -503,8 +598,8 @@ unblocks documentation; the remaining additive work is independent.
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.
   - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
     complete for documentation purposes** — the contract (DSL surface + agent JSON
-    schemas) is settled for documentation; the additive `Key` pass is deferred
-    beyond 0.0.2 and does not gate docs (block B).
+    schemas) is settled for documentation; the additive work remains unshipped
+    and is tracked in queue items 2–4. It does not gate docs (block B).
 - **B. Documentation — complete (2026-10-30)**
   - [x] MkDocs Material configuration, GitHub Pages deployment and agent guide
     (`mkdocs.yml`, `docs/agents.md`, `.github/workflows/docs.yml`)

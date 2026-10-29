@@ -74,6 +74,8 @@ include = [
     "/src",
     "/examples",
     "/tests",
+    "/docs",
+    "/mkdocs.yml",
     "/README.md",
     "/LICENSE",
     "/CHANGELOG.md",

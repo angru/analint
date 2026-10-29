@@ -13,6 +13,8 @@ All notable changes to this project are documented here. The format is based on
   concepts, DSL and CLI references, MCP tool arguments and examples gallery.
   Documentation CI now validates pull requests with a strict site build and
   executes the tutorial, its planted-defect counterexample and its hypothesis.
+  Source distributions include those documentation sources so the shipped
+  tutorial tests can also run from an extracted archive.
 - `check --cache` (MCP `cache`): explorations are stored on disk
   (`~/.cache/analint`, `$ANALINT_CACHE_DIR`), keyed by a digest of their
   slice, roots, budget and the engine source. A repeated check explores only

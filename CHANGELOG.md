@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Dedicated documentation pages for the first-spec tutorial, verification
+  concepts, DSL and CLI references, MCP tool arguments and examples gallery.
+  Documentation CI now validates pull requests with a strict site build and
+  executes the tutorial, its planted-defect counterexample and its hypothesis.
 - `check --cache` (MCP `cache`): explorations are stored on disk
   (`~/.cache/analint`, `$ANALINT_CACHE_DIR`), keyed by a digest of their
   slice, roots, budget and the engine source. A repeated check explores only

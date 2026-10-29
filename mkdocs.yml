@@ -27,5 +27,15 @@ markdown_extensions:
       base_path: [.]
 
 nav:
-  - Guide: index.md
+  - Home: index.md
+  - Your first spec: getting-started.md
+  - Verification concepts: concepts.md
+  - DSL reference: dsl.md
+  - CLI reference: cli.md
   - For AI agents: agents.md
+  - Examples: examples.md
+
+validation:
+  links:
+    anchors: warn
+    unrecognized_links: warn

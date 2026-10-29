@@ -15,20 +15,21 @@ maintaining a second test count here.
 
 ## Current priorities (2026-10-30)
 
-1. **Documentation — in progress.** The API review is complete. MkDocs Material,
-   GitHub Pages deployment and the agent guide already exist; finish the first-spec
-   tutorial, verification concepts, DSL/CLI/MCP references and examples gallery.
-   Validate runnable examples and build the site strictly in CI before deployment.
-2. **Release preparation — after documentation.** Validate the unreleased cache
-   and incremental-exploration changes, package metadata, wheel/sdist and clean
+The documentation baseline is complete: a runnable first-spec tutorial,
+verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
+and main pushes now have a strict documentation build and executable tutorial
+checks before the existing main-only deployment.
+
+1. **Release preparation — next.** Validate the unreleased cache and
+   incremental-exploration changes, package metadata, wheel/sdist and clean
    installation. Prepare a 0.0.3 candidate; publishing is a separate decision.
-3. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
+2. **Additive DSL cleanup — deferred, independently scoped.** `Key(...)`, explicit
    canonical scope presence and fixed-only `Initial(given=...)` remain open.
    Existing `Initial.given` can fix values alongside a non-empty `vary`; it does
    not yet support a fixed-only relation. Design the new surface across the
    interpreter, compiler, slicing, cache, artifacts and TLC before implementation.
-   This work does not block documentation or the cache release.
-4. **Performance — acceptance complete.** P5 and issue #3 are closed. Default to
+   This work does not block the cache release.
+3. **Performance — acceptance complete.** P5 and issue #3 are closed. Default to
    slicing plus compact storage; use `--cache` for repeated checks and `--tlc`
    for supported inconclusive properties. Further engine work requires a measured
    bottleneck; product-sized coupled cones are first a modelling question.
@@ -431,7 +432,8 @@ unblocks documentation; the remaining additive work is independent.
     at codecov.io (public repos usually tokenless; else add a `CODECOV_TOKEN`
     secret) so the coverage badge populates
 > **Sequencing update (2026-10-30):** the June API-review gate is satisfied.
-> MkDocs Material and deployment already exist; documentation is active work.
+> MkDocs Material and deployment already exist; the documentation baseline below
+> is now complete.
 > The additive DSL pass remains independently deferred.
 
 - **C. Abstraction / public-API stabilization — complete for documentation**
@@ -492,23 +494,31 @@ unblocks documentation; the remaining additive work is independent.
     tools). Regression-tested; characterization snapshot unaffected.
   - [ ] **Additive pass — deferred to a future release (new public surface):**
     `Key(...)` scope-key value expression + explicit canonical scope presence +
-    fixed-only `Initial(given=...)` (currently `vary` must be non-empty). Removes the parallel-identity-param workaround in
-    OAuth/Kubernetes but ADDS a symbol/AST node — design and version its
+    fixed-only `Initial(given=...)` (currently `vary` must be non-empty). Removes
+    the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
+    symbol/AST node — design and version its
     JSON/artifact representation carefully. Does not gate the subtractive core or docs.
   - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
     complete for documentation purposes** — the contract (DSL surface + agent JSON
     schemas) is settled for documentation; the additive `Key` pass is deferred
     beyond 0.0.2 and does not gate docs (block B).
-- **B. Documentation — active (2026-10-30); API gate satisfied**
+- **B. Documentation — complete (2026-10-30)**
   - [x] MkDocs Material configuration, GitHub Pages deployment and agent guide
     (`mkdocs.yml`, `docs/agents.md`, `.github/workflows/docs.yml`)
-  - [ ] Dedicated landing page and runnable first-spec tutorial
-  - [ ] DSL reference and CLI/MCP reference matching implemented signatures
-  - [ ] Verification concepts: bounds, canonical roots, verdicts, slices, cache,
-    TLC limitations and recoverability versus liveness
-  - [ ] Examples gallery linking each example's README and stating intended failures
-  - [ ] Strict documentation build on pull requests and before deployment, plus
-    execution checks for the tutorial and its planted-defect counterexample
+  - [x] Dedicated landing page and runnable first-spec tutorial (`docs/index.md`,
+    `docs/getting-started.md`), including a planted missing-effect counterexample
+    and a packaged what-if exercise that leaves the root unchanged
+  - [x] DSL reference (`docs/dsl.md`) and CLI/MCP references (`docs/cli.md`,
+    `docs/agents.md`) matching implemented signatures, including the CLI/MCP
+    differences and versioned JSON schemas; cache explicitly marked unreleased
+  - [x] Verification concepts (`docs/concepts.md`): bounds, canonical roots,
+    verdicts, slices, cache, TLC limits and recoverability versus liveness
+  - [x] Examples gallery (`docs/examples.md`), with README links and intended
+    failures checked against `examples/expectations.toml`
+  - [x] Strict build and executable documentation checks on pull requests and
+    main pushes; deployment needs the successful build and is main-only.
+    `tests/test_documentation.py` executes the Markdown source through CLI and
+    MCP, checks the counterexample/root isolation and verifies the gallery.
 - **D. Pre-flight, then publish**
   - [x] Final package validation: full CI matrix, wheel/sdist build, Twine metadata
     check, and clean Python 3.12 install. The old TestPyPI `0.0.1` predates the

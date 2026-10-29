@@ -39,9 +39,9 @@ A few specific things to know about the test suite:
   ```
 
   See `tests/snapshots/README.md` for the regen rule and expected deltas.
-- `tests/test_transition_conformance.py` is the fine-grained kernel gate. Agreed
-  semantics stay green; known target changes are `xfail(strict=True)`, so fixing
-  one produces an XPASS until its marker is deliberately removed.
+- `tests/test_transition_conformance.py` is the fine-grained kernel gate. It
+  checks agreed transition semantics directly; the historical target changes
+  have been resolved and no strict-xfail placeholders remain.
 
 ## Trying the CLI
 
@@ -49,13 +49,31 @@ A few specific things to know about the test suite:
 uv run analint check .                      # validate the spec in the cwd
 uv run analint show action <id> -p <spec>   # inspect one action
 uv run analint affects <Entity.field> -p <spec>   # blast radius of a field
-uv run analint explore -p <spec>            # bounded reachability exploration
+uv run analint explore <spec>               # bounded reachability exploration
 uv run analint check . --what-if file.py    # test a hypothesis without editing files
 ```
 
 Exit codes: `0` ok · `1` findings · `2` usage · `3` spec failed to load · `4`
 inconclusive (a query exhausted its exploration budget — it proved nothing). JSON
 output carries a three-valued `verdict` (`PASS`/`FAIL`/`INCONCLUSIVE`).
+
+## Documentation
+
+The MkDocs site lives in `docs/`; navigation is defined in `mkdocs.yml`.
+It tracks main, so mark unreleased features explicitly. Runnable tutorial
+blocks are executed directly from the Markdown by the documentation tests,
+including a planted defect and a packaged `--what-if` hypothesis.
+
+```bash
+uv run --frozen pytest tests/test_documentation.py
+uv run --frozen --group docs mkdocs build --strict
+uv run --frozen --group docs mkdocs serve
+```
+
+The docs workflow builds strictly and runs these tests on pull requests and
+main-branch pushes. Deployment runs only on main after validation succeeds.
+Keep CLI/MCP examples consistent with their implemented argument sets, preserve
+the bounded-verification assumptions, and link new pages from the navigation.
 
 ## How the project works
 

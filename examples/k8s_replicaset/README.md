@@ -28,7 +28,7 @@ behaviour); we show that surplus is always recoverable instead.
 ## Key entities / actions / properties
 - `Namespace` (quota), `ReplicaSet` scope (`Owner.RS0`/`Owner.RS1`, desired), `Pod` scope (present
   + `owner` ∈ RS0/RS1/NONE).
-- Main uses unreleased `Key(rs)` for ownership and `initially_present=False`
+- Since analint 0.0.4, this model uses `Key(rs)` for ownership and `initially_present=False`
   for the Pod scope. The parallel owner parameter/map and explicit canonical
   absent Pod snapshots are gone. Quota still varies over all four starting
   values; the normalized graph remains 1,792 states / 13,008 edges.

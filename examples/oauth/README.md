@@ -18,7 +18,7 @@ Three-file package: `protocol.py` (entities/scopes/actions), `assurance.py`
 (scenarios/flows/properties), and `spec.py` (root importing both contracts). The
 split is no-semantic-change — see the Contract finding in research/24.
 
-The main branch uses the unreleased `Key(...)` expression with `CodeId` members
+Since analint 0.0.4, this model uses the `Key(...)` expression with `CodeId` members
 as code-scope keys. Actions derive provenance directly from those keys; the
 parallel `code_id` parameter/map is gone. The stored `AuthCode.code_id` payload
 remains and is set from `Key(code)`. Expanded action IDs and instance labels

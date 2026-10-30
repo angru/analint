@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.0.4] — 2026-10-30
+
+Declare fixed initial worlds, use scope keys as domain values, and make empty
+initial scopes explicit. Existing scope defaults and transition semantics stay
+unchanged. The OAuth and Kubernetes examples use the new APIs; their instance
+labels and expanded action IDs change, with equivalent reachable behavior.
+
 ### Added
 
 - Fixed initial relations: `Initial(given=[...])` or `Initial(vary=[], ...)`
@@ -177,6 +184,7 @@ test suite; this release makes them installable and documents their scope.
 - It deliberately does **not** model liveness or temporal "eventually"
   properties. This is a scope boundary, not a defect.
 
+[0.0.4]: https://github.com/angru/analint/releases/tag/v0.0.4
 [0.0.3]: https://github.com/angru/analint/releases/tag/v0.0.3
 [0.0.2]: https://github.com/angru/analint/releases/tag/v0.0.2
 [0.0.1]: https://github.com/angru/analint/releases/tag/v0.0.1

@@ -298,13 +298,13 @@ also absent. Reachability defaults every scoped slot to present unless
 `given=[Absent(ref)]` says otherwise. Field reads and ordinary effects on an
 absent slot are rejected.
 
-**Unreleased (main only):** `Scope(..., initially_present=False)` starts omitted
+**Since 0.0.4:** `Scope(..., initially_present=False)` starts omitted
 slots absent in canonical/query worlds; explicit snapshots override it. The
 default stays `True`, and scenarios/flows still omit slots as absent.
 `Key(ref_or_param_or_bound)` returns a slot's declared scalar/Enum key without
 reading its presence. Use domain identifiers as keys to avoid parallel identity
-parameters. See the [runnable identity example](docs/dsl.md#declared-keys-and-initial-presence-unreleased).
-These additions are not available in PyPI 0.0.3.
+parameters. See the [runnable identity example](docs/dsl.md#declared-keys-and-initial-presence).
+Both additions are available in analint 0.0.4 and newer.
 
 `Create(ref, **fields)` and `Delete(ref)` change that membership as next-state
 facts, symmetric to `Set` over a value:
@@ -494,10 +494,10 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   `vary` fields range over `bool`, `Enum`, bounded integer `Field`, or
   `Field(values=[...])` domains; ordinary predicates filter the Cartesian
   product. `BoundField` varies a field across an entire `Scope`.
-- **Unreleased:** `Initial(given=[...])` can omit `vary` to select one fixed
+- **Since 0.0.4:** `Initial(given=[...])` can omit `vary` to select one fixed
   candidate from defaults plus those snapshots. `Initial()` uses defaults alone;
   `where` still filters the candidate and an empty result or evaluation error
-  fails validation. This form requires a source checkout until the next release.
+  fails validation.
 - Queries quantify over every admissible root, and traces name the originating
   configuration (`init #2 ⊢ …`).
 - Numeric `Field(ge=..., le=...)` constraints keep the state space finite.
@@ -800,7 +800,7 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 ## Status
 
-This is an **early public release (`0.0.3`)**. The engine and CLI are mature and
+This is an **early public release (`0.0.4`)**. The engine and CLI are mature and
 covered by 500+ tests, but the API is not yet frozen and may change before `1.0` —
 pin a version if you depend on it.
 

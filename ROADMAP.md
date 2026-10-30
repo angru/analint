@@ -1,7 +1,7 @@
 # analint — Roadmap
 
-Current status (2026-10-30): **0.0.3 released and verified on PyPI.
-Semantic core and P5 are complete.**
+Current status (2026-10-30): **0.0.4 prepared; final validation and publication pending.
+0.0.3 remains the published release. Semantic core and P5 are complete.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
@@ -25,10 +25,10 @@ checks before the existing main-only deployment.
    sent for testing on a real task. Feedback is pending; no trial verdict or
    new defect is recorded yet. Reproduced correctness failures and blockers
    take priority over the planned cleanup below.
-2. **Fixed-only initial relations — implemented on main, unreleased.**
+2. **Fixed-only initial relations — included in the 0.0.4 release candidate.**
    `Initial(given=[...])`, empty `vary` and `Initial()` use the existing root
    builder without a dummy varying field. See completed queue item 2.
-3. **Scoped identity and initial presence — implemented, unreleased.**
+3. **Scoped identity and initial presence — included in the 0.0.4 release candidate.**
    `Key(...)` and opt-in `Scope.initially_present` have separate semantics and
    conformance coverage. OAuth and Kubernetes are migrated with normalized
    graph comparisons. See completed queue items 3–4.
@@ -42,9 +42,21 @@ semantic-diff command and a Rust core remain outside the current work.
 
 ## Post-release work queue (2026-10-30)
 
+### 0.0.4 publication
+
+- [x] Set package/lockfile version to 0.0.4; finalize release notes and feature
+  availability labels in the documentation.
+- [ ] Pass the full suite (including available TLC checks), strict docs build,
+  lint/format/typing and clean wheel/source-archive validation.
+- [ ] Pass the release commit's hosted Python 3.12–3.14 quality/package matrix.
+- [ ] Publish the annotated v0.0.4 tag and GitHub Release through the existing
+  PyPI Trusted Publishing workflow.
+- [ ] Install the published package from PyPI in a clean environment and verify
+  the new APIs, CLI verdicts, traces, cache parity and optional MCP tools.
+
 This queue splits the existing research/30 additive pass into actionable work.
-It does not reopen the completed semantic core or P5, assign a release version,
-commit to an API spelling before design, or expand the language's semantic scope.
+It does not reopen the completed semantic core or P5 or expand the language's
+semantic scope. Completed items 2–4 form release 0.0.4.
 Work through the ready items sequentially; actionable trial feedback can interrupt
 that order. The historical completion sections below remain the record of what
 has already shipped.
@@ -65,7 +77,7 @@ Done when the trial's findings are recorded with an explicit disposition; a clea
 trial is useful evidence too. This item awaits external feedback, not speculative
 implementation. No new requirement is inferred from the trial before results arrive.
 
-### 2. Fixed-only Initial — complete on main (2026-10-30), unreleased
+### 2. Fixed-only Initial — complete (2026-10-30), available in 0.0.4
 
 Evidence: research/30 §5.7 and the constructor restriction in 0.0.3's
 `src/analint/models/initial.py`. The existing zero-field Cartesian product already
@@ -84,15 +96,16 @@ a second root-construction path or changing the transition kernel.
   and decides the checks left capped at one state.
 - [x] Add the runnable fixed-root model to `docs/dsl.md`, executed directly by
   the conformance tests and docs CI. Update README, agent guidance and references
-  with an explicit unreleased label. Keep Kubernetes' quota variation and all
-  existing example sources/snapshots unchanged.
+  with version availability labels. This Initial-only change kept Kubernetes'
+  quota variation and existing example sources/snapshots unchanged; the later
+  identity migration below deliberately updates two examples.
 
 `tests/test_fixed_initial.py` contains 21 focused cases; the runnable example
 needs two states per property slice instead of four whole-model states. The
-published 0.0.3 constructor still requires a non-empty `vary`; this addition is
-for the next release, alongside queue items 3–4.
+0.0.3 constructor requires a non-empty `vary`; 0.0.4 enables fixed roots
+alongside queue items 3–4.
 
-### 3. Key(...) for scoped identities — implemented (2026-10-30), unreleased
+### 3. Key(...) for scoped identities — complete (2026-10-30), available in 0.0.4
 
 Evidence: research/30 §5.6; OAuth's `code_id`/`_slot_is_its_id` and Kubernetes'
 `rs_owner`/`_rs_is_owner` parallel-identity declarations.
@@ -136,7 +149,7 @@ keys, action IDs lose redundant parameters, and diagnostic descriptions use
 `Key(...)`. Scenario verdicts/rule counts, query verdicts and normalized traces
 are unchanged. OAuth retains its stored `code_id` payload, assigned from `Key`.
 
-### 4. Explicit canonical scope presence — implemented (2026-10-30), unreleased
+### 4. Explicit canonical scope presence — complete (2026-10-30), available in 0.0.4
 
 Evidence: research/30 §5.7; canonical exploration defaults scoped slots to present,
 while scenarios/flows omit unlisted slots as absent.
@@ -576,7 +589,7 @@ unblocks documentation; the remaining additive work is independent.
 > MkDocs Material and deployment already exist; the documentation baseline below
 > is now complete.
 > The additive DSL pass is now split into the post-release work queue above;
-> fixed-only Initial, Key and opt-in scope presence are implemented and unreleased.
+> fixed-only Initial, Key and opt-in scope presence are included in 0.0.4.
 
 - **C. Abstraction / public-API stabilization — complete for documentation**
   - [x] Thorough review of the core abstractions and the public surface: are the
@@ -634,9 +647,9 @@ unblocks documentation; the remaining additive work is independent.
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [x] **Additive pass — implemented, unreleased; see post-release queue items 2–4:**
+  - [x] **Additive pass — included in the 0.0.4 release candidate; see post-release queue items 2–4:**
     Fixed-only `Initial(given=...)`, `Key(...)` and explicit canonical scope
-    presence are implemented on main. Removes
+    presence are included in 0.0.4. Removes
     the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
     symbol/AST node; resolved JSON/artifact values retain their existing encoding,
     and scope metadata adds the presence boolean. Does not gate the subtractive core or docs.

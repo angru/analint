@@ -154,9 +154,9 @@ never grow dynamically. Guard a possibly absent field read with
 `And(Present(ref), ref.field == value)` so absence does not cause an evaluation
 error.
 
-### Declared keys and initial presence (unreleased)
+### Declared keys and initial presence
 
-The following additions are available on main and are **not in PyPI 0.0.3**.
+The following APIs are available **since 0.0.4**.
 
 `Key(ref_or_param_or_bound)` is a value expression returning the slot's declared
 key, with its original type. It accepts an `InstanceRef`, a `Param` whose entire
@@ -284,11 +284,10 @@ occur within its quantifier/aggregate, or in the supported `Initial.vary` positi
 admissible roots. `given` fixes values, and `where` filters combinations with
 ordinary predicates and aggregates.
 
-**Unreleased:** `vary` can be omitted or empty. `Initial(given=[...])` starts
+**Since 0.0.4:** `vary` can be omitted or empty. `Initial(given=[...])` starts
 with one candidate built from defaults plus the supplied snapshots, then applies
 `where`. `Initial()` uses the defaults alone. A rejected candidate leaves no roots
-and fails validation; an evaluation error also fails. Version 0.0.3 still requires
-at least one varying field.
+and fails validation; an evaluation error also fails. Versions before 0.0.4 require at least one varying field.
 
 ```python
 from analint import Initial
@@ -304,9 +303,9 @@ Attach it to `Spec.initial` for canonical verification or to a query's `initial`
 for that query only. Candidate overflow and evaluation errors fail rather than
 silently removing combinations. See [initial states](concepts.md#initial-states-and-domains).
 
-### Fixed-root example (unreleased)
+### Fixed-root example
 
-Save this complete source as `spec.py` in a source-checkout environment and run
+Save this complete source as `spec.py` with analint 0.0.4 or newer installed and run
 `analint check .`. Both slots start absent; creating one increments the counter.
 The required Limit value comes from `given`. An independent noise action shows
 why property slices can be smaller than `analint explore .`'s whole-model graph.

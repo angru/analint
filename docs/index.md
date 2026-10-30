@@ -11,8 +11,9 @@ pip install analint
 analint check path/to/spec/
 ```
 
-Requires Python 3.12 or newer. This guide covers **analint 0.0.3**, including
-`check --cache`. The site tracks the repository's main branch; future unreleased
+Requires Python 3.12 or newer. This guide covers **analint 0.0.4**, including
+fixed initial worlds, scope keys, explicit initial presence and `check --cache`.
+The site tracks the repository's main branch; future unreleased
 features will be marked explicitly. For development:
 
 ```bash

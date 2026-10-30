@@ -25,11 +25,11 @@ required field values and explicit `Absent(ref)` snapshots through an initial
 relation or a query's `given` when needed. A missing required default can prevent
 canonical verification even though all scenarios pass.
 
-**Unreleased:** `Scope(..., initially_present=False)` opts into absent defaults
+**Since 0.0.4:** `Scope(..., initially_present=False)` opts into absent defaults
 for canonical/query worlds. Explicit snapshots override the scope policy; each
 query-owned initial source starts independently from those defaults. Scenario
 and flow partial worlds keep the same behavior. See the
-[identity and presence example](dsl.md#declared-keys-and-initial-presence-unreleased).
+[identity and presence example](dsl.md#declared-keys-and-initial-presence).
 
 ## Initial states and domains
 
@@ -42,12 +42,11 @@ or `Field(values=[...])`. A `BoundField` in `vary` expands over its scope.
 `max_candidates` limits candidate generation; exceeding it is an error, never a
 truncated selection of roots.
 
-**Unreleased:** omit `vary` (or use `vary=[]`) for a fixed relation:
+**Since 0.0.4:** omit `vary` (or use `vary=[]`) for a fixed relation:
 `Initial(given=[...])` builds one candidate from defaults plus those snapshots.
 `where` still applies, so a false filter yields an error rather than a vacuous
 PASS. `Initial()` selects the defaults-built world. This does not require
-enumerating finite domains for fields that stay fixed. In 0.0.3, `vary` must
-still be non-empty. See the [fixed-root example](dsl.md#fixed-root-example-unreleased).
+enumerating finite domains for fields that stay fixed. Versions before 0.0.4 require a non-empty `vary`. See the [fixed-root example](dsl.md#fixed-root-example).
 
 A query can specify **one** of `given`, `given_any` or `initial`:
 

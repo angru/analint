@@ -251,7 +251,7 @@ a Scope as its domain and expands actions over instance refs. Class-level
 `Entity.field` is structurally rejected for scoped entity types because it is
 ambiguous.
 
-Unreleased on main: `Key(ref_or_param_or_bound)` returns the declared scalar or
+Since 0.0.4: `Key(ref_or_param_or_bound)` returns the declared scalar or
 Enum scope key, independent of presence. It is a closed value-expression node;
 parameter expansion and quantifier binding preserve it, and it reads no state.
 JSON continues to serialize resolved values using the existing scalar encoding.
@@ -277,7 +277,7 @@ explorer defaults remain present for backwards compatibility. Reading or
 modifying an absent slot is rejected. `Present` is state-dependent and is
 allowed in `pre`, not static `where`.
 
-Unreleased on main: `Scope(..., initially_present=False)` opts into absent
+Since 0.0.4: `Scope(..., initially_present=False)` opts into absent
 canonical/query defaults. Explicit present/absent snapshots override the policy;
 query-owned roots use their own snapshots, not canonical ones. Scenarios/flows
 still omit slots as absent. The policy participates in the cache digest and
@@ -309,7 +309,7 @@ use only one of `given`, `given_any`, or `initial`.
 Omitting `vary` (or using `vary=[]`) selects one candidate built from defaults
 plus `given`; `where` still applies. `Initial()` is the defaults-only form.
 An empty relation or a filter evaluation error fails closed. This fixed-root
-form is implemented on main and is not included in the 0.0.3 release.
+form is available since 0.0.4.
 
 ### Model completion (engine.py)
 

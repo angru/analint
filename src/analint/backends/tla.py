@@ -105,12 +105,16 @@ def _literal(value: Any) -> str:
         return NULL
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
-    if isinstance(value, Enum):
-        return json.dumps(f"{type(value).__name__}.{value.name}")
+    # Scalar Enum subclasses compare as their underlying str/int in Python.
+    # Keep that equality in TLC; only plain Enum members have symbolic identity.
     if isinstance(value, int):
-        return str(value)
+        return str(int(value))
     if isinstance(value, str):
         return json.dumps(value)
+    if isinstance(value, Enum):
+        if isinstance(value, float):
+            raise ExportError(f"value {value!r} has no TLA+ form")
+        return json.dumps(f"{type(value).__name__}.{value.name}")
     if isinstance(value, InstanceRef):
         return json.dumps(f"ref:{context_key_label(value)}")
     if isinstance(value, type):

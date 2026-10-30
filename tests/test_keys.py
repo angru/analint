@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from enum import StrEnum
+from enum import Enum, IntEnum, StrEnum
 from pathlib import Path
 
 import pytest
@@ -268,6 +268,67 @@ def test_key_export_refuses_unsupported_float_keys():
     roots, _ = build_canonical_initials(bad)
     with pytest.raises(ExportError, match="no TLA\\+ form"):
         export_tla(bad, roots, target=Target("always", bad.queries[0].predicate))
+
+
+def test_tlc_scalar_enum_literals_preserve_python_scalar_equality():
+    from analint.backends.tla import ExportError, _literal
+
+    class Number(IntEnum):
+        ONE = 1
+
+    class LegacyString(str, Enum):  # noqa: UP042 - exercise the supported legacy enum form
+        A = "a"
+
+    class Floating(float, Enum):
+        ONE = 1.0
+
+    class Symbol(Enum):
+        A = "a"
+
+    assert _literal(Identity.A) == _literal("a")
+    assert _literal(LegacyString.A) == _literal("a")
+    assert _literal(Number.ONE) == _literal(1)
+    assert _literal(Symbol.A) != _literal("a")
+    with pytest.raises(ExportError, match="has no TLA"):
+        _literal(Floating.ONE)
+
+
+@pytest.mark.parametrize(
+    ("enum_base", "value", "default", "annotation"),
+    [
+        ("StrEnum", "a", "none", "str"),
+        ("str, Enum", "a", "none", "str"),
+        ("IntEnum", 1, 0, "int"),
+    ],
+)
+def test_tlc_fallback_does_not_turn_scalar_enum_key_equality_green(
+    tmp_path, enum_base, value, default, annotation
+):
+    from analint.backends.tlc import TlcUnavailable, find_tlc
+
+    try:
+        find_tlc()
+    except TlcUnavailable as exc:
+        pytest.skip(str(exc))
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from enum import Enum, IntEnum, StrEnum\n"
+        "from analint import Action, Entity, Key, Scope, Set, Spec, Unreachable\n"
+        f"class Id({enum_base}):\n    A = {value!r}\n"
+        f"class Item(Entity):\n    owner: {annotation} = {default!r}\n"
+        "slots = Scope(Item, keys=[Id.A])\na = slots[Id.A]\n"
+        f"assign = Action(effect=[Set(a.owner, {value!r})])\n"
+        "query = Unreachable(a.owner == Key(a))\n"
+        "spec = Spec(id='s', name='S', actions=[assign], queries=[query])\n"
+    )
+    full = validate(entry)
+    capped = validate(entry, max_states=1)
+    fallback = validate(entry, max_states=1, tlc=True)
+    assert full.query_results[0].status == "FAIL"
+    assert capped.query_results[0].status == "INCONCLUSIVE"
+    assert fallback.query_results[0].status == "FAIL"
+    assert fallback.query_results[0].backend == "tlc"
+    assert fallback.query_results[0].trace == full.query_results[0].trace == ["assign"]
 
 
 def test_changing_only_a_key_expression_invalidates_the_cache_digest():

@@ -54,6 +54,13 @@ semantic-diff command and a Rust core remain outside the current work.
 - [ ] Install the published package from PyPI in a clean environment and verify
   the new APIs, CLI verdicts, traces, cache parity and optional MCP tools.
 
+Final cross-backend probing found a scalar-Enum literal mismatch before
+publication: an enum key and its underlying scalar compared equal in Python but
+not in TLC, potentially turning a capped Unreachable check green. The exporter
+now preserves string-based Enum/IntEnum scalar equality and explicitly refuses
+float-based Enum values. Regression cases require the same failing verdict and
+trace from full Python exploration and capped TLC fallback.
+
 This queue splits the existing research/30 additive pass into actionable work.
 It does not reopen the completed semantic core or P5 or expand the language's
 semantic scope. Completed items 2–4 form release 0.0.4.

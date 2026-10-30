@@ -39,6 +39,15 @@ labels and expanded action IDs change, with equivalent reachable behavior.
   states / 13,008 edges. Scoped labels and expanded action IDs change; the
   exploration/trace schema versions and scalar encodings stay the same.
 
+### Fixed
+
+- TLC preserves Python scalar equality for string-based Enum and IntEnum
+  values, including `Key(...)` expressions compared with their underlying
+  strings or integers. The previous symbolic encoding could incorrectly prove
+  an unreachable query after Python exhausted its state budget. Regression
+  checks pin the same failing verdict and trace through the fallback. Floating
+  Enum subclasses are explicitly refused by TLC, like ordinary float values.
+
 ## [0.0.3] — 2026-10-30
 Adds persistent exploration caching and incremental exploration without changing
 the declared DSL semantics or the versioned JSON contracts.

@@ -9,6 +9,7 @@ from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
 from analint.models.expr import _BinaryExpr, expr_op
 from analint.models.flow import Assert, Emitted
+from analint.models.key import Key
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -195,6 +196,8 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
             if not isinstance(emitted, type):
                 findings.extend(_check_event_template(emitted, spec.entities, loc))
+                for value in emitted.__dict__.values():
+                    findings.extend(_check_value_operand(value, spec.scopes, loc))
                 findings.extend(
                     _check_scoped_refs(
                         [value for value in emitted.__dict__.values() if is_field_ref(value)],
@@ -225,6 +228,8 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     )
                 if isinstance(effect, Create):
                     known = all_fields(target.entity_cls)
+                    for value in effect.fields.values():
+                        findings.extend(_check_value_operand(value, spec.scopes, loc))
                     for name in effect.fields:
                         if name not in known:
                             findings.append(
@@ -259,6 +264,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
             findings.extend(_check_scoped_refs([effect.field], scoped_entities, loc))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
+            findings.extend(_check_value_operand(rhs, spec.scopes, loc))
             findings.extend(_check_scoped_refs(_operand_refs(rhs), scoped_entities, loc))
             field_slots.add(field_context_key(effect.field))
             target = (field_context_key(effect.field), effect.field.field_name)
@@ -838,7 +844,21 @@ def _check_operand_nodes(
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
-    if isinstance(operand, BoundField):
+    if isinstance(operand, Key):
+        if isinstance(operand.target, Bound):
+            if operand.target not in bound:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"{operand!r} uses Bound '{operand.target.name}' outside a quantifier or aggregate",
+                    )
+                )
+        elif not isinstance(operand.target, InstanceRef):
+            findings.append(
+                Finding(Severity.ERROR, loc, "Key target must resolve to an InstanceRef")
+            )
+    elif isinstance(operand, BoundField):
         if operand.variable not in bound:
             findings.append(
                 Finding(
@@ -934,7 +954,14 @@ def _check_operand_scopes(
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
-    if isinstance(operand, _Count):
+    if isinstance(operand, Key):
+        if operand.target.scope not in spec_scopes:
+            findings.append(
+                Finding(
+                    Severity.ERROR, loc, f"{operand!r} uses a Scope not registered in spec.scopes"
+                )
+            )
+    elif isinstance(operand, _Count):
         if operand.variable.scope not in spec_scopes:
             findings.append(_unregistered_bound_scope(operand.variable, loc))
         findings.extend(_check_quantifier_scopes(operand.predicate, spec_scopes, loc))
@@ -946,6 +973,11 @@ def _check_operand_scopes(
         findings.extend(_check_operand_scopes(operand.left, spec_scopes, loc))
         findings.extend(_check_operand_scopes(operand.right, spec_scopes, loc))
     return findings
+
+
+def _check_value_operand(operand: Any, scopes: Sequence[Any], loc: str) -> list[Finding]:
+    findings = _check_operand_nodes(operand, frozenset(), loc)
+    return findings or _check_operand_scopes(operand, scopes, loc)
 
 
 def _unregistered_bound_scope(variable: Bound, loc: str) -> Finding:
@@ -1037,6 +1069,8 @@ def _collect_field_refs(
 
 
 def _describe_operand(op: Any) -> str:
+    if isinstance(op, Key):
+        return repr(op)
     if isinstance(op, BoundField):
         return repr(op)
     if is_field_ref(op):

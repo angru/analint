@@ -42,6 +42,7 @@ from analint.models.query import (
 )
 from analint.models.root import Spec
 from analint.models.scope import (
+    Absent,
     InstanceField,
     InstanceRef,
     context_key_label,
@@ -438,6 +439,9 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
     for scope in spec.scopes:
         for ref in scope:
             if ref in ctx:
+                continue
+            if not scope.initially_present:
+                ctx[ref] = Absent(ref)
                 continue
             try:
                 ctx[ref] = ref()

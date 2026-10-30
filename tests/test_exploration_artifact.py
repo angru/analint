@@ -124,7 +124,7 @@ def test_edges_preserve_concrete_action_family_and_binding():
     assert param_edges, "expected parameterized edges in oauth"
     sample = next(e for e in param_edges if e["family"] == "issue_code")
     assert sample["action"].startswith("issue_code(")  # the concrete executable id is preserved
-    assert set(sample["binding"]) == {"code", "code_id", "client", "redirect", "challenge"}
+    assert set(sample["binding"]) == {"code", "client", "redirect", "challenge"}
     assert all(isinstance(v, str) for v in sample["binding"].values())
 
 

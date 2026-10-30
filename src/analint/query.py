@@ -133,6 +133,7 @@ def spec_overview(spec: Spec) -> dict:
             {
                 "id": scope.id,
                 "entity": scope.entity_cls.__name__,
+                "initially_present": scope.initially_present,
                 "instances": [repr(ref) for ref in scope],
             }
             for scope in spec.scopes
@@ -223,7 +224,11 @@ def _describe_entity(spec: Spec, name: str) -> dict:
         "name": name,
         "fields": _fields_of(cls),
         "scopes": [
-            {"id": scope.id, "instances": [repr(ref) for ref in scope]}
+            {
+                "id": scope.id,
+                "instances": [repr(ref) for ref in scope],
+                "initially_present": scope.initially_present,
+            }
             for scope in spec.scopes
             if scope.entity_cls is cls
         ],

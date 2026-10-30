@@ -22,13 +22,26 @@ class Scope:
 
         alice.balance >= 0
         given=[alice(balance=3), accounts["bob"](balance=0)]
+
+    ``initially_present`` controls canonical/query defaults (True for backwards
+    compatibility). Explicit present/absent snapshots override it. Scenarios
+    and flows still treat every omitted slot as absent.
     """
 
-    def __init__(self, entity_cls: type[Entity], *, keys: list[Any], id: str = "") -> None:
+    def __init__(
+        self,
+        entity_cls: type[Entity],
+        *,
+        keys: list[Any],
+        initially_present: bool = True,
+        id: str = "",
+    ) -> None:
         if not isinstance(entity_cls, type) or not issubclass(entity_cls, Entity):
             raise TypeError("Scope entity_cls must be an Entity subclass")
         if not keys:
             raise TypeError("Scope needs at least one key")
+        if not isinstance(initially_present, bool):
+            raise TypeError("Scope initially_present must be a bool")
         for key in keys:
             try:
                 hash(key)
@@ -38,6 +51,7 @@ class Scope:
             raise TypeError("Scope keys must be unique")
         self.entity_cls = entity_cls
         self.id = id
+        self.initially_present = initially_present
         self._refs = {key: InstanceRef(self, key) for key in keys}
 
     @property

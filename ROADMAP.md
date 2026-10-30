@@ -28,9 +28,10 @@ checks before the existing main-only deployment.
 2. **Fixed-only initial relations — implemented on main, unreleased.**
    `Initial(given=[...])`, empty `vary` and `Initial()` use the existing root
    builder without a dummy varying field. See completed queue item 2.
-3. **Scoped identity and initial presence — next design work, planned separately.** Design
-   `Key(...)` and an opt-in canonical presence policy, then implement each as
-   its own change with conformance coverage. See the work queue below.
+3. **Scoped identity and initial presence — implemented, unreleased.**
+   `Key(...)` and opt-in `Scope.initially_present` have separate semantics and
+   conformance coverage. OAuth and Kubernetes are migrated with normalized
+   graph comparisons. See completed queue items 3–4.
 4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
@@ -89,24 +90,24 @@ a second root-construction path or changing the transition kernel.
 `tests/test_fixed_initial.py` contains 21 focused cases; the runnable example
 needs two states per property slice instead of four whole-model states. The
 published 0.0.3 constructor still requires a non-empty `vary`; this addition is
-for the next release. Key and canonical scope-presence policy remain open.
+for the next release, alongside queue items 3–4.
 
-### 3. Key(...) for scoped identities — design first, then implementation
+### 3. Key(...) for scoped identities — implemented (2026-10-30), unreleased
 
 Evidence: research/30 §5.6; OAuth's `code_id`/`_slot_is_its_id` and Kubernetes'
 `rs_owner`/`_rs_is_owner` parallel-identity declarations.
 
-- [ ] Define accepted inputs (`InstanceRef`, instance `Param`, `Bound`), key value
+- [x] Define accepted inputs (`InstanceRef`, instance `Param`, `Bound`), key value
   types, presence independence, static `where` use and invalid-input diagnostics.
   Scope keys and domain foreign-key fields currently use different representations
   in the examples; plan their alignment explicitly, with no implicit identity map.
-- [ ] Specify the closed value-expression node and its JSON/artifact representation.
+- [x] Specify the closed value-expression node and its JSON/artifact representation.
   Return the declared key value rather than an internal InstanceRef object; decide
   whether the existing schema contracts can represent it without a version change.
-- [ ] Implement interpreter/compiler agreement, parameter/quantifier binding,
+- [x] Implement interpreter/compiler agreement, parameter/quantifier binding,
   structural/reference analysis, slicing, cache digest/decoding and exact TLC
   export or explicit refusal for unsupported key domains.
-- [ ] Migrate OAuth and Kubernetes identity workarounds with behavior comparisons.
+- [x] Migrate OAuth and Kubernetes identity workarounds with behavior comparisons.
   Review any action-id, root-label or trace changes caused by aligning key domains;
   do not bless an entire new snapshot mechanically.
 
@@ -114,23 +115,61 @@ Done when those two evidence models express provenance through declared keys,
 without parallel identity parameters, and all verification paths agree. This is a
 convenience expression, not general joins or dynamic allocation.
 
-### 4. Explicit canonical scope presence — design queued after fixed Initial
+Decision: `Key` is a closed `Expr` dataclass. It returns the declared `None`,
+bool, int, finite float, str or Enum key without reading fields or presence.
+Other hashable scope keys remain legal identities but are rejected by `Key`.
+Instance parameters bind during expansion; Bound inputs need their enclosing
+quantifier/aggregate. Static `where` can compare keys. A referenced scope joins
+the model through the existing reference closure. There is no implicit mapping.
+The interpreter and compiler agree, including unbound-variable errors; slicing
+adds no state reads for a concrete key. Existing cache dataclass encoding records
+the node and target, and graph decoding retains scalar/Enum values. Show output
+describes `Key(...)`; exploration/trace JSON contains resolved values using the
+existing scalar representation, so no schema-version change is needed. TLC
+uses the existing literal encoding or refuses unsupported values such as floats.
+
+Migration evidence: `tests/test_keys.py` pins every normalized state, edge and
+root against hashes captured before migration. OAuth remains 1,169 states /
+2,256 edges; Kubernetes remains 1,792 / 13,008, including all four quota roots.
+Only these two characterization entries change: scope labels now name Enum
+keys, action IDs lose redundant parameters, and diagnostic descriptions use
+`Key(...)`. Scenario verdicts/rule counts, query verdicts and normalized traces
+are unchanged. OAuth retains its stored `code_id` payload, assigned from `Key`.
+
+### 4. Explicit canonical scope presence — implemented (2026-10-30), unreleased
 
 Evidence: research/30 §5.7; canonical exploration defaults scoped slots to present,
 while scenarios/flows omit unlisted slots as absent.
 
-- [ ] Design an opt-in per-scope canonical presence policy and its precedence
+- [x] Design an opt-in per-scope canonical presence policy and its precedence
   relative to fixed initial snapshots and query overrides. Preserve current
   defaults and the scenario/flow partial-world semantics.
-- [ ] Implement root construction, model/reference handling, canonical cache
+- [x] Implement root construction, model/reference handling, canonical cache
   digest and backend behavior. Presence policy must not change the key universe
   or the transition semantics of Create/Delete.
-- [ ] Add absent/present/mixed-root probes covering invariants, finite aggregates,
+- [x] Add absent/present/mixed-root probes covering invariants, finite aggregates,
   reachability, trace replay and cache/TLC parity. Migrate an applicable example
   only with an explicit comparison of its initial worlds.
 
 Done when empty resource scopes can be declared directly while existing models
 retain their initial worlds and completeness guarantees.
+
+Decision: `Scope(..., initially_present: bool = True)` preserves current defaults;
+False makes omitted slots absent in every canonical/query root. Explicit present
+or absent snapshots win. Query-owned sources start from scope defaults plus their
+own snapshots, without merging canonical snapshots; source-less queries inherit
+canonical roots. Scenario/flow partial-world rules are unchanged. The policy
+participates in the cache digest, and read-only scope metadata adds the boolean
+field without replacing existing fields. Backends consume the same concrete
+roots; Create/Delete and the key universe are unchanged.
+
+`tests/test_initial_presence.py` covers both defaults, explicit overrides for
+every root source, required fields in absent slots, mixed finite roots, aggregate
+invariant failures at empty roots, unchanged scenario/flow behavior, metadata and
+cache invalidation. The two-state mixed-root case matches TLC. Kubernetes' Pod
+scope now declares absence directly; removing its explicit absent snapshots
+preserves the normalized graph. The runnable `docs/dsl.md` identity/presence
+example is exercised through check/explore/trace and cold/warm cache in docs CI.
 
 ### 5. Performance history — conditional backlog
 
@@ -537,7 +576,7 @@ unblocks documentation; the remaining additive work is independent.
 > MkDocs Material and deployment already exist; the documentation baseline below
 > is now complete.
 > The additive DSL pass is now split into the post-release work queue above;
-> fixed-only Initial is implemented on main; Key/presence design remain separate.
+> fixed-only Initial, Key and opt-in scope presence are implemented and unreleased.
 
 - **C. Abstraction / public-API stabilization — complete for documentation**
   - [x] Thorough review of the core abstractions and the public surface: are the
@@ -595,12 +634,12 @@ unblocks documentation; the remaining additive work is independent.
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [ ] **Additive pass — partially complete; see post-release queue items 2–4:**
-    Fixed-only `Initial(given=...)` is implemented on main (unreleased).
-    `Key(...)` and explicit canonical scope presence remain planned. Removes
+  - [x] **Additive pass — implemented, unreleased; see post-release queue items 2–4:**
+    Fixed-only `Initial(given=...)`, `Key(...)` and explicit canonical scope
+    presence are implemented on main. Removes
     the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
-    symbol/AST node — design and version its
-    JSON/artifact representation carefully. Does not gate the subtractive core or docs.
+    symbol/AST node; resolved JSON/artifact values retain their existing encoding,
+    and scope metadata adds the presence boolean. Does not gate the subtractive core or docs.
   - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
     complete for documentation purposes** — the contract (DSL surface + agent JSON
     schemas) is settled for documentation; the additive work remains unshipped

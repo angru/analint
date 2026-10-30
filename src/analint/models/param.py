@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
+from analint.models.key import Key
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -191,6 +192,8 @@ class ParamField:
 
 def _resolve(operand: Any, binding: Binding) -> Any:
     """Substitute a binding into an operand; non-param operands pass through."""
+    if isinstance(operand, Key):
+        return Key(_resolve(operand.target, binding))
     if isinstance(operand, ParamField):
         bound = binding[operand.param.name]
         if isinstance(bound, InstanceRef):

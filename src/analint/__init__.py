@@ -9,6 +9,7 @@ from analint.models.event import Event
 from analint.models.flow import Assert, Emitted, Flow
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
+from analint.models.key import Key
 from analint.models.lifecycle import Lifecycle
 from analint.models.param import Param
 from analint.models.predicate import (
@@ -44,6 +45,7 @@ __all__ = [
     "Field",
     "Scope",
     "InstanceRef",
+    "Key",
     "Absent",
     "Event",
     # constraints

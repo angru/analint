@@ -34,6 +34,7 @@ from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import _MISSING, FieldDescriptor, all_fields
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.key import Key
 from analint.models.predicate import (
     _And,
     _BinaryComparison,
@@ -198,6 +199,10 @@ class _Renderer:
         return f"{self.rec[key]}.{_field(name)}"
 
     def operand(self, op: Any) -> str:
+        if isinstance(op, Key):
+            if not isinstance(op.target, InstanceRef):
+                raise ExportError(f"unbound Key target {op.target!r}")
+            return _literal(op.target.key)
         if isinstance(op, FieldDescriptor):
             return self.read(op.entity_cls, op.field_name)
         if isinstance(op, InstanceField):

@@ -26,8 +26,12 @@ a scale-down leaves a recoverable surplus until the controller deletes it (real
 behaviour); we show that surplus is always recoverable instead.
 
 ## Key entities / actions / properties
-- `Namespace` (quota), `ReplicaSet` scope (rs0/rs1, desired), `Pod` scope (present
+- `Namespace` (quota), `ReplicaSet` scope (`Owner.RS0`/`Owner.RS1`, desired), `Pod` scope (present
   + `owner` ∈ RS0/RS1/NONE).
+- Main uses unreleased `Key(rs)` for ownership and `initially_present=False`
+  for the Pod scope. The parallel owner parameter/map and explicit canonical
+  absent Pod snapshots are gone. Quota still varies over all four starting
+  values; the normalized graph remains 1,792 states / 13,008 edges.
 - `scale_up/down`, `reconcile_create/delete`, `acquire_orphan`,
   `create_bare_pod`/`delete_bare_pod`, `increase/decrease_quota`.
 - `quota_never_exceeded` (AlwaysHolds); `both_converged_is_reachable`,

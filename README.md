@@ -298,6 +298,14 @@ also absent. Reachability defaults every scoped slot to present unless
 `given=[Absent(ref)]` says otherwise. Field reads and ordinary effects on an
 absent slot are rejected.
 
+**Unreleased (main only):** `Scope(..., initially_present=False)` starts omitted
+slots absent in canonical/query worlds; explicit snapshots override it. The
+default stays `True`, and scenarios/flows still omit slots as absent.
+`Key(ref_or_param_or_bound)` returns a slot's declared scalar/Enum key without
+reading its presence. Use domain identifiers as keys to avoid parallel identity
+parameters. See the [runnable identity example](docs/dsl.md#declared-keys-and-initial-presence-unreleased).
+These additions are not available in PyPI 0.0.3.
+
 `Create(ref, **fields)` and `Delete(ref)` change that membership as next-state
 facts, symmetric to `Set` over a value:
 

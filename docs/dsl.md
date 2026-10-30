@@ -150,8 +150,81 @@ absent, while exploration defaults them to present unless overridden.
 
 Ordinary field reads and writes need a present slot. `Create` requires absence,
 `Delete` requires presence; a mismatch rejects the action before effects. Keys
-never grow dynamically. Explicit canonical scope-presence configuration and a
-`Key(...)` value expression are deferred; they are not current API.
+never grow dynamically. Guard a possibly absent field read with
+`And(Present(ref), ref.field == value)` so absence does not cause an evaluation
+error.
+
+### Declared keys and initial presence (unreleased)
+
+The following additions are available on main and are **not in PyPI 0.0.3**.
+
+`Key(ref_or_param_or_bound)` is a value expression returning the slot's declared
+key, with its original type. It accepts an `InstanceRef`, a `Param` whose entire
+domain consists of instance references, or a quantified `Bound`. Values may be
+`None`, booleans, integers, finite floats, strings or Enum members. Other hashable
+scope keys remain supported as identities but cannot be used with `Key`.
+Identity is independent of presence: `Key(ref)` works for an absent slot and
+reads no state. A `Bound` needs an enclosing quantifier/aggregate; an instance
+`Param` is substituted during action expansion. Static `Action.where` filters
+can compare keys. There is no automatic conversion between a scope key and a
+foreign-key field: use the same domain values, such as Enum members, in both.
+
+`Scope(..., initially_present=False)` makes omitted slots absent when building
+canonical and query roots. The default is `True`, preserving existing models.
+Explicit `ref(...)` and `Absent(ref)` snapshots override the policy. Each
+query-owned `given`, `given_any` world or `Initial` is built independently from
+the scope defaults and its own snapshots; it does not merge canonical snapshots.
+Queries without their own source inherit the canonical worlds. Scenarios and
+flows continue to treat omitted slots as absent regardless of this policy.
+Varying a field of an absent slot remains an error; supply a present snapshot
+before including that field in `Initial.vary`.
+
+This complete example starts with an empty scope, then records an absent slot's
+identity as the owner of a created slot:
+
+```python title="scope-identity-spec.py"
+from analint import (
+    Absent, Action, And, Bound, Create, Delete, Entity, ForAll, In,
+    Invariant, Key, Not, Present, Reachable, Scenario, Scope, Spec,
+)
+
+
+class Item(Entity):
+    owner: str = "none"
+
+
+slots = Scope(Item, keys=["a", "b"], initially_present=False)
+a, b = slots["a"], slots["b"]
+x = Bound("x", slots)
+
+create = Action(effect=[Create(b, owner=Key(a))])
+delete = Action(effect=[Delete(b)])
+safe = Invariant(ForAll(x, In(x.owner, ["none", Key(a)])))
+query = Reachable(And(Present(b), b.owner == Key(a)))
+
+created = Scenario(
+    name="Create with the declared owner", action=create, given=[Absent(b)],
+    then=[Present(b), b.owner == "a"],
+)
+deleted = Scenario(
+    name="Delete an owned slot", action=delete, given=[b(owner="a")],
+    then=[Not(Present(b))],
+)
+
+spec = Spec(
+    id="scope-identity", name="Declared identity and empty initial scope",
+    actions=[create, delete], invariants=[safe], queries=[query],
+    scenarios=[created, deleted],
+)
+```
+
+`check` proves the invariant and reaches the query through `create`; the complete
+graph contains two states. `trace query` shows `Item['b'].owner` becoming `"a"`.
+The exploration/trace JSON schemas keep their existing scalar representation
+(Enum values use `Type.MEMBER`); model views add `initially_present` to scope
+metadata. TLC exports keys through its existing literal encoding. Unsupported
+values such as floating-point keys cause an explicit export refusal and leave
+the check INCONCLUSIVE; they are never approximated.
 
 ## Param: finite action families
 

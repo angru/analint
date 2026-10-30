@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.key import Key
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -54,6 +55,15 @@ def resolve(
     bindings: dict[Bound, Any] | None = None,
 ) -> Any:
     bindings = bindings or {}
+    if isinstance(operand, Key):
+        target = operand.target
+        if isinstance(target, Bound):
+            target = bindings.get(target)
+            if target is None:
+                raise KeyError(f"Bound variable '{operand.target.name}' has no quantifier binding")
+        if not isinstance(target, InstanceRef):
+            raise TypeError("Key target must resolve to an InstanceRef")
+        return target.key
     if is_field_ref(operand):
         key = field_context_key(operand)
         entity = context.get(key)
@@ -239,6 +249,11 @@ def _compile_pred(pred: Any) -> Any:
 
 
 def _compile_operand(operand: Any) -> Any:
+    if isinstance(operand, Key):
+        if isinstance(operand.target, InstanceRef):
+            value = operand.target.key
+            return lambda ctx, b: value
+        return lambda ctx, b: resolve(operand, ctx, b)
     if is_field_ref(operand):
         key = field_context_key(operand)
         name = operand.field_name

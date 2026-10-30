@@ -220,6 +220,7 @@ def test_overview_includes_bounded_scopes():
         {
             "id": "accounts",
             "entity": "Account",
+            "initially_present": True,
             "instances": ["Account['alice']", "Account['bob']"],
         }
     ]

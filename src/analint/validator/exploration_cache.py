@@ -110,7 +110,7 @@ def _canon(obj: Any, classes: dict[str, type]) -> Any:
         return ["bfield", _canon(obj.variable, classes), obj.field_name]
     if isinstance(obj, Scope):
         keys = [_value(k, classes) for k in obj.keys]
-        return ["scope", _canon(obj.entity_cls, classes), keys, obj.id]
+        return ["scope", _canon(obj.entity_cls, classes), keys, obj.id, obj.initially_present]
     if isinstance(obj, Create):
         fields = sorted((k, _canon(v, classes)) for k, v in obj.fields.items())
         return ["create", _value(obj.target, classes), fields]

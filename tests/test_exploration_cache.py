@@ -91,7 +91,7 @@ def test_capped_growth_and_excluded_actions_survive_the_cache(tmp_path, cache_di
     assert _report(entry, max_states=5, cache=True) == fresh
 
 
-@pytest.mark.parametrize("name", ["k8s_replicaset", "fulfillment", "cloak", "mafia"])
+@pytest.mark.parametrize("name", ["k8s_replicaset", "oauth", "fulfillment", "cloak", "mafia"])
 def test_a_cache_written_by_one_process_serves_another(name, cache_dir):
     # a fresh process interns values from scratch: codes differ, values must not
     command = [str(Path(sys.executable).parent / "analint"), "check", str(ROOT / "examples" / name)]

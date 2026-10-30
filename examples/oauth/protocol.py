@@ -12,7 +12,7 @@ from analint import (
     Contract,
     Entity,
     Field,
-    Implies,
+    Key,
     Lifecycle,
     Param,
     Scope,
@@ -84,12 +84,11 @@ class Token(Entity):
     via_verifier: Pkce = Field(Pkce.V1)
 
 
-codes = Scope(AuthCode, keys=["c1", "c2"])
+codes = Scope(AuthCode, keys=[CodeId.C1, CodeId.C2])
 tokens = Scope(Token, keys=["t1", "t2"])
 
 code = Param("code", codes)
 token = Param("token", tokens)
-code_id = Param("code_id", CodeId.C1, CodeId.C2)
 client = Param("client", Client.HONEST, Client.ATTACKER)
 as_client = Param("as_client", Client.HONEST, Client.ATTACKER)
 redirect = Param("redirect", Redirect.A, Redirect.B)
@@ -97,22 +96,14 @@ challenge = Param("challenge", Pkce.V1, Pkce.V2)
 presented = Param("presented", Redirect.A, Redirect.B)
 verifier = Param("verifier", Pkce.V1, Pkce.V2)
 
-# The model needs a value-level identity for provenance. Scope identity is not
-# directly storable in a field, so this relation pins each slot to its CodeId.
-_slot_is_its_id = [
-    Implies(code == codes["c1"], code_id == CodeId.C1),
-    Implies(code == codes["c2"], code_id == CodeId.C2),
-]
-
 issue_code = Action(
     id="issue_code",
     name="The authorization server issues a code, bound to client, redirect, PKCE",
-    params=[code, code_id, client, redirect, challenge],
-    where=_slot_is_its_id,
+    params=[code, client, redirect, challenge],
     pre=[code.state == CodeState.UNISSUED],
     effect=[
         Set(code.state, CodeState.ISSUED),
-        Set(code.code_id, code_id),
+        Set(code.code_id, Key(code)),
         Set(code.client, client),
         Set(code.redirect, redirect),
         Set(code.challenge, challenge),
@@ -122,8 +113,7 @@ issue_code = Action(
 redeem_code = Action(
     id="redeem_code",
     name="A client redeems a code, presenting client, redirect URI and PKCE verifier",
-    params=[code, code_id, token, as_client, presented, verifier],
-    where=_slot_is_its_id,
+    params=[code, token, as_client, presented, verifier],
     pre=[
         code.state == CodeState.ISSUED,
         token.state == TokenState.ABSENT,
@@ -134,7 +124,7 @@ redeem_code = Action(
     effect=[
         Set(code.state, CodeState.REDEEMED),
         Set(token.state, TokenState.ACTIVE),
-        Set(token.source_code, code_id),
+        Set(token.source_code, Key(code)),
         Set(token.issued_to, as_client),
         Set(token.via_redirect, presented),
         Set(token.via_verifier, verifier),
@@ -144,15 +134,14 @@ redeem_code = Action(
 detect_replay_and_revoke = Action(
     id="detect_replay_and_revoke",
     name="A replayed code is detected: deny re-use and revoke its derived token",
-    params=[code, code_id, token, as_client, presented, verifier],
-    where=_slot_is_its_id,
+    params=[code, token, as_client, presented, verifier],
     pre=[
         code.state == CodeState.REDEEMED,
         as_client == code.client,
         presented == code.redirect,
         verifier == code.challenge,
         token.state == TokenState.ACTIVE,
-        token.source_code == code_id,
+        token.source_code == Key(code),
     ],
     effect=[
         Set(code.state, CodeState.REPLAY_DETECTED),

@@ -25,6 +25,12 @@ required field values and explicit `Absent(ref)` snapshots through an initial
 relation or a query's `given` when needed. A missing required default can prevent
 canonical verification even though all scenarios pass.
 
+**Unreleased:** `Scope(..., initially_present=False)` opts into absent defaults
+for canonical/query worlds. Explicit snapshots override the scope policy; each
+query-owned initial source starts independently from those defaults. Scenario
+and flow partial worlds keep the same behavior. See the
+[identity and presence example](dsl.md#declared-keys-and-initial-presence-unreleased).
+
 ## Initial states and domains
 
 `Spec.initial=Initial(vary=[...], where=[...], given=[...])` declares a finite set

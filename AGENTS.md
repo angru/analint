@@ -251,6 +251,13 @@ a Scope as its domain and expands actions over instance refs. Class-level
 `Entity.field` is structurally rejected for scoped entity types because it is
 ambiguous.
 
+Unreleased on main: `Key(ref_or_param_or_bound)` returns the declared scalar or
+Enum scope key, independent of presence. It is a closed value-expression node;
+parameter expansion and quantifier binding preserve it, and it reads no state.
+JSON continues to serialize resolved values using the existing scalar encoding.
+TLC exports its literal value or refuses unsupported domains (including floats).
+OAuth/Kubernetes now key their scopes with their domain Enum identifiers.
+
 `Bound("item", scope)` introduces a finite quantifier variable.
 `ForAll(bound, predicate)` and `Exists(bound, predicate)` are explicit
 predicate AST nodes, not Python callbacks. The evaluator exhaustively binds
@@ -269,6 +276,12 @@ Min/Max=evaluation error. Scenario slots omitted from `given` are absent;
 explorer defaults remain present for backwards compatibility. Reading or
 modifying an absent slot is rejected. `Present` is state-dependent and is
 allowed in `pre`, not static `where`.
+
+Unreleased on main: `Scope(..., initially_present=False)` opts into absent
+canonical/query defaults. Explicit present/absent snapshots override the policy;
+query-owned roots use their own snapshots, not canonical ones. Scenarios/flows
+still omit slots as absent. The policy participates in the cache digest and
+read-only scope metadata; the fixed key universe and transition kernel are unchanged.
 
 `Create(ref, **fields)` and `Delete(ref)` are next-state facts about a slot's
 presence, symmetric to `Set` over a field value. `Create` requires the slot

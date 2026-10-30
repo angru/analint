@@ -43,6 +43,7 @@ from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.invariant import Invariant
+from analint.models.key import Key
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -123,7 +124,11 @@ def _pred_vars(pred: Any, out: set[Var]) -> None:
 
 
 def _operand_vars(op: Any, out: set[Var]) -> None:
-    if isinstance(op, FieldDescriptor):
+    if isinstance(op, Key):
+        if not isinstance(op.target, InstanceRef):
+            raise _Unsliceable(op)
+        # A declared identity reads neither fields nor presence.
+    elif isinstance(op, FieldDescriptor):
         out.add((op.entity_cls, op.field_name))
     elif isinstance(op, InstanceField):
         # reading an absent slot is an error, so presence is read too

@@ -4,6 +4,7 @@ from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import Entity, Field, FieldDescriptor
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
+from analint.models.key import Key
 from analint.models.lifecycle import Lifecycle
 from analint.models.predicate import (
     And,
@@ -49,6 +50,7 @@ __all__ = [
     "Exists",
     "InstanceField",
     "InstanceRef",
+    "Key",
     "Implies",
     "In",
     "Invariant",

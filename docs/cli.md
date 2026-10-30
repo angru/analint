@@ -179,7 +179,8 @@ From a repository checkout, the documentation is checked with:
 
 ```bash
 uv run --frozen pytest tests/test_documentation.py \
-  tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace
+  tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace \
+  tests/test_keys.py::test_key_verdicts_traces_artifacts_and_cache_agree
 uv run --frozen --group docs mkdocs build --strict
 ```
 

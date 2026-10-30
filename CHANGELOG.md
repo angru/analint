@@ -13,6 +13,24 @@ All notable changes to this project are documented here. The format is based on
   builds one candidate from defaults plus the supplied snapshots, with the
   usual `where` filtering and fail-closed errors. `Initial()` uses defaults.
   Non-empty `vary` retains its existing multi-root semantics.
+- `Key(ref_or_param_or_bound)` exposes the declared scope key as a
+  state-independent value expression, including for absent slots. It supports
+  parameter filters, finite quantifiers/aggregates, effects and event payloads,
+  compiled predicates, property slicing, persistent cache and exact TLC export
+  (or explicit refusal for values TLC cannot encode).
+- `Scope(..., initially_present=False)` opts into absent canonical/query defaults.
+  Explicit snapshots override the policy; the default remains present and
+  scenario/flow partial worlds retain their existing behavior. Read-only scope
+  metadata includes `initially_present` as an additive JSON field.
+
+### Changed
+
+- OAuth and Kubernetes use domain Enum values as scope keys and `Key(...)` in
+  place of parallel identity parameters. Kubernetes declares its Pod scope
+  initially absent. Their complete graphs are unchanged up to the documented
+  key/action-id renaming: OAuth 1,169 states / 2,256 edges, Kubernetes 1,792
+  states / 13,008 edges. Scoped labels and expanded action IDs change; the
+  exploration/trace schema versions and scalar encodings stay the same.
 
 ## [0.0.3] — 2026-10-30
 Adds persistent exploration caching and incremental exploration without changing

@@ -12,6 +12,7 @@ from analint import (
     ForAll,
     Implies,
     In,
+    Key,
     Reachable,
     Scenario,
     Unreachable,
@@ -38,67 +39,64 @@ token_q = Bound("token", tokens)
 sc_issue = Scenario(
     name="A code is issued, bound to client, redirect URI and PKCE challenge",
     action=issue_code.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         client=Client.HONEST,
         redirect=Redirect.A,
         challenge=Pkce.V1,
     ),
-    given=[codes["c1"](), codes["c2"](), tokens["t1"](), tokens["t2"]()],
+    given=[codes[CodeId.C1](), codes[CodeId.C2](), tokens["t1"](), tokens["t2"]()],
     then=[
-        codes["c1"].state == CodeState.ISSUED,
-        codes["c1"].client == Client.HONEST,
+        codes[CodeId.C1].state == CodeState.ISSUED,
+        codes[CodeId.C1].client == Client.HONEST,
     ],
 )
 
 sc_redeem = Scenario(
     name="A code is exchanged for a token with matching client, redirect and verifier",
     action=redeem_code.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         token=tokens["t1"],
         as_client=Client.HONEST,
         presented=Redirect.A,
         verifier=Pkce.V1,
     ),
     given=[
-        codes["c1"](
+        codes[CodeId.C1](
             state=CodeState.ISSUED,
             code_id=CodeId.C1,
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        codes["c2"](),
+        codes[CodeId.C2](),
         tokens["t1"](),
         tokens["t2"](),
     ],
     then=[
         tokens["t1"].state == TokenState.ACTIVE,
         tokens["t1"].issued_to == Client.HONEST,
-        codes["c1"].state == CodeState.REDEEMED,
+        codes[CodeId.C1].state == CodeState.REDEEMED,
     ],
 )
 
 sc_attacker_wrong_client = Scenario(
     name="Attacker with the correct redirect and verifier but wrong client is blocked",
     action=redeem_code.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         token=tokens["t1"],
         as_client=Client.ATTACKER,
         presented=Redirect.A,
         verifier=Pkce.V1,
     ),
     given=[
-        codes["c1"](
+        codes[CodeId.C1](
             state=CodeState.ISSUED,
             code_id=CodeId.C1,
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        codes["c2"](),
+        codes[CodeId.C2](),
         tokens["t1"](),
         tokens["t2"](),
     ],
@@ -108,22 +106,21 @@ sc_attacker_wrong_client = Scenario(
 sc_attacker_wrong_verifier = Scenario(
     name="Attacker impersonating the honest client but with a wrong verifier is blocked",
     action=redeem_code.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         token=tokens["t1"],
         as_client=Client.HONEST,
         presented=Redirect.A,
         verifier=Pkce.V2,
     ),
     given=[
-        codes["c1"](
+        codes[CodeId.C1](
             state=CodeState.ISSUED,
             code_id=CodeId.C1,
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        codes["c2"](),
+        codes[CodeId.C2](),
         tokens["t1"](),
         tokens["t2"](),
     ],
@@ -133,27 +130,26 @@ sc_attacker_wrong_verifier = Scenario(
 sc_replay_revokes_derived_token = Scenario(
     name="Replaying a redeemed code is detected and revokes its derived token",
     action=detect_replay_and_revoke.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         token=tokens["t1"],
         as_client=Client.HONEST,
         presented=Redirect.A,
         verifier=Pkce.V1,
     ),
     given=[
-        codes["c1"](
+        codes[CodeId.C1](
             state=CodeState.REDEEMED,
             code_id=CodeId.C1,
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        codes["c2"](),
+        codes[CodeId.C2](),
         tokens["t1"](state=TokenState.ACTIVE, source_code=CodeId.C1, issued_to=Client.HONEST),
         tokens["t2"](),
     ],
     then=[
-        codes["c1"].state == CodeState.REPLAY_DETECTED,
+        codes[CodeId.C1].state == CodeState.REPLAY_DETECTED,
         tokens["t1"].state == TokenState.REVOKED,
     ],
 )
@@ -161,22 +157,21 @@ sc_replay_revokes_derived_token = Scenario(
 sc_revoke_unrelated_token_blocked = Scenario(
     name="Replay detection cannot revoke a token that did not come from this code",
     action=detect_replay_and_revoke.bind(
-        code=codes["c1"],
-        code_id=CodeId.C1,
+        code=codes[CodeId.C1],
         token=tokens["t1"],
         as_client=Client.HONEST,
         presented=Redirect.A,
         verifier=Pkce.V1,
     ),
     given=[
-        codes["c1"](
+        codes[CodeId.C1](
             state=CodeState.REDEEMED,
             code_id=CodeId.C1,
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        codes["c2"](),
+        codes[CodeId.C2](),
         tokens["t1"](state=TokenState.ACTIVE, source_code=CodeId.C2, issued_to=Client.HONEST),
         tokens["t2"](),
     ],
@@ -185,42 +180,38 @@ sc_revoke_unrelated_token_blocked = Scenario(
 
 
 flow_happy_path = Flow(
-    given=[codes["c1"](), codes["c2"](), tokens["t1"](), tokens["t2"]()],
+    given=[codes[CodeId.C1](), codes[CodeId.C2](), tokens["t1"](), tokens["t2"]()],
     steps=[
         issue_code.bind(
-            code=codes["c1"],
-            code_id=CodeId.C1,
+            code=codes[CodeId.C1],
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
-        Assert(codes["c1"].state == CodeState.ISSUED),
+        Assert(codes[CodeId.C1].state == CodeState.ISSUED),
         redeem_code.bind(
-            code=codes["c1"],
-            code_id=CodeId.C1,
+            code=codes[CodeId.C1],
             token=tokens["t1"],
             as_client=Client.HONEST,
             presented=Redirect.A,
             verifier=Pkce.V1,
         ),
         Assert(tokens["t1"].state == TokenState.ACTIVE),
-        Assert(codes["c1"].state == CodeState.REDEEMED),
+        Assert(codes[CodeId.C1].state == CodeState.REDEEMED),
     ],
 )
 
 flow_replay_revokes = Flow(
-    given=[codes["c1"](), codes["c2"](), tokens["t1"](), tokens["t2"]()],
+    given=[codes[CodeId.C1](), codes[CodeId.C2](), tokens["t1"](), tokens["t2"]()],
     steps=[
         issue_code.bind(
-            code=codes["c1"],
-            code_id=CodeId.C1,
+            code=codes[CodeId.C1],
             client=Client.HONEST,
             redirect=Redirect.A,
             challenge=Pkce.V1,
         ),
         redeem_code.bind(
-            code=codes["c1"],
-            code_id=CodeId.C1,
+            code=codes[CodeId.C1],
             token=tokens["t1"],
             as_client=Client.HONEST,
             presented=Redirect.A,
@@ -228,14 +219,13 @@ flow_replay_revokes = Flow(
         ),
         Assert(tokens["t1"].state == TokenState.ACTIVE),
         detect_replay_and_revoke.bind(
-            code=codes["c1"],
-            code_id=CodeId.C1,
+            code=codes[CodeId.C1],
             token=tokens["t1"],
             as_client=Client.HONEST,
             presented=Redirect.A,
             verifier=Pkce.V1,
         ),
-        Assert(codes["c1"].state == CodeState.REPLAY_DETECTED),
+        Assert(codes[CodeId.C1].state == CodeState.REPLAY_DETECTED),
         Assert(tokens["t1"].state == TokenState.REVOKED),
     ],
 )
@@ -258,7 +248,7 @@ every_token_traces_to_its_code = AlwaysHolds(
                 code_q,
                 And(
                     In(code_q.state, [CodeState.REDEEMED, CodeState.REPLAY_DETECTED]),
-                    token_q.source_code == code_q.code_id,
+                    token_q.source_code == Key(code_q),
                     token_q.issued_to == code_q.client,
                 ),
             ),
@@ -275,7 +265,7 @@ no_token_to_wrong_client = Unreachable(
             And(
                 token_q.state == TokenState.ACTIVE,
                 code_q.state == CodeState.REDEEMED,
-                token_q.source_code == code_q.code_id,
+                token_q.source_code == Key(code_q),
                 token_q.issued_to != code_q.client,
             ),
         ),
@@ -291,7 +281,7 @@ no_token_via_mismatched_redirect = Unreachable(
             And(
                 token_q.state == TokenState.ACTIVE,
                 code_q.state == CodeState.REDEEMED,
-                token_q.source_code == code_q.code_id,
+                token_q.source_code == Key(code_q),
                 token_q.via_redirect != code_q.redirect,
             ),
         ),
@@ -307,7 +297,7 @@ no_token_with_wrong_verifier = Unreachable(
             And(
                 token_q.state == TokenState.ACTIVE,
                 code_q.state == CodeState.REDEEMED,
-                token_q.source_code == code_q.code_id,
+                token_q.source_code == Key(code_q),
                 token_q.via_verifier != code_q.challenge,
             ),
         ),
@@ -328,7 +318,7 @@ only_replayed_codes_tokens_are_revoked = Unreachable(
             And(
                 token_q.state == TokenState.REVOKED,
                 code_q.state == CodeState.REDEEMED,
-                token_q.source_code == code_q.code_id,
+                token_q.source_code == Key(code_q),
             ),
         ),
     ),
@@ -342,7 +332,7 @@ replay_detected_code_has_no_active_token = Unreachable(
             code_q,
             And(
                 code_q.state == CodeState.REPLAY_DETECTED,
-                token_q.source_code == code_q.code_id,
+                token_q.source_code == Key(code_q),
                 token_q.state == TokenState.ACTIVE,
             ),
         ),

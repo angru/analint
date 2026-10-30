@@ -1,7 +1,7 @@
 # analint — Roadmap
 
-Current status (2026-10-30): **0.0.4 prepared; final validation and publication pending.
-0.0.3 remains the published release. Semantic core and P5 are complete.**
+Current status (2026-10-30): **0.0.4 released and verified on PyPI.
+Semantic core and P5 are complete.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
@@ -25,10 +25,10 @@ checks before the existing main-only deployment.
    sent for testing on a real task. Feedback is pending; no trial verdict or
    new defect is recorded yet. Reproduced correctness failures and blockers
    take priority over the planned cleanup below.
-2. **Fixed-only initial relations — included in the 0.0.4 release candidate.**
+2. **Fixed-only initial relations — released in 0.0.4.**
    `Initial(given=[...])`, empty `vary` and `Initial()` use the existing root
    builder without a dummy varying field. See completed queue item 2.
-3. **Scoped identity and initial presence — included in the 0.0.4 release candidate.**
+3. **Scoped identity and initial presence — released in 0.0.4.**
    `Key(...)` and opt-in `Scope.initially_present` have separate semantics and
    conformance coverage. OAuth and Kubernetes are migrated with normalized
    graph comparisons. See completed queue items 3–4.
@@ -42,16 +42,16 @@ semantic-diff command and a Rust core remain outside the current work.
 
 ## Post-release work queue (2026-10-30)
 
-### 0.0.4 publication
+### 0.0.4 publication — complete (2026-10-30)
 
 - [x] Set package/lockfile version to 0.0.4; finalize release notes and feature
   availability labels in the documentation.
-- [ ] Pass the full suite (including available TLC checks), strict docs build,
+- [x] Pass the full suite (including available TLC checks), strict docs build,
   lint/format/typing and clean wheel/source-archive validation.
-- [ ] Pass the release commit's hosted Python 3.12–3.14 quality/package matrix.
-- [ ] Publish the annotated v0.0.4 tag and GitHub Release through the existing
+- [x] Pass the release commit's hosted Python 3.12–3.14 quality/package matrix.
+- [x] Publish the annotated v0.0.4 tag and GitHub Release through the existing
   PyPI Trusted Publishing workflow.
-- [ ] Install the published package from PyPI in a clean environment and verify
+- [x] Install the published package from PyPI in a clean environment and verify
   the new APIs, CLI verdicts, traces, cache parity and optional MCP tools.
 
 Final cross-backend probing found a scalar-Enum literal mismatch before
@@ -60,6 +60,19 @@ not in TLC, potentially turning a capped Unreachable check green. The exporter
 now preserves string-based Enum/IntEnum scalar equality and explicitly refuses
 float-based Enum values. Regression cases require the same failing verdict and
 trace from full Python exploration and capped TLC fallback.
+
+Published [v0.0.4](https://github.com/angru/analint/releases/tag/v0.0.4) from
+`9f36230`. The release commit's
+[quality matrix](https://github.com/angru/analint/actions/runs/41133839425),
+[documentation workflow](https://github.com/angru/analint/actions/runs/41133839477)
+and [PyPI publication](https://github.com/angru/analint/actions/runs/41134755688)
+all succeeded. The clean extracted archive passed 647 tests with 15 expected
+skips, including available TLC checks. Clean wheel installs passed on Python
+3.12–3.14. A fresh Python 3.12 install of `analint[mcp]==0.0.4` from public PyPI
+verified both new API examples, all three CLI verdicts, whole/sliced checks,
+traces, cold/warm cache parity and key-edit invalidation, five MCP tools and the
+scalar-enum exporter correction. Clean-configuration `uvx` reports 0.0.4. Both
+public wheel/sdist SHA-256 values match the publication workflow's artifacts.
 
 This queue splits the existing research/30 additive pass into actionable work.
 It does not reopen the completed semantic core or P5 or expand the language's

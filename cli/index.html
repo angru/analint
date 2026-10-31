@@ -1,0 +1,1034 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Python DSL for declaring and verifying how a system behaves">
+      
+      
+      
+        <link rel="canonical" href="https://angru.github.io/analint/cli/">
+      
+      
+        <link rel="prev" href="../dsl/">
+      
+      
+        <link rel="next" href="../agents/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>CLI reference - analint</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cli-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="analint" class="md-header__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            analint
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CLI reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="analint" class="md-nav__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    analint
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your first spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DSL reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON reports
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#affects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        affects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#explore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        explore
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-and-local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI and local development
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For AI agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="check">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#json-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON reports
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#show" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        show
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#affects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        affects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        trace
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#explore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        explore
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hypothesis-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hypothesis workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ci-and-local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI and local development
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cli-reference">CLI reference</h1>
+<p>The examples below use the <a href="../getting-started/">tutorial model</a>. Replace <code>.</code>
+with a directory containing <code>spec.py</code> or the path to an entry-point Python file.
+Run <code>analint --help</code> or <code>analint COMMAND --help</code> for installed-version options.</p>
+<h2 id="check">check</h2>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>check<span class="w"> </span>.
+analint<span class="w"> </span>.<span class="w">                         </span><span class="c1"># shorthand</span>
+analint<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--format<span class="w"> </span>json
+analint<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span>--strict
+</code></pre></div>
+<p>Checks loading and structure, scenarios, flows, canonical invariants and queries.
+The overall verdict includes all of these stages.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-f, --format terminal\|json</code></td>
+<td>Select human-readable or JSON output</td>
+</tr>
+<tr>
+<td><code>-s, --scenario ID</code></td>
+<td>Filter scenarios by id; repeat for multiple ids</td>
+</tr>
+<tr>
+<td><code>-t, --tag TAG</code></td>
+<td>Filter scenarios by tag; repeat for multiple tags</td>
+</tr>
+<tr>
+<td><code>--strict</code></td>
+<td>Warnings fail the run</td>
+</tr>
+<tr>
+<td><code>--what-if FILE.py</code></td>
+<td>Merge hypothesis objects for this invocation</td>
+</tr>
+<tr>
+<td><code>--max-states N</code></td>
+<td>Override canonical and query budgets with a positive integer</td>
+</tr>
+<tr>
+<td><code>--no-slice</code></td>
+<td>Use whole-model exploration instead of property slices</td>
+</tr>
+<tr>
+<td><code>--tlc</code></td>
+<td>Hand supported INCONCLUSIVE properties to TLC</td>
+</tr>
+<tr>
+<td><code>--tlc-timeout SECONDS</code></td>
+<td>Timeout per exported TLC check, at least 1 second; default unlimited</td>
+</tr>
+<tr>
+<td><code>--cache</code></td>
+<td>Since 0.0.3: persist/reuse explorations of unchanged slices</td>
+</tr>
+</tbody>
+</table>
+<p>Scenario/tag filters select scenario execution; they do not turn the command
+into a scenario-only validation that skips invariants, flows or queries.</p>
+<p>The cache directory defaults to <code>~/.cache/analint</code>; set <code>ANALINT_CACHE_DIR</code> to
+override it. Caching does not change findings or completeness. Timings measure
+performed work, so a reused exploration is cheaper than a fresh one.</p>
+<h3 id="json-reports">JSON reports</h3>
+<p><code>check --format json</code> returns <code>analint.check/v1</code>. Read <code>verdict</code> and <code>passed</code>
+before inspecting individual results. <code>passed</code> is true only for an effective
+PASS, including the effect of <code>--strict</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spec</code></td>
+<td>Root id and name</td>
+</tr>
+<tr>
+<td><code>load_errors</code>, <code>structural</code></td>
+<td>Load problems and structural findings</td>
+</tr>
+<tr>
+<td><code>scenarios</code>, <code>flows</code></td>
+<td>Example/journey results and findings</td>
+</tr>
+<tr>
+<td><code>invariants</code>, <code>queries</code></td>
+<td>Per-property status, state count, trace and findings</td>
+</tr>
+<tr>
+<td><code>exploration</code></td>
+<td>Findings encountered while exploring transitions</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>Aggregated counts, including inconclusive and unchecked invariants</td>
+</tr>
+</tbody>
+</table>
+<p>Property results can include <code>slice</code>, <code>elapsed_ms</code> and <code>backend: "tlc"</code>.
+<code>elapsed_ms</code> measures incremental work for that property; shared exploration is
+charged to its first consumer, and invariant retries are included. Model
+preparation and shared action coverage are excluded. Summing these timings does
+not give total command time.</p>
+<h2 id="show">show</h2>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>show<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>show<span class="w"> </span>action<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>show<span class="w"> </span>action<span class="w"> </span>resolve<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>show<span class="w"> </span>entity<span class="w"> </span>Ticket<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>show<span class="w"> </span>lifecycle<span class="w"> </span>Ticket.status<span class="w"> </span>-p<span class="w"> </span>.
+</code></pre></div>
+<p><code>show [KIND] [NAME] --path PATH</code> always returns JSON. Without arguments it
+returns the <code>analint.overview/v1</code> model inventory. With a kind it lists ids;
+with a kind and name it returns details using <code>analint.show/v1</code>.</p>
+<p>Detailed kinds are <code>entity</code>, <code>event</code>, <code>invariant</code>, <code>action</code>, <code>lifecycle</code>, <code>flow</code>,
+<code>scenario</code> and <code>contract</code>. Query ids are available in the overview or
+<code>show query</code>; use <code>trace QUERY_ID</code> for a property's witness.</p>
+<h2 id="affects">affects</h2>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>affects<span class="w"> </span>Queue.open_tickets<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>affects<span class="w"> </span>Ticket<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>affects<span class="w"> </span>resolve<span class="w"> </span>-p<span class="w"> </span>.
+</code></pre></div>
+<p><code>affects TARGET --path PATH</code> returns <code>analint.affects/v1</code>. Targets are fields
+(<code>Entity.field</code>), entity/event names or action ids. Inspect readers, writers,
+constraints and scenario coverage before changing the model.</p>
+<h2 id="trace">trace</h2>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>trace<span class="w"> </span>can_archive<span class="w"> </span>-p<span class="w"> </span>.
+analint<span class="w"> </span>trace<span class="w"> </span>can_archive<span class="w"> </span>-p<span class="w"> </span>.<span class="w"> </span>--format<span class="w"> </span>json
+analint<span class="w"> </span>trace<span class="w"> </span>resolved_leaves_no_open_ticket<span class="w"> </span>-p<span class="w"> </span>.
+</code></pre></div>
+<p><code>trace PROPERTY_ID --path PATH</code> returns a query witness or invariant
+counterexample with state changes. Options are <code>--format terminal|json</code>,
+<code>--what-if FILE.py</code> and <code>--no-slice</code>.</p>
+<p>JSON uses <code>analint.trace/v1</code>, with <code>query</code> or <code>invariant</code> identifying the property,
+its <code>status</code>, the root, <code>steps</code> and <code>final_state</code>. A property without a witness
+returns <code>witness: null</code> and an explanation. The command follows <code>check</code>'s slice
+and budget decisions; use <code>--no-slice</code> for the whole model. Adjust the model's
+budget for a larger trace exploration; trace has no <code>--max-states</code> option.</p>
+<p>Successful trace retrieval is an inspection operation. Its process exit code
+does not replace the property's <code>status</code> or a <code>check</code> verdict.</p>
+<h2 id="explore">explore</h2>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>explore<span class="w"> </span>.
+analint<span class="w"> </span>explore<span class="w"> </span>.<span class="w"> </span>--format<span class="w"> </span>json
+analint<span class="w"> </span>explore<span class="w"> </span>.<span class="w"> </span>--query<span class="w"> </span>can_archive<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--include-graph
+</code></pre></div>
+<p><code>explore [PATH]</code> explores the <strong>whole model</strong>, starting from canonical roots or
+the roots of <code>--query ID</code>. It accepts <code>--what-if FILE.py</code> and
+<code>--format terminal|json</code>. <code>--include-graph</code> includes the nodes and edges in JSON;
+the default is a compact summary.</p>
+<p>The <code>analint.exploration/v1</code> artifact includes <code>source</code>, <code>completeness</code>, <code>summary</code>,
+<code>findings</code> and <code>graph</code>. <code>graph: null</code> can mean output was intentionally omitted;
+it does not by itself mean the exploration was incomplete. Read <code>completeness</code>
+separately. The artifact's content-derived node/edge ids are stable across
+equivalent runs.</p>
+<p>Like trace, explore is an inspection operation; use <code>check</code> as the CI verdict
+gate. Explore does not have the check command's <code>--max-states</code>, <code>--cache</code>,
+<code>--tlc</code> or <code>--no-slice</code> switches.</p>
+<h2 id="hypothesis-workflow">Hypothesis workflow</h2>
+<p>Use the same shared entity classes in your hypothesis and spec. Packaged models
+use qualified imports, as shown in the <a href="../getting-started/#test-a-proposed-rule-without-changing-the-model">tutorial</a>.</p>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>show<span class="w"> </span>-p<span class="w"> </span>path/to/spec
+analint<span class="w"> </span>affects<span class="w"> </span>Entity.field<span class="w"> </span>-p<span class="w"> </span>path/to/spec
+analint<span class="w"> </span>check<span class="w"> </span>path/to/spec<span class="w"> </span>--what-if<span class="w"> </span>hypothesis.py<span class="w"> </span>--format<span class="w"> </span>json
+<span class="c1"># Apply the accepted change to the spec, then check again.</span>
+analint<span class="w"> </span>check<span class="w"> </span>path/to/spec<span class="w"> </span>--strict
+</code></pre></div>
+<p><code>--what-if</code> merges objects without editing the entry point or permanently
+changing its cached root. After applying a hypothesis, list new behaviour on
+Spec or an imported Contract; normal module imports do not register it.</p>
+<h2 id="exit-codes">Exit codes</h2>
+<p>The following table applies to <strong>check</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Effective PASS</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>FAIL: findings, failed scenarios/flows/properties, or strict warnings</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>CLI usage error, such as an invalid option or format</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>Spec failed to load or no root spec was found</td>
+</tr>
+<tr>
+<td><code>4</code></td>
+<td>INCONCLUSIVE, including an unchecked invariant preventing PASS</td>
+</tr>
+</tbody>
+</table>
+<p>For show, affects, trace and explore, a successful response means the inspection
+operation ran; inspect the returned data to interpret verification results.
+Machine-readable operation errors use <code>analint.error/v1</code> where supported.</p>
+<h2 id="ci-and-local-development">CI and local development</h2>
+<p>For an installed release, gate your spec with:</p>
+<div class="highlight"><pre><span></span><code>analint<span class="w"> </span>check<span class="w"> </span>path/to/spec<span class="w"> </span>--strict<span class="w"> </span>--format<span class="w"> </span>json
+</code></pre></div>
+<p>Pin the analint version and retain both the exit code and report. Do not turn
+code <code>4</code> into success without an explicit policy for unresolved properties.</p>
+<p>From a repository checkout, the documentation is checked with:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>--frozen<span class="w"> </span>pytest<span class="w"> </span>tests/test_documentation.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>tests/test_keys.py::test_key_verdicts_traces_artifacts_and_cache_agree
+uv<span class="w"> </span>run<span class="w"> </span>--frozen<span class="w"> </span>--group<span class="w"> </span>docs<span class="w"> </span>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
+</code></pre></div>
+<p>The docs workflow performs these checks for pull requests and main-branch
+pushes before its main-branch-only deployment.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.top", "navigation.tracking"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

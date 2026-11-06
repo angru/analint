@@ -1,7 +1,8 @@
 # analint — Roadmap
 
-Current status (2026-10-30): **0.0.4 released and verified on PyPI.
-Semantic core and P5 are complete.**
+Current status (2026-11-06): **0.0.4 released and verified on PyPI.
+Semantic core and P5 are complete; the 0.0.5 impact-analysis patch is prepared
+locally, with publication pending.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
@@ -14,25 +15,25 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-10-30)
+## Current priorities (2026-11-06)
 
 The documentation baseline is complete: a runnable first-spec tutorial,
 verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 
-1. **Real-spec trial — in progress (user-reported).** Version 0.0.3 has been
-   sent for testing on a real task. Feedback is pending; no trial verdict or
-   new defect is recorded yet. Reproduced correctness failures and blockers
-   take priority over the planned cleanup below.
-2. **Fixed-only initial relations — released in 0.0.4.**
-   `Initial(given=[...])`, empty `vary` and `Initial()` use the existing root
-   builder without a dummy varying field. See completed queue item 2.
-3. **Scoped identity and initial presence — released in 0.0.4.**
-   `Key(...)` and opt-in `Scope.initially_present` have separate semantics and
-   conformance coverage. OAuth and Kubernetes are migrated with normalized
-   graph comparisons. See completed queue items 3–4.
-4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
+1. **0.0.5 patch candidate — implemented and locally verified.**
+   [Issue #4](https://github.com/angru/analint/issues/4) and adjacent dependency
+   omissions are fixed in the working tree. Presence/default-initialization
+   reporting is documented; package/lockfile version is 0.0.5. Review the patch,
+   pass hosted CI and publish before treating the GitHub issue as resolved in a
+   released version. See the candidate checklist below.
+2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
+   introspection defect; do not infer checker unsoundness or trial success.
+   The candidate passes its reproduction. Next, observe one real requirement
+   change through `show → affects → what-if → check → trace`; this needs an
+   accessible real spec and the intended change, not another invented model.
+3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
 
@@ -40,7 +41,90 @@ New semantic primitives remain evidence-gated. Liveness/fairness, automatic even
 dispatch, unbounded structures, a general implementation bridge, a separate
 semantic-diff command and a Rust core remain outside the current work.
 
-## Post-release work queue (2026-10-30)
+## Review baseline (2026-11-06, before the 0.0.5 patch)
+
+- Reviewed checkout: `9107cc0`, package 0.0.4; `CHANGELOG.md` had no unreleased
+  implementation changes. Fixed-only Initial, Key and initial presence are
+  shipped, not outstanding tasks.
+- GitHub: #4 is open with no comments; [#3](https://github.com/angru/analint/issues/3)
+  is closed as completed. P5 remains accepted; this review does not reopen it.
+- Local baseline: **647 passed, 15 skipped**; Ruff lint/format, ty and the
+  strict MkDocs build pass. A green suite does not cover the reported omission:
+  `tests/test_query.py` tested ordinary field writers, not Create.
+- #4 reproduction: both scenarios pass and `check` returns PASS, but
+  `affects Record.flag` lists only `set_flag`/`set_updates_flag`, and
+  `affects create_record` returns `writes=[]`.
+- Additional local probes: `Set(target.value, Source.value)` and
+  `Create(target, value=Source.value)` omit `Source.value` from reads;
+  `Notice(value=Source.value + 1)` is absent from that field's event bindings
+  and the emitting action's reads. These are locally confirmed follow-ups,
+  not additional GitHub reports or evidence of an incorrect verification verdict.
+
+The immediate gap was completeness of the agent's inspection surface. The
+remaining product question is whether users can maintain useful abstractions
+through real changes (research/31 §2.4). Another synthetic model or language
+primitive would not resolve that question.
+
+## Post-release work queue (reviewed 2026-11-06)
+
+### 0.0.5 candidate: impact-analysis completeness — implemented locally
+
+**A. Repair #4 — complete locally.** Field impact and entity descriptions now
+include Create initialization; action writes render Create/Delete explicitly.
+
+- [x] Include explicit `Create` initializers in field `written_by`, action
+  `writes` and entity writer summaries. Preserve scenario links from those
+  writers and distinguish creation from an ordinary assignment in rendering.
+- [x] Define how implicit default initialization and Create/Delete presence
+  changes appear. A presence transition is a separate dependency from a field
+  assignment; avoid silently borrowing the explorer's conservative whole-slot
+  write set as a user-facing field-write claim.
+- [x] Add regression cases for the exact issue, field/action/entity output,
+  expanded instance parameters and a Create initializer reading another field.
+  Exercise the shared query output through CLI and optional MCP.
+
+**B. Close adjacent confirmed omissions — complete locally.** The query layer
+reuses slicing's expression/quantifier read walkers, including domain membership,
+while keeping field initialization and deletion semantics separate.
+
+- [x] Include reads from Set RHS, Add/Subtract operands (including the target's
+  old value), Create initializers and emitted payload expressions. Walk nested
+  arithmetic/quantifiers/aggregates rather than just top-level field nodes;
+  literal Key values add no state reads.
+- [x] Specify presence dependencies, including Present-only guards and finite
+  quantifier domains, separately from ordinary field reads. Decide and document
+  whether runtime presence/terminal guards are included in the impact contract.
+- [x] Keep field/action/entity reports and impacted scenario selection
+  consistent; ensure expression-based event bindings name their source fields.
+  Preserve existing JSON keys; review schema compatibility if adding structure.
+
+Decision: Create assigns all fields, including defaults (`initialization` is
+`explicit` or `default` in field-writer entries); Delete writes presence only.
+Action `presence_reads`/`presence_writes` and entity
+`presence_read_by`/`presence_written_by` are additive metadata in the existing
+v1 schemas. Static reads include RHS/payload expressions, old numeric targets,
+lifecycle source states and presence/terminal guards; Key alone reads no state.
+See `docs/cli.md` for the exact inspection contract.
+
+**Candidate validation and release:**
+
+- [x] Add 15 regression cases in `tests/test_impact.py`; the full suite passes
+  **662 tests, 15 skipped**, including available TLC checks. Characterization
+  snapshots are unchanged. Ruff lint/format, ty and strict documentation build pass.
+- [x] Prepare 0.0.5 package/lockfile and unreleased changelog entries; build
+  wheel/sdist and pass strict Twine metadata validation.
+- [x] Clean-install the wheel plus MCP extra on Python 3.12–3.14. Verify #4's
+  scenarios/writers, CLI/query parity, discovery of five tools and execution of
+  the registered MCP affects tool.
+- [x] Validate the extracted source archive against the clean Python 3.12 wheel
+  installation: **660 passed, 17 skipped**. The two extra skips are the optional
+  ty probes, absent from that clean environment. Run from the extracted project
+  root so relative example paths stay within the archive.
+- [ ] Pass hosted CI on the reviewed release commit, publish 0.0.5 through the
+  existing workflow, verify the public distribution and close #4 with evidence.
+
+The implementation is local and unreleased; GitHub #4 remains open. A reproduced
+checker correctness failure or execution blocker takes precedence at any point.
 
 ### 0.0.4 publication — complete (2026-10-30)
 
@@ -77,25 +161,39 @@ public wheel/sdist SHA-256 values match the publication workflow's artifacts.
 This queue splits the existing research/30 additive pass into actionable work.
 It does not reopen the completed semantic core or P5 or expand the language's
 semantic scope. Completed items 2–4 form release 0.0.4.
-Work through the ready items sequentially; actionable trial feedback can interrupt
-that order. The historical completion sections below remain the record of what
-has already shipped.
+The next-patch work above precedes the remaining trial follow-up; new actionable
+feedback can interrupt that order. Items 2–4 and the historical completion
+sections below remain the record of what has already shipped.
 
-### 1. Triage the live 0.0.3 trial — in progress, feedback pending
+### 1. Triage the live 0.0.3 trial — partial feedback, follow-up pending
 
 - [x] Release 0.0.3 sent to a real task for testing (reported by the user).
-- [ ] Collect a minimal reproduction or model excerpt, the installed version,
-  command/budget, expected result and observed verdict/findings. For performance
-  reports also record the per-check slice/state counts and cold/warm cache mode.
-- [ ] Separate checker defects from missing model assumptions, finite-domain or
-  budget limitations, and authoring/documentation friction. Turn each actionable
-  finding into a task with a reproducible acceptance case.
+- [x] Inspect GitHub feedback: #4 supplies a self-contained 0.0.3 reproduction,
+  expected/observed output and root cause. Confirmed on 0.0.4 on 2026-11-06;
+  classified as an impact-analysis defect and fixed in the candidate above.
+  No overall trial verdict is recorded.
+- [ ] For any further report, collect a minimal reproduction or model excerpt,
+  the installed version, command/budget, expected result and observed
+  verdict/findings. For performance reports also record the per-check slice/state
+  counts and cold/warm cache mode.
+- [ ] Classify further reports as checker defects, missing model assumptions,
+  finite-domain/budget limitations or authoring/documentation friction. Turn
+  each actionable finding into a task with a reproducible acceptance case.
 - [ ] Fix reproduced false greens, incorrect results and execution blockers first;
   preserve the case as a regression test and rerun the affected conformance paths.
 
-Done when the trial's findings are recorded with an explicit disposition; a clean
-trial is useful evidence too. This item awaits external feedback, not speculative
-implementation. No new requirement is inferred from the trial before results arrive.
+After the impact patch:
+
+- [x] Replay #4 on clean candidate wheel installations (Python 3.12–3.14),
+  including check, CLI impact and the registered MCP tool.
+- [ ] Follow one real requirement change: record the intended rule, impact
+  output, what-if/check result and a witness or counterexample where applicable.
+  Record authoring/review friction
+  and whether the finite abstraction was sufficient.
+
+Done when the trial's findings have explicit dispositions and a follow-up outcome;
+a clean trial is useful evidence too. The reported defect is fixed locally;
+the overall trial verdict and any further model-specific problems await evidence.
 
 ### 2. Fixed-only Initial — complete (2026-10-30), available in 0.0.4
 
@@ -667,7 +765,7 @@ unblocks documentation; the remaining additive work is independent.
     `--format` is a validated enum (invalid → usage error, no silent terminal
     fallback); stale descriptions fixed (no `actor` in `show` help, MCP says five
     tools). Regression-tested; characterization snapshot unaffected.
-  - [x] **Additive pass — included in the 0.0.4 release candidate; see post-release queue items 2–4:**
+  - [x] **Additive pass — released in 0.0.4; see post-release queue items 2–4:**
     Fixed-only `Initial(given=...)`, `Key(...)` and explicit canonical scope
     presence are included in 0.0.4. Removes
     the parallel-identity-param workaround in OAuth/Kubernetes but ADDS a
@@ -675,8 +773,8 @@ unblocks documentation; the remaining additive work is independent.
     and scope metadata adds the presence boolean. Does not gate the subtractive core or docs.
   - [x] Migrate examples/tests and confirm the subtractive `__all__`. **C is
     complete for documentation purposes** — the contract (DSL surface + agent JSON
-    schemas) is settled for documentation; the additive work remains unshipped
-    and is tracked in queue items 2–4. It does not gate docs (block B).
+    schemas) is settled for documentation; the additive work shipped in 0.0.4
+    and is recorded in queue items 2–4. It did not gate docs (block B).
 - **B. Documentation — complete (2026-10-30)**
   - [x] MkDocs Material configuration, GitHub Pages deployment and agent guide
     (`mkdocs.yml`, `docs/agents.md`, `.github/workflows/docs.yml`)
@@ -934,6 +1032,12 @@ decision (research/36 §4) is accepted on the private spec, and #3 is closed.
     backend comparison or synthesis work.
 
 ### Далёкое будущее — явный IR и Rust-ядро — ⏸ ОТЛОЖЕНО (13 июня 2026)
+
+**Status clarification (2026-11-06):** the paragraph below records the June
+rationale. P5 subsequently measured large real cones and shipped compact storage
+and TLC; its old claim that the scaling threshold has not been reached is no
+longer current evidence. IR/native-core work remains deferred under the measured
+triggers in P5/research/36, not under that superseded premise.
 
 Понижено разворотом от 13 июня 2026 (research/17 §3): обоснования IR были
 «независимость от Python / мост к коду / Rust» — два из трёх сняты; соундность

@@ -85,6 +85,12 @@ details with a kind/name pair. Detailed kinds are entity, event, invariant,
 action, lifecycle, flow, scenario and contract. `affects` accepts a field,
 entity/event name or action id.
 
+Impact reports include Create initialization, RHS/payload expressions and
+implicit presence/terminal guards. Inspect action `presence_reads` and
+`presence_writes` or entity `presence_read_by`/`presence_written_by` for
+membership changes; ordinary field reports describe field values. See the
+[impact contract](cli.md#affects) for default initialization and static-read semantics.
+
 `explore` follows the whole model for canonical or query-specific roots. It
 returns a compact artifact by default. To request the graph, supply both
 `include_graph=true` and `max_graph_states=N`; the latter caps **output**, not

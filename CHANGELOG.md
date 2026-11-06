@@ -7,6 +7,29 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.0.5] — 2026-11-06
+
+Complete impact-analysis output for initialization, expressions and scoped
+presence without changing transition semantics or inspection schema versions.
+
+### Fixed
+
+- Impact analysis includes explicit and default field initialization by `Create`,
+  preserving writer-to-scenario links and entity writer summaries (issue #4).
+  Create field entries identify `explicit` or `default` initialization; deletion
+  is reported as a presence change rather than a field assignment.
+- `affects` and entity descriptions include reads from effect RHS expressions,
+  old Add/Subtract targets, emitted payload expressions and lifecycle guards.
+  Nested arithmetic, finite quantifiers and aggregates contribute dependencies;
+  expression-based event bindings and payload-only scenarios are no longer omitted.
+
+### Added
+
+- Additive presence metadata in the existing v1 inspection schemas: action
+  `presence_reads`/`presence_writes` and entity
+  `presence_read_by`/`presence_written_by`. Membership-only invariants now name
+  their entity in inspection output. Key literals remain independent of state.
+
 ## [0.0.4] — 2026-10-30
 
 Declare fixed initial worlds, use scope keys as domain values, and make empty

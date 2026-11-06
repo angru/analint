@@ -87,6 +87,28 @@ analint affects resolve -p .
 (`Entity.field`), entity/event names or action ids. Inspect readers, writers,
 constraints and scenario coverage before changing the model.
 
+Since 0.0.5, field writers include `Create` initialization, including omitted
+fields taking their defaults. Such entries carry `initialization: "explicit"` or `"default"`
+and render the `Create(...)` operation. `Delete` changes presence rather than
+assigning field values. Entity `written_by` includes both creation and deletion.
+
+Reads cover pre/post predicates, effect right-hand sides, old Add/Subtract
+targets, emitted payload expressions, lifecycle transition source states and
+terminal locks. These are static dependencies across possible worlds, not a
+claim that every expression executes in every state. Payload/post references
+describe next-state dependencies; they need not read the old value of a field
+the same action assigns. World invariants are listed separately from action reads.
+
+Action reports add `presence_reads` (instance labels) and `presence_writes`
+(`{"instance": "Item['a']", "present": true|false}`). These cover explicit
+Present predicates, scoped field reads, finite quantifier/aggregate membership
+and the implicit guards for modifying/creating/deleting a slot. Entity reports
+add `presence_read_by` and `presence_written_by`; their ordinary reader/writer
+lists also include presence dependencies. Field reports remain about field
+values. `Key(ref)` alone reads neither fields nor presence; quantification over
+keys still reads domain membership. Expression-based event bindings and their
+scenarios are included. These are additive fields in the existing v1 schemas.
+
 ## trace
 
 ```bash

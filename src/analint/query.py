@@ -10,12 +10,13 @@ from enum import Enum
 from typing import Any
 
 from analint.models.action import Action
-from analint.models.effect import Add, Set, Subtract
-from analint.models.entity import _MISSING
+from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
+from analint.models.entity import _MISSING, all_fields
 from analint.models.event import Event
 from analint.models.flow import Assert, Emitted
 from analint.models.root import Spec
-from analint.models.scope import is_field_ref
+from analint.models.scope import FieldRef, InstanceRef, field_context_key, is_field_ref
+from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
 
 # ── Rendering helpers ──────────────────────────────────────────────────────────
@@ -28,18 +29,17 @@ def _effect_str(effect: Any) -> str:
         return f"{_describe_operand(effect.field)} -= {_describe_operand(effect.amount)}"
     if isinstance(effect, Add):
         return f"{_describe_operand(effect.field)} += {_describe_operand(effect.amount)}"
+    if isinstance(effect, Create):
+        fields = ", ".join(f"{name}={_describe_operand(v)}" for name, v in effect.fields.items())
+        return f"Create({effect.target!r}{', ' + fields if fields else ''})"
     return repr(effect)
 
 
 def _emit_str(emitted: type[Event] | Event) -> str:
     if isinstance(emitted, type):
         return emitted.__name__
-    bound = ", ".join(f"{f}={_bind_str(v)}" for f, v in emitted.__dict__.items())
+    bound = ", ".join(f"{f}={_describe_operand(v)}" for f, v in emitted.__dict__.items())
     return f"{type(emitted).__name__}({bound})"
-
-
-def _bind_str(value: Any) -> str:
-    return _describe_operand(value) if is_field_ref(value) else repr(value)
 
 
 def _fields_of(cls: type) -> list[dict]:
@@ -86,17 +86,74 @@ def _value_str(value: Any) -> str:
     return repr(value)
 
 
-def _action_refs(action: Action) -> list:
-    refs: list = []
-    for pred in list(action.pre) + list(action.post):
-        refs.extend(_collect_field_refs(pred))
-    return refs
+def _predicate_reads(predicate: Any) -> set[Var]:
+    reads: set[Var] = set()
+    _pred_vars(predicate, reads)
+    return reads
 
 
-def _action_writes(action: Action) -> list[Set | Subtract | Add]:
-    return [
-        e for e in action.effect if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
-    ]
+def _action_reads(spec: Spec, action: Action) -> set[Var]:
+    """Static reads, including payloads and the kernel's implicit guards.
+
+    Reuse the slice walkers for expression/quantifier membership dependencies;
+    do not use its whole-slot writes, which conservatively include deleted fields.
+    """
+    reads: set[Var] = set()
+    frozen: set[Any] = set()
+    for pred in [*action.pre, *action.post]:
+        _pred_vars(pred, reads)
+    for effect in action.effect:
+        if isinstance(effect, (Set, Add, Subtract)) and is_field_ref(effect.field):
+            target = field_context_key(effect.field)
+            frozen.add(target)
+            if isinstance(target, InstanceRef):
+                reads.add((target, PRESENT))
+            if effect.field.lifecycle is not None:
+                _operand_vars(effect.field, reads)  # old state selects the allowed lifecycle edge
+            if isinstance(effect, Set):
+                _operand_vars(effect.value, reads)
+            else:
+                _operand_vars(effect.field, reads)  # old target value
+                _operand_vars(effect.amount, reads)
+        elif isinstance(effect, (Create, Delete)):
+            reads.add((effect.target, PRESENT))
+            if isinstance(effect, Create):
+                for value in effect.fields.values():
+                    _operand_vars(value, reads)
+            else:
+                frozen.add(effect.target)
+    for lifecycle in spec.lifecycles:
+        if lifecycle.terminal:
+            for target in frozen:
+                if _entity_cls(target) is lifecycle.entity_cls:
+                    reads.add((target, lifecycle.field_name))
+    for emitted in action.emits:
+        if not isinstance(emitted, type):
+            for value in emitted.__dict__.values():
+                _operand_vars(value, reads)
+    return reads
+
+
+def _entity_cls(key: Any) -> type:
+    return key.entity_cls if isinstance(key, InstanceRef) else key
+
+
+def _field_refs(variables: set[Var]) -> list[FieldRef]:
+    return [getattr(key, name) for key, name in variables if name != PRESENT]
+
+
+def _action_writes(action: Action) -> list[tuple[FieldRef, Effect]]:
+    """Field assignments, including every field initialized by Create."""
+    writes: list[tuple[FieldRef, Effect]] = []
+    for effect in action.effect:
+        if isinstance(effect, (Set, Add, Subtract)) and is_field_ref(effect.field):
+            writes.append((effect.field, effect))
+        elif isinstance(effect, Create):
+            writes.extend(
+                (getattr(effect.target, name), effect)
+                for name in all_fields(effect.target.entity_cls)
+            )
+    return writes
 
 
 def _scenarios_of(spec: Spec, action_id: str) -> list[str]:
@@ -214,10 +271,19 @@ def _describe_entity(spec: Spec, name: str) -> dict:
     if cls is None:
         return _not_found("entity", name, [e.__name__ for e in spec.entities])
     read_by = sorted(
-        {a.id for a in spec.actions if any(r.entity_cls is cls for r in _action_refs(a))}
+        {
+            a.id
+            for a in spec.actions
+            if any(_entity_cls(key) is cls for key, _ in _action_reads(spec, a))
+        }
     )
     written_by = sorted(
-        {a.id for a in spec.actions if any(w.field.entity_cls is cls for w in _action_writes(a))}
+        {
+            a.id
+            for a in spec.actions
+            if any(field.entity_cls is cls for field, _ in _action_writes(a))
+            or any(isinstance(e, (Create, Delete)) and e.target.entity_cls is cls for e in a.effect)
+        }
     )
     return {
         "kind": "entity",
@@ -235,10 +301,20 @@ def _describe_entity(spec: Spec, name: str) -> dict:
         "lifecycles": [lc.id for lc in spec.lifecycles if lc.entity_cls is cls],
         "read_by": read_by,
         "written_by": written_by,
+        "presence_read_by": sorted(
+            a.id
+            for a in spec.actions
+            if any(key.entity_cls is cls for key, name in _action_reads(spec, a) if name == PRESENT)
+        ),
+        "presence_written_by": sorted(
+            a.id
+            for a in spec.actions
+            if any(isinstance(e, (Create, Delete)) and e.target.entity_cls is cls for e in a.effect)
+        ),
         "invariants": [
             i.id
             for i in spec.invariants
-            if any(r.entity_cls is cls for r in _collect_field_refs(i.expression))
+            if any(_entity_cls(key) is cls for key, _ in _predicate_reads(i.expression))
         ],
     }
 
@@ -269,7 +345,9 @@ def _describe_invariant(spec: Spec, name: str) -> dict:
         "id": inv.id,
         "label": inv.label,
         "expression": _describe(inv.expression),
-        "entities": sorted({r.entity_cls.__name__ for r in _collect_field_refs(inv.expression)}),
+        "entities": sorted(
+            {_entity_cls(key).__name__ for key, _ in _predicate_reads(inv.expression)}
+        ),
     }
 
 
@@ -389,11 +467,18 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
 
     written_by = []
     for a in spec.actions:
-        for w in _action_writes(a):
-            if _matches(w.field):
-                written_by.append({"action": a.id, "effect": _effect_str(w)})
+        for field, effect in _action_writes(a):
+            if _matches(field):
+                entry = {"action": a.id, "effect": _effect_str(effect)}
+                if isinstance(effect, Create):
+                    entry["initialization"] = (
+                        "explicit" if field_name in effect.fields else "default"
+                    )
+                written_by.append(entry)
 
-    read_by = sorted({a.id for a in spec.actions if any(_matches(r) for r in _action_refs(a))})
+    read_by = sorted(
+        a.id for a in spec.actions if any(_matches(r) for r in _field_refs(_action_reads(spec, a)))
+    )
     invariants = [
         i.id for i in spec.invariants if any(_matches(r) for r in _collect_field_refs(i.expression))
     ]
@@ -405,7 +490,9 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
             if isinstance(emitted, type):
                 continue
             for f, v in emitted.__dict__.items():
-                if is_field_ref(v) and _matches(v):
+                reads: set[Var] = set()
+                _operand_vars(v, reads)
+                if any(_matches(r) for r in _field_refs(reads)):
                     event_bindings.append(
                         {"action": a.id, "event": type(emitted).__name__, "payload_field": f}
                     )
@@ -432,11 +519,18 @@ def _affects_entity(spec: Spec, name: str) -> dict:
 
 def _affects_action(spec: Spec, action_id: str) -> dict:
     action = next(a for a in spec.actions if a.id == action_id)
+    reads = _action_reads(spec, action)
     return {
         "kind": "action-impact",
         "target": action_id,
-        "reads": sorted({_describe_operand(r) for r in _action_refs(action)}),
-        "writes": [_effect_str(w) for w in _action_writes(action)],
+        "reads": sorted({_describe_operand(r) for r in _field_refs(reads)}),
+        "writes": [_effect_str(e) for e in action.effect],
+        "presence_reads": sorted(repr(key) for key, name in reads if name == PRESENT),
+        "presence_writes": [
+            {"instance": repr(e.target), "present": isinstance(e, Create)}
+            for e in action.effect
+            if isinstance(e, (Create, Delete))
+        ],
         "emits": [_emit_str(e) for e in action.emits],
         "flows": [f.id for f in spec.flows if _flow_uses(f, action_id)],
         "scenarios": _scenarios_of(spec, action_id),

@@ -91,6 +91,42 @@ main-branch pushes. Deployment runs only on main after validation succeeds.
 Keep CLI/MCP examples consistent with their implemented argument sets, preserve
 the bounded-verification assumptions, and link new pages from the navigation.
 
+## Release acceptance
+
+Build one wheel/source pair in a clean output directory, then run the same gate
+used by both Quality CI and the publishing workflow:
+
+```bash
+uv build --out-dir /tmp/analint-dist
+uv run --no-project python -I scripts/check_release.py --dist-dir /tmp/analint-dist
+```
+
+`--python 3.15` selects another interpreter for the temporary environment.
+`--expected-version v0.0.5` checks a release tag explicitly; the default is the
+checkout's package version. Mixed versions, extra stale artifacts and a tag
+that disagrees with distribution metadata fail before installation.
+
+The gate installs the wheel without dev dependencies and checks CLI version,
+PASS/FAIL/INCONCLUSIVE exit codes and JSON, what-if isolation, cold/warm cache
+parity, traces and Create impact. It then installs the MCP extra and starts
+`analint-mcp` over stdio, initializes a client and calls all five tools. Only
+after those checks does it add test tools, run strict Twine validation, collect
+the extracted archive's tests and execute the focused documentation, impact,
+initial-state/key and release-acceptance cases against the installed wheel.
+The final JSON records the verified version and distribution SHA-256 values.
+
+Publishing builds artifacts once and verifies those same files on Python
+3.12–3.15 before either registry job can run. A GitHub Release also checks its
+tag against the artifact version. To exercise the complete publishing gate
+without a registry upload, dispatch Publish with `verify_only=true`:
+
+```bash
+gh workflow run publish.yml -f verify_only=true
+```
+
+The default manual run retains the TestPyPI dry run; published GitHub Releases
+use PyPI. Both paths require the verification matrix to succeed.
+
 ## How the project works
 
 - **`ROADMAP.md` is the single source of truth** for status and priorities.

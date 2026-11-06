@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- One release-acceptance entry point, `scripts/check_release.py`, shared by
+  Quality CI and the publishing workflow on Python 3.12–3.15. It checks clean
+  CLI installs, verdict/exit-code agreement, cache/what-if parity, real MCP stdio
+  calls and focused tests executed from the source archive against the wheel.
+  Strict metadata/tag checks reject mixed or stale artifacts. Registry jobs
+  require verification of the exact uploaded build artifacts; manual Publish
+  runs can use `verify_only=true` to exercise the gate without an upload.
 - Dedicated TLC conformance CI job with Temurin Java 17 and the official TLA+
   1.7.4 JAR pinned by SHA-256. Missing tools fail the preflight; the existing
   backend, fixed-root, scoped-key and initial-presence tests run against TLC.

@@ -62,6 +62,25 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-06)
 
+### Automated release acceptance — implemented, hosted validation pending
+
+- [x] Add one `scripts/check_release.py` entry point shared by Quality and
+  Publish. Refuse missing/mixed artifact pairs and wheel/sdist/tag version
+  disagreement; record artifact SHA-256 values on success.
+- [x] Check the wheel in a clean environment before installing test tools:
+  CLI version, PASS/FAIL/INCONCLUSIVE JSON and exits, what-if isolation,
+  cold/warm cache parity, Create impact and a scoped trace. Reuse runnable docs.
+- [x] Install the MCP extra, initialize the real stdio server and call all five
+  tools, including the three check verdicts and CLI/MCP inspection parity.
+- [x] Preserve full sdist test collection and execute focused release, docs,
+  impact and initial/key tests from the extracted project against the wheel.
+  The local end-to-end run passes 30 selected tests; seven artifact probes
+  include wrong-tag, mixed-version and stale-wheel rejection.
+- [x] Make registry jobs depend on verification of the same build artifacts
+  on Python 3.12–3.15. Add `verify_only=true` for a manual Publish run that
+  exercises the gate without uploading to a registry.
+- [ ] Pass hosted Quality and the publishing workflow's verify-only matrix.
+
 ### CI conformance and Python 3.15 — complete (2026-11-06)
 
 This is engineering work that can proceed while real-task feedback is pending.

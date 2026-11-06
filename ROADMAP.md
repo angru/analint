@@ -20,6 +20,8 @@ The documentation baseline is complete: a runnable first-spec tutorial,
 verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
+CI now also runs pinned TLC conformance and tests/package installations on
+Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validation.
 
 1. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
@@ -60,7 +62,7 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-06)
 
-### CI conformance and Python 3.15 — implemented, hosted validation pending
+### CI conformance and Python 3.15 — complete (2026-11-06)
 
 This is engineering work that can proceed while real-task feedback is pending.
 It does not add language primitives or reopen P5.
@@ -77,7 +79,11 @@ It does not add language primitives or reopen P5.
 - [x] Validate stable Python 3.15.2 locally: **662 passed, 15 skipped**, with TLC;
   clean wheel/MCP installation, the #4 reproduction and registered tool calls
   also pass. Lint, formatting, typing and the strict docs build pass on 3.14.
-- [ ] Pass the hosted TLC job and Python 3.12–3.15 quality/package matrix.
+- [x] Pass the hosted TLC job and Python 3.12–3.15 quality/package matrix:
+  [Quality run](https://github.com/angru/analint/actions/runs/42283594275)
+  on `1f443bd`. The TLC job completes in 58 seconds; the 3.15 test and clean
+  wheel/MCP/archive-collection jobs all pass. These timings describe this run,
+  not a performance gate.
 
 These changes are unreleased after 0.0.5; no new package publication is required
 for the CI gate itself.

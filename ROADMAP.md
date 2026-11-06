@@ -22,6 +22,8 @@ and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 CI now also runs pinned TLC conformance and tests/package installations on
 Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validation.
+Release acceptance is shared by Quality and Publish; both registry jobs require
+verification of the exact build artifacts on that Python matrix.
 
 1. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
@@ -62,7 +64,7 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-06)
 
-### Automated release acceptance — implemented, hosted validation pending
+### Automated release acceptance — complete (2026-11-06)
 
 - [x] Add one `scripts/check_release.py` entry point shared by Quality and
   Publish. Refuse missing/mixed artifact pairs and wheel/sdist/tag version
@@ -79,7 +81,11 @@ primitive would not resolve that question.
 - [x] Make registry jobs depend on verification of the same build artifacts
   on Python 3.12–3.15. Add `verify_only=true` for a manual Publish run that
   exercises the gate without uploading to a registry.
-- [ ] Pass hosted Quality and the publishing workflow's verify-only matrix.
+- [x] Pass hosted [Quality](https://github.com/angru/analint/actions/runs/42289879582)
+  and [Publish verify-only](https://github.com/angru/analint/actions/runs/42290043029)
+  on `7f2bf07`: all four Python versions execute the shared verifier. The
+  publishing run builds one artifact pair, verifies it on 3.12–3.15 and skips
+  both registry jobs as requested by `verify_only=true`.
 
 ### CI conformance and Python 3.15 — complete (2026-11-06)
 

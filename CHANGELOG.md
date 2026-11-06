@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Dedicated TLC conformance CI job with Temurin Java 17 and the official TLA+
+  1.7.4 JAR pinned by SHA-256. Missing tools fail the preflight; the existing
+  backend, fixed-root, scoped-key and initial-presence tests run against TLC.
+- Python 3.15 in the test and clean-install CI matrices and package classifiers.
+  The minimum supported Python version remains 3.12.
+
+### Changed
+
+- Refresh the locked Pydantic/core and required typing dependencies so the
+  Python 3.15 development install uses a native wheel instead of building core
+  from source.
+
 ## [0.0.5] — 2026-11-06
 
 Complete impact-analysis output for initialization, expressions and scoped

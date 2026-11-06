@@ -60,6 +60,28 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-06)
 
+### CI conformance and Python 3.15 — implemented, hosted validation pending
+
+This is engineering work that can proceed while real-task feedback is pending.
+It does not add language primitives or reopen P5.
+
+- [x] Add a separate TLC conformance job using Temurin Java 17 and the official
+  TLA+ 1.7.4 JAR pinned by SHA-256. Java/JAR discovery is a failing preflight,
+  not a pytest skip; unsupported exports remain explicit individual skips.
+- [x] Run backend conformance plus fixed Initial, Key/scalar-Enum and initial
+  presence cases. The exact pinned JAR passes **93 tests, 10 expected skips**
+  locally. A missing-JAR probe fails the preflight.
+- [x] Add Python 3.15 to test and clean-install matrices, package classifiers
+  and the README badge, retaining the Python 3.12 floor. Update only locked
+  Pydantic/core and their required typing dependencies to obtain 3.15 wheels.
+- [x] Validate stable Python 3.15.2 locally: **662 passed, 15 skipped**, with TLC;
+  clean wheel/MCP installation, the #4 reproduction and registered tool calls
+  also pass. Lint, formatting, typing and the strict docs build pass on 3.14.
+- [ ] Pass the hosted TLC job and Python 3.12–3.15 quality/package matrix.
+
+These changes are unreleased after 0.0.5; no new package publication is required
+for the CI gate itself.
+
 ### 0.0.5: impact-analysis completeness — released and verified (2026-11-06)
 
 **A. Repair #4 — complete.** Field impact and entity descriptions now

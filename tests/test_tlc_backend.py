@@ -1,7 +1,8 @@
 """The TLC backend (research/36 R6) must mirror the analint transition system
 exactly: identical distinct-state counts on every exportable example, the same
 verdicts on planted properties, and an explicit refusal where TLA+ cannot
-follow analint. Skipped where Java or a TLC jar is missing (e.g. CI)."""
+follow analint. Local runs skip when Java or a TLC jar is missing; the dedicated
+CI job requires both before running this suite."""
 
 from __future__ import annotations
 

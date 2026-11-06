@@ -9,6 +9,8 @@ All new repository content — code, comments, docs, commit messages — is writ
 ## Development setup
 
 analint uses [uv](https://docs.astral.sh/uv/) and targets **Python 3.12+**.
+CI tests Python 3.12–3.15, including clean wheel/MCP installations and source
+archive collection on each version.
 
 ```bash
 git clone https://github.com/angru/analint
@@ -24,6 +26,18 @@ uv run pytest                # full test suite
 uv run ruff check .          # lint
 uv run ruff format --check . # formatting
 uv run ty check              # type check (src/)
+```
+
+CI also runs a separate **TLC conformance** job with Temurin Java 17 and the
+official TLA+ 1.7.4 JAR, verified against its pinned SHA-256. Its preflight fails
+if Java or the JAR is unavailable; unsupported model exports may still skip
+individual cases. To run the same suite locally, set `ANALINT_TLC_JAR` to a
+local `tla2tools.jar` and run:
+
+```bash
+uv run python -c "from analint.backends.tlc import find_tlc; print(find_tlc())"
+uv run pytest -q -rs tests/test_tlc_backend.py tests/test_fixed_initial.py \
+  tests/test_initial_presence.py tests/test_keys.py
 ```
 
 A few specific things to know about the test suite:

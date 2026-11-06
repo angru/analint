@@ -1,8 +1,7 @@
 # analint — Roadmap
 
-Current status (2026-11-06): **0.0.4 released and verified on PyPI.
-Semantic core and P5 are complete; the 0.0.5 impact-analysis patch is prepared
-locally, with publication pending.**
+Current status (2026-11-06): **0.0.5 released and verified on PyPI.
+Semantic core and P5 are complete; impact-analysis fixes are released.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
@@ -22,18 +21,12 @@ verification concepts, DSL/CLI/MCP references and examples gallery. Pull request
 and main pushes now have a strict documentation build and executable tutorial
 checks before the existing main-only deployment.
 
-1. **0.0.5 patch candidate — implemented and locally verified.**
-   [Issue #4](https://github.com/angru/analint/issues/4) and adjacent dependency
-   omissions are fixed in the working tree. Presence/default-initialization
-   reporting is documented; package/lockfile version is 0.0.5. Review the patch,
-   pass hosted CI and publish before treating the GitHub issue as resolved in a
-   released version. See the candidate checklist below.
-2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
+1. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
-   The candidate passes its reproduction. Next, observe one real requirement
-   change through `show → affects → what-if → check → trace`; this needs an
+   Published 0.0.5 passes its reproduction; the issue is closed. Next, observe
+   one real requirement change through `show → affects → what-if → check → trace`; this needs an
    accessible real spec and the intended change, not another invented model.
-3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
+2. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
 
@@ -67,9 +60,9 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-06)
 
-### 0.0.5 candidate: impact-analysis completeness — implemented locally
+### 0.0.5: impact-analysis completeness — released and verified (2026-11-06)
 
-**A. Repair #4 — complete locally.** Field impact and entity descriptions now
+**A. Repair #4 — complete.** Field impact and entity descriptions now
 include Create initialization; action writes render Create/Delete explicitly.
 
 - [x] Include explicit `Create` initializers in field `written_by`, action
@@ -83,7 +76,7 @@ include Create initialization; action writes render Create/Delete explicitly.
   expanded instance parameters and a Create initializer reading another field.
   Exercise the shared query output through CLI and optional MCP.
 
-**B. Close adjacent confirmed omissions — complete locally.** The query layer
+**B. Close adjacent confirmed omissions — complete.** The query layer
 reuses slicing's expression/quantifier read walkers, including domain membership,
 while keeping field initialization and deletion semantics separate.
 
@@ -106,12 +99,12 @@ v1 schemas. Static reads include RHS/payload expressions, old numeric targets,
 lifecycle source states and presence/terminal guards; Key alone reads no state.
 See `docs/cli.md` for the exact inspection contract.
 
-**Candidate validation and release:**
+**Validation and release:**
 
 - [x] Add 15 regression cases in `tests/test_impact.py`; the full suite passes
   **662 tests, 15 skipped**, including available TLC checks. Characterization
   snapshots are unchanged. Ruff lint/format, ty and strict documentation build pass.
-- [x] Prepare 0.0.5 package/lockfile and unreleased changelog entries; build
+- [x] Prepare 0.0.5 package/lockfile and release notes; build
   wheel/sdist and pass strict Twine metadata validation.
 - [x] Clean-install the wheel plus MCP extra on Python 3.12–3.14. Verify #4's
   scenarios/writers, CLI/query parity, discovery of five tools and execution of
@@ -120,11 +113,22 @@ See `docs/cli.md` for the exact inspection contract.
   installation: **660 passed, 17 skipped**. The two extra skips are the optional
   ty probes, absent from that clean environment. Run from the extracted project
   root so relative example paths stay within the archive.
-- [ ] Pass hosted CI on the reviewed release commit, publish 0.0.5 through the
+- [x] Pass hosted CI on the reviewed release commit, publish 0.0.5 through the
   existing workflow, verify the public distribution and close #4 with evidence.
 
-The implementation is local and unreleased; GitHub #4 remains open. A reproduced
-checker correctness failure or execution blocker takes precedence at any point.
+Published [v0.0.5](https://github.com/angru/analint/releases/tag/v0.0.5) from
+`9b1fe75`, with an annotated tag. The release commit's
+[Python 3.12–3.14 quality/package matrix](https://github.com/angru/analint/actions/runs/42277797057),
+[documentation workflow](https://github.com/angru/analint/actions/runs/42277797415)
+and [PyPI publication](https://github.com/angru/analint/actions/runs/42278996666)
+all succeeded. A fresh Python 3.12 installation of `analint[mcp]==0.0.5` from
+public PyPI passes #4's scenarios and writer/scenario output, CLI parity and
+the registered MCP affects tool. Both published distribution SHA-256 values
+match the publication workflow's artifacts; their source matches the release
+commit. [Issue #4 is closed with verification evidence](https://github.com/angru/analint/issues/4#issuecomment-6693447836).
+
+A reproduced checker correctness failure or execution blocker takes precedence
+over the remaining trial follow-up at any point.
 
 ### 0.0.4 publication — complete (2026-10-30)
 
@@ -161,8 +165,8 @@ public wheel/sdist SHA-256 values match the publication workflow's artifacts.
 This queue splits the existing research/30 additive pass into actionable work.
 It does not reopen the completed semantic core or P5 or expand the language's
 semantic scope. Completed items 2–4 form release 0.0.4.
-The next-patch work above precedes the remaining trial follow-up; new actionable
-feedback can interrupt that order. Items 2–4 and the historical completion
+The impact-analysis patch above is released; the trial follow-up is next, subject
+to new actionable feedback. Items 2–4 and the historical completion
 sections below remain the record of what has already shipped.
 
 ### 1. Triage the live 0.0.3 trial — partial feedback, follow-up pending
@@ -170,7 +174,7 @@ sections below remain the record of what has already shipped.
 - [x] Release 0.0.3 sent to a real task for testing (reported by the user).
 - [x] Inspect GitHub feedback: #4 supplies a self-contained 0.0.3 reproduction,
   expected/observed output and root cause. Confirmed on 0.0.4 on 2026-11-06;
-  classified as an impact-analysis defect and fixed in the candidate above.
+  classified as an impact-analysis defect and fixed in published 0.0.5 above.
   No overall trial verdict is recorded.
 - [ ] For any further report, collect a minimal reproduction or model excerpt,
   the installed version, command/budget, expected result and observed
@@ -185,14 +189,14 @@ sections below remain the record of what has already shipped.
 After the impact patch:
 
 - [x] Replay #4 on clean candidate wheel installations (Python 3.12–3.14),
-  including check, CLI impact and the registered MCP tool.
+  then a fresh public-PyPI installation (Python 3.12), including check, CLI
+  impact and the registered MCP tool.
 - [ ] Follow one real requirement change: record the intended rule, impact
   output, what-if/check result and a witness or counterexample where applicable.
-  Record authoring/review friction
-  and whether the finite abstraction was sufficient.
+  Record authoring/review friction and whether the finite abstraction was sufficient.
 
 Done when the trial's findings have explicit dispositions and a follow-up outcome;
-a clean trial is useful evidence too. The reported defect is fixed locally;
+a clean trial is useful evidence too. The reported defect is fixed in 0.0.5;
 the overall trial verdict and any further model-specific problems await evidence.
 
 ### 2. Fixed-only Initial — complete (2026-10-30), available in 0.0.4

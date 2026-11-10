@@ -121,8 +121,13 @@ def check(
         help="Reuse explorations of unchanged slices from earlier runs "
         "(~/.cache/analint, or $ANALINT_CACHE_DIR)",
     ),
+    compact: bool = typer.Option(
+        False, "--compact", help="Group findings and sample examples in JSON output"
+    ),
 ) -> None:
     """Validate the spec: structural checks + scenario runs."""
+    if compact and format != OutputFormat.json:
+        raise typer.BadParameter("requires --format json", param_hint="--compact")
     result = validate(
         path,
         scenario_ids=scenario or None,
@@ -136,7 +141,7 @@ def check(
     )
 
     if format == "json":
-        report_json(result, strict)
+        report_json(result, strict, compact=compact)
     else:
         report_terminal(result, strict)
 

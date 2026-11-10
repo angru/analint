@@ -4,10 +4,14 @@ import json
 import re
 from pathlib import Path
 
+import click
 from typer.testing import CliRunner
 
 from analint.cli import app
+from analint.mcp_server import check_spec
 from analint.reporter import Code, Finding, Severity
+from analint.reporter.base import ValidationResult
+from analint.reporter.json_reporter import result_to_dict
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -100,3 +104,45 @@ def test_codes_are_unique_and_documented():
     assert all(re.fullmatch(r"[a-z]+\.[a-z_]+", code.value) for code in Code)
     documented = set(re.findall(r"`([a-z]+\.[a-z_]+)`", (ROOT / "docs/cli.md").read_text()))
     assert {code.value for code in Code} <= documented
+
+
+def test_compact_groups_keep_severity_and_expected_rejection_separate():
+    result = ValidationResult("s", "S")
+    code = Code.PRE_FAILED
+    result.exploration_findings = [
+        Finding(Severity.ERROR, "action:a", "unexpected rejection", code),
+        Finding(Severity.ERROR, "action:a", "expected rejection", code, expected=True),
+        Finding(Severity.WARNING, "action:a", "warning", code),
+    ]
+    groups = result_to_dict(result, compact=True)["exploration"]
+    assert [(g["severity"], g.get("expected", False), g["count"]) for g in groups] == [
+        ("ERROR", False, 1),
+        ("ERROR", True, 1),
+        ("WARNING", False, 1),
+    ]
+    assert result_to_dict(result)["exploration"] == [
+        finding.to_dict() for finding in result.exploration_findings
+    ]
+
+
+def test_compact_check_matches_mcp_and_keeps_expected_rejection(tmp_path):
+    spec = tmp_path / "spec.py"
+    spec.write_text(SPEC.replace("{ready}", "False").replace("{invariants}", ""))
+    args = ["check", str(spec), "-f", "json", "--compact"]
+    response = CliRunner().invoke(app, args)
+    assert response.exit_code == 0, response.output
+    data = json.loads(response.stdout)
+    assert data == check_spec(str(spec), compact=True)
+    assert data["scenarios"][0]["findings"][0]["expected"] is True
+    assert data["verdict"] == "PASS"
+
+    strict = CliRunner().invoke(app, [*args, "--strict"])
+    assert strict.exit_code == 1, strict.output
+    assert json.loads(strict.stdout)["verdict"] == "FAIL"
+    assert check_spec(str(spec))["schema"] == "analint.check/v1"
+
+
+def test_compact_requires_json_format():
+    result = CliRunner().invoke(app, ["check", "--compact"])
+    assert result.exit_code == 2
+    assert "requires --format json" in click.unstyle(result.output)

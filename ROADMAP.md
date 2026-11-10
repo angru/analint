@@ -31,12 +31,11 @@ verification of the exact build artifacts on that Python matrix.
    Published 0.0.5 passes its reproduction; the issue is closed. Next, observe
    one real requirement change through `show → affects → what-if → check → trace`; this needs an
    accessible real spec and the intended change, not another invented model.
-2. **Agent workflow — guided pass and query/family inspection complete.**
+2. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
-   included in 0.0.6. Next, measure whether compact diagnostics
-   reduce the observed response volume. This internal run does not complete
-   the real-spec trial.
+   included in 0.0.6. Compact diagnostics reduce the Kubernetes regression
+   report by 98.69% (see below). Real-spec follow-up remains priority 1.
 3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
@@ -94,8 +93,12 @@ This is internal evidence, not an independent agent evaluation.
   (predicate/goal, declarative roots, budget) without enumeration.
 - [x] `show action FAMILY_ID` for parameterized families, including
   zero-variant ones; concrete ids keep precedence. Included in 0.0.6.
-- [ ] Design bounded diagnostic summaries with explicit access to full
-  findings: one planted Kubernetes defect produced ~1.1 MB of JSON.
+- [x] Add compact diagnostic groups with counts and up to three examples.
+  On the same Kubernetes variant with the bare-pod admission guard removed,
+  `check --strict -f json --compact` reduced stdout from 1,205,638 to 15,798
+  bytes (98.69%). One group accounted for all 1,920 transition postcondition
+  findings. Both runs returned FAIL with exit code 1. Full findings are
+  available via `check --strict -f json` or MCP `compact=false`.
 
 ### Automated release acceptance — complete (2026-11-06)
 

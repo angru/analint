@@ -10,6 +10,7 @@ Run `analint --help` or `analint COMMAND --help` for installed-version options.
 analint check .
 analint .                         # shorthand
 analint check . --format json
+analint check . --format json --compact
 analint check . --strict
 ```
 
@@ -19,6 +20,7 @@ The overall verdict includes all of these stages.
 | Option | Meaning |
 | --- | --- |
 | `-f, --format terminal\|json` | Select human-readable or JSON output |
+| `--compact` | Group and sample findings in JSON output (requires `--format json`) |
 | `-s, --scenario ID` | Filter scenarios by id; repeat for multiple ids |
 | `-t, --tag TAG` | Filter scenarios by tag; repeat for multiple tags |
 | `--strict` | Warnings fail the run |
@@ -56,6 +58,18 @@ Property results can include `slice`, `elapsed_ms` and `backend: "tlc"`.
 charged to its first consumer, and invariant retries are included. Model
 preparation and shared action coverage are excluded. Summing these timings does
 not give total command time.
+
+#### Compact findings
+
+`check --format json --compact` returns `analint.check.compact/v1`. Within
+each finding list, entries are grouped by `code`, `severity` and `expected`.
+Each group reports its full `count` and up to three `examples` in report order.
+Each example contains the original `location` and `message`. An `expected: true`
+group represents intended rejections in a passing negative scenario.
+
+Both formats include the validation verdict, summary and individual check
+results, and use the same exit codes. Use `check --format json` for every
+individual finding in `analint.check/v1`.
 
 #### Finding codes
 

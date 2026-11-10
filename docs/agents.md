@@ -68,7 +68,7 @@ below match the server's tool definitions.
 
 | Tool | Required arguments | Optional arguments |
 | --- | --- | --- |
-| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false` (cache since 0.0.3) |
+| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false` |
 | `show` | None | `path="."`, `kind=null`, `name=null` |
 | `affects` | `target` | `path="."` |
 | `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null` |
@@ -79,6 +79,11 @@ exploration budget and must be positive; `slice=false` corresponds to CLI
 `--no-slice`. `tlc=true` tries the supported TLC fallback for INCONCLUSIVE
 properties. MCP currently exposes no `strict`, scenario/tag filtering or
 `tlc_timeout` parameter; use the CLI when those options are needed.
+
+Use `compact=true` to receive counts and up to three examples per finding
+group. The report keeps each group's check context, severity and expected
+rejection marker. Use `compact=false` to retrieve every finding. See the
+[compact JSON format](cli.md#compact-findings).
 
 `show` returns an overview without a kind, an id list with just a kind, and
 details with a kind/name pair. Detailed kinds are entity, event, invariant,
@@ -162,6 +167,7 @@ warning to overall FAIL/exit 1 while retaining per-property INCONCLUSIVE status.
 | Response | Schema |
 | --- | --- |
 | Validation report | `analint.check/v1` |
+| Validation report with grouped findings | `analint.check.compact/v1` |
 | Model inventory | `analint.overview/v1` |
 | Detailed object or id list | `analint.show/v1` |
 | Impact analysis | `analint.affects/v1` |

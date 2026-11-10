@@ -63,17 +63,44 @@ not give total command time.
 analint show -p .
 analint show action -p .
 analint show action resolve -p .
+analint show query -p .
+analint show query can_archive -p .
 analint show entity Ticket -p .
 analint show lifecycle Ticket.status -p .
+analint show action redeem_code -p examples/oauth/
 ```
 
 `show [KIND] [NAME] --path PATH` always returns JSON. Without arguments it
 returns the `analint.overview/v1` model inventory. With a kind it lists ids;
 with a kind and name it returns details using `analint.show/v1`.
 
-Detailed kinds are `entity`, `event`, `invariant`, `action`, `lifecycle`, `flow`,
-`scenario` and `contract`. Query ids are available in the overview or
-`show query`; use `trace QUERY_ID` for a property's witness.
+Detailed kinds are `entity`, `event`, `invariant`, `query`, `action`, `lifecycle`,
+`flow`, `scenario` and `contract`. Singular and plural kinds work for id lists,
+including `show query` / `show queries` and `show entity` / `show entities`.
+
+**Unreleased after 0.0.5:** `show query ID` returns `kind: "query"`, the query
+`type`, `label`, declared `max_states`, `predicate` and `goal`. The predicate is
+null for NoDeadEnd/DeadActions; the goal is populated only for NoDeadEnd. This
+describes the check without running it; use `check` for a verdict and `trace`
+for a witness or counterexample.
+
+The `roots` object describes the query's starting relation. Its `source` is
+`canonical` when the query inherits `Spec.initial` or entity defaults, and
+`query` when it declares its own `given`, `given_any` or `initial`. It includes
+rendered `given` / `given_any` snapshots (`Absent(ref)` preserves absence) and
+the effective `initial` relation: `vary`, `where`, `given`, `max_candidates`.
+A null `initial` means defaults plus any given snapshots. Candidate states are
+not enumerated and the relation is not validated by inspection.
+
+**Unreleased after 0.0.5:** `show action FAMILY_ID` accepts an unexpanded
+parameterized family name, such as `redeem_code` from `oauth-protocol`. It
+returns `kind: "action_family"`, the declaration's shared
+`pre`/`effect`/`post`/`emits`, parameter `params` with rendered domain values,
+`where`, `variant_count`, concrete `variants` ids and related scenario/flow ids.
+Only variants already in the model are listed, after static `where` filtering;
+an empty family remains inspectable with zero variants. This does not expand
+or execute the family again. A concrete action id keeps `kind: "action"` and
+its existing detail format, taking precedence over a family name if both match.
 
 ## affects
 

@@ -10,6 +10,7 @@ from analint.models.event import Event
 from analint.models.expr import _BinaryExpr, expr_op
 from analint.models.flow import Assert, Emitted
 from analint.models.key import Key
+from analint.models.param import Param
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -1069,6 +1070,8 @@ def _collect_field_refs(
 
 
 def _describe_operand(op: Any) -> str:
+    if isinstance(op, Param):
+        return op.name
     if isinstance(op, Key):
         return repr(op)
     if isinstance(op, BoundField):

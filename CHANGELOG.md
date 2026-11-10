@@ -9,6 +9,14 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Query inspection with `show query ID`: type, predicate/goal, declared budget
+  and effective declarative roots, without enumeration or verification.
+  Singular `show query` and `show entity` list the same ids as their plurals.
+- `show action FAMILY_ID` resolves declared parameterized action families,
+  including those with no variants. It shows domains, static `where`, the shared
+  contract, existing concrete variant ids and related scenarios/flows. Concrete
+  action lookup retains its format and takes precedence. Both inspection
+  features share the existing v1 JSON contract through CLI and MCP.
 - One release-acceptance entry point, `scripts/check_release.py`, shared by
   Quality CI and the publishing workflow on Python 3.12–3.15. It checks clean
   CLI installs, verdict/exit-code agreement, cache/what-if parity, real MCP stdio

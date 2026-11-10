@@ -184,7 +184,11 @@ def build_server() -> Any:
 
         Without `kind`/`name` — an overview (all ids by kind). With them —
         details of one object; kind is one of: entity, event,
-        invariant, action, lifecycle, flow, scenario.
+        invariant, query, action, lifecycle, flow, scenario, contract.
+        Query details include predicate/goal, budget and declarative roots;
+        inspection does not explore states. For action, name may also be a
+        parameterized family id: returns its parameters, where clauses,
+        shared contract and concrete variant ids.
         """
         return show_spec(path, kind, name)
 

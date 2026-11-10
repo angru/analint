@@ -266,9 +266,10 @@ def trace(
 @app.command()
 def show(
     kind: str | None = typer.Argument(
-        None, help="entity | event | invariant | action | lifecycle | flow | scenario"
+        None,
+        help="entity | event | invariant | query | action | lifecycle | flow | scenario | contract",
     ),
-    name: str | None = typer.Argument(None, help="id or class name"),
+    name: str | None = typer.Argument(None, help="id, action family, or class name"),
     path: Path = typer.Option(
         Path("."), "--path", "-p", help="Directory with spec.py, or a spec file"
     ),

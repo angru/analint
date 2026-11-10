@@ -82,7 +82,7 @@ properties. MCP currently exposes no `strict`, scenario/tag filtering or
 
 `show` returns an overview without a kind, an id list with just a kind, and
 details with a kind/name pair. Detailed kinds are entity, event, invariant,
-action, lifecycle, flow, scenario and contract. `affects` accepts a field,
+query, action, lifecycle, flow, scenario and contract. `affects` accepts a field,
 entity/event name or action id.
 
 Impact reports include Create initialization, RHS/payload expressions and
@@ -90,6 +90,19 @@ implicit presence/terminal guards. Inspect action `presence_reads` and
 `presence_writes` or entity `presence_read_by`/`presence_written_by` for
 membership changes; ordinary field reports describe field values. See the
 [impact contract](cli.md#affects) for default initialization and static-read semantics.
+
+Unreleased after 0.0.5: `show(kind="query", name=ID)` returns the query type,
+predicate/goal, declared budget and declarative roots without enumerating states.
+`show(kind="action", name=FAMILY_ID)` accepts an unexpanded family name from
+a Contract and returns `kind: "action_family"`, parameters, `where`, the shared
+contract and concrete variant ids. Use a concrete id for bound action details.
+See the [CLI inspection contract](cli.md#show) for fields and root inheritance.
+On released 0.0.5, use overview query ids and read declarations for their details;
+actions require concrete expanded ids.
+
+A what-if file can import the entry
+through `analint_spec`, but objects owned by other package modules need their
+original imports, such as `from oauth.protocol import tokens`.
 
 `explore` follows the whole model for canonical or query-specific roots. It
 returns a compact artifact by default. To request the graph, supply both
@@ -100,6 +113,10 @@ why `graph` is null. Read `completeness` separately.
 `trace` accepts an invariant id as well as a query id, despite the argument's
 name. It follows the same slice and budget decisions as `check`. A property
 without a witness returns `witness: null` with an explanation.
+An override supplied only to `check(max_states=...)` does not carry over to a
+later trace call, which uses the query's declared budget or `Spec.max_states`
+for canonical invariants. The same applies
+to CLI `check --max-states`; CLI `trace` has no budget override.
 
 For example, send these arguments to `check`:
 
@@ -134,6 +151,11 @@ The check response uses `analint.check/v1`. Treat only `verdict: "PASS"` and
 require interpretation. Scenarios passing does not establish canonical
 invariants. A retrieved trace is diagnostic evidence, not a substitute for the
 full report. See [verification concepts](concepts.md).
+
+CLI consumers must read the response, not just the process exit: `trace` exits
+zero when it successfully reports a FAIL or INCONCLUSIVE property. For `check`,
+an exhausted budget normally gives INCONCLUSIVE/exit 4; `--strict` promotes its
+warning to overall FAIL/exit 1 while retaining per-property INCONCLUSIVE status.
 
 ### JSON schema identifiers
 

@@ -8,8 +8,8 @@ description: Model, inspect, validate, and safely modify executable system speci
 Use analint's CLI as the source of truth. Do not infer whether a specification is
 valid from reading Python alone.
 
-This skill targets analint `0.0.2+` (explicit model lists; in `0.0.1` an empty
-`Spec` collected module globals) and the versioned `v1` JSON schemas.
+This skill follows the repository's main branch and the versioned `v1` JSON
+schemas. Query details and action-family lookups are unreleased after `0.0.5`.
 
 ## Start by orienting
 
@@ -22,10 +22,19 @@ This skill targets analint `0.0.2+` (explicit model lists; in `0.0.1` an empty
 ```bash
 analint show -p PATH
 analint show action ACTION_ID -p PATH
+analint show action FAMILY_ID -p PATH
+analint show query QUERY_ID -p PATH
 analint show entity ENTITY_NAME -p PATH
 ```
 
 `show` returns JSON. Use its ids and names instead of guessing them.
+For a parameterized family, `show action FAMILY_ID` returns parameters, static
+`where`, the shared contract and concrete variant ids (`kind: "action_family"`).
+Copy a variant id for bound details (`kind: "action"`). `show query QUERY_ID`
+returns the predicate/goal, budget and declarative roots without exploring them.
+Use `show query` or `show queries` for query ids. On released `0.0.5`, query
+details and family lookups are unavailable: read the query declaration and use
+concrete expanded action ids from the overview instead.
 
 ## Follow the change workflow
 
@@ -57,6 +66,11 @@ from analint_spec import Order
 positive_total = Invariant(Order.total > 0, label="Order total is positive")
 ```
 
+`analint_spec` aliases only the entry module. In a packaged specification whose
+entry imports contracts, import other objects from their owning package module
+(for example, `from oauth.protocol import tokens`); they need not be re-exported
+by the entry. Reuse those loaded objects rather than recreating their classes.
+
 4. Apply the smallest source change after the result matches the intended
    behavior. A new action, invariant, scenario, flow or query must also be
    **listed** in the root `Spec` or the `Contract` of its process. A defined
@@ -83,16 +97,26 @@ property's slice (`--no-slice` for the whole model), so a witness or
 counterexample found on a slice is traceable even when the whole model exceeds
 the budget. `explore` stays whole-model. A failed invariant's result has
 an `invariant` key, the originating root, state changes and the final state.
+`trace` has no `--max-states` override: a budget supplied only to an earlier
+`check` does not carry over. Set the query's `max_states` (or `Spec.max_states`
+for canonical invariants) to reproduce a capped decision with `trace`.
 
 Use terminal output for humans and JSON for decisions or automation.
 
 ## Interpret results fail-closed
+
+For `check`:
 
 - Exit `0`: effective `PASS`.
 - Exit `1`: findings or failed checks.
 - Exit `2`: invalid command usage.
 - Exit `3`: specification load failure.
 - Exit `4`: `INCONCLUSIVE`; the exploration budget proved nothing.
+
+With `--strict`, budget warnings produce overall `FAIL`/exit `1`; the individual
+property statuses still explain that the result is INCONCLUSIVE. Other commands
+use exits for operation success: `trace` can exit `0` with status `FAIL` or
+`INCONCLUSIVE`. Read its JSON `status`, and inspect lookup responses for `error`.
 
 Each invariant and query is checked on its **slice**: only the actions and
 state that can affect it. The JSON `slice` field shows its size, and

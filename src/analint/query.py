@@ -14,8 +14,16 @@ from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import _MISSING, all_fields
 from analint.models.event import Event
 from analint.models.flow import Assert, Emitted
-from analint.models.root import Spec
-from analint.models.scope import FieldRef, InstanceRef, field_context_key, is_field_ref
+from analint.models.initial import Initial
+from analint.models.query import AlwaysHolds, NoDeadEnd, Reachable, Unreachable
+from analint.models.root import Query, Spec
+from analint.models.scope import (
+    FieldRef,
+    InstanceRef,
+    field_context_key,
+    instance_context_key,
+    is_field_ref,
+)
 from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
 
@@ -215,7 +223,8 @@ def show(spec: Spec, kind: str | None = None, name: str | None = None) -> dict:
         return spec_overview(spec)
     if name is None:
         overview = spec_overview(spec)
-        key = kind if kind in overview else kind + "s"
+        key = {"entity": "entities", "query": "queries"}.get(kind, kind)
+        key = key if key in overview else key + "s"
         if key in overview:
             return {"schema": SHOW_SCHEMA, "kind": kind, "items": overview[key]}
         kinds = [k for k in overview if k not in ("schema", "spec", "contracts")]
@@ -233,6 +242,7 @@ def describe(spec: Spec, kind: str, name: str) -> dict:
         "flow": _describe_flow,
         "scenario": _describe_scenario,
         "contract": _describe_contract,
+        "query": _describe_query,
     }
     fn = dispatch.get(kind)
     if fn is None:
@@ -354,9 +364,21 @@ def _describe_invariant(spec: Spec, name: str) -> dict:
 def _describe_action(spec: Spec, name: str) -> dict:
     action = next((a for a in spec.actions if a.id == name), None)
     if action is None:
-        return _not_found("action", name, [a.id for a in spec.actions])
+        declaration = next((a for a in spec._declared_actions if a.id == name and a.params), None)
+        if declaration is not None:
+            return _describe_action_family(spec, declaration)
+        families = [a.id for a in spec._declared_actions if a.params]
+        return _not_found("action", name, [a.id for a in spec.actions] + families)
     return {
         "kind": "action",
+        **_action_contract(action),
+        "flows": [f.id for f in spec.flows if _flow_uses(f, action.id)],
+        "scenarios": _scenarios_of(spec, action.id),
+    }
+
+
+def _action_contract(action: Action) -> dict:
+    return {
         "id": action.id,
         "name": action.name,
         "description": action.description,
@@ -364,9 +386,82 @@ def _describe_action(spec: Spec, name: str) -> dict:
         "effect": [_effect_str(e) for e in action.effect],
         "post": [_describe(p) for p in action.post],
         "emits": [_emit_str(e) for e in action.emits],
-        "flows": [f.id for f in spec.flows if _flow_uses(f, action.id)],
-        "scenarios": _scenarios_of(spec, action.id),
         "tags": list(action.tags),
+    }
+
+
+def _describe_action_family(spec: Spec, declaration: Action) -> dict:
+    variants = [a.id for a in spec.actions if a.family == declaration.id]
+    variant_ids = set(variants)
+    return {
+        "kind": "action_family",
+        **_action_contract(declaration),
+        "params": [
+            {
+                "name": param.name,
+                "domain": [
+                    value.__name__ if isinstance(value, type) else _describe_operand(value)
+                    for value in param.domain
+                ],
+            }
+            for param in declaration.params
+        ],
+        "where": [_describe(p) for p in declaration.where],
+        "variant_count": len(variants),
+        "variants": variants,
+        "flows": [
+            f.id
+            for f in spec.flows
+            if any(isinstance(step, Action) and step.id in variant_ids for step in f.steps)
+        ],
+        "scenarios": [sc.id for sc in spec.scenarios if sc.action.id in variant_ids],
+    }
+
+
+def _snapshot_str(snapshot: Any) -> str:
+    if snapshot.__dict__.get("_analint_present", True) is False:
+        return f"Absent({instance_context_key(snapshot)!r})"
+    return repr(snapshot)
+
+
+def _initial_description(initial: Initial | None) -> dict | None:
+    if initial is None:
+        return None
+    return {
+        "vary": [_describe_operand(field) for field in initial.vary],
+        "where": [_describe(p) for p in initial.where],
+        "given": [_snapshot_str(snapshot) for snapshot in initial.given],
+        "max_candidates": initial.max_candidates,
+    }
+
+
+def _describe_query(spec: Spec, name: str) -> dict:
+    query = next((query for query in spec.queries if query.id == name), None)
+    if query is None:
+        return _not_found("query", name, [query.id for query in spec.queries])
+    return {
+        "kind": "query",
+        "id": query.id,
+        "type": type(query).__name__,
+        "label": query.label,
+        "predicate": (
+            _describe(query.predicate)
+            if isinstance(query, (Reachable, Unreachable, AlwaysHolds))
+            else None
+        ),
+        "goal": _describe(query.goal) if isinstance(query, NoDeadEnd) else None,
+        "max_states": query.max_states,
+        "roots": _query_roots(spec, query),
+    }
+
+
+def _query_roots(spec: Spec, query: Query) -> dict:
+    own_roots = bool(query.given or query.given_any or query.initial is not None)
+    return {
+        "source": "query" if own_roots else "canonical",
+        "given": [_snapshot_str(snapshot) for snapshot in query.given],
+        "given_any": [[_snapshot_str(snapshot) for snapshot in given] for given in query.given_any],
+        "initial": _initial_description(query.initial if own_roots else spec.initial),
     }
 
 

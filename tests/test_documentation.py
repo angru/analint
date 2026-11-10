@@ -49,6 +49,7 @@ def test_tutorial_checks_and_inspection_commands(tmp_path):
     for args, schema in [
         (["show", "-p", str(tmp_path)], "analint.overview/v1"),
         (["show", "action", "resolve", "-p", str(tmp_path)], "analint.show/v1"),
+        (["show", "query", "can_archive", "-p", str(tmp_path)], "analint.show/v1"),
         (["affects", "Queue.open_tickets", "-p", str(tmp_path)], "analint.affects/v1"),
     ]:
         result = runner.invoke(app, args)

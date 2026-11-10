@@ -3,34 +3,60 @@ from __future__ import annotations
 import json
 import sys
 
-from analint.reporter.base import ValidationResult
+from analint.reporter.base import Code, Finding, Severity, ValidationResult
 
 
-def report_json(result: ValidationResult, strict: bool = False) -> None:
-    json.dump(result_to_dict(result, strict), sys.stdout, ensure_ascii=False, indent=2)
+def report_json(result: ValidationResult, strict: bool = False, *, compact: bool = False) -> None:
+    json.dump(
+        result_to_dict(result, strict, compact=compact), sys.stdout, ensure_ascii=False, indent=2
+    )
     sys.stdout.write("\n")
 
 
-def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
+def _findings(findings: list[Finding], compact: bool) -> list[dict]:
+    if not compact:
+        return [finding.to_dict() for finding in findings]
+
+    groups: dict[tuple[Code, Severity, bool], dict] = {}
+    for finding in findings:
+        key = (finding.code, finding.severity, finding.expected)
+        if key not in groups:
+            groups[key] = {
+                "code": finding.code.value,
+                "severity": finding.severity.value,
+                **({"expected": True} if finding.expected else {}),
+                "count": 0,
+                "examples": [],
+            }
+        group = groups[key]
+        group["count"] += 1
+        if len(group["examples"]) < 3:
+            group["examples"].append({"location": finding.location, "message": finding.message})
+    return list(groups.values())
+
+
+def result_to_dict(
+    result: ValidationResult, strict: bool = False, *, compact: bool = False
+) -> dict:
     verdict = result.effective_verdict(strict)
     return {
-        "schema": "analint.check/v1",
+        "schema": "analint.check.compact/v1" if compact else "analint.check/v1",
         "spec": {"id": result.spec_id, "name": result.spec_name},
         "verdict": verdict.value,
         "passed": verdict == "PASS",
         "load_errors": result.load_errors,
-        "structural": [f.to_dict() for f in result.structural_findings],
+        "structural": _findings(result.structural_findings, compact),
         "scenarios": [
             {
                 "id": sr.scenario_id,
                 "name": sr.scenario_name,
                 "passed": sr.passed,
                 "rules": sr.rules_count,
-                "findings": [f.to_dict() for f in sr.findings],
+                "findings": _findings(sr.findings, compact),
             }
             for sr in result.scenario_results
         ],
-        "exploration": [f.to_dict() for f in result.exploration_findings],
+        "exploration": _findings(result.exploration_findings, compact),
         "queries": [
             {
                 "id": qr.query_id,
@@ -41,7 +67,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
                 **({"backend": qr.backend} if qr.backend is not None else {}),
-                "findings": [f.to_dict() for f in qr.findings],
+                "findings": _findings(qr.findings, compact),
             }
             for qr in result.query_results
         ],
@@ -55,7 +81,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
                 **({"backend": ir.backend} if ir.backend is not None else {}),
-                "findings": [f.to_dict() for f in ir.findings],
+                "findings": _findings(ir.findings, compact),
             }
             for ir in result.invariant_results
         ],
@@ -65,7 +91,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "passed": fr.passed,
                 "actions_run": fr.actions_run,
                 "trace": fr.trace,
-                "findings": [f.to_dict() for f in fr.findings],
+                "findings": _findings(fr.findings, compact),
             }
             for fr in result.flow_results
         ],

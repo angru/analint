@@ -1,6 +1,7 @@
 """Three-valued verdict: INCONCLUSIVE must never read as a green PASS
 (research/18 §2.2)."""
 
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -67,6 +68,16 @@ def test_inconclusive_spec_end_to_end_is_not_green():
 def test_cli_exit_code_4_on_inconclusive():
     res = runner.invoke(app, ["check", str(INCONCLUSIVE)])
     assert res.exit_code == 4, res.output
+
+
+def test_compact_json_preserves_inconclusive_exit_and_property_status():
+    res = runner.invoke(app, ["check", str(INCONCLUSIVE), "-f", "json", "--compact"])
+    assert res.exit_code == 4, res.output
+    data = json.loads(res.stdout)
+    assert data["verdict"] == "INCONCLUSIVE"
+    assert data["passed"] is False
+    assert data["queries"][0]["status"] == "INCONCLUSIVE"
+    assert data["queries"][0]["findings"][0]["code"] == "check.budget_exhausted"
 
 
 # ── fail-closed aggregation (review e76b3ce, P1) ─────────────────────────────────

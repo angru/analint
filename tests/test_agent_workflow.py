@@ -134,6 +134,17 @@ def test_guided_change_and_mutation_control(
             )
             assert not scenario["passed"]  # a broken postcondition is not an expected rejection
             assert any("postcondition" in f["message"] for f in broken["exploration"])
+            compact = check(path, "--strict", "--compact", code=1)
+            assert compact["schema"] == "analint.check.compact/v1"
+            assert compact["verdict"] == "FAIL"
+            assert compact["summary"] == broken["summary"]
+            [group] = compact["exploration"]
+            assert group["code"] == "transition.postcondition_violated"
+            assert group["count"] == len(broken["exploration"]) > 3
+            assert group["examples"] == [
+                {"location": f["location"], "message": f["message"]}
+                for f in broken["exploration"][:3]
+            ]
     finally:
         source.write_text(original)
     assert check(path, "--strict")["verdict"] == "PASS"

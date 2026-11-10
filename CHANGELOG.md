@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Compact check JSON via `--format json --compact` or MCP `compact=true`.
+  Findings are grouped by code, severity and expected disposition within each
+  check result, with full counts and up to three examples per group.
+
 ## [0.0.6] — 2026-11-10
 
 Inspect queries and parameterized action families and classify findings by stable

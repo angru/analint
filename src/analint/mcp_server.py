@@ -28,6 +28,7 @@ def check_spec(
     slice: bool = True,
     tlc: bool = False,
     cache: bool = False,
+    compact: bool = False,
 ) -> dict:
     if max_states is not None and max_states < 1:
         return {
@@ -44,7 +45,7 @@ def check_spec(
         tlc=tlc,
         cache=cache,
     )
-    return result_to_dict(result)
+    return result_to_dict(result, compact=compact)
 
 
 def explore_spec(
@@ -126,6 +127,7 @@ def build_server() -> Any:
         slice: bool = True,
         tlc: bool = False,
         cache: bool = False,
+        compact: bool = False,
     ) -> dict:
         """Validate the analint spec at `path` (structural checks + scenario runs).
 
@@ -140,8 +142,10 @@ def build_server() -> Any:
         (needs Java and a TLC jar; results carry `"backend": "tlc"`).
         `cache` — reuse explorations of unchanged slices from earlier runs (same
         result as a fresh run; speeds up repeated checks of a large spec).
+        `compact` — return grouped findings with counts and up to three examples
+        per group (`analint.check.compact/v1`). Omit it for full findings.
         """
-        return check_spec(path, what_if, max_states, slice, tlc, cache)
+        return check_spec(path, what_if, max_states, slice, tlc, cache, compact)
 
     @mcp.tool()
     def explore(

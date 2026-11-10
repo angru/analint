@@ -1,0 +1,1403 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A Python DSL for declaring and verifying how a system behaves">
+      
+      
+      
+        <link rel="canonical" href="https://angru.github.io/analint/dsl/">
+      
+      
+        <link rel="prev" href="../concepts/">
+      
+      
+        <link rel="next" href="../cli/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>DSL reference - analint</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#dsl-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="analint" class="md-header__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            analint
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              DSL reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="analint" class="md-nav__button md-logo" aria-label="analint" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    analint
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/angru/analint" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    angru/analint
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your first spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DSL reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DSL reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#state-entity-and-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        State: Entity and Field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#predicates-and-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicates and expressions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-and-effects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action and effects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope-presence-and-instance-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope, presence and instance references
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope, presence and instance references">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declared-keys-and-initial-presence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declared keys and initial presence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#param-finite-action-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Param: finite action families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bound-quantifiers-and-aggregates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bound, quantifiers and aggregates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Initial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed-root-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed-root example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-and-emitted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event and Emitted
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenario-and-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario and Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spec-contract-and-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec, Contract and loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For AI agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#state-entity-and-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        State: Entity and Field
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#predicates-and-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Predicates and expressions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#action-and-effects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Action and effects
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope-presence-and-instance-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope, presence and instance references
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scope, presence and instance references">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#declared-keys-and-initial-presence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Declared keys and initial presence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#param-finite-action-families" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Param: finite action families
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bound-quantifiers-and-aggregates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bound, quantifiers and aggregates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#initial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Initial
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Initial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fixed-root-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed-root example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-and-emitted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event and Emitted
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scenario-and-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scenario and Flow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queries
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spec-contract-and-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec, Contract and loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="dsl-reference">DSL reference</h1>
+<p>Import public declarations from <code>analint</code>. The
+<a href="../getting-started/">first-spec tutorial</a> is a complete runnable model; snippets
+below illustrate individual declarations and may refer to names defined there
+or in the linked examples.</p>
+<h2 id="state-entity-and-field">State: Entity and Field</h2>
+<p>Subclass <code>Entity</code> and annotate fields. An instance carries values; a class-level
+field is an expression used in predicates and effects.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Entity</span><span class="p">,</span> <span class="n">Field</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Wallet</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">balance</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+
+
+<span class="n">Wallet</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>       <span class="c1"># concrete snapshot</span>
+<span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">1</span>    <span class="c1"># predicate, evaluated against a state later</span>
+</code></pre></div>
+<p>Fields without defaults are required in snapshots. Unknown, missing required or
+constraint-violating values are rejected at construction.</p>
+<table>
+<thead>
+<tr>
+<th>Field option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Field(default, ge=..., gt=..., le=..., lt=...)</code></td>
+<td>Numeric constraints, checked on snapshots and transitions</td>
+</tr>
+<tr>
+<td><code>Field(default, values=[...])</code></td>
+<td>Explicit finite scalar domain</td>
+</tr>
+<tr>
+<td><code>Field(default, ge=..., le=..., saturate=True)</code></td>
+<td>Clamp numeric effects at thresholds instead of rejecting an overflow</td>
+</tr>
+<tr>
+<td><code>Lifecycle(...)</code> as a field default</td>
+<td>Initial value, allowed edges and terminal states for a state field</td>
+</tr>
+</tbody>
+</table>
+<p>Booleans, enums, lifecycle states, bounded integers and explicit value domains
+can supply finite choices to <code>Initial</code>. Numeric bounds define the abstraction:
+use thresholds deliberately, especially with saturation.</p>
+<h2 id="predicates-and-expressions">Predicates and expressions</h2>
+<p>Comparisons <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code> and <code>&gt;=</code> build predicate values. Fields and
+arithmetic expressions support <code>+</code>, <code>-</code> and <code>*</code>. Name expressions and predicates
+to reuse them; they are data, not callbacks.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">And</span><span class="p">,</span> <span class="n">Implies</span><span class="p">,</span> <span class="n">In</span><span class="p">,</span> <span class="n">IsNotNull</span><span class="p">,</span> <span class="n">IsNull</span><span class="p">,</span> <span class="n">Not</span><span class="p">,</span> <span class="n">Or</span>
+
+<span class="n">can_pay</span> <span class="o">=</span> <span class="n">And</span><span class="p">(</span><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">,</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">remaining</span> <span class="o">=</span> <span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">-</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span>
+</code></pre></div>
+<p>Use <code>And(...)</code>, <code>Or(...)</code>, <code>Not(...)</code> and <code>Implies(a, b)</code>, rather than Python
+<code>and</code>, <code>or</code>, <code>not</code> or chained comparisons. <code>In(field, values)</code>, <code>IsNull(field)</code>
+and <code>IsNotNull(field)</code> cover membership and null checks. Boolean fields can
+appear directly in predicate positions, such as <code>pre=[Client.active]</code>.</p>
+<h2 id="invariant">Invariant</h2>
+<p><code>Invariant(predicate, id="", label="")</code> describes a state relationship.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Implies</span><span class="p">,</span> <span class="n">Invariant</span>
+
+<span class="n">resolved_leaves_no_open_ticket</span> <span class="o">=</span> <span class="n">Invariant</span><span class="p">(</span>
+    <span class="n">Implies</span><span class="p">(</span><span class="n">Ticket</span><span class="o">.</span><span class="n">status</span> <span class="o">!=</span> <span class="n">Status</span><span class="o">.</span><span class="n">NEW</span><span class="p">,</span> <span class="n">Queue</span><span class="o">.</span><span class="n">open_tickets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Resolving the only ticket clears the queue counter&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Listed invariants are automatically verified from the canonical roots and
+checked before and after scenario/flow actions where applicable. Direct reads
+of a missing instance make an invariant inapplicable to that snapshot. Quantified
+reads follow present scope members. Keep one-field constraints in <code>Field</code>;
+use invariants for relationships between fields or entities.</p>
+<h2 id="action-and-effects">Action and effects</h2>
+<p><code>Action(pre=[...], effect=[...], post=[...], emits=[...])</code> declares a transition.
+Metadata includes <code>id</code>, <code>name</code>, <code>description</code> and <code>tags</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Subtract</span>
+
+<span class="n">pay</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">Subtract</span><span class="p">(</span><span class="n">Wallet</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="n">Order</span><span class="o">.</span><span class="n">total</span><span class="p">),</span>
+        <span class="n">Set</span><span class="p">(</span><span class="n">Order</span><span class="o">.</span><span class="n">paid</span><span class="p">,</span> <span class="kc">True</span><span class="p">),</span>
+    <span class="p">],</span>
+    <span class="n">post</span><span class="o">=</span><span class="p">[</span><span class="n">Order</span><span class="o">.</span><span class="n">paid</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Effect</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Set(field, value_or_expression)</code></td>
+<td>The field has this value in the next state</td>
+</tr>
+<tr>
+<td><code>Add(field, amount)</code> / <code>Subtract(field, amount)</code></td>
+<td>Arithmetic forms of <code>Set</code></td>
+</tr>
+<tr>
+<td><code>Create(ref, **fields)</code></td>
+<td>An absent scoped slot becomes present; omitted fields take defaults</td>
+</tr>
+<tr>
+<td><code>Delete(ref)</code></td>
+<td>A present scoped slot becomes absent</td>
+</tr>
+</tbody>
+</table>
+<p>Effects are <strong>simultaneous</strong>: every right-hand side reads the pre-state, so list
+order cannot express a sequence. Two writes to one field are invalid. A slot
+cannot be created/deleted and also written by another effect in the same action.
+Use multiple actions in a flow when intermediate states matter.</p>
+<h2 id="lifecycle">Lifecycle</h2>
+<p>Declare a lifecycle inline as a field default:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lifecycle</span>
+
+<span class="n">status</span><span class="p">:</span> <span class="n">Status</span> <span class="o">=</span> <span class="n">Lifecycle</span><span class="p">(</span>
+    <span class="n">initial</span><span class="o">=</span><span class="n">Status</span><span class="o">.</span><span class="n">NEW</span><span class="p">,</span>
+    <span class="n">transitions</span><span class="o">=</span><span class="p">{</span>
+        <span class="n">Status</span><span class="o">.</span><span class="n">NEW</span><span class="p">:</span> <span class="p">[</span><span class="n">Status</span><span class="o">.</span><span class="n">RESOLVED</span><span class="p">],</span>
+        <span class="n">Status</span><span class="o">.</span><span class="n">RESOLVED</span><span class="p">:</span> <span class="p">[</span><span class="n">Status</span><span class="o">.</span><span class="n">ARCHIVED</span><span class="p">],</span>
+    <span class="p">},</span>
+    <span class="n">terminal</span><span class="o">=</span><span class="p">[</span><span class="n">Status</span><span class="o">.</span><span class="n">ARCHIVED</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Effects that change the field must follow a declared edge. <code>terminal</code> freezes
+the <strong>whole entity</strong>, including its other fields and deletion. Missing outgoing
+edges do not implicitly declare a terminal state. A declared edge out of a
+terminal state is a structural error.</p>
+<h2 id="scope-presence-and-instance-references">Scope, presence and instance references</h2>
+<p>A <code>Scope(EntityClass, keys=[...])</code> allocates a fixed finite universe. Indexing
+returns an <code>InstanceRef</code>; <code>ref.field</code> addresses a particular instance and
+<code>ref(field=value)</code> creates its snapshot.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Absent</span><span class="p">,</span> <span class="n">Present</span><span class="p">,</span> <span class="n">Scope</span>
+
+<span class="n">wallets</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="n">Wallet</span><span class="p">,</span> <span class="n">keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;alice&quot;</span><span class="p">,</span> <span class="s2">&quot;bob&quot;</span><span class="p">])</span>
+<span class="n">alice</span> <span class="o">=</span> <span class="n">wallets</span><span class="p">[</span><span class="s2">&quot;alice&quot;</span><span class="p">]</span>
+<span class="n">bob</span> <span class="o">=</span> <span class="n">wallets</span><span class="p">[</span><span class="s2">&quot;bob&quot;</span><span class="p">]</span>
+
+<span class="n">alice_has_funds</span> <span class="o">=</span> <span class="n">alice</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<span class="n">alice_exists</span> <span class="o">=</span> <span class="n">Present</span><span class="p">(</span><span class="n">alice</span><span class="p">)</span>
+<span class="c1"># Snapshot entries: alice(balance=3), Absent(bob)</span>
+</code></pre></div>
+<p>Use instance fields rather than ambiguous <code>Wallet.balance</code> once Wallet is scoped.
+Only one scope per entity type is supported. <code>Absent(ref)</code> marks a slot absent;
+<code>Present(ref_or_bound_or_param)</code> tests membership. Scenarios/flows omit slots as
+absent, while exploration defaults them to present unless overridden.</p>
+<p>Ordinary field reads and writes need a present slot. <code>Create</code> requires absence,
+<code>Delete</code> requires presence; a mismatch rejects the action before effects. Keys
+never grow dynamically. Guard a possibly absent field read with
+<code>And(Present(ref), ref.field == value)</code> so absence does not cause an evaluation
+error.</p>
+<h3 id="declared-keys-and-initial-presence">Declared keys and initial presence</h3>
+<p>The following APIs are available <strong>since 0.0.4</strong>.</p>
+<p><code>Key(ref_or_param_or_bound)</code> is a value expression returning the slot's declared
+key, with its original type. It accepts an <code>InstanceRef</code>, a <code>Param</code> whose entire
+domain consists of instance references, or a quantified <code>Bound</code>. Values may be
+<code>None</code>, booleans, integers, finite floats, strings or Enum members. Other hashable
+scope keys remain supported as identities but cannot be used with <code>Key</code>.
+Identity is independent of presence: <code>Key(ref)</code> works for an absent slot and
+reads no state. A <code>Bound</code> needs an enclosing quantifier/aggregate; an instance
+<code>Param</code> is substituted during action expansion. Static <code>Action.where</code> filters
+can compare keys. There is no automatic conversion between a scope key and a
+foreign-key field: use the same domain values, such as Enum members, in both.</p>
+<p><code>Scope(..., initially_present=False)</code> makes omitted slots absent when building
+canonical and query roots. The default is <code>True</code>, preserving existing models.
+Explicit <code>ref(...)</code> and <code>Absent(ref)</code> snapshots override the policy. Each
+query-owned <code>given</code>, <code>given_any</code> world or <code>Initial</code> is built independently from
+the scope defaults and its own snapshots; it does not merge canonical snapshots.
+Queries without their own source inherit the canonical worlds. Scenarios and
+flows continue to treat omitted slots as absent regardless of this policy.
+Varying a field of an absent slot remains an error; supply a present snapshot
+before including that field in <code>Initial.vary</code>.</p>
+<p>This complete example starts with an empty scope, then records an absent slot's
+identity as the owner of a created slot:</p>
+<div class="highlight"><span class="filename">scope-identity-spec.py</span><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Absent</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">And</span><span class="p">,</span> <span class="n">Bound</span><span class="p">,</span> <span class="n">Create</span><span class="p">,</span> <span class="n">Delete</span><span class="p">,</span> <span class="n">Entity</span><span class="p">,</span> <span class="n">ForAll</span><span class="p">,</span> <span class="n">In</span><span class="p">,</span>
+    <span class="n">Invariant</span><span class="p">,</span> <span class="n">Key</span><span class="p">,</span> <span class="n">Not</span><span class="p">,</span> <span class="n">Present</span><span class="p">,</span> <span class="n">Reachable</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">,</span> <span class="n">Scope</span><span class="p">,</span> <span class="n">Spec</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">owner</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+
+
+<span class="n">slots</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="n">Item</span><span class="p">,</span> <span class="n">keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">],</span> <span class="n">initially_present</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">slots</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">],</span> <span class="n">slots</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">Bound</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">slots</span><span class="p">)</span>
+
+<span class="n">create</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Create</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">owner</span><span class="o">=</span><span class="n">Key</span><span class="p">(</span><span class="n">a</span><span class="p">))])</span>
+<span class="n">delete</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Delete</span><span class="p">(</span><span class="n">b</span><span class="p">)])</span>
+<span class="n">safe</span> <span class="o">=</span> <span class="n">Invariant</span><span class="p">(</span><span class="n">ForAll</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">In</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">owner</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">Key</span><span class="p">(</span><span class="n">a</span><span class="p">)])))</span>
+<span class="n">query</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">Present</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">b</span><span class="o">.</span><span class="n">owner</span> <span class="o">==</span> <span class="n">Key</span><span class="p">(</span><span class="n">a</span><span class="p">)))</span>
+
+<span class="n">created</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Create with the declared owner&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">create</span><span class="p">,</span> <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Absent</span><span class="p">(</span><span class="n">b</span><span class="p">)],</span>
+    <span class="n">then</span><span class="o">=</span><span class="p">[</span><span class="n">Present</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">b</span><span class="o">.</span><span class="n">owner</span> <span class="o">==</span> <span class="s2">&quot;a&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">deleted</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Delete an owned slot&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="n">delete</span><span class="p">,</span> <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">b</span><span class="p">(</span><span class="n">owner</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">)],</span>
+    <span class="n">then</span><span class="o">=</span><span class="p">[</span><span class="n">Not</span><span class="p">(</span><span class="n">Present</span><span class="p">(</span><span class="n">b</span><span class="p">))],</span>
+<span class="p">)</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;scope-identity&quot;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Declared identity and empty initial scope&quot;</span><span class="p">,</span>
+    <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="n">create</span><span class="p">,</span> <span class="n">delete</span><span class="p">],</span> <span class="n">invariants</span><span class="o">=</span><span class="p">[</span><span class="n">safe</span><span class="p">],</span> <span class="n">queries</span><span class="o">=</span><span class="p">[</span><span class="n">query</span><span class="p">],</span>
+    <span class="n">scenarios</span><span class="o">=</span><span class="p">[</span><span class="n">created</span><span class="p">,</span> <span class="n">deleted</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>check</code> proves the invariant and reaches the query through <code>create</code>; the complete
+graph contains two states. <code>trace query</code> shows <code>Item['b'].owner</code> becoming <code>"a"</code>.
+The exploration/trace JSON schemas keep their existing scalar representation
+(Enum values use <code>Type.MEMBER</code>); model views add <code>initially_present</code> to scope
+metadata. TLC exports keys through its existing literal encoding. Unsupported
+values such as floating-point keys cause an explicit export refusal and leave
+the check INCONCLUSIVE; they are never approximated.</p>
+<h2 id="param-finite-action-families">Param: finite action families</h2>
+<p><code>Param(name, *domain)</code> accepts explicit values, entity classes, enums, booleans
+or a scope. <code>Param(name, ge=N, le=M)</code> declares an inclusive integer range.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Param</span><span class="p">,</span> <span class="n">Subtract</span>
+
+<span class="n">src</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;src&quot;</span><span class="p">,</span> <span class="n">wallets</span><span class="p">)</span>
+<span class="n">dst</span> <span class="o">=</span> <span class="n">Param</span><span class="p">(</span><span class="s2">&quot;dst&quot;</span><span class="p">,</span> <span class="n">wallets</span><span class="p">)</span>
+
+<span class="n">transfer</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">],</span>
+    <span class="n">where</span><span class="o">=</span><span class="p">[</span><span class="n">src</span> <span class="o">!=</span> <span class="n">dst</span><span class="p">],</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">src</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dst</span><span class="o">.</span><span class="n">balance</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Subtract</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">Add</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">balance</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span>
+<span class="p">)</span>
+
+<span class="n">alice_pays_bob</span> <span class="o">=</span> <span class="n">transfer</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">alice</span><span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">bob</span><span class="p">)</span>
+</code></pre></div>
+<p>The declaration expands into ordinary bound actions when the Spec is built.
+<code>where</code> filters static parameter combinations; state-dependent conditions,
+including <code>Present</code>, belong in <code>pre</code>. List the family on <code>Spec.actions</code>, and use
+<code>.bind(...)</code> to select the concrete action for a scenario or flow. Do not generate
+model elements with Python factory loops; finite families belong in <code>Param</code>.</p>
+<h2 id="bound-quantifiers-and-aggregates">Bound, quantifiers and aggregates</h2>
+<p><code>Bound(name, scope)</code> binds a variable over present instances of that scope.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bound</span><span class="p">,</span> <span class="n">Count</span><span class="p">,</span> <span class="n">Exists</span><span class="p">,</span> <span class="n">ForAll</span><span class="p">,</span> <span class="n">Max</span><span class="p">,</span> <span class="n">Min</span><span class="p">,</span> <span class="n">Sum</span>
+
+<span class="n">wallet</span> <span class="o">=</span> <span class="n">Bound</span><span class="p">(</span><span class="s2">&quot;wallet&quot;</span><span class="p">,</span> <span class="n">wallets</span><span class="p">)</span>
+<span class="n">all_nonnegative</span> <span class="o">=</span> <span class="n">ForAll</span><span class="p">(</span><span class="n">wallet</span><span class="p">,</span> <span class="n">wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">someone_has_funds</span> <span class="o">=</span> <span class="n">Exists</span><span class="p">(</span><span class="n">wallet</span><span class="p">,</span> <span class="n">wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">funded_count</span> <span class="o">=</span> <span class="n">Count</span><span class="p">(</span><span class="n">wallet</span><span class="p">,</span> <span class="n">wallet</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">total_balance</span> <span class="o">=</span> <span class="n">Sum</span><span class="p">(</span><span class="n">wallet</span><span class="p">,</span> <span class="n">wallet</span><span class="o">.</span><span class="n">balance</span><span class="p">)</span>
+</code></pre></div>
+<p><code>ForAll</code> and <code>Exists</code> are predicates. <code>Count</code>, <code>Sum</code>, <code>Min</code> and <code>Max</code> are arithmetic
+expressions usable in comparisons or effect right-hand sides. A bound field must
+occur within its quantifier/aggregate, or in the supported <code>Initial.vary</code> position.</p>
+<table>
+<thead>
+<tr>
+<th>Empty present set</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ForAll</code></td>
+<td><code>True</code></td>
+</tr>
+<tr>
+<td><code>Exists</code></td>
+<td><code>False</code></td>
+</tr>
+<tr>
+<td><code>Count</code>, <code>Sum</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td><code>Min</code>, <code>Max</code></td>
+<td>Evaluation error</td>
+</tr>
+</tbody>
+</table>
+<h2 id="initial">Initial</h2>
+<p><code>Initial(vary=[...], where=[...], given=[...], max_candidates=10000)</code> enumerates
+admissible roots. <code>given</code> fixes values, and <code>where</code> filters combinations with
+ordinary predicates and aggregates.</p>
+<p><strong>Since 0.0.4:</strong> <code>vary</code> can be omitted or empty. <code>Initial(given=[...])</code> starts
+with one candidate built from defaults plus the supplied snapshots, then applies
+<code>where</code>. <code>Initial()</code> uses the defaults alone. A rejected candidate leaves no roots
+and fails validation; an evaluation error also fails. Versions before 0.0.4 require at least one varying field.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Initial</span>
+
+<span class="n">starting_balances</span> <span class="o">=</span> <span class="n">Initial</span><span class="p">(</span>
+    <span class="n">vary</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="o">.</span><span class="n">balance</span><span class="p">],</span>
+    <span class="n">where</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="o">.</span><span class="n">balance</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">],</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">bob</span><span class="p">(</span><span class="n">balance</span><span class="o">=</span><span class="mi">0</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Attach it to <code>Spec.initial</code> for canonical verification or to a query's <code>initial</code>
+for that query only. Candidate overflow and evaluation errors fail rather than
+silently removing combinations. See <a href="../concepts/#initial-states-and-domains">initial states</a>.</p>
+<h3 id="fixed-root-example">Fixed-root example</h3>
+<p>Save this complete source as <code>spec.py</code> with analint 0.0.4 or newer installed and run
+<code>analint check .</code>. Both slots start absent; creating one increments the counter.
+The required Limit value comes from <code>given</code>. An independent noise action shows
+why property slices can be smaller than <code>analint explore .</code>'s whole-model graph.
+<code>already_created</code> supplies its own fixed root and needs no action to find a witness.</p>
+<div class="highlight"><span class="filename">fixed-root-spec.py</span><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Absent</span><span class="p">,</span> <span class="n">Action</span><span class="p">,</span> <span class="n">Add</span><span class="p">,</span> <span class="n">Bound</span><span class="p">,</span> <span class="n">Create</span><span class="p">,</span> <span class="n">Entity</span><span class="p">,</span> <span class="n">Field</span><span class="p">,</span> <span class="n">Initial</span><span class="p">,</span>
+    <span class="n">Invariant</span><span class="p">,</span> <span class="n">Not</span><span class="p">,</span> <span class="n">Present</span><span class="p">,</span> <span class="n">Reachable</span><span class="p">,</span> <span class="n">Scenario</span><span class="p">,</span> <span class="n">Scope</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Spec</span><span class="p">,</span> <span class="n">Sum</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Limit</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">max_created</span><span class="p">:</span> <span class="nb">int</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Counter</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Item</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">units</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Noise</span><span class="p">(</span><span class="n">Entity</span><span class="p">):</span>
+    <span class="n">on</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="n">items</span> <span class="o">=</span> <span class="n">Scope</span><span class="p">(</span><span class="n">Item</span><span class="p">,</span> <span class="n">keys</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;one&quot;</span><span class="p">,</span> <span class="s2">&quot;spare&quot;</span><span class="p">])</span>
+<span class="n">one</span> <span class="o">=</span> <span class="n">items</span><span class="p">[</span><span class="s2">&quot;one&quot;</span><span class="p">]</span>
+<span class="n">spare</span> <span class="o">=</span> <span class="n">items</span><span class="p">[</span><span class="s2">&quot;spare&quot;</span><span class="p">]</span>
+<span class="n">item</span> <span class="o">=</span> <span class="n">Bound</span><span class="p">(</span><span class="s2">&quot;item&quot;</span><span class="p">,</span> <span class="n">items</span><span class="p">)</span>
+
+<span class="n">create</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span>
+    <span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">Counter</span><span class="o">.</span><span class="n">n</span> <span class="o">&lt;</span> <span class="n">Limit</span><span class="o">.</span><span class="n">max_created</span><span class="p">],</span>
+    <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Create</span><span class="p">(</span><span class="n">one</span><span class="p">),</span> <span class="n">Add</span><span class="p">(</span><span class="n">Counter</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)],</span>
+<span class="p">)</span>
+<span class="n">flip_noise</span> <span class="o">=</span> <span class="n">Action</span><span class="p">(</span><span class="n">pre</span><span class="o">=</span><span class="p">[</span><span class="n">Not</span><span class="p">(</span><span class="n">Noise</span><span class="o">.</span><span class="n">on</span><span class="p">)],</span> <span class="n">effect</span><span class="o">=</span><span class="p">[</span><span class="n">Set</span><span class="p">(</span><span class="n">Noise</span><span class="o">.</span><span class="n">on</span><span class="p">,</span> <span class="kc">True</span><span class="p">)])</span>
+<span class="n">balanced</span> <span class="o">=</span> <span class="n">Invariant</span><span class="p">(</span><span class="n">Sum</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">item</span><span class="o">.</span><span class="n">units</span><span class="p">)</span> <span class="o">==</span> <span class="n">Counter</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+<span class="n">created</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span><span class="n">Present</span><span class="p">(</span><span class="n">one</span><span class="p">))</span>
+<span class="n">already_created</span> <span class="o">=</span> <span class="n">Reachable</span><span class="p">(</span>
+    <span class="n">Present</span><span class="p">(</span><span class="n">one</span><span class="p">),</span>
+    <span class="n">initial</span><span class="o">=</span><span class="n">Initial</span><span class="p">(</span><span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Limit</span><span class="p">(</span><span class="n">max_created</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">Counter</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">one</span><span class="p">(),</span> <span class="n">Absent</span><span class="p">(</span><span class="n">spare</span><span class="p">)]),</span>
+<span class="p">)</span>
+<span class="n">create_once</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">create</span><span class="p">,</span>
+    <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Limit</span><span class="p">(</span><span class="n">max_created</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">Counter</span><span class="p">(),</span> <span class="n">Absent</span><span class="p">(</span><span class="n">one</span><span class="p">),</span> <span class="n">Absent</span><span class="p">(</span><span class="n">spare</span><span class="p">)],</span>
+    <span class="n">then</span><span class="o">=</span><span class="p">[</span><span class="n">Present</span><span class="p">(</span><span class="n">one</span><span class="p">),</span> <span class="n">Counter</span><span class="o">.</span><span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">noise_once</span> <span class="o">=</span> <span class="n">Scenario</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">flip_noise</span><span class="p">,</span> <span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Noise</span><span class="p">()],</span> <span class="n">then</span><span class="o">=</span><span class="p">[</span><span class="n">Noise</span><span class="o">.</span><span class="n">on</span><span class="p">])</span>
+
+<span class="n">spec</span> <span class="o">=</span> <span class="n">Spec</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s2">&quot;fixed_initial&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Fixed initial world&quot;</span><span class="p">,</span>
+    <span class="n">initial</span><span class="o">=</span><span class="n">Initial</span><span class="p">(</span><span class="n">given</span><span class="o">=</span><span class="p">[</span><span class="n">Limit</span><span class="p">(</span><span class="n">max_created</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">Absent</span><span class="p">(</span><span class="n">one</span><span class="p">),</span> <span class="n">Absent</span><span class="p">(</span><span class="n">spare</span><span class="p">)]),</span>
+    <span class="n">actions</span><span class="o">=</span><span class="p">[</span><span class="n">create</span><span class="p">,</span> <span class="n">flip_noise</span><span class="p">],</span>
+    <span class="n">scenarios</span><span class="o">=</span><span class="p">[</span><span class="n">create_once</span><span class="p">,</span> <span class="n">noise_once</span><span class="p">],</span>
+    <span class="n">invariants</span><span class="o">=</span><span class="p">[</span><span class="n">balanced</span><span class="p">],</span>
+    <span class="n">queries</span><span class="o">=</span><span class="p">[</span><span class="n">created</span><span class="p">,</span> <span class="n">already_created</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The canonical whole-model graph has one root and four states; the invariant and
+<code>created</code> each need only two states in their slices. Use <code>analint trace created</code>
+with <code>-p .</code> for the <code>create</code> witness, or <code>analint trace already_created -p .</code> for
+the query-specific initial-state witness.</p>
+<h2 id="event-and-emitted">Event and Emitted</h2>
+<p><code>Event</code> uses typed fields like Entity. <code>Action.emits</code> accepts an event class or a
+payload template whose fields bind to state expressions:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">analint</span><span class="w"> </span><span class="kn">import</span> <span class="n">Emitted</span><span class="p">,</span> <span class="n">Event</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PaymentRecorded</span><span class="p">(</span><span class="n">Event</span><span class="p">):</span>
+    <span class="n">amount</span><span class="p">:</span> <span class="nb">int</span>
+
+
+<span class="c1"># On an action: emits=[PaymentRecorded(amount=Order.total)]</span>
+<span class="c1"># In Scenario.then or Flow.steps: Emitted(PaymentRecorded)</span>
+</code></pre></div>
+<p>Payload templates are type-checked and materialized against the post-state. Emission
+does not dispatch another action. A scenario can supply an Event instance in
+<code>given</code> to test an action with payload preconditions; such external inputs are
+not generated by reachability exploration. They are reported as unassessed.</p>
+<h2 id="scenario-and-flow">Scenario and Flow</h2>
+<p><code>Scenario(action=..., given=[...], then=[...], expected=Expect.PASS)</code> checks one
+action. <code>then</code> accepts predicates and <code>Emitted</code> checks. <code>Expect.FAIL</code> expects
+pre-execution rejection, not a runtime defect.</p>
+<p><code>Flow(given=[...], steps=[...])</code> executes a journey. Steps mix actions with
+<code>Assert(predicate)</code> and <code>Emitted(EventClass)</code> checkpoints. <code>given</code> is required;
+<code>given=[]</code> starts with an empty world. Only present instances are available, and
+each accepted step's state feeds the next step. A rejection or defect fails the
+flow. Both declarations accept ids and descriptive metadata; the tutorial shows
+complete examples.</p>
+<h2 id="queries">Queries</h2>
+<table>
+<thead>
+<tr>
+<th>Declaration</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Reachable(predicate)</code></td>
+<td>A matching state can be reached from each root</td>
+</tr>
+<tr>
+<td><code>Unreachable(predicate)</code></td>
+<td>No matching state can be reached</td>
+</tr>
+<tr>
+<td><code>AlwaysHolds(predicate)</code></td>
+<td>The predicate holds in every applicable reachable state</td>
+</tr>
+<tr>
+<td><code>NoDeadEnd(goal=predicate)</code></td>
+<td>A goal state remains reachable from every reachable state</td>
+</tr>
+<tr>
+<td><code>DeadActions()</code></td>
+<td>Assess which actions can never fire in the explored model</td>
+</tr>
+</tbody>
+</table>
+<p>Each accepts <code>id</code>, <code>label</code>, <code>max_states</code> and one optional initial source:
+<code>given</code>, <code>given_any</code> or <code>initial</code>. Queries with none inherit the canonical roots.
+NoDeadEnd is recoverability, not a guarantee that every execution terminates.
+Excluded event-input actions are unassessed, not dead.</p>
+<h2 id="spec-contract-and-loading">Spec, Contract and loading</h2>
+<p><code>Spec(id=..., name=..., actions=[...], invariants=[...], scenarios=[...],
+flows=[...], queries=[...])</code> is the root. It can additionally list entities, events,
+scopes and lifecycles, which are otherwise derived from referenced behaviour.
+<code>Spec.initial</code> supplies canonical roots; <code>Spec.max_states</code> sets the canonical
+exploration budget (default 10,000).</p>
+<p><code>Contract(id=..., actions=[...], ...)</code> is an explicit reusable fragment with the
+same content lists. <code>Spec(imports=[contract, ...], ...)</code> combines those lists
+with the root's own. Contract <code>version</code> is descriptive metadata, not a resolver
+that downloads dependencies.</p>
+<p>Load one entry point: a <code>spec.py</code> directory or an explicit Python file. Multi-file
+models should be packages with <code>__init__.py</code> and relative imports. List behaviour
+explicitly: merely importing a file does not register its actions or properties.
+The loader names empty ids from variable names, warns about unlisted behaviour
+and unreachable files, and rejects multiple Spec roots in one import graph.
+An empty behaviour model is an error.</p>
+<p>The <a href="../examples/">taskboard</a> and broker examples show composition. Use
+<code>analint show contract ID -p PATH</code> to inspect a contract's public surface.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.top", "navigation.tracking"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

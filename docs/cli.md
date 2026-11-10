@@ -61,7 +61,7 @@ not give total command time.
 
 #### Compact findings
 
-`check --format json --compact` returns `analint.check.compact/v1`. Within
+Since 0.0.7, `check --format json --compact` returns `analint.check.compact/v1`. Within
 each finding list, entries are grouped by `code`, `severity` and `expected`.
 Each group reports its full `count` and up to three `examples` in report order.
 Each example contains the original `location` and `message`. An `expected: true`

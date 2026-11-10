@@ -80,7 +80,7 @@ exploration budget and must be positive; `slice=false` corresponds to CLI
 properties. MCP currently exposes no `strict`, scenario/tag filtering or
 `tlc_timeout` parameter; use the CLI when those options are needed.
 
-Use `compact=true` to receive counts and up to three examples per finding
+Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected
 rejection marker. Use `compact=false` to retrieve every finding. See the
 [compact JSON format](cli.md#compact-findings).

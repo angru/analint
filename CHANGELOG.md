@@ -7,11 +7,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.0.7] — 2026-11-10
+
 ### Added
 
 - Compact check JSON via `--format json --compact` or MCP `compact=true`.
   Findings are grouped by code, severity and expected disposition within each
   check result, with full counts and up to three examples per group.
+  The Kubernetes admission regression produces 98.69% less JSON in compact
+  mode. ([#6](https://github.com/angru/analint/pull/6))
 
 ## [0.0.6] — 2026-11-10
 

@@ -41,6 +41,7 @@ class Code(StrEnum):
     for a different kind; new codes may be added. Documented in docs/cli.md.
     """
 
+    UNCLASSIFIED = "finding.unclassified"
     # structural validation
     EMPTY_MODEL = "structural.empty_model"
     MISSING_ID = "structural.missing_id"
@@ -128,7 +129,7 @@ class Finding:
     severity: Severity
     location: str
     message: str
-    code: Code
+    code: Code = Code.UNCLASSIFIED
     # True only on the rejection reason inside a passing Expect.FAIL scenario:
     # the action was blocked as intended, so the ERROR is not actionable.
     expected: bool = False

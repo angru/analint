@@ -9,7 +9,7 @@ Use analint's CLI as the source of truth. Do not infer whether a specification i
 valid from reading Python alone.
 
 This skill follows the repository's main branch and the versioned `v1` JSON
-schemas. Query details and action-family lookups are unreleased after `0.0.5`.
+schemas. Query details and action-family lookups require `0.0.6` or later.
 
 ## Start by orienting
 
@@ -120,7 +120,7 @@ use exits for operation success: `trace` can exit `0` with status `FAIL` or
 
 Classify JSON findings by `code`, not message text. A finding with
 `"expected": true` is the intended rejection inside a passing `Expect.FAIL`
-scenario, not a failure to fix (unreleased after `0.0.5`).
+scenario (since `0.0.6`).
 
 Each invariant and query is checked on its **slice**: only the actions and
 state that can affect it. The JSON `slice` field shows its size, and

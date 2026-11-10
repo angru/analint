@@ -59,7 +59,7 @@ not give total command time.
 
 #### Finding codes
 
-**Unreleased after 0.0.5.** Every finding is
+Since 0.0.6, every finding is
 `{"severity", "code", "location", "message"}`. Classify findings by `code`,
 not by `message`: wording may change, but within `analint.check/v1` a code is
 never renamed or reused for another kind. New codes may be added, so treat an
@@ -73,6 +73,7 @@ and it never appears in a failed scenario. Verdicts and statuses are unchanged.
 
 | Prefix | Codes |
 | --- | --- |
+| `finding.` | `finding.unclassified` (the default for findings constructed without a code via `analint.reporter.Finding`) |
 | `structural.` | `structural.empty_model`, `structural.missing_id`, `structural.duplicate_id`, `structural.duplicate_class`, `structural.unregistered`, `structural.stale_reference`, `structural.invalid_entry`, `structural.scope_misuse`, `structural.unbound_variable`, `structural.effect_conflict`, `structural.unknown_field`, `structural.lifecycle_unattached`, `structural.terminal_transition`, `structural.unreachable_lifecycle_state`, `structural.no_scenarios`, `structural.missing_given`, `structural.duplicate_given`, `structural.empty_flow`, `structural.payload_binding`, `structural.payload_type_mismatch`, `structural.conflicting_roots`, `structural.invalid_initial` |
 | `model.` | `model.unloaded_file`, `model.orphan`, `model.canonical_initial_error` |
 | `transition.` (rejections) | `transition.pre_failed`, `transition.pre_not_applicable`, `transition.presence_rejected`, `transition.terminal_locked` |
@@ -106,7 +107,7 @@ Detailed kinds are `entity`, `event`, `invariant`, `query`, `action`, `lifecycle
 `flow`, `scenario` and `contract`. Singular and plural kinds work for id lists,
 including `show query` / `show queries` and `show entity` / `show entities`.
 
-**Unreleased after 0.0.5:** `show query ID` returns `kind: "query"`, the query
+Since 0.0.6, `show query ID` returns `kind: "query"`, the query
 `type`, `label`, declared `max_states`, `predicate` and `goal`. The predicate is
 null for NoDeadEnd/DeadActions; the goal is populated only for NoDeadEnd. This
 describes the check without running it; use `check` for a verdict and `trace`
@@ -120,7 +121,7 @@ the effective `initial` relation: `vary`, `where`, `given`, `max_candidates`.
 A null `initial` means defaults plus any given snapshots. Candidate states are
 not enumerated and the relation is not validated by inspection.
 
-**Unreleased after 0.0.5:** `show action FAMILY_ID` accepts an unexpanded
+Since 0.0.6, `show action FAMILY_ID` accepts an unexpanded
 parameterized family name, such as `redeem_code` from `oauth-protocol`. It
 returns `kind: "action_family"`, the declaration's shared
 `pre`/`effect`/`post`/`emits`, parameter `params` with rendered domain values,

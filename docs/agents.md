@@ -91,7 +91,7 @@ implicit presence/terminal guards. Inspect action `presence_reads` and
 membership changes; ordinary field reports describe field values. See the
 [impact contract](cli.md#affects) for default initialization and static-read semantics.
 
-Unreleased after 0.0.5: `show(kind="query", name=ID)` returns the query type,
+Since 0.0.6, `show(kind="query", name=ID)` returns the query type,
 predicate/goal, declared budget and declarative roots without enumerating states.
 `show(kind="action", name=FAMILY_ID)` accepts an unexpanded family name from
 a Contract and returns `kind: "action_family"`, parameters, `where`, the shared
@@ -172,7 +172,7 @@ warning to overall FAIL/exit 1 while retaining per-property INCONCLUSIVE status.
 Classify findings by their `code` rather than message text, and skip findings
 marked `"expected": true` (the intended rejection in a passing `Expect.FAIL`
 scenario) when routing failures; see [finding codes](cli.md#finding-codes).
-Unreleased after 0.0.5.
+Finding codes and expected rejection metadata are available since 0.0.6.
 
 Inspect error fields as well as schemas. Some lookup errors retain the
 operation's schema. Invariant traces identify the property with `invariant`

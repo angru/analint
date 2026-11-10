@@ -7,13 +7,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.0.6] — 2026-11-10
+
+Inspect queries and parameterized action families and classify findings by stable
+diagnostic code. This release includes the automated artifact checks and Python
+3.15 CI coverage.
+
 ### Added
 
 - Stable diagnostic codes on every JSON finding (`code`, e.g.
   `structural.no_scenarios`, `transition.pre_failed`) in `check` reports and
   exploration artifacts, documented in the CLI reference. Rejection reasons in a
   passing `Expect.FAIL` scenario carry `"expected": true`. Verdicts are
-  unchanged; the `check --cache` format is bumped, so old entries are ignored.
+  unchanged. The `check --cache` format is bumped, so old entries are ignored.
+  Existing Python calls to `analint.reporter.Finding` can omit the code.
   ([#5](https://github.com/angru/analint/issues/5))
 - Query inspection with `show query ID`: type, predicate/goal, declared budget
   and effective declarative roots, without enumeration or verification.

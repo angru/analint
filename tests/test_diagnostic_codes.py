@@ -7,7 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from analint.cli import app
-from analint.reporter.base import Code
+from analint.reporter import Code, Finding, Severity
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -83,6 +83,16 @@ def test_rejection_in_failed_negative_scenario_is_not_expected(tmp_path):
     codes = [f["code"] for f in scenario["findings"]]
     assert "transition.pre_failed" in codes and "invariant.violated" in codes
     assert not any(f.get("expected") for f in scenario["findings"])
+
+
+def test_existing_finding_constructor_has_an_unclassified_code():
+    finding = Finding(Severity.WARNING, "extension:custom", "custom warning")
+    assert finding.to_dict() == {
+        "severity": "WARNING",
+        "code": "finding.unclassified",
+        "location": "extension:custom",
+        "message": "custom warning",
+    }
 
 
 def test_codes_are_unique_and_documented():

@@ -112,7 +112,8 @@ parity, traces and Create impact. It then installs the MCP extra and starts
 `analint-mcp` over stdio, initializes a client and calls all five tools. Only
 after those checks does it add test tools, run strict Twine validation, collect
 the extracted archive's tests and execute the focused documentation, impact,
-initial-state/key and release-acceptance cases against the installed wheel.
+diagnostic code, inspection, initial-state/key and release-acceptance cases
+against the installed wheel.
 The final JSON records the verified version and distribution SHA-256 values.
 
 Publishing builds artifacts once and verifies those same files on Python

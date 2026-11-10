@@ -33,7 +33,7 @@ verification of the exact build artifacts on that Python matrix.
 2. **Agent workflow — guided pass and query/family inspection complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
-   implemented, unreleased after 0.0.5. Next, measure whether compact diagnostics
+   included in 0.0.6. Next, measure whether compact diagnostics
    reduce the observed response volume. This internal run does not complete
    the real-spec trial.
 3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
@@ -81,7 +81,7 @@ This is internal evidence, not an independent agent evaluation.
 - [x] `show query`/`show queries` listing and `show query ID` details
   (predicate/goal, declarative roots, budget) without enumeration.
 - [x] `show action FAMILY_ID` for parameterized families, including
-  zero-variant ones; concrete ids keep precedence. Unreleased after 0.0.5.
+  zero-variant ones; concrete ids keep precedence. Included in 0.0.6.
 - [ ] Design bounded diagnostic summaries with explicit access to full
   findings: one planted Kubernetes defect produced ~1.1 MB of JSON.
 

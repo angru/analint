@@ -48,7 +48,7 @@ def _digest(items) -> str:
 
 
 def _finding_digest(findings) -> str:
-    return _digest((str(f.severity), f.location, f.message) for f in findings)
+    return _digest((str(f.severity), f.code, f.location, f.message, f.expected) for f in findings)
 
 
 def _labelled_state(ctx: dict) -> tuple:

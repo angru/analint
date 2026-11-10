@@ -4,7 +4,7 @@ from analint.models.flow import Emitted
 from analint.models.predicate import Predicate
 from analint.models.root import Spec
 from analint.models.scenario import Expect, Scenario
-from analint.reporter.base import Finding, ScenarioResult, Severity
+from analint.reporter.base import Code, Finding, ScenarioResult, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.state_checks import (
@@ -59,18 +59,24 @@ def run_scenario(scenario: Scenario, spec: Spec) -> ScenarioResult:
     if scenario.expected == Expect.FAIL:
         passed = result.outcome is Outcome.REJECTED and not pre_invariant_violated
         if passed:
+            # the kernel's rejection reason is the intended outcome, not a defect
+            for finding in result.findings:
+                finding.expected = True
             findings.append(
                 Finding(
                     Severity.INFO,
                     f"scenario:{scenario.id}",
                     "correctly blocked — rules rejected this data as expected",
+                    Code.EXPECTED_REJECTION,
                 )
             )
         else:
             message = "expected the action to be blocked, but every precondition passed"
             if result.outcome is Outcome.DEFECT or pre_invariant_violated or post_defect:
                 message += " — the failures above are a model defect, not a rejection"
-            findings.append(Finding(Severity.ERROR, f"scenario:{scenario.id}", message))
+            findings.append(
+                Finding(Severity.ERROR, f"scenario:{scenario.id}", message, Code.NOT_REJECTED)
+            )
     else:
         passed = (
             result.outcome is Outcome.ACCEPTED and not pre_invariant_violated and not post_defect
@@ -99,6 +105,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                             Severity.ERROR,
                             f"scenario:{scenario.id}",
                             f"then: {_describe(assertion)} — not satisfied",
+                            Code.THEN_FAILED,
                         )
                     )
                     failed = True
@@ -108,6 +115,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                         Severity.ERROR,
                         f"scenario:{scenario.id}",
                         f"then evaluation error: {exc}",
+                        Code.THEN_EVALUATION_ERROR,
                     )
                 )
                 failed = True
@@ -118,6 +126,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                         Severity.ERROR,
                         f"scenario:{scenario.id}",
                         f"then: event '{assertion.event_cls.__name__}' not in action.emits",
+                        Code.EVENT_NOT_EMITTED,
                     )
                 )
                 failed = True
@@ -127,6 +136,7 @@ def _check_then(findings: list[Finding], scenario: Scenario, post: dict) -> bool
                     Severity.ERROR,
                     f"scenario:{scenario.id}",
                     f"then entry '{assertion!r}' is not a predicate or Emitted(...)",
+                    Code.INVALID_ENTRY,
                 )
             )
             failed = True

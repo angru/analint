@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Stable diagnostic codes on every JSON finding (`code`, e.g.
+  `structural.no_scenarios`, `transition.pre_failed`) in `check` reports and
+  exploration artifacts, documented in the CLI reference. Rejection reasons in a
+  passing `Expect.FAIL` scenario carry `"expected": true`. Verdicts are
+  unchanged; the `check --cache` format is bumped, so old entries are ignored.
+  ([#5](https://github.com/angru/analint/issues/5))
 - Query inspection with `show query ID`: type, predicate/goal, declared budget
   and effective declarative roots, without enumeration or verification.
   Singular `show query` and `show entity` list the same ids as their plurals.

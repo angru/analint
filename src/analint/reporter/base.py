@@ -33,11 +33,116 @@ class Verdict(StrEnum):
     INCONCLUSIVE = "INCONCLUSIVE"
 
 
+class Code(StrEnum):
+    """Stable diagnostic identifiers (issue #5).
+
+    A code names the *kind* of a finding; the message is human text and may be
+    reworded. Within ``analint.check/v1`` a code value is never renamed or reused
+    for a different kind; new codes may be added. Documented in docs/cli.md.
+    """
+
+    # structural validation
+    EMPTY_MODEL = "structural.empty_model"
+    MISSING_ID = "structural.missing_id"
+    DUPLICATE_ID = "structural.duplicate_id"
+    DUPLICATE_CLASS = "structural.duplicate_class"
+    UNREGISTERED = "structural.unregistered"
+    STALE_REFERENCE = "structural.stale_reference"
+    INVALID_ENTRY = "structural.invalid_entry"
+    SCOPE_MISUSE = "structural.scope_misuse"
+    UNBOUND_VARIABLE = "structural.unbound_variable"
+    EFFECT_CONFLICT = "structural.effect_conflict"
+    UNKNOWN_FIELD = "structural.unknown_field"
+    LIFECYCLE_UNATTACHED = "structural.lifecycle_unattached"
+    TERMINAL_TRANSITION = "structural.terminal_transition"
+    UNREACHABLE_LIFECYCLE_STATE = "structural.unreachable_lifecycle_state"
+    NO_SCENARIOS = "structural.no_scenarios"
+    MISSING_GIVEN = "structural.missing_given"
+    DUPLICATE_GIVEN = "structural.duplicate_given"
+    EMPTY_FLOW = "structural.empty_flow"
+    PAYLOAD_BINDING = "structural.payload_binding"
+    PAYLOAD_TYPE_MISMATCH = "structural.payload_type_mismatch"
+    CONFLICTING_ROOTS = "structural.conflicting_roots"
+    INVALID_INITIAL = "structural.invalid_initial"
+    # model loading
+    UNLOADED_FILE = "model.unloaded_file"
+    ORPHAN = "model.orphan"
+    CANONICAL_INITIAL_ERROR = "model.canonical_initial_error"
+    # one transition (scenarios, flows, exploration)
+    PRE_FAILED = "transition.pre_failed"
+    PRE_NOT_APPLICABLE = "transition.pre_not_applicable"
+    PRESENCE_REJECTED = "transition.presence_rejected"
+    TERMINAL_LOCKED = "transition.terminal_locked"
+    EVALUATION_ERROR = "transition.evaluation_error"
+    FIELD_CONSTRAINT = "transition.field_constraint"
+    UNDECLARED_LIFECYCLE_EDGE = "transition.undeclared_lifecycle_edge"
+    POSTCONDITION_VIOLATED = "transition.postcondition_violated"
+    # exploration
+    ACTION_EXCLUDED = "exploration.action_excluded"
+    UNSUPPORTED_VALUE = "exploration.unsupported_value"
+    # invariants
+    INVARIANT_VIOLATED = "invariant.violated"
+    INVARIANT_EVALUATION_ERROR = "invariant.evaluation_error"
+    INVARIANT_NOT_CHECKED = "invariant.not_checked"
+    # scenarios
+    EXPECTED_REJECTION = "scenario.expected_rejection"
+    NOT_REJECTED = "scenario.not_rejected"
+    THEN_FAILED = "scenario.then_failed"
+    THEN_EVALUATION_ERROR = "scenario.then_evaluation_error"
+    EVENT_NOT_EMITTED = "scenario.event_not_emitted"
+    # flows
+    STEP_NOT_RUN = "flow.step_not_run"
+    FLOW_INVARIANT_VIOLATED = "flow.invariant_violated"
+    CHECKPOINT_FAILED = "flow.checkpoint_failed"
+    CHECKPOINT_EVALUATION_ERROR = "flow.checkpoint_evaluation_error"
+    CHECKPOINT_EVENT_NOT_EMITTED = "flow.event_not_emitted"
+    # queries
+    QUERY_INVALID = "query.invalid"
+    QUERY_EVALUATION_ERROR = "query.evaluation_error"
+    QUERY_VACUOUS = "query.vacuous"
+    WITNESS = "query.witness"
+    HOLDS = "query.holds"
+    REACHED_FORBIDDEN = "query.reached_forbidden"
+    NOT_REACHABLE = "query.not_reachable"
+    PROPERTY_VIOLATED = "query.property_violated"
+    DEAD_END = "query.dead_end"
+    GOAL_UNREACHABLE = "query.goal_unreachable"
+    DEAD_ACTIONS = "query.dead_actions"
+    NOT_ASSESSED = "query.not_assessed"
+    UNDECIDED = "query.undecided"
+    INITIAL_STATE = "query.initial_state"
+    # budget / completeness of a check
+    BUDGET_EXHAUSTED = "check.budget_exhausted"
+    EXCLUDED_ACTIONS = "check.excluded_actions"
+    # TLC backend
+    TLC_UNAVAILABLE = "tlc.unavailable"
+    TLC_NO_INVARIANT_FORM = "tlc.no_invariant_form"
+    TLC_NOT_EXPORTED = "tlc.not_exported"
+    TLC_FAILED = "tlc.failed"
+    TLC_TRANSITION_DEFECT = "tlc.transition_defect"
+    TLC_DECIDED = "tlc.decided"
+
+
 @dataclass
 class Finding:
     severity: Severity
     location: str
     message: str
+    code: Code
+    # True only on the rejection reason inside a passing Expect.FAIL scenario:
+    # the action was blocked as intended, so the ERROR is not actionable.
+    expected: bool = False
+
+    def to_dict(self) -> dict:
+        data = {
+            "severity": self.severity.value,
+            "code": self.code.value,
+            "location": self.location,
+            "message": self.message,
+        }
+        if self.expected:
+            data["expected"] = True
+        return data
 
 
 @dataclass

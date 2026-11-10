@@ -111,11 +111,8 @@ def _summary(
     return summary, completeness
 
 
-def _findings(exp: Exploration) -> list[dict[str, str]]:
-    return [
-        {"severity": f.severity.value, "location": f.location, "message": f.message}
-        for f in exp.findings
-    ]
+def _findings(exp: Exploration) -> list[dict]:
+    return [f.to_dict() for f in exp.findings]
 
 
 def build_exploration_artifact(

@@ -50,22 +50,23 @@ from analint.models.scope import (
     is_field_ref,
     is_present,
 )
-from analint.reporter.base import Finding, Severity
+from analint.reporter.base import Code, Finding, Severity
 
 
 def validate_structural(spec: Spec) -> list[Finding]:
     findings: list[Finding] = []
 
-    def err(loc: str, msg: str) -> Finding:
-        return Finding(Severity.ERROR, loc, msg)
+    def err(code: Code, loc: str, msg: str) -> Finding:
+        return Finding(Severity.ERROR, loc, msg, code)
 
-    def warn(loc: str, msg: str) -> Finding:
-        return Finding(Severity.WARNING, loc, msg)
+    def warn(code: Code, loc: str, msg: str) -> Finding:
+        return Finding(Severity.WARNING, loc, msg, code)
 
     if not (spec.actions or spec.invariants or spec.scenarios or spec.flows or spec.queries):
         # nothing is collected from module globals any more (research/35 R5)
         findings.append(
             err(
+                Code.EMPTY_MODEL,
                 f"spec:{spec.id}",
                 "empty model: list actions, invariants, scenarios, flows or queries "
                 "in the Spec or an imported Contract",
@@ -76,9 +77,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
     for contract in spec.imports:
         loc = f"contract:{contract.id or '?'}"
         if not contract.id:
-            findings.append(err(loc, "contract has no id"))
+            findings.append(err(Code.MISSING_ID, loc, "contract has no id"))
         elif contract.id in seen_contracts:
-            findings.append(err(loc, f"duplicate imported contract id '{contract.id}'"))
+            findings.append(
+                err(Code.DUPLICATE_ID, loc, f"duplicate imported contract id '{contract.id}'")
+            )
         seen_contracts.add(contract.id)
 
     # Missing and duplicate ids
@@ -95,6 +98,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if not obj.id:
                 findings.append(
                     err(
+                        Code.MISSING_ID,
                         f"{kind}:?",
                         f"{kind} has no id — assign it to a module-level "
                         f"variable or set id= explicitly",
@@ -102,7 +106,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
                 continue
             if obj.id in seen:
-                findings.append(err(f"{kind}:{obj.id}", f"duplicate id '{obj.id}'"))
+                findings.append(
+                    err(Code.DUPLICATE_ID, f"{kind}:{obj.id}", f"duplicate id '{obj.id}'")
+                )
             seen.add(obj.id)
 
     # Duplicate entity class names with different identities — almost always
@@ -117,6 +123,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if other is not None and other is not cls:
                 findings.append(
                     err(
+                        Code.DUPLICATE_CLASS,
                         f"{kind}:{cls.__name__}",
                         f"two different classes named '{cls.__name__}' are registered "
                         f"({other.__module__} and {cls.__module__}) — the same file is "
@@ -140,17 +147,33 @@ def validate_structural(spec: Spec) -> list[Finding]:
     for scope in spec.scopes:
         loc = f"scope:{scope.id or scope.entity_cls.__name__}"
         if scope.entity_cls not in spec.entities:
-            findings.append(err(loc, f"entity '{scope.entity_cls.__name__}' not in spec.entities"))
+            findings.append(
+                err(
+                    Code.UNREGISTERED,
+                    loc,
+                    f"entity '{scope.entity_cls.__name__}' not in spec.entities",
+                )
+            )
         if scope.entity_cls in scoped_entities:
             findings.append(
-                err(loc, f"entity '{scope.entity_cls.__name__}' has more than one Scope")
+                err(
+                    Code.SCOPE_MISUSE,
+                    loc,
+                    f"entity '{scope.entity_cls.__name__}' has more than one Scope",
+                )
             )
         scoped_entities[scope.entity_cls] = scope
 
     # Events: registered classes must subclass the right base
     for event_cls in spec.events:
         if not (isinstance(event_cls, type) and issubclass(event_cls, Event)):
-            findings.append(err(f"event:{event_cls}", f"'{event_cls}' does not subclass Event"))
+            findings.append(
+                err(
+                    Code.INVALID_ENTRY,
+                    f"event:{event_cls}",
+                    f"'{event_cls}' does not subclass Event",
+                )
+            )
 
     # Invariants: expressions reference registered entities and existing fields
     for inv in spec.invariants:
@@ -175,6 +198,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if action.where and not action.params:
             findings.append(
                 err(
+                    Code.INVALID_ENTRY,
                     loc,
                     "where= only filters parameterized action bindings; "
                     "use pre= for state-dependent conditions",
@@ -189,11 +213,17 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for emitted in action.emits:
             event_cls = emitted if isinstance(emitted, type) else type(emitted)
             if not issubclass(event_cls, Event):
-                findings.append(err(loc, f"emits entry '{emitted!r}' is not an Event"))
+                findings.append(
+                    err(Code.INVALID_ENTRY, loc, f"emits entry '{emitted!r}' is not an Event")
+                )
                 continue
             if event_cls not in registered_events:
                 findings.append(
-                    err(loc, f"emitted event '{event_cls.__name__}' not in spec.events")
+                    err(
+                        Code.UNREGISTERED,
+                        loc,
+                        f"emitted event '{event_cls.__name__}' not in spec.events",
+                    )
                 )
             if not isinstance(emitted, type):
                 findings.extend(_check_event_template(emitted, spec.entities, loc))
@@ -217,6 +247,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 if not isinstance(target, InstanceRef):
                     findings.append(
                         err(
+                            Code.SCOPE_MISUSE,
                             loc,
                             f"{type(effect).__name__} target must be an InstanceRef from a "
                             f"Scope, got {target!r}",
@@ -225,7 +256,11 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     continue
                 if scoped_entities.get(target.entity_cls) is not target.scope:
                     findings.append(
-                        err(loc, f"{target!r} belongs to a Scope not registered in spec.scopes")
+                        err(
+                            Code.UNREGISTERED,
+                            loc,
+                            f"{target!r} belongs to a Scope not registered in spec.scopes",
+                        )
                     )
                 if isinstance(effect, Create):
                     known = all_fields(target.entity_cls)
@@ -235,6 +270,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                         if name not in known:
                             findings.append(
                                 err(
+                                    Code.UNKNOWN_FIELD,
                                     loc,
                                     f"Create({target!r}) sets unknown field "
                                     f"'{name}' on {target.entity_cls.__name__}",
@@ -243,6 +279,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 if target in presence_targets:
                     findings.append(
                         err(
+                            Code.EFFECT_CONFLICT,
                             loc,
                             f"two effects change the presence of {target!r} — effects are "
                             f"simultaneous, a slot can appear or disappear only once",
@@ -252,16 +289,26 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 continue
             if not isinstance(effect, (Set, Subtract, Add)):
                 findings.append(
-                    err(loc, f"effect entry '{effect!r}' is not Set/Add/Subtract/Create/Delete")
+                    err(
+                        Code.INVALID_ENTRY,
+                        loc,
+                        f"effect entry '{effect!r}' is not Set/Add/Subtract/Create/Delete",
+                    )
                 )
                 continue
             if not is_field_ref(effect.field):
-                findings.append(err(loc, "effect field must be a field reference"))
+                findings.append(
+                    err(Code.INVALID_ENTRY, loc, "effect field must be a field reference")
+                )
                 continue
             cls = effect.field.entity_cls
             if cls.__name__ not in spec_entity_names:
                 findings.append(
-                    err(loc, f"effect targets entity '{cls.__name__}' not in spec.entities")
+                    err(
+                        Code.UNREGISTERED,
+                        loc,
+                        f"effect targets entity '{cls.__name__}' not in spec.entities",
+                    )
                 )
             findings.extend(_check_scoped_refs([effect.field], scoped_entities, loc))
             rhs = effect.value if isinstance(effect, Set) else effect.amount
@@ -272,6 +319,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if target in effect_targets:
                 findings.append(
                     err(
+                        Code.EFFECT_CONFLICT,
                         loc,
                         f"two effects target '{cls.__name__}."
                         f"{effect.field.field_name}' — effects are "
@@ -283,6 +331,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         for slot in sorted(presence_targets & field_slots, key=context_key_label):
             findings.append(
                 err(
+                    Code.EFFECT_CONFLICT,
                     loc,
                     f"{slot!r} is both created/deleted and modified by Set/Add/Subtract in the "
                     f"same action — these next-state facts conflict",
@@ -298,7 +347,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if fam in covered_families or fam in warned_families:
             continue
         warned_families.add(fam)
-        findings.append(warn(f"action:{fam}", "has no scenarios"))
+        findings.append(warn(Code.NO_SCENARIOS, f"action:{fam}", "has no scenarios"))
 
     # Lifecycles
     for lc in spec.lifecycles:
@@ -306,6 +355,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if lc._entity_cls is None:
             findings.append(
                 err(
+                    Code.LIFECYCLE_UNATTACHED,
                     loc,
                     "lifecycle is not attached to an entity field — "
                     "declare it as the field's default value",
@@ -313,10 +363,22 @@ def validate_structural(spec: Spec) -> list[Finding]:
             )
             continue
         if lc.entity_cls.__name__ not in spec_entity_names:
-            findings.append(err(loc, f"entity '{lc.entity_cls.__name__}' not in spec.entities"))
+            findings.append(
+                err(
+                    Code.UNREGISTERED,
+                    loc,
+                    f"entity '{lc.entity_cls.__name__}' not in spec.entities",
+                )
+            )
         for source in lc.transitions:
             if source in lc.terminal:
-                findings.append(err(loc, f"transition out of terminal state {source!r}"))
+                findings.append(
+                    err(
+                        Code.TERMINAL_TRANSITION,
+                        loc,
+                        f"transition out of terminal state {source!r}",
+                    )
+                )
 
     # Scenarios
     for sc in spec.scenarios:
@@ -325,13 +387,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if sc.action.id in action_ids:
                 findings.append(
                     err(
+                        Code.STALE_REFERENCE,
                         loc,
                         f"action '{sc.action.id}' is a different object than the registered "
                         f"action with that id — reference the registered Action",
                     )
                 )
             else:
-                findings.append(err(loc, f"action '{sc.action.id}' not in spec.actions"))
+                findings.append(
+                    err(Code.UNREGISTERED, loc, f"action '{sc.action.id}' not in spec.actions")
+                )
             continue
 
         given_keys = {instance_context_key(inst) for inst in sc.given}
@@ -341,6 +406,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
             if scope is not None and not isinstance(key, InstanceRef):
                 findings.append(
                     err(
+                        Code.SCOPE_MISUSE,
                         loc,
                         f"{type(inst).__name__} has Scope '{scope.id}' — create the "
                         f"snapshot through a registered InstanceRef",
@@ -348,13 +414,23 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 )
             elif isinstance(key, InstanceRef) and scoped_entities.get(type(inst)) is not key.scope:
                 findings.append(
-                    err(loc, f"{key!r} belongs to a Scope not registered in spec.scopes")
+                    err(
+                        Code.UNREGISTERED,
+                        loc,
+                        f"{key!r} belongs to a Scope not registered in spec.scopes",
+                    )
                 )
         needed = _needed_keys(sc.action)
         for key in needed:
             if key not in given_keys:
                 label = repr(key) if isinstance(key, InstanceRef) else key.__name__
-                findings.append(warn(loc, f"'{label}' referenced by the action but not in given"))
+                findings.append(
+                    warn(
+                        Code.MISSING_GIVEN,
+                        loc,
+                        f"'{label}' referenced by the action but not in given",
+                    )
+                )
 
         # then entries: only Predicate/Emitted are checks — anything else would
         # be silently ignored at run time, which is a false-green path
@@ -377,11 +453,19 @@ def validate_structural(spec: Spec) -> list[Finding]:
                     isinstance(assertion.event_cls, type) and issubclass(assertion.event_cls, Event)
                 ):
                     findings.append(
-                        err(loc, f"Emitted(...) needs an Event class, got {assertion.event_cls!r}")
+                        err(
+                            Code.INVALID_ENTRY,
+                            loc,
+                            f"Emitted(...) needs an Event class, got {assertion.event_cls!r}",
+                        )
                     )
             else:
                 findings.append(
-                    err(loc, f"then entry '{assertion!r}' must be a predicate or Emitted(...)")
+                    err(
+                        Code.INVALID_ENTRY,
+                        loc,
+                        f"then entry '{assertion!r}' must be a predicate or Emitted(...)",
+                    )
                 )
 
         for lc in spec.lifecycles:
@@ -394,6 +478,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 if state is not None and state not in lc.reachable_states():
                     findings.append(
                         warn(
+                            Code.UNREACHABLE_LIFECYCLE_STATE,
                             loc,
                             f"{lc.entity_cls.__name__}.{lc.field_name}={state!r} "
                             f"is not reachable from initial state {lc.initial!r}",
@@ -412,6 +497,7 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if initial_sources > 1:
             findings.append(
                 err(
+                    Code.CONFLICTING_ROOTS,
                     loc,
                     "use exactly one of given=, given_any=, or initial=, not both/multiple",
                 )
@@ -445,13 +531,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
                 if step.id in action_ids:
                     findings.append(
                         err(
+                            Code.STALE_REFERENCE,
                             loc,
                             f"step '{step.id}' is a different object than the registered "
                             f"action with that id — reference the registered Action, not a copy",
                         )
                     )
                 else:
-                    findings.append(err(loc, f"step '{step.id}' not in spec.actions"))
+                    findings.append(
+                        err(Code.UNREGISTERED, loc, f"step '{step.id}' not in spec.actions")
+                    )
 
         for step in flow.steps:
             if isinstance(step, Assert):
@@ -464,21 +553,35 @@ def validate_structural(spec: Spec) -> list[Finding]:
             elif isinstance(step, Emitted):
                 if not (isinstance(step.event_cls, type) and issubclass(step.event_cls, Event)):
                     findings.append(
-                        err(loc, f"Emitted(...) needs an Event class, got {step.event_cls!r}")
+                        err(
+                            Code.INVALID_ENTRY,
+                            loc,
+                            f"Emitted(...) needs an Event class, got {step.event_cls!r}",
+                        )
                     )
                 elif step.event_cls not in spec.events:
                     # Identity, not name: a checkpoint asserts this exact Event type.
                     findings.append(
-                        err(loc, f"Emitted event '{step.event_cls.__name__}' not in spec.events")
+                        err(
+                            Code.UNREGISTERED,
+                            loc,
+                            f"Emitted event '{step.event_cls.__name__}' not in spec.events",
+                        )
                     )
             elif not isinstance(step, Action):
                 findings.append(
-                    err(loc, f"flow step '{step!r}' is not an Action, Assert(...) or Emitted(...)")
+                    err(
+                        Code.INVALID_ENTRY,
+                        loc,
+                        f"flow step '{step!r}' is not an Action, Assert(...) or Emitted(...)",
+                    )
                 )
 
         findings.extend(_validate_given_snapshots(flow.given, spec, scoped_entities, loc, "given"))
         if not action_steps:
-            findings.append(warn(loc, "flow has no action steps — it does nothing"))
+            findings.append(
+                warn(Code.EMPTY_FLOW, loc, "flow has no action steps — it does nothing")
+            )
 
     return findings
 
@@ -569,6 +672,7 @@ def _validate_initial(
                     Severity.ERROR,
                     loc,
                     f"Initial vary entry '{item!r}' is not a field reference or Bound field",
+                    Code.INVALID_INITIAL,
                 )
             )
     for ref in initial_refs:
@@ -579,6 +683,7 @@ def _validate_initial(
                     Severity.ERROR,
                     loc,
                     f"Initial varies {context_key_label(marker[0])}.{marker[1]} twice",
+                    Code.INVALID_INITIAL,
                 )
             )
         initial_markers.add(marker)
@@ -588,6 +693,7 @@ def _validate_initial(
                     Severity.ERROR,
                     loc,
                     f"Initial varies entity '{ref.entity_cls.__name__}' not in spec.entities",
+                    Code.UNREGISTERED,
                 )
             )
     findings.extend(_check_scoped_refs(initial_refs, scoped_entities, loc))
@@ -614,7 +720,12 @@ def _validate_given_snapshots(
         key = instance_context_key(inst)
         if key in given_keys:
             findings.append(
-                Finding(Severity.ERROR, loc, f"{label} lists {context_key_label(key)} twice")
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"{label} lists {context_key_label(key)} twice",
+                    Code.DUPLICATE_GIVEN,
+                )
             )
         given_keys.add(key)
         scope = scoped_entities.get(type(inst))
@@ -626,6 +737,7 @@ def _validate_given_snapshots(
                         loc,
                         f"{type(inst).__name__} has Scope '{scope.id}' — create the "
                         f"snapshot through a registered InstanceRef",
+                        Code.SCOPE_MISUSE,
                     )
                 )
             elif scope is not key.scope:
@@ -634,12 +746,16 @@ def _validate_given_snapshots(
                         Severity.ERROR,
                         loc,
                         f"{key!r} belongs to a Scope not registered in spec.scopes",
+                        Code.UNREGISTERED,
                     )
                 )
         elif isinstance(key, InstanceRef):
             findings.append(
                 Finding(
-                    Severity.ERROR, loc, f"{key!r} belongs to a Scope not registered in spec.scopes"
+                    Severity.ERROR,
+                    loc,
+                    f"{key!r} belongs to a Scope not registered in spec.scopes",
+                    Code.UNREGISTERED,
                 )
             )
         elif type(inst) not in spec.entities:
@@ -648,6 +764,7 @@ def _validate_given_snapshots(
                     Severity.ERROR,
                     loc,
                     f"{label} includes '{type(inst).__name__}', not in spec.entities",
+                    Code.UNREGISTERED,
                 )
             )
     return findings
@@ -668,6 +785,7 @@ def _check_scoped_refs(
                         Severity.ERROR,
                         loc,
                         f"{ref!r} belongs to a Scope not registered in spec.scopes",
+                        Code.UNREGISTERED,
                     )
                 )
             continue
@@ -685,6 +803,7 @@ def _check_scoped_refs(
                 f"'{ref.entity_cls.__name__}.{ref.field_name}' is ambiguous because "
                 f"{ref.entity_cls.__name__} has Scope '{scope.id or scope.entity_cls.__name__}' — "
                 f"address an instance through the Scope or an instance Param",
+                Code.SCOPE_MISUSE,
             )
         )
     return findings
@@ -712,6 +831,7 @@ def _check_event_template(
                     f"payload {event_cls.__name__}.{field_name} is bound to "
                     f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
                     f"is not in spec.entities",
+                    Code.PAYLOAD_BINDING,
                 )
             )
             continue
@@ -724,6 +844,7 @@ def _check_event_template(
                     loc,
                     f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
                     f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ",
+                    Code.PAYLOAD_TYPE_MISMATCH,
                 )
             )
     return findings
@@ -747,6 +868,7 @@ def _check_pred_nodes(
                 loc,
                 f"'{pred!r}' is not a predicate — build conditions from entity "
                 f"field comparisons and And/Or/Not/Implies/In combinators",
+                Code.INVALID_ENTRY,
             )
         ]
     if isinstance(pred, (_And, _Or)):
@@ -764,6 +886,7 @@ def _check_pred_nodes(
                     Severity.ERROR,
                     loc,
                     f"{type(pred).__name__} variable must be Bound(...), got {pred.variable!r}",
+                    Code.INVALID_ENTRY,
                 )
             )
         else:
@@ -777,6 +900,7 @@ def _check_pred_nodes(
                         loc,
                         f"Present({pred.target.name}) uses Bound '{pred.target.name}' "
                         f"outside a quantifier",
+                        Code.UNBOUND_VARIABLE,
                     )
                 )
         elif not isinstance(pred.target, InstanceRef):
@@ -785,6 +909,7 @@ def _check_pred_nodes(
                     Severity.ERROR,
                     loc,
                     f"Present target must resolve to an InstanceRef, got {pred.target!r}",
+                    Code.INVALID_ENTRY,
                 )
             )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
@@ -819,12 +944,18 @@ def _check_pred_refs(
                     Severity.ERROR,
                     loc,
                     f"FieldDescriptor references non-Entity class '{cls.__name__}'",
+                    Code.INVALID_ENTRY,
                 )
             )
             continue
         if cls.__name__ not in known_names:
             findings.append(
-                Finding(Severity.ERROR, loc, f"entity '{cls.__name__}' not in spec.entities")
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    f"entity '{cls.__name__}' not in spec.entities",
+                    Code.UNREGISTERED,
+                )
             )
             continue
         all_fields: dict = {}
@@ -833,7 +964,10 @@ def _check_pred_refs(
         if ref.field_name not in all_fields:
             findings.append(
                 Finding(
-                    Severity.ERROR, loc, f"field '{cls.__name__}.{ref.field_name}' does not exist"
+                    Severity.ERROR,
+                    loc,
+                    f"field '{cls.__name__}.{ref.field_name}' does not exist",
+                    Code.UNKNOWN_FIELD,
                 )
             )
     return findings
@@ -853,11 +987,17 @@ def _check_operand_nodes(
                         Severity.ERROR,
                         loc,
                         f"{operand!r} uses Bound '{operand.target.name}' outside a quantifier or aggregate",
+                        Code.UNBOUND_VARIABLE,
                     )
                 )
         elif not isinstance(operand.target, InstanceRef):
             findings.append(
-                Finding(Severity.ERROR, loc, "Key target must resolve to an InstanceRef")
+                Finding(
+                    Severity.ERROR,
+                    loc,
+                    "Key target must resolve to an InstanceRef",
+                    Code.INVALID_ENTRY,
+                )
             )
     elif isinstance(operand, BoundField):
         if operand.variable not in bound:
@@ -867,6 +1007,7 @@ def _check_operand_nodes(
                     loc,
                     f"'{operand!r}' uses Bound '{operand.variable.name}' "
                     f"outside a quantifier or aggregate",
+                    Code.UNBOUND_VARIABLE,
                 )
             )
     elif isinstance(operand, _Count):
@@ -876,6 +1017,7 @@ def _check_operand_nodes(
                     Severity.ERROR,
                     loc,
                     f"_Count variable must be Bound(...), got {operand.variable!r}",
+                    Code.INVALID_ENTRY,
                 )
             )
         else:
@@ -888,6 +1030,7 @@ def _check_operand_nodes(
                     loc,
                     f"{type(operand).__name__} variable must be Bound(...), "
                     f"got {operand.variable!r}",
+                    Code.INVALID_ENTRY,
                 )
             )
         else:
@@ -921,6 +1064,7 @@ def _check_quantifier_scopes(
                     f"Bound '{pred.variable.name}' uses Scope "
                     f"'{pred.variable.scope.id or pred.variable.scope.entity_cls.__name__}' "
                     f"not registered in spec.scopes",
+                    Code.UNREGISTERED,
                 )
             )
         findings.extend(_check_quantifier_scopes(pred.predicate, spec_scopes, loc))
@@ -935,6 +1079,7 @@ def _check_quantifier_scopes(
                     f"Present target '{name}' uses Scope "
                     f"'{target_scope.id or target_scope.entity_cls.__name__}' "
                     f"not registered in spec.scopes",
+                    Code.UNREGISTERED,
                 )
             )
     elif isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
@@ -959,7 +1104,10 @@ def _check_operand_scopes(
         if operand.target.scope not in spec_scopes:
             findings.append(
                 Finding(
-                    Severity.ERROR, loc, f"{operand!r} uses a Scope not registered in spec.scopes"
+                    Severity.ERROR,
+                    loc,
+                    f"{operand!r} uses a Scope not registered in spec.scopes",
+                    Code.UNREGISTERED,
                 )
             )
     elif isinstance(operand, _Count):
@@ -988,6 +1136,7 @@ def _unregistered_bound_scope(variable: Bound, loc: str) -> Finding:
         f"Bound '{variable.name}' uses Scope "
         f"'{variable.scope.id or variable.scope.entity_cls.__name__}' "
         f"not registered in spec.scopes",
+        Code.UNREGISTERED,
     )
 
 

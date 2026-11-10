@@ -19,27 +19,18 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
         "verdict": verdict.value,
         "passed": verdict == "PASS",
         "load_errors": result.load_errors,
-        "structural": [
-            {"severity": f.severity.value, "location": f.location, "message": f.message}
-            for f in result.structural_findings
-        ],
+        "structural": [f.to_dict() for f in result.structural_findings],
         "scenarios": [
             {
                 "id": sr.scenario_id,
                 "name": sr.scenario_name,
                 "passed": sr.passed,
                 "rules": sr.rules_count,
-                "findings": [
-                    {"severity": f.severity.value, "location": f.location, "message": f.message}
-                    for f in sr.findings
-                ],
+                "findings": [f.to_dict() for f in sr.findings],
             }
             for sr in result.scenario_results
         ],
-        "exploration": [
-            {"severity": f.severity.value, "location": f.location, "message": f.message}
-            for f in result.exploration_findings
-        ],
+        "exploration": [f.to_dict() for f in result.exploration_findings],
         "queries": [
             {
                 "id": qr.query_id,
@@ -50,10 +41,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
                 **({"backend": qr.backend} if qr.backend is not None else {}),
-                "findings": [
-                    {"severity": f.severity.value, "location": f.location, "message": f.message}
-                    for f in qr.findings
-                ],
+                "findings": [f.to_dict() for f in qr.findings],
             }
             for qr in result.query_results
         ],
@@ -67,10 +55,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
                 **({"backend": ir.backend} if ir.backend is not None else {}),
-                "findings": [
-                    {"severity": f.severity.value, "location": f.location, "message": f.message}
-                    for f in ir.findings
-                ],
+                "findings": [f.to_dict() for f in ir.findings],
             }
             for ir in result.invariant_results
         ],
@@ -80,10 +65,7 @@ def result_to_dict(result: ValidationResult, strict: bool = False) -> dict:
                 "passed": fr.passed,
                 "actions_run": fr.actions_run,
                 "trace": fr.trace,
-                "findings": [
-                    {"severity": f.severity.value, "location": f.location, "message": f.message}
-                    for f in fr.findings
-                ],
+                "findings": [f.to_dict() for f in fr.findings],
             }
             for fr in result.flow_results
         ],

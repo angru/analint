@@ -17,6 +17,7 @@ from analint.models.query import AlwaysHolds, Reachable, Unreachable
 from analint.models.root import Spec
 from analint.models.scope import InstanceField
 from analint.reporter.base import (
+    Code,
     Finding,
     InvariantResult,
     QueryResult,
@@ -44,7 +45,7 @@ def decide_with_tlc(
         find_tlc()
     except TlcUnavailable as exc:
         result.exploration_findings.append(
-            Finding(Severity.WARNING, f"spec:{spec.id}", f"--tlc: {exc}")
+            Finding(Severity.WARNING, f"spec:{spec.id}", f"--tlc: {exc}", Code.TLC_UNAVAILABLE)
         )
         return
 
@@ -65,6 +66,7 @@ def decide_with_tlc(
                     Severity.INFO,
                     f"query:{res.query_id}",
                     f"--tlc: {type(query).__name__} has no TLC invariant form",
+                    Code.TLC_NO_INVARIANT_FORM,
                 )
             )
             continue
@@ -104,14 +106,18 @@ def _run(
     try:
         export = _exported(spec, piece, analysis, initials, target)
     except ExportError as exc:
-        findings.append(Finding(Severity.INFO, loc, f"--tlc: not exported — {exc}"))
+        findings.append(
+            Finding(Severity.INFO, loc, f"--tlc: not exported — {exc}", Code.TLC_NOT_EXPORTED)
+        )
         return None
     outcome = run_tlc(export, timeout=timeout)
     if outcome.status == "error":
         detail = next(
             (line for line in outcome.output.splitlines() if "Error" in line), outcome.output[-300:]
         )
-        findings.append(Finding(Severity.WARNING, loc, f"--tlc: TLC failed — {detail}"))
+        findings.append(
+            Finding(Severity.WARNING, loc, f"--tlc: TLC failed — {detail}", Code.TLC_FAILED)
+        )
         return None
     if outcome.violated and outcome.violated.startswith("NoDefect_"):
         action = outcome.violated.removeprefix("NoDefect_")
@@ -122,6 +128,7 @@ def _run(
                 f"--tlc: a transition defect (hard Field bound, undeclared lifecycle "
                 f"edge or false post) is reachable in {action}: "
                 f"{' → '.join(outcome.trace) or '(initial state)'}",
+                Code.TLC_TRANSITION_DEFECT,
             )
         )
         return None
@@ -133,6 +140,7 @@ def _note(outcome: TlcResult) -> Finding:
         Severity.INFO,
         "backend:tlc",
         f"decided by TLC: {outcome.distinct_states} distinct states, {outcome.seconds:.1f}s",
+        Code.TLC_DECIDED,
     )
 
 
@@ -162,6 +170,7 @@ def _decide_invariant(
                 loc,
                 f"invariant '{res.label}' is violated (TLC): "
                 f"{' → '.join(outcome.trace) or '(initial state)'}",
+                Code.INVARIANT_VIOLATED,
             ),
             _note(outcome),
         ]
@@ -184,7 +193,12 @@ def _decide_invariant(
         if witness.status == "ok":
             res.status = QueryStatus.NOT_CHECKED
             res.findings = [
-                Finding(Severity.WARNING, loc, "not checked: never evaluable (TLC)"),
+                Finding(
+                    Severity.WARNING,
+                    loc,
+                    "not checked: never evaluable (TLC)",
+                    Code.INVARIANT_NOT_CHECKED,
+                ),
                 _note(outcome),
             ]
             return
@@ -228,4 +242,10 @@ def _decide_query(
         )
     res.trace = outcome.trace if found else None
     severity = Severity.ERROR if res.status == QueryStatus.FAIL else Severity.INFO
-    res.findings = [Finding(severity, loc, message), _note(outcome)]
+    if isinstance(query, Reachable):
+        code = Code.WITNESS if found else Code.NOT_REACHABLE
+    elif not found:
+        code = Code.HOLDS
+    else:
+        code = Code.PROPERTY_VIOLATED if isinstance(query, AlwaysHolds) else Code.REACHED_FORBIDDEN
+    res.findings = [Finding(severity, loc, message, code), _note(outcome)]

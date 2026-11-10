@@ -24,7 +24,7 @@ from analint.models.scope import (
     instance_context_key,
     is_present,
 )
-from analint.reporter.base import Finding, Severity
+from analint.reporter.base import Code, Finding, Severity
 from analint.validator.rule_checker import compile_predicate, evaluate
 from analint.validator.structural import _collect_field_refs, _describe
 
@@ -116,7 +116,13 @@ def check_invariants(spec: Spec, context: dict, label: str) -> list[Finding]:
         loc = f"invariant:{inv.id}"
         try:
             if not evaluate(inv.expression, context):
-                findings.append(Finding(Severity.ERROR, loc, f"{label} failed: {text}"))
+                findings.append(
+                    Finding(Severity.ERROR, loc, f"{label} failed: {text}", Code.INVARIANT_VIOLATED)
+                )
         except Exception as exc:
-            findings.append(Finding(Severity.ERROR, loc, f"evaluation error: {exc}"))
+            findings.append(
+                Finding(
+                    Severity.ERROR, loc, f"evaluation error: {exc}", Code.INVARIANT_EVALUATION_ERROR
+                )
+            )
     return findings

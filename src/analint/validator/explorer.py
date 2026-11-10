@@ -51,7 +51,7 @@ from analint.models.scope import (
     is_field_ref,
     is_present,
 )
-from analint.reporter.base import Finding, InvariantResult, QueryResult, QueryStatus, Severity
+from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.slicing import (
@@ -135,12 +135,12 @@ class Exploration:
     def edges(self) -> _Edges:
         return _Edges(self)
 
-    def report_once(self, severity: Severity, loc: str, message: str) -> None:
+    def report_once(self, severity: Severity, loc: str, message: str, code: Code) -> None:
         """Deduplicated finding — a model error would otherwise repeat per state."""
         if (loc, message) in self._seen:
             return
         self._seen.add((loc, message))
-        self.findings.append(Finding(severity, loc, message))
+        self.findings.append(Finding(severity, loc, message, code))
 
     def trace_to(self, key: StateKey) -> list[str]:
         return self._trace(self.index[key])
@@ -690,6 +690,7 @@ def _explore(
                 Severity.WARNING,
                 f"action:{action.id}",
                 f"excluded from exploration: {exp.excluded[action.id]}",
+                Code.ACTION_EXCLUDED,
             )
 
     # Seed the BFS with every admissible initial state; identical roots merge
@@ -738,7 +739,9 @@ def _explore(
                 # step is pure: re-run it with the trace only now that a defect
                 # needs one (building the trace for every step was a hot spot)
                 for finding in step(spec, action, ctx, trace=exp._trace(idx)).findings:
-                    exp.report_once(finding.severity, finding.location, finding.message)
+                    exp.report_once(
+                        finding.severity, finding.location, finding.message, finding.code
+                    )
                 continue
 
             post = result.post_context
@@ -757,6 +760,7 @@ def _explore(
                     f"action:{action.id}",
                     f"'{action.id}' produces an unhashable state value ({exc}) — "
                     f"the engine supports scalar, enum, str and bool fields only",
+                    Code.UNSUPPORTED_VALUE,
                 )
                 continue
             known = index_get(k2)
@@ -889,6 +893,7 @@ def _report_invariant_violations(
                 Severity.ERROR,
                 f"invariant:{inv.id}",
                 f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]",
+                Code.INVARIANT_EVALUATION_ERROR,
             )
             continue
         if not ok:
@@ -899,6 +904,7 @@ def _report_invariant_violations(
                     f"invariant:{inv.id}",
                     f"invariant '{inv.label or _describe(inv.expression)}' breaks "
                     f"[after: {_trace_str(exp.trace_to(key))}]",
+                    Code.INVARIANT_VIOLATED,
                 )
             )
     return violated
@@ -980,7 +986,11 @@ def _run_query(
             query_id=qid,
             kind=kind,
             status="FAIL",
-            findings=[Finding(Severity.ERROR, f"query:{qid}", error or "bad initial state")],
+            findings=[
+                Finding(
+                    Severity.ERROR, f"query:{qid}", error or "bad initial state", Code.QUERY_INVALID
+                )
+            ],
         )
 
     budget = max_states or query.max_states
@@ -989,7 +999,11 @@ def _run_query(
             query_id=qid,
             kind=kind,
             status="FAIL",
-            findings=[Finding(Severity.ERROR, f"query:{qid}", f"unknown query type {kind}")],
+            findings=[
+                Finding(
+                    Severity.ERROR, f"query:{qid}", f"unknown query type {kind}", Code.QUERY_INVALID
+                )
+            ],
         )
     if analysis is not None:
         # the full exploration of these roots would surface every action's
@@ -1154,6 +1168,7 @@ def verify_invariants(
                         f"invariant:{inv.id}",
                         f"not checked: could not build the canonical initial state "
                         f"({build_error}){hint}",
+                        Code.INVARIANT_NOT_CHECKED,
                     )
                 ],
             )
@@ -1276,7 +1291,9 @@ def _check_invariant_at(
     try:
         ok = invariant_holds(inv, ctx)
     except Exception as exc:
-        return _invariant_failure(inv, exp, key, f"evaluation error: {exc}")
+        return _invariant_failure(
+            inv, exp, key, f"evaluation error: {exc}", Code.INVARIANT_EVALUATION_ERROR
+        )
     if ok:
         return True
     label = inv.label or _describe(inv.expression)
@@ -1285,11 +1302,12 @@ def _check_invariant_at(
         exp,
         key,
         f"invariant '{label}' is violated: {exp.origin(key)}{_trace_str(exp.trace_to(key))}",
+        Code.INVARIANT_VIOLATED,
     )
 
 
 def _invariant_failure(
-    inv: Invariant, exp: Exploration, key: StateKey, message: str
+    inv: Invariant, exp: Exploration, key: StateKey, message: str, code: Code
 ) -> InvariantResult:
     return InvariantResult(
         invariant_id=inv.id,
@@ -1298,7 +1316,7 @@ def _invariant_failure(
         states_explored=len(exp.states),
         trace=exp.trace_to(key),
         witness_key=key,
-        findings=[Finding(Severity.ERROR, f"invariant:{inv.id}", message)],
+        findings=[Finding(Severity.ERROR, f"invariant:{inv.id}", message, code)],
     )
 
 
@@ -1320,6 +1338,7 @@ def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> Inv
                     loc,
                     "not checked: never evaluable over the canonical model "
                     "(its entities are absent in every reachable state)",
+                    Code.INVARIANT_NOT_CHECKED,
                 )
             ],
         )
@@ -1336,6 +1355,7 @@ def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> Inv
                     loc,
                     f"inconclusive: exploration hit max_states before the state space "
                     f"was exhausted — {_cap_hint(exp, tlc=True)}",
+                    Code.BUDGET_EXHAUSTED,
                 )
             ],
         )
@@ -1357,6 +1377,7 @@ def _invariant_outcome(inv: Invariant, exp: Exploration, evaluated: bool) -> Inv
                     f"inconclusive: held in every explored state, but actions "
                     f"[{excluded}] were excluded from exploration, so the "
                     f"transition relation is incomplete",
+                    Code.EXCLUDED_ACTIONS,
                 )
             ],
         )
@@ -1403,7 +1424,10 @@ def _model_error_result(qid: str, kind: str, exp: Exploration, problems: list[st
         kind=kind,
         status="FAIL",
         states_explored=len(exp.states),
-        findings=[Finding(Severity.ERROR, f"query:{qid}", p) for p in problems],
+        findings=[
+            Finding(Severity.ERROR, f"query:{qid}", p, Code.QUERY_EVALUATION_ERROR)
+            for p in problems
+        ],
     )
 
 
@@ -1420,6 +1444,7 @@ def _never_applicable_result(qid: str, kind: str, exp: Exploration, text: str) -
                 f"'{text}' was not applicable in any explored state — it references "
                 f"types that are never part of the state (event payloads or missing "
                 f"entities); the verdict would be vacuous",
+                Code.QUERY_VACUOUS,
             )
         ],
     )
@@ -1456,6 +1481,7 @@ def _eval_reachable(
                         Severity.INFO,
                         f"query:{qid}",
                         f"'{text}' reachable: {origin}{_trace_str(trace)}",
+                        Code.WITNESS,
                     ),
                     *_origin_findings(exp, found, qid),
                 ],
@@ -1472,6 +1498,7 @@ def _eval_reachable(
                     Severity.ERROR,
                     f"query:{qid}",
                     f"'{text}' must be unreachable, but: {origin}{_trace_str(trace)}",
+                    Code.REACHED_FORBIDDEN,
                 ),
                 *_origin_findings(exp, found, qid),
             ],
@@ -1490,6 +1517,7 @@ def _eval_reachable(
                     Severity.ERROR,
                     f"query:{qid}",
                     f"'{text}' is not reachable (explored all {len(exp.states)} states)",
+                    Code.NOT_REACHABLE,
                 )
             ],
         )
@@ -1528,6 +1556,7 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
                         f"query:{qid}",
                         f"'{text}' breaks: {exp.origin(key)}{_trace_str(trace)} ⇒ "
                         f"{_offending_values(query.predicate, ctx)}",
+                        Code.PROPERTY_VIOLATED,
                     ),
                     *_origin_findings(exp, key, qid),
                 ],
@@ -1576,7 +1605,12 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
             status="FAIL",
             states_explored=len(exp.states),
             findings=[
-                Finding(Severity.ERROR, f"query:{qid}", f"goal '{text}' is not reachable at all")
+                Finding(
+                    Severity.ERROR,
+                    f"query:{qid}",
+                    f"goal '{text}' is not reachable at all",
+                    Code.GOAL_UNREACHABLE,
+                )
             ],
         )
 
@@ -1609,6 +1643,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                         f"query:{qid}",
                         f"dead end: after {exp.origin(key)}{_trace_str(trace)} the goal "
                         f"'{text}' can no longer be reached",
+                        Code.DEAD_END,
                     ),
                     *_origin_findings(exp, key, qid),
                 ],
@@ -1627,6 +1662,7 @@ def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spe
             Severity.INFO,
             f"query:{qid}",
             f"not assessed (excluded from exploration): {aid} — {reason}",
+            Code.NOT_ASSESSED,
         )
         for aid, reason in sorted(exp.excluded.items())
     ]
@@ -1650,6 +1686,7 @@ def _eval_dead_actions(query: DeadActions, qid: str, exp: Exploration, spec: Spe
                 Severity.ERROR,
                 f"query:{qid}",
                 f"never enabled in any reachable state: {', '.join(dead)}",
+                Code.DEAD_ACTIONS,
             ),
             *notes,
         ],
@@ -1679,6 +1716,7 @@ def _eval_dead_actions_sliced(
                 Severity.ERROR,
                 f"query:{qid}",
                 f"never enabled in any reachable state: {', '.join(sorted(dead))}",
+                Code.DEAD_ACTIONS,
             )
         )
     if undecided:
@@ -1687,6 +1725,7 @@ def _eval_dead_actions_sliced(
                 Severity.WARNING,
                 f"query:{qid}",
                 f"not decided — their slices exceeded max_states: {', '.join(sorted(undecided))}",
+                Code.UNDECIDED,
             )
         )
     findings.extend(
@@ -1694,6 +1733,7 @@ def _eval_dead_actions_sliced(
             Severity.INFO,
             f"query:{qid}",
             f"not assessed (excluded from exploration): {aid} — {reason}",
+            Code.NOT_ASSESSED,
         )
         for aid, reason in sorted(excluded.items())
     )
@@ -1771,6 +1811,7 @@ def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
                 Severity.WARNING,
                 f"query:{qid}",
                 f"state space exceeded max_states={len(exp.states)} — {_cap_hint(exp, tlc=tlc)}",
+                Code.BUDGET_EXHAUSTED,
             )
         ],
     )
@@ -1782,7 +1823,14 @@ def _origin_findings(exp: Exploration, key: StateKey, qid: str) -> list[Finding]
         return []
     root = exp.root_of(key)
     rendered = ", ".join(f"{k}={v}" for k, v in render_state(exp.states[root]).items())
-    return [Finding(Severity.INFO, f"query:{qid}", f"init #{exp.roots[root]}: {rendered}")]
+    return [
+        Finding(
+            Severity.INFO,
+            f"query:{qid}",
+            f"init #{exp.roots[root]}: {rendered}",
+            Code.INITIAL_STATE,
+        )
+    ]
 
 
 def _offending_values(predicate: Predicate, ctx: dict) -> str:

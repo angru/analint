@@ -17,7 +17,7 @@ from analint.loader.python_loader import (
     resolve_entry,
 )
 from analint.models.root import Spec
-from analint.reporter.base import Finding, Severity, ValidationResult
+from analint.reporter.base import Code, Finding, Severity, ValidationResult
 from analint.validator.scenario_runner import run_scenario
 from analint.validator.structural import validate_structural
 
@@ -243,6 +243,7 @@ def _validate(
                 Severity.ERROR,
                 f"spec:{spec.id}",
                 f"canonical initial cannot be built: {canonical_error}",
+                Code.CANONICAL_INITIAL_ERROR,
             )
         )
 
@@ -306,6 +307,7 @@ def _unloaded_file_warnings(path: Path, modules: list) -> list[Finding]:
                     Severity.WARNING,
                     f"loader:{f.name}",
                     f"'{f}' is not imported from the spec entry point and was ignored",
+                    Code.UNLOADED_FILE,
                 )
             )
     return findings
@@ -336,6 +338,7 @@ def _orphan_warnings(spec: Spec, modules: list) -> list[Finding]:
             f"{kind}:{obj.id}",
             f"'{obj.id}' is defined in the spec modules but is not part of the model "
             f"— list it in the Spec or a Contract, or delete it",
+            Code.ORPHAN,
         )
         for kind, key in (
             ("action", "actions"),

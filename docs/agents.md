@@ -169,6 +169,11 @@ warning to overall FAIL/exit 1 while retaining per-property INCONCLUSIVE status.
 | Witness/counterexample | `analint.trace/v1` |
 | Operation error, where supported | `analint.error/v1` |
 
+Classify findings by their `code` rather than message text, and skip findings
+marked `"expected": true` (the intended rejection in a passing `Expect.FAIL`
+scenario) when routing failures; see [finding codes](cli.md#finding-codes).
+Unreleased after 0.0.5.
+
 Inspect error fields as well as schemas. Some lookup errors retain the
 operation's schema. Invariant traces identify the property with `invariant`
 instead of `query`; clients should accept both forms.

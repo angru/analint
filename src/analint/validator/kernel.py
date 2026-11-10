@@ -52,7 +52,7 @@ from analint.models.scope import (
     is_present,
     present_snapshot,
 )
-from analint.reporter.base import Finding, Severity
+from analint.reporter.base import Code, Finding, Severity
 from analint.validator.rule_checker import compile_predicate, evaluate, resolve
 from analint.validator.structural import _collect_field_refs, _describe
 
@@ -174,20 +174,21 @@ def step(
         if not context_keys >= keys:
             # the predicate reads an entity intentionally absent from this state
             return (
-                _rejected(action, f"PRE not applicable: {_describe(pred)}")
+                _rejected(action, Code.PRE_NOT_APPLICABLE, f"PRE not applicable: {_describe(pred)}")
                 if explain
                 else _silently_rejected()
             )
         try:
             if not holds(context):
                 return (
-                    _rejected(action, f"PRE failed: {_describe(pred)}")
+                    _rejected(action, Code.PRE_FAILED, f"PRE failed: {_describe(pred)}")
                     if explain
                     else _silently_rejected()
                 )
         except Exception as exc:
             return _defect(
                 action,
+                Code.EVALUATION_ERROR,
                 f"pre evaluation error: {exc} (predicate: {_describe(pred)}){_at(trace)}",
             )
 
@@ -195,21 +196,31 @@ def step(
     for target in plan.touched:
         if isinstance(target, InstanceRef) and not is_present(context, target):
             return (
-                _rejected(action, f"cannot modify absent entity {target!r} with Set/Add/Subtract")
+                _rejected(
+                    action,
+                    Code.PRESENCE_REJECTED,
+                    f"cannot modify absent entity {target!r} with Set/Add/Subtract",
+                )
                 if explain
                 else _silently_rejected()
             )
     for effect in plan.creates:
         if is_present(context, effect.target):
             return (
-                _rejected(action, f"cannot create already-present entity {effect.target!r}")
+                _rejected(
+                    action,
+                    Code.PRESENCE_REJECTED,
+                    f"cannot create already-present entity {effect.target!r}",
+                )
                 if explain
                 else _silently_rejected()
             )
     for effect in plan.deletes:
         if not is_present(context, effect.target):
             return (
-                _rejected(action, f"cannot delete absent entity {effect.target!r}")
+                _rejected(
+                    action, Code.PRESENCE_REJECTED, f"cannot delete absent entity {effect.target!r}"
+                )
                 if explain
                 else _silently_rejected()
             )
@@ -236,6 +247,7 @@ def step(
                             f"{context_key_label(target)}.{lc.field_name}="
                             f"{getattr(inst, lc.field_name)!r} is terminal — "
                             f"the entity cannot be modified or deleted",
+                            Code.TERMINAL_LOCKED,
                         )
                     ],
                 )
@@ -251,7 +263,11 @@ def step(
             post = _apply_effects(action.effect, context)
         except Exception as exc:
             return _entered(
-                _defect(action, f"effect evaluation error: {exc}{_after(action, trace)}")
+                _defect(
+                    action,
+                    Code.EVALUATION_ERROR,
+                    f"effect evaluation error: {exc}{_after(action, trace)}",
+                )
             )
         # ── Field clamp / hard constraints, then lifecycle ────────────────────
         field_defect = _check_field_constraints(action, post, trace)
@@ -284,17 +300,17 @@ def _silently_rejected() -> TransitionResult:
     return TransitionResult(Outcome.REJECTED)
 
 
-def _rejected(action: Action, message: str) -> TransitionResult:
+def _rejected(action: Action, code: Code, message: str) -> TransitionResult:
     return TransitionResult(
         Outcome.REJECTED,
-        findings=[Finding(Severity.ERROR, f"action:{action.id}", message)],
+        findings=[Finding(Severity.ERROR, f"action:{action.id}", message, code)],
     )
 
 
-def _defect(action: Action, message: str) -> TransitionResult:
+def _defect(action: Action, code: Code, message: str) -> TransitionResult:
     return TransitionResult(
         Outcome.DEFECT,
-        findings=[Finding(Severity.ERROR, f"action:{action.id}", message)],
+        findings=[Finding(Severity.ERROR, f"action:{action.id}", message, code)],
     )
 
 
@@ -371,6 +387,7 @@ def _check_field_constraints(
                     continue
                 return _defect(
                     action,
+                    Code.FIELD_CONSTRAINT,
                     f"field constraint violated: created {effect.target!r}.{fname} "
                     f"{problem}{_after(action, trace)}",
                 )
@@ -394,6 +411,7 @@ def _check_field_constraints(
             continue
         return _defect(
             action,
+            Code.FIELD_CONSTRAINT,
             f"field constraint violated: {context_key_label(key)}."
             f"{effect.field.field_name} {problem}{_after(action, trace)}",
         )
@@ -433,6 +451,7 @@ def _check_lifecycle_transitions(
             if new not in allowed:
                 return _defect(
                     action,
+                    Code.UNDECLARED_LIFECYCLE_EDGE,
                     f"{context_key_label(context_key)}.{lc.field_name} "
                     f"{_value_str(old)} → {_value_str(new)}, not declared in "
                     f"lifecycle '{lc.id}'{_after(action, trace)}",
@@ -452,12 +471,14 @@ def _check_post(action: Action, post: dict, trace: list[str] | None) -> Transiti
         except Exception as exc:
             return _defect(
                 action,
+                Code.EVALUATION_ERROR,
                 f"post evaluation error: {exc} (predicate: {_describe(pred)})"
                 f"{_after(action, trace)}",
             )
         if not ok:
             return _defect(
                 action,
+                Code.POSTCONDITION_VIOLATED,
                 f"violates its postcondition {_describe(pred)}{_after(action, trace)}",
             )
     return None
@@ -482,6 +503,7 @@ def _materialize_emitted(
         except Exception as exc:
             return [], _defect(
                 action,
+                Code.EVALUATION_ERROR,
                 f"emitted payload evaluation error: {exc} "
                 f"(event: {cls.__name__}){_after(action, trace)}",
             )

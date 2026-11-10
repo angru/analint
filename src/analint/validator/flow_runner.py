@@ -14,7 +14,7 @@ from __future__ import annotations
 from analint.models.action import Action
 from analint.models.flow import Assert, Emitted, Flow
 from analint.models.root import Spec
-from analint.reporter.base import Finding, FlowResult, Severity
+from analint.reporter.base import Code, Finding, FlowResult, Severity
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.state_checks import build_snapshot_context, check_invariants
@@ -29,8 +29,8 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
     emitted_so_far: list = []
     trace: list[str] = []
 
-    def fail(message: str) -> FlowResult:
-        findings.append(Finding(Severity.ERROR, loc, message))
+    def fail(code: Code, message: str) -> FlowResult:
+        findings.append(Finding(Severity.ERROR, loc, message, code))
         return FlowResult(
             flow_id=flow.id,
             passed=False,
@@ -44,7 +44,9 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
     inv_findings = check_invariants(spec, context, "INVARIANT")
     if inv_findings:
         findings.extend(inv_findings)
-        return fail("the flow starts from a state that violates an invariant")
+        return fail(
+            Code.FLOW_INVARIANT_VIOLATED, "the flow starts from a state that violates an invariant"
+        )
 
     for index, entry in enumerate(flow.steps, start=1):
         if isinstance(entry, Action):
@@ -52,8 +54,9 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
             if result.outcome is not Outcome.ACCEPTED:
                 findings.extend(result.findings)
                 return fail(
+                    Code.STEP_NOT_RUN,
                     f"step {index} '{entry.id}' did not run ({result.outcome.value}) — the "
-                    f"journey cannot continue [after: {_trace_str(trace)}]"
+                    f"journey cannot continue [after: {_trace_str(trace)}]",
                 )
             assert result.post_context is not None  # ACCEPTED always materialises it
             context = result.post_context
@@ -63,32 +66,39 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
             if post_inv:
                 findings.extend(post_inv)
                 return fail(
+                    Code.FLOW_INVARIANT_VIOLATED,
                     f"step {index} '{entry.id}' reaches a state that violates an invariant "
-                    f"[after: {_trace_str(trace)}]"
+                    f"[after: {_trace_str(trace)}]",
                 )
         elif isinstance(entry, Assert):
             try:
                 ok = evaluate(entry.predicate, context)
             except Exception as exc:
                 return fail(
+                    Code.CHECKPOINT_EVALUATION_ERROR,
                     f"checkpoint {index} evaluation error: {exc} "
-                    f"({_describe(entry.predicate)}) [after: {_trace_str(trace)}]"
+                    f"({_describe(entry.predicate)}) [after: {_trace_str(trace)}]",
                 )
             if not ok:
                 return fail(
+                    Code.CHECKPOINT_FAILED,
                     f"checkpoint {index} failed: {_describe(entry.predicate)} "
-                    f"[after: {_trace_str(trace)}]"
+                    f"[after: {_trace_str(trace)}]",
                 )
         elif isinstance(entry, Emitted):
             # Compare the class object, not its name: two events can share a name.
             seen = {e if isinstance(e, type) else type(e) for e in emitted_so_far}
             if entry.event_cls not in seen:
                 return fail(
+                    Code.CHECKPOINT_EVENT_NOT_EMITTED,
                     f"checkpoint {index}: event '{entry.event_cls.__name__}' has not been "
-                    f"emitted by this point [after: {_trace_str(trace)}]"
+                    f"emitted by this point [after: {_trace_str(trace)}]",
                 )
         else:
-            return fail(f"step {index} '{entry!r}' is not an Action, Assert(...) or Emitted(...)")
+            return fail(
+                Code.INVALID_ENTRY,
+                f"step {index} '{entry!r}' is not an Action, Assert(...) or Emitted(...)",
+            )
 
     return FlowResult(
         flow_id=flow.id, passed=True, findings=findings, actions_run=len(trace), trace=list(trace)

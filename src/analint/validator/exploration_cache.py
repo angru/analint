@@ -36,11 +36,11 @@ from analint.models.lifecycle import Lifecycle
 from analint.models.quantifier import Bound, BoundField
 from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, Scope, context_key_label
-from analint.reporter.base import Finding, Severity
+from analint.reporter.base import Code, Finding, Severity
 from analint.validator import explorer
 from analint.validator.explorer import Exploration
 
-FORMAT = 1
+FORMAT = 2
 MAX_BYTES = 512 * 1024 * 1024  # pruned oldest-first beyond this
 
 
@@ -276,7 +276,7 @@ def encode(exp: Exploration) -> dict:
         "actions": exp.action_ids,
         "roots": [[exp.index[key], number] for key, number in exp.roots.items()],
         "fired": sorted(exp.fired),
-        "findings": [[f.severity.value, f.location, f.message] for f in exp.findings],
+        "findings": [[f.severity.value, f.location, f.message, f.code.value] for f in exp.findings],
         "excluded": exp.excluded,
         "capped": exp.capped,
         "growing": exp.growing,
@@ -345,7 +345,9 @@ def decode(data: dict, spec: Spec, initials: list[dict], classes: dict[str, type
         exp.action_code(action_id)
     exp.roots = {exp.keys[index]: number for index, number in data["roots"]}
     exp.fired = set(data["fired"])
-    exp.findings = [Finding(Severity(s), loc, msg) for s, loc, msg in data["findings"]]
+    exp.findings = [
+        Finding(Severity(s), loc, msg, Code(code)) for s, loc, msg, code in data["findings"]
+    ]
     exp._seen = {(f.location, f.message) for f in exp.findings}
     exp.excluded = dict(data["excluded"])
     exp.capped = data["capped"]

@@ -11,27 +11,27 @@
       "sc_merge_underapproved": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "c589bd7bd36633a2"
+        "findings_hash": "14dad940224be962"
       },
       "sc_merge_without_code_owner": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "4fd1e1efc0ec083a"
+        "findings_hash": "258252c6809d9060"
       },
       "sc_merge_failing_checks": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "cf3ed1c3d7dad1da"
+        "findings_hash": "57fbf9034f45b7e8"
       },
       "sc_merge_behind_base": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "de0450554f0989fa"
+        "findings_hash": "ef6f6232799f3bd1"
       },
       "sc_merge_with_changes_requested": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "36e73599222158a3"
+        "findings_hash": "597665d92460f54f"
       },
       "sc_push_dismisses_approvals": {
         "status": "PASS",
@@ -105,7 +105,7 @@
           "checks_pass",
           "merge"
         ],
-        "findings_hash": "3b21bda46a5e53a8"
+        "findings_hash": "95a1cced2ca8cdf2"
       },
       "never_merge_underapproved": {
         "status": "PASS",
@@ -243,7 +243,7 @@
       "sc_identity_before_profile_is_rejected": {
         "status": "PASS",
         "rules": 11,
-        "findings_hash": "2d1d2611a95fd0a1"
+        "findings_hash": "94f8d7ee6836274c"
       },
       "sc_identity_approval_raises_the_tier": {
         "status": "PASS",
@@ -263,7 +263,7 @@
       "sc_locked_document_cannot_be_resubmitted": {
         "status": "PASS",
         "rules": 11,
-        "findings_hash": "affffc7b808a0a74"
+        "findings_hash": "3701d2e14c41a076"
       },
       "sc_support_reopens_a_locked_identity": {
         "status": "PASS",
@@ -273,7 +273,7 @@
       "sc_address_before_identity_is_rejected": {
         "status": "PASS",
         "rules": 11,
-        "findings_hash": "c26fea9e5e55ab75"
+        "findings_hash": "ce28b87fa8084d89"
       },
       "sc_address_approval_completes_verification": {
         "status": "PASS",
@@ -313,7 +313,7 @@
       "sc_unregistered_cannot_open": {
         "status": "PASS",
         "rules": 11,
-        "findings_hash": "54c3061073dd18a9"
+        "findings_hash": "bb761ad61b597247"
       },
       "sc_archive_idle_account": {
         "status": "PASS",
@@ -323,7 +323,7 @@
       "sc_archive_with_open_position_is_rejected": {
         "status": "PASS",
         "rules": 14,
-        "findings_hash": "ccf95de971c8f9f6"
+        "findings_hash": "1da058fa9be3b2ab"
       },
       "sc_restore_archived": {
         "status": "PASS",
@@ -353,12 +353,12 @@
       "sc_archived_account_cannot_trade": {
         "status": "PASS",
         "rules": 16,
-        "findings_hash": "3a8d51e6a5398376"
+        "findings_hash": "7c4b98a3ee03d70c"
       },
       "sc_gated_region_needs_full_verification_to_trade": {
         "status": "PASS",
         "rules": 16,
-        "findings_hash": "697827e82d3cf768"
+        "findings_hash": "989aab8802737a65"
       },
       "sc_close_position": {
         "status": "PASS",
@@ -368,7 +368,7 @@
       "sc_disabled_account_cannot_close": {
         "status": "PASS",
         "rules": 14,
-        "findings_hash": "189b9f5214a3b9bb"
+        "findings_hash": "0db0e0786fcc9773"
       },
       "sc_first_deposit_at_low_tier": {
         "status": "PASS",
@@ -378,17 +378,17 @@
       "sc_deposit_over_tier_limit_is_rejected": {
         "status": "PASS",
         "rules": 16,
-        "findings_hash": "54e07a9d9128f1e6"
+        "findings_hash": "7b8a170927bb0f76"
       },
       "sc_deposit_into_archived_account_is_rejected": {
         "status": "PASS",
         "rules": 16,
-        "findings_hash": "c07a53aa1931532e"
+        "findings_hash": "ee251804aae76f01"
       },
       "sc_gated_region_needs_full_verification_to_deposit": {
         "status": "PASS",
         "rules": 16,
-        "findings_hash": "3885b2932dcf05d3"
+        "findings_hash": "7c6b4d899d4c0a57"
       },
       "sc_verify_card": {
         "status": "PASS",
@@ -403,17 +403,17 @@
       "sc_withdrawal_without_code_is_rejected": {
         "status": "PASS",
         "rules": 19,
-        "findings_hash": "d5e630b73ac8f36d"
+        "findings_hash": "65307e97b21b46c7"
       },
       "sc_withdrawal_to_ineligible_card_is_rejected": {
         "status": "PASS",
         "rules": 19,
-        "findings_hash": "acda33e3cd610f67"
+        "findings_hash": "2bd5b7ae962a4762"
       },
       "sc_withdrawal_beyond_free_margin_is_rejected": {
         "status": "PASS",
         "rules": 19,
-        "findings_hash": "791bd614b84d3a4c"
+        "findings_hash": "02101f34bdc51863"
       },
       "sc_pay_withdrawal": {
         "status": "PASS",
@@ -433,7 +433,7 @@
       "sc_terminate_with_money_is_rejected": {
         "status": "PASS",
         "rules": 11,
-        "findings_hash": "825ff4bc70235601"
+        "findings_hash": "694854c3c8bb3637"
       }
     },
     "queries": {
@@ -450,7 +450,7 @@
           "submit_address",
           "approve_address"
         ],
-        "findings_hash": "9a2fb46b35b48863"
+        "findings_hash": "81c3ea4489d1d511"
       },
       "final_rejection_can_happen": {
         "status": "PASS",
@@ -465,7 +465,7 @@
           "submit_identity",
           "lock_identity"
         ],
-        "findings_hash": "7c2a768ee30db64f"
+        "findings_hash": "fb7cb78a6b6e8b07"
       },
       "verification_never_stuck": {
         "status": "PASS",
@@ -490,7 +490,7 @@
           "open_account(acct=Account['main'], kind=<AccountKind.CENT: 'cent'>, mode=<Mode.REAL: 'real'>)",
           "archive(acct=Account['main'])"
         ],
-        "findings_hash": "d85b2d9622c6eeeb"
+        "findings_hash": "ce7a26439234abef"
       },
       "money_round_trip": {
         "status": "PASS",
@@ -505,7 +505,7 @@
           "request_withdrawal(acct=Account['main'])",
           "pay_withdrawal(acct=Account['main'])"
         ],
-        "findings_hash": "29a2b8f9fc935105"
+        "findings_hash": "a73dd0d511ce2ebe"
       },
       "gated_region_deposits_only_when_verified": {
         "status": "PASS",
@@ -677,7 +677,7 @@
       "sc_hang_from_foyer": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "e715c2392ebd9b53"
+        "findings_hash": "c1c17a97759d4032"
       },
       "sc_grope": {
         "status": "PASS",
@@ -687,7 +687,7 @@
       "sc_read_in_dark": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "6e0d93cc8d7bb80b"
+        "findings_hash": "aa1e83078308a925"
       },
       "sc_clean_win": {
         "status": "PASS",
@@ -702,7 +702,7 @@
       "sc_game_already_over": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "b8a74a19ef41a77f"
+        "findings_hash": "40db0634ace15a4f"
       }
     },
     "queries": {
@@ -717,7 +717,7 @@
           "go_south",
           "read_message_win"
         ],
-        "findings_hash": "854497f77fcf2f93"
+        "findings_hash": "1c3342ad513eb546"
       },
       "lose_is_reachable": {
         "status": "PASS",
@@ -734,7 +734,7 @@
           "go_south",
           "read_message_lose"
         ],
-        "findings_hash": "625912c74fa3f673"
+        "findings_hash": "94c9d697fc0d274f"
       },
       "game_can_always_end": {
         "status": "PASS",
@@ -798,7 +798,7 @@
       "sc_send_without_mint": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "6ff381b423d5596b"
+        "findings_hash": "25e2d2c5e73bc5bc"
       },
       "sc_mint_then_send": {
         "status": "PASS",
@@ -808,12 +808,12 @@
       "sc_no_overdraft": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "896256d6dff175c0"
+        "findings_hash": "252d51b197d85f08"
       },
       "sc_receiver_overflow_blocked": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "17ac195e21ac7be4"
+        "findings_hash": "c8184ddc8c3a7728"
       },
       "sc_minting_works": {
         "status": "PASS",
@@ -837,7 +837,7 @@
           "mint(receiver=Account['alice'], amount=3)",
           "mint(receiver=Account['bob'], amount=3)"
         ],
-        "findings_hash": "5324cfdc58113dd0"
+        "findings_hash": "7953be275d45d13e"
       },
       "everyone_can_get_paid": {
         "status": "PASS",
@@ -846,7 +846,7 @@
         "trace": [
           "mint(receiver=Account['eve'], amount=1)"
         ],
-        "findings_hash": "bf3553fb2e026167"
+        "findings_hash": "5cadaeb07bfcf148"
       },
       "every_method_callable": {
         "status": "PASS",
@@ -913,17 +913,17 @@
       "checkout/no-funds": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "ccff65cacd086be5"
+        "findings_hash": "045be3f8291cf769"
       },
       "checkout/out-of-stock": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "bed4add7ea407145"
+        "findings_hash": "dab0541377605ea3"
       },
       "checkout/already-paid": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "db2c01efef80ea73"
+        "findings_hash": "aadf35c2a332aef6"
       }
     },
     "queries": {
@@ -934,7 +934,7 @@
         "trace": [
           "checkout"
         ],
-        "findings_hash": "cf316ccafba6a1c4"
+        "findings_hash": "0402c75342ed216a"
       }
     },
     "explorations": {
@@ -960,9 +960,49 @@
     "verdict": "PASS",
     "warnings": 0,
     "scenarios": {
+      "sc_restock": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_reserve": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_reject": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_reserve_needs_stock": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "2b9df9f43d6cec47"
+      },
       "sc_authorize": {
         "status": "PASS",
         "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_decline": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_compensate_failed": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_confirm": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_capture": {
+        "status": "PASS",
+        "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
       },
       "sc_cancel": {
@@ -973,9 +1013,34 @@
       "sc_cancel_window_closed": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "3d407206ff17038c"
+        "findings_hash": "02898a04130e25b2"
       },
-      "sc_capture": {
+      "sc_refund": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_release": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_dispatch": {
+        "status": "PASS",
+        "rules": 4,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_delivery": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_lost": {
+        "status": "PASS",
+        "rules": 3,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "sc_refund_lost": {
         "status": "PASS",
         "rules": 3,
         "findings_hash": "e3b0c44298fc1c14"
@@ -988,76 +1053,11 @@
       "sc_close_lost_needs_refund": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "59a181311aa9fd92"
-      },
-      "sc_compensate_failed": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_confirm": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_decline": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_delivery": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_dispatch": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_lost": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_refund": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_refund_lost": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_reject": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_release": {
-        "status": "PASS",
-        "rules": 3,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_reserve": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "sc_reserve_needs_stock": {
-        "status": "PASS",
-        "rules": 4,
-        "findings_hash": "b9712d5ce4c71f3f"
-      },
-      "sc_restock": {
-        "status": "PASS",
-        "rules": 2,
-        "findings_hash": "e3b0c44298fc1c14"
+        "findings_hash": "05fb4fa0c38c5066"
       }
     },
     "queries": {
-      "every_step_used": {
+      "settlement_always_reachable": {
         "status": "PASS",
         "states": 34,
         "exploration": "01d7dc1512140a0a",
@@ -1077,7 +1077,21 @@
           "dispatch",
           "confirm_delivery"
         ],
-        "findings_hash": "a002c1cb660e38ff"
+        "findings_hash": "d4a59c64f648684f"
+      },
+      "refund_path_exists": {
+        "status": "PASS",
+        "states": 34,
+        "exploration": "01d7dc1512140a0a",
+        "trace": [
+          "supplier_restock",
+          "reserve_stock",
+          "authorize_payment",
+          "confirm_order",
+          "cancel_by_customer",
+          "refund_after_cancel"
+        ],
+        "findings_hash": "55168811dafe0d64"
       },
       "no_free_goods": {
         "status": "PASS",
@@ -1093,21 +1107,7 @@
         "trace": null,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "refund_path_exists": {
-        "status": "PASS",
-        "states": 34,
-        "exploration": "01d7dc1512140a0a",
-        "trace": [
-          "supplier_restock",
-          "reserve_stock",
-          "authorize_payment",
-          "confirm_order",
-          "cancel_by_customer",
-          "refund_after_cancel"
-        ],
-        "findings_hash": "0e4c0426167839cf"
-      },
-      "settlement_always_reachable": {
+      "every_step_used": {
         "status": "PASS",
         "states": 34,
         "exploration": "01d7dc1512140a0a",
@@ -1178,7 +1178,7 @@
       "sc_create_beyond_quota_blocked": {
         "status": "PASS",
         "rules": 2,
-        "findings_hash": "4424cf494395c975"
+        "findings_hash": "a9e58b0a824688dc"
       },
       "sc_acquire_orphan": {
         "status": "PASS",
@@ -1224,7 +1224,7 @@
           "reconcile_create(rs=ReplicaSet[<Owner.RS0: 'replicaset-0'>], slot=Pod['p0'])",
           "reconcile_create(rs=ReplicaSet[<Owner.RS1: 'replicaset-1'>], slot=Pod['p1'])"
         ],
-        "findings_hash": "72aaa226b099f7a9"
+        "findings_hash": "5b44c5d2c17c414e"
       },
       "quota_can_starve_a_replicaset": {
         "status": "PASS",
@@ -1235,7 +1235,7 @@
           "scale_up(rs=ReplicaSet[<Owner.RS1: 'replicaset-1'>])",
           "reconcile_create(rs=ReplicaSet[<Owner.RS1: 'replicaset-1'>], slot=Pod['p0'])"
         ],
-        "findings_hash": "cf772f63b9616e9f"
+        "findings_hash": "0609f698281f54d5"
       },
       "bare_pods_can_starve_a_replicaset": {
         "status": "PASS",
@@ -1245,7 +1245,7 @@
           "scale_up(rs=ReplicaSet[<Owner.RS0: 'replicaset-0'>])",
           "create_bare_pod(slot=Pod['p0'])"
         ],
-        "findings_hash": "483e8a4bd884f826"
+        "findings_hash": "7c2a9f951d059676"
       },
       "rs0_converged_always_recoverable": {
         "status": "PASS",
@@ -1345,7 +1345,7 @@
       "sc_citizen_cannot_kill": {
         "status": "PASS",
         "rules": 8,
-        "findings_hash": "b558bb1124a84bcf"
+        "findings_hash": "c8a3d601f3be3a79"
       },
       "sc_kill_last_citizen_ends_game": {
         "status": "PASS",
@@ -1360,12 +1360,12 @@
       "sc_player_cannot_vote_twice": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "5576ad6b5480a229"
+        "findings_hash": "01300afabdef0afa"
       },
       "sc_dead_player_cannot_vote": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "964a3619cb8a5eeb"
+        "findings_hash": "1e698a1b315f3680"
       },
       "sc_town_hangs_the_mafia": {
         "status": "PASS",
@@ -1400,7 +1400,7 @@
           "votes_tied",
           "mafia_kills_last_citizen(killer=Mahtab, victim=Max, bystander=Gabriela)"
         ],
-        "findings_hash": "0ba78ea9956a319a"
+        "findings_hash": "003f7aa8442bbfb2"
       },
       "citizens_cannot_win": {
         "status": "PASS",
@@ -1478,12 +1478,12 @@
       "sc_attacker_wrong_client": {
         "status": "PASS",
         "rules": 5,
-        "findings_hash": "a937de511fc4a967"
+        "findings_hash": "69674aa8e80badb0"
       },
       "sc_attacker_wrong_verifier": {
         "status": "PASS",
         "rules": 5,
-        "findings_hash": "1f5b3d0f605c7478"
+        "findings_hash": "7ef5ec5d37884561"
       },
       "sc_replay_revokes_derived_token": {
         "status": "PASS",
@@ -1493,7 +1493,7 @@
       "sc_revoke_unrelated_token_blocked": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "4c7360de2cb40deb"
+        "findings_hash": "fce5053fc9d0afcc"
       }
     },
     "queries": {
@@ -1505,7 +1505,7 @@
           "issue_code(code=AuthCode[<CodeId.C1: 'code-1'>], client=<Client.HONEST: 'honest'>, redirect=<Redirect.A: 'https://app-a.example/cb'>, challenge=<Pkce.V1: 'verifier-1'>)",
           "redeem_code(code=AuthCode[<CodeId.C1: 'code-1'>], token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
-        "findings_hash": "cf31635c861c3836"
+        "findings_hash": "cf7baaca76d9b6a1"
       },
       "every_token_traces_to_its_code": {
         "status": "PASS",
@@ -1544,7 +1544,7 @@
           "redeem_code(code=AuthCode[<CodeId.C1: 'code-1'>], token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)",
           "detect_replay_and_revoke(code=AuthCode[<CodeId.C1: 'code-1'>], token=Token['t1'], as_client=<Client.HONEST: 'honest'>, presented=<Redirect.A: 'https://app-a.example/cb'>, verifier=<Pkce.V1: 'verifier-1'>)"
         ],
-        "findings_hash": "b72df7421603998f"
+        "findings_hash": "e3b43ad2434f9ba0"
       },
       "only_replayed_codes_tokens_are_revoked": {
         "status": "PASS",
@@ -1706,12 +1706,12 @@
       "sc_key_needs_dead_guardian": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "4018826775b157dd"
+        "findings_hash": "8397d22d08ec1875"
       },
       "sc_vault_needs_key": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "c2307825a5400caf"
+        "findings_hash": "25233fa1a66d3159"
       },
       "sc_escape": {
         "status": "PASS",
@@ -1726,7 +1726,7 @@
       "sc_no_act_when_dead": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "607cd4618f67504e"
+        "findings_hash": "425203ec4c80831d"
       }
     },
     "queries": {
@@ -1750,7 +1750,7 @@
           "enter_altar",
           "place_amulet"
         ],
-        "findings_hash": "44d68e71e1ebbf67"
+        "findings_hash": "1bd36360ec703367"
       },
       "death_is_reachable": {
         "status": "PASS",
@@ -1763,7 +1763,7 @@
           "fight_barehanded",
           "succumb"
         ],
-        "findings_hash": "d789a6cf21732a8a"
+        "findings_hash": "6f8059c3344ef7e7"
       },
       "stamina_never_negative": {
         "status": "PASS",
@@ -1830,85 +1830,85 @@
     "verdict": "PASS",
     "warnings": 1,
     "scenarios": {
-      "archive-card/already-archived": {
+      "invite-member/happy": {
         "status": "PASS",
-        "rules": 7,
-        "findings_hash": "edf6372fd42725b5"
-      },
-      "archive-card/happy": {
-        "status": "PASS",
-        "rules": 7,
+        "rules": 5,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "assign-card/not-a-member": {
+      "invite-member/not-owner": {
         "status": "PASS",
-        "rules": 6,
-        "findings_hash": "e5dbc737de748eb3"
+        "rules": 5,
+        "findings_hash": "d38bac5ed800fb98"
       },
-      "assign-card/happy": {
+      "invite-member/inactive-user": {
         "status": "PASS",
-        "rules": 6,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "add-comment/archived-card": {
-        "status": "PASS",
-        "rules": 7,
-        "findings_hash": "8ea31d9032a6e64a"
-      },
-      "add-comment/happy": {
-        "status": "PASS",
-        "rules": 7,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "create-card/archived-board": {
-        "status": "PASS",
-        "rules": 6,
-        "findings_hash": "a4669aa00faf635d"
+        "rules": 5,
+        "findings_hash": "f57ff91a89de0298"
       },
       "create-card/happy": {
         "status": "PASS",
         "rules": 6,
         "findings_hash": "e3b0c44298fc1c14"
       },
+      "create-card/archived-board": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "646f3fda11ead12d"
+      },
       "create-card/column-wrong-board": {
         "status": "PASS",
         "rules": 6,
-        "findings_hash": "6b6e08723c76c2e4"
-      },
-      "invite-member/inactive-user": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "fbacadf0ab51c5f3"
-      },
-      "invite-member/not-owner": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "35b06dc752438d96"
-      },
-      "invite-member/happy": {
-        "status": "PASS",
-        "rules": 5,
-        "findings_hash": "e3b0c44298fc1c14"
-      },
-      "move-card/already-archived": {
-        "status": "PASS",
-        "rules": 6,
-        "findings_hash": "78185221302eaec7"
+        "findings_hash": "8377c4f29baae1f6"
       },
       "move-card/happy": {
         "status": "PASS",
         "rules": 6,
         "findings_hash": "e3b0c44298fc1c14"
       },
-      "send-notification/already-read": {
+      "move-card/already-archived": {
         "status": "PASS",
-        "rules": 2,
-        "findings_hash": "1e51783c8466b28b"
+        "rules": 6,
+        "findings_hash": "82efa29d42c745a7"
+      },
+      "assign-card/happy": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "assign-card/not-a-member": {
+        "status": "PASS",
+        "rules": 6,
+        "findings_hash": "9556cbefdb3b485b"
+      },
+      "add-comment/happy": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "add-comment/archived-card": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "a3edf38ac7891d46"
+      },
+      "archive-card/happy": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "e3b0c44298fc1c14"
+      },
+      "archive-card/already-archived": {
+        "status": "PASS",
+        "rules": 7,
+        "findings_hash": "cb4b023b00862156"
       },
       "send-notification/happy": {
         "status": "PASS",
         "rules": 2,
         "findings_hash": "e3b0c44298fc1c14"
+      },
+      "send-notification/already-read": {
+        "status": "PASS",
+        "rules": 2,
+        "findings_hash": "fd9105024d37f234"
       }
     },
     "queries": {},
@@ -1938,7 +1938,7 @@
       "sc_cannot_afford_sword": {
         "status": "PASS",
         "rules": 4,
-        "findings_hash": "114280809356c87b"
+        "findings_hash": "08c0cb1efc6131d8"
       },
       "sc_potion": {
         "status": "PASS",
@@ -1953,7 +1953,7 @@
       "sc_no_crossing_with_troll": {
         "status": "PASS",
         "rules": 3,
-        "findings_hash": "826916b2a54ac4e6"
+        "findings_hash": "5cbeaa2f3034458a"
       },
       "sc_buy_two_potions": {
         "status": "PASS",
@@ -1971,7 +1971,7 @@
           "fight_troll",
           "cross_bridge"
         ],
-        "findings_hash": "e247e1e5173fc8b3"
+        "findings_hash": "c3acd7569b8a5819"
       },
       "no_softlock": {
         "status": "FAIL",
@@ -1980,7 +1980,7 @@
         "trace": [
           "buy_potion"
         ],
-        "findings_hash": "03308afc6bda05fa"
+        "findings_hash": "fc84ba186d36fa83"
       },
       "hp_never_negative": {
         "status": "FAIL",
@@ -1991,7 +1991,7 @@
           "fight_troll",
           "cross_bridge"
         ],
-        "findings_hash": "eff40759044f53be"
+        "findings_hash": "ff53bac695cbc5c4"
       },
       "no_gold_from_thin_air": {
         "status": "PASS",

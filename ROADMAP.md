@@ -1,7 +1,7 @@
 # analint — Roadmap
 
-Current status (2026-11-10): **0.0.6 released and verified on PyPI.**
-The release adds query and action family inspection and stable diagnostic codes.
+Current status (2026-11-10): **0.0.7 released and verified on PyPI.**
+The release adds compact diagnostic reports for the CLI and MCP.
 Semantic core and P5 are complete.
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -34,8 +34,8 @@ verification of the exact build artifacts on that Python matrix.
 2. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
-   included in 0.0.6. Compact diagnostics reduce the Kubernetes regression
-   report by 98.69% (see below). Real-spec follow-up remains priority 1.
+   included in 0.0.6. Compact diagnostics in 0.0.7 reduce the Kubernetes
+   regression report by 98.69% (see below). Real-spec follow-up remains priority 1.
 3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
@@ -69,6 +69,18 @@ through real changes (research/31 §2.4). Another synthetic model or language
 primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-07)
+
+### 0.0.7 publication — verified (2026-11-10)
+
+Quality and Docs passed on squash merge `276107e` and release commit `7767c68`.
+Publish verified the tagged wheel and sdist on Python 3.12–3.15 before uploading
+them. The public PyPI hashes match those artifacts. A clean PyPI install exercised
+both CLI report formats and MCP compact mode on the Kubernetes regression,
+counting 1,920 findings with a 98.69% reduction in CLI JSON size.
+[Merge CI](https://github.com/angru/analint/actions/runs/42893043465) ·
+[Release CI](https://github.com/angru/analint/actions/runs/42894700525) ·
+[Publish](https://github.com/angru/analint/actions/runs/42895840460) ·
+[v0.0.7](https://github.com/angru/analint/releases/tag/v0.0.7)
 
 ### 0.0.6 publication — verified (2026-11-10)
 

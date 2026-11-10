@@ -4,6 +4,7 @@ import json
 import re
 from pathlib import Path
 
+import click
 from typer.testing import CliRunner
 
 from analint.cli import app
@@ -144,4 +145,4 @@ def test_compact_check_matches_mcp_and_keeps_expected_rejection(tmp_path):
 def test_compact_requires_json_format():
     result = CliRunner().invoke(app, ["check", "--compact"])
     assert result.exit_code == 2
-    assert "requires --format json" in result.output
+    assert "requires --format json" in click.unstyle(result.output)

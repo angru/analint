@@ -1,7 +1,8 @@
 # analint — Roadmap
 
-Current status (2026-11-07): **0.0.5 released and verified on PyPI.
-Semantic core and P5 are complete; impact-analysis fixes are released.**
+Current status (2026-11-10): **0.0.6 released and verified on PyPI.**
+The release adds query and action family inspection and stable diagnostic codes.
+Semantic core and P5 are complete.
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
 property-local reachability. Slicing, compact state storage and the opt-in TLC
@@ -70,6 +71,17 @@ primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-07)
 
+### 0.0.6 publication — verified (2026-11-10)
+
+[v0.0.6](https://github.com/angru/analint/releases/tag/v0.0.6) tags `c110bce`.
+[Quality](https://github.com/angru/analint/actions/runs/42886195748) and
+[Publish](https://github.com/angru/analint/actions/runs/42887478478) passed on
+Python 3.12–3.15. The [PyPI](https://pypi.org/project/analint/0.0.6/) wheel and
+sdist SHA-256 values match the verified Publish artifacts. A clean install
+passed CLI and MCP smoke checks, query and action family inspection, and
+diagnostic code and expected rejection checks. The release gate includes the
+[#5 reproduction](https://github.com/angru/analint/issues/5).
+
 ### Agent workflow on existing models — guided pass complete (2026-11-07)
 
 One internal agent run exercised `show → affects → what-if → apply → check →
@@ -131,8 +143,7 @@ It does not add language primitives or reopen P5.
   wheel/MCP/archive-collection jobs all pass. These timings describe this run,
   not a performance gate.
 
-These changes are unreleased after 0.0.5; no new package publication is required
-for the CI gate itself.
+These CI checks are part of the 0.0.6 release process.
 
 ### 0.0.5: impact-analysis completeness — released and verified (2026-11-06)
 

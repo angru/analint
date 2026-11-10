@@ -13,3 +13,4 @@ htmlcov/
 reviews/
 _apalache-out/
 site/
+.DS_Store

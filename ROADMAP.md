@@ -1,6 +1,6 @@
 # analint — Roadmap
 
-Current status (2026-11-06): **0.0.5 released and verified on PyPI.
+Current status (2026-11-07): **0.0.5 released and verified on PyPI.
 Semantic core and P5 are complete; impact-analysis fixes are released.**
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -14,7 +14,7 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-06)
+## Current priorities (2026-11-07)
 
 The documentation baseline is complete: a runnable first-spec tutorial,
 verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
@@ -30,7 +30,13 @@ verification of the exact build artifacts on that Python matrix.
    Published 0.0.5 passes its reproduction; the issue is closed. Next, observe
    one real requirement change through `show → affects → what-if → check → trace`; this needs an
    accessible real spec and the intended change, not another invented model.
-2. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
+2. **Agent workflow — guided pass and query/family inspection complete.**
+   Three existing examples pass requirement-change loops with defect controls
+   (see the queue below). Query details and action-family navigation are
+   implemented, unreleased after 0.0.5. Next, measure whether compact diagnostics
+   reduce the observed response volume. This internal run does not complete
+   the real-spec trial.
+3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
 
@@ -62,7 +68,22 @@ remaining product question is whether users can maintain useful abstractions
 through real changes (research/31 §2.4). Another synthetic model or language
 primitive would not resolve that question.
 
-## Post-release work queue (reviewed 2026-11-06)
+## Post-release work queue (reviewed 2026-11-07)
+
+### Agent workflow on existing models — guided pass complete (2026-11-07)
+
+One internal agent run exercised `show → affects → what-if → apply → check →
+trace` on Branch protection, OAuth and Kubernetes, with one planted defect per
+model caught and restored, and capped vs sufficient budgets interpreted
+correctly. `tests/test_agent_workflow.py` replays those edits and controls.
+This is internal evidence, not an independent agent evaluation.
+
+- [x] `show query`/`show queries` listing and `show query ID` details
+  (predicate/goal, declarative roots, budget) without enumeration.
+- [x] `show action FAMILY_ID` for parameterized families, including
+  zero-variant ones; concrete ids keep precedence. Unreleased after 0.0.5.
+- [ ] Design bounded diagnostic summaries with explicit access to full
+  findings: one planted Kubernetes defect produced ~1.1 MB of JSON.
 
 ### Automated release acceptance — complete (2026-11-06)
 

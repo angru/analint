@@ -5,10 +5,12 @@ import json
 import os
 import py_compile
 import sys
+from subprocess import CompletedProcess
 
 import pytest
 
 from analint.mcp_server import check_spec
+from analint.mcp_worker import isolated_request
 
 SOURCE = """from analint import Action, AlwaysHolds, Entity, Scenario, Spec
 class Item(Entity):
@@ -18,6 +20,29 @@ scenario = Scenario(name="zero", action=action, given=[Item()])
 query = AlwaysHolds(Item.value == LIMIT, id="query")
 spec = Spec(id="s", name="S", actions=[action], scenarios=[scenario], queries=[query])
 """
+
+
+def test_worker_failure_preserves_exception_summary():
+    @isolated_request
+    def unsupported() -> dict:
+        return {}
+
+    with pytest.raises(RuntimeError, match="ValueError: unknown model operation: unsupported"):
+        unsupported()
+
+
+@pytest.mark.parametrize("stderr", ["", "large output\n" * 1000 + "X" * 3000 + "\nerror summary"])
+def test_worker_failure_diagnostics_are_bounded(monkeypatch, stderr):
+    monkeypatch.setattr(
+        "analint.mcp_worker.subprocess.run",
+        lambda *args, **kwargs: CompletedProcess(args[0], 7, stdout="", stderr=stderr),
+    )
+    with pytest.raises(RuntimeError) as caught:
+        check_spec("unused")
+    message = str(caught.value)
+    assert "check_spec worker exited with code 7" in message
+    assert len(message) < 2100
+    assert message.endswith("error summary" if stderr else "(no stderr)")
 
 
 def write_same_stat(path, text):

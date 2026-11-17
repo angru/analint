@@ -36,8 +36,16 @@ def isolated_request[**P](function: _Operation[P]) -> Callable[P, dict]:
             input=json.dumps({"operation": operation, "args": args, "kwargs": kwargs}),
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
+        if result.returncode:
+            # Preserve the worker's exception summary without flooding tool
+            # responses with an unbounded traceback or model output.
+            detail = "\n".join(result.stderr.strip().splitlines()[-8:])[-2000:]
+            raise RuntimeError(
+                f"analint {operation} worker exited with code {result.returncode}"
+                + (f":\n{detail}" if detail else " (no stderr)")
+            )
         return json.loads(result.stdout)
 
     return call

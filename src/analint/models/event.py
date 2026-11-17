@@ -28,7 +28,7 @@ class Event(metaclass=EntityMeta):
     """
 
     def __init__(self, **kwargs: Any) -> None:
-        _init_fields(self, kwargs)
+        _init_fields(self, kwargs, allow_symbolic=True)
 
     def __repr__(self) -> str:
         parts = ", ".join(f"{k}={self.__dict__.get(k)!r}" for k in all_fields(type(self)))

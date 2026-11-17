@@ -17,10 +17,12 @@ from pathlib import Path
 from typing import Any
 
 from analint import query as q
+from analint.mcp_worker import isolated_request
 from analint.reporter.json_reporter import result_to_dict
 from analint.validator.engine import build_spec, validate
 
 
+@isolated_request
 def check_spec(
     path: str = ".",
     what_if: str | None = None,
@@ -48,6 +50,7 @@ def check_spec(
     return result_to_dict(result, compact=compact)
 
 
+@isolated_request
 def explore_spec(
     path: str = ".",
     query: str | None = None,
@@ -81,6 +84,7 @@ def explore_spec(
         return exc.to_dict()
 
 
+@isolated_request
 def trace_spec(
     path: str = ".", query: str = "", what_if: str | None = None, slice: bool = True
 ) -> dict:
@@ -92,6 +96,7 @@ def trace_spec(
         return exc.to_dict()
 
 
+@isolated_request
 def show_spec(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:
@@ -99,6 +104,7 @@ def show_spec(path: str = ".", kind: str | None = None, name: str | None = None)
     return q.show(spec, kind, name)
 
 
+@isolated_request
 def affects_target(target: str, path: str = ".") -> dict:
     spec, _, load_errors = build_spec(Path(path))
     if spec is None:

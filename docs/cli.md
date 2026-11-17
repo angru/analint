@@ -179,6 +179,10 @@ values. `Key(ref)` alone reads neither fields nor presence; quantification over
 keys still reads domain membership. Expression-based event bindings and their
 scenarios are included. These are additive fields in the existing v1 schemas.
 
+**Unreleased:** if a `--what-if` file cannot be loaded, both `explore` and
+`trace` return a load error (exit 3), just as `check` rejects that preparation.
+They do not return an artifact for the unchanged base model.
+
 ## trace
 
 ```bash

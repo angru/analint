@@ -5,6 +5,7 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from analint.models.lifecycle import Lifecycle
+from analint.models.symbolic import Symbolic
 
 if TYPE_CHECKING:
     from analint.models.predicate import Predicate
@@ -100,7 +101,7 @@ def Field(
     )
 
 
-class FieldDescriptor:
+class FieldDescriptor(Symbolic):
     """Class-level field proxy that yields predicate objects when compared."""
 
     def __init__(
@@ -244,8 +245,10 @@ def all_fields(cls: type) -> dict[str, FieldDescriptor]:
     return fields
 
 
-def _init_fields(instance: Any, kwargs: dict[str, Any]) -> None:
-    """Shared __init__ logic for Entity and Event."""
+def _init_fields(instance: Any, kwargs: dict[str, Any], *, allow_symbolic: bool = False) -> None:
+    """Initialize snapshots, deferring value constraints only for event templates."""
+    from analint.models.predicate import Predicate
+
     fields = all_fields(type(instance))
     unknown = set(kwargs) - set(fields)
     if unknown:
@@ -259,7 +262,8 @@ def _init_fields(instance: Any, kwargs: dict[str, Any]) -> None:
             value = desc.default
         else:
             raise TypeError(f"{type(instance).__name__}() missing required field: '{field_name}'")
-        if desc.spec is not None:
+        symbolic_value = isinstance(value, Symbolic) and not isinstance(value, Predicate)
+        if desc.spec is not None and not (allow_symbolic and symbolic_value):
             problem = desc.spec.violation(value)
             if problem is not None:
                 raise ValueError(f"{type(instance).__name__}.{field_name} {problem}")

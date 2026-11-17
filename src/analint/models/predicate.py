@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from analint.models.symbolic import Symbolic
 
-class Predicate:
+
+class Predicate(Symbolic):
     """Base class for all predicate expressions (enables typing and isinstance)."""
 
 

@@ -26,6 +26,7 @@ from analint.models.predicate import (
     normalize_predicate,
 )
 from analint.models.scope import InstanceRef, Scope
+from analint.models.symbolic import Symbolic
 
 if TYPE_CHECKING:
     from analint.models.scope import InstanceField
@@ -56,7 +57,7 @@ class Bound:
         return self.name
 
 
-class BoundField:
+class BoundField(Symbolic):
     """A field of the instance currently bound by a finite quantifier."""
 
     def __init__(self, variable: Bound, field_name: str) -> None:

@@ -62,7 +62,6 @@ def test_worst_order_scenario_catches_a_missing_priority_guard():
     original = stop_worst_order.bind(acct=primary, owner=Owner.PRIMARY, order=second)
     # bind() is memoized; keep the planted defect out of the shared model.
     broken = original.model_copy(update={"pre": original.pre[:-1]})
-    broken._kernel_plan = None
     probe = Scenario(
         id="priority_probe",
         action=broken,

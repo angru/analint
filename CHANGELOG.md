@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Invalid materialized event payloads now produce `transition.field_constraint`
+  findings and failing scenarios/flows instead of escaping as exceptions.
+  Payloads retain non-clamping event-construction semantics; unexpected
+  constructor errors are evaluation findings. TLC explicitly refuses constrained
+  payload templates rather than silently ignoring their bounds. ([#20](https://github.com/angru/analint/issues/20))
+
 ## [0.0.7] — 2026-11-10
 
 ### Added

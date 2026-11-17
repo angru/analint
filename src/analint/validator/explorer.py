@@ -52,7 +52,7 @@ from analint.models.scope import (
     is_present,
 )
 from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
-from analint.validator.kernel import Outcome, step
+from analint.validator.kernel import Outcome, build_plan, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.slicing import (
     PRESENT,
@@ -715,7 +715,8 @@ def _explore(
     codes = [exp.action_code(action.id) for action in spec.actions]
     invalidated = _guard_invalidation(spec)
     rechecks = _invariant_rechecks(spec)
-    numbered = list(enumerate(zip(spec.actions, codes, strict=True)))
+    plans = [build_plan(action) for action in spec.actions]
+    numbered = list(enumerate(zip(spec.actions, codes, plans, strict=True)))
     index_get = exp.index.get
     add_src, add_act, add_dst = exp.edge_src.append, exp.edge_action.append, exp.edge_dst.append
     while queue:
@@ -726,10 +727,10 @@ def _explore(
         idx, ctx, rejected = queue.popleft()
         successors: list[tuple[int, dict, int]] = []
 
-        for i, (action, code) in numbered:
+        for i, (action, code, plan) in numbered:
             if rejected >> i & 1 or action.id in exp.excluded:
                 continue
-            result = step(spec, action, ctx, explain=False)
+            result = step(spec, action, ctx, explain=False, plan=plan)
             if result.entered:
                 exp.fired.add(action.id)
             if result.outcome is Outcome.REJECTED:
@@ -738,7 +739,7 @@ def _explore(
             if result.outcome is Outcome.DEFECT:
                 # step is pure: re-run it with the trace only now that a defect
                 # needs one (building the trace for every step was a hot spot)
-                for finding in step(spec, action, ctx, trace=exp._trace(idx)).findings:
+                for finding in step(spec, action, ctx, trace=exp._trace(idx), plan=plan).findings:
                     exp.report_once(
                         finding.severity, finding.location, finding.message, finding.code
                     )

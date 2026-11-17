@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, TypeGuard
 
 from analint.models.entity import _MISSING, Entity, FieldDescriptor, all_fields
+from analint.models.symbolic import Symbolic
 
 if TYPE_CHECKING:
     from analint.models.predicate import Predicate
@@ -107,7 +108,7 @@ class InstanceRef:
         return f"{self.entity_cls.__name__}[{self.key!r}]"
 
 
-class InstanceField:
+class InstanceField(Symbolic):
     """A field addressed through a concrete ``InstanceRef``."""
 
     def __init__(self, instance: InstanceRef, descriptor: FieldDescriptor) -> None:

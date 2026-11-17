@@ -503,6 +503,15 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
     ok += [_Renderer(model, post_rec, post_safe).pred(pred) for pred in action.post]
     for emitted in action.emits:  # an unmaterialisable payload is a defect: refuse
         if not isinstance(emitted, type):
+            # Rendering the operand alone would erase materialization defects.
+            # Refuse until payload validation (including None and non-clamping
+            # event semantics) has an exact backend representation.
+            for fname, desc in all_fields(type(emitted)).items():
+                if desc.spec is not None and desc.spec.has_constraints():
+                    raise ExportError(
+                        f"'{action.id}' has constrained emitted payload "
+                        f"{type(emitted).__name__}.{fname}; payload constraints are not exported"
+                    )
             for value in emitted.__dict__.values():
                 _Renderer(model, post_rec, post_safe).operand(value)
 

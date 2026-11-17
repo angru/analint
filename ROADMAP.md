@@ -29,8 +29,8 @@ verification of the exact build artifacts on that Python matrix.
 1. **Verification boundary repairs — merged, unreleased.** PRs #15–#18 and
    #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
    stale action plans and invalid emitted payloads. The audit below links their
-   implementation and review records. Concurrent TLC isolation (#23, PR #25)
-   is also merged; preserve the semantic and backend gates.
+   implementation and review records. Concurrent TLC isolation (#23) is merged
+   in #25; preserve the semantic and backend gates.
 2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
    Published 0.0.5 passes its reproduction; the issue is closed. The next
@@ -114,8 +114,8 @@ after the repairs, preserving the public Python DSL and wire compatibility:
 Review follow-ups are tracked separately:
 
 - [#23 Concurrent TLC isolation](https://github.com/angru/analint/issues/23)
-  is merged in [PR #25](https://github.com/angru/analint/pull/25): Java's extracted
-  standard modules are isolated per invocation, with a concurrent-run regression.
+  (P3) — merged in [PR #25](https://github.com/angru/analint/pull/25), unreleased:
+  each TLC run extracts Java's standard modules into its own directory.
 - [#24 Constrained payload export](https://github.com/angru/analint/issues/24)
   (P3): restore TLC fallback for payload constraints that can be mirrored exactly;
   keep explicit refusal for unsupported cases. This is a capability improvement,

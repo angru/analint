@@ -73,6 +73,11 @@ of a missing instance make an invariant inapplicable to that snapshot. Quantifie
 reads follow present scope members. Keep one-field constraints in `Field`;
 use invariants for relationships between fields or entities.
 
+**Unreleased:** symbolic predicates, fields and arithmetic expressions reject
+Python truth-value conversion with a `TypeError`. Use `And`/`Or`/`Not`, and
+write `And(0 <= Account.balance, Account.balance <= 100)` instead of a chained
+comparison. This prevents Python from silently discarding part of a condition.
+
 ## Action and effects
 
 `Action(pre=[...], effect=[...], post=[...], emits=[...])` declares a transition.

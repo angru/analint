@@ -14,11 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from analint.models.symbolic import Symbolic
+
 if TYPE_CHECKING:
     from analint.models.predicate import Predicate
 
 
-class Expr:
+class Expr(Symbolic):
     """Base class for arithmetic expression nodes."""
 
     # chaining arithmetic ──────────────────────────────────────────────────────

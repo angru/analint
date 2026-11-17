@@ -5,6 +5,7 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from analint.models.lifecycle import Lifecycle
+from analint.models.symbolic import Symbolic
 
 if TYPE_CHECKING:
     from analint.models.predicate import Predicate
@@ -100,7 +101,7 @@ def Field(
     )
 
 
-class FieldDescriptor:
+class FieldDescriptor(Symbolic):
     """Class-level field proxy that yields predicate objects when compared."""
 
     def __init__(

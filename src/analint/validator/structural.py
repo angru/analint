@@ -506,7 +506,9 @@ def validate_structural(spec: Spec) -> list[Finding]:
         if query.initial is not None:
             findings.extend(_validate_initial(query.initial, spec, scoped_entities, loc))
 
-        pred = getattr(query, "predicate", None) or getattr(query, "goal", None)
+        pred = getattr(query, "predicate", None)
+        if pred is None:
+            pred = getattr(query, "goal", None)
         if pred is not None:
             findings.extend(
                 _check_pred_refs(

@@ -26,6 +26,7 @@ from pathlib import Path
 
 ARCHIVE_TESTS = [
     "tests/test_release_verification.py",
+    "tests/test_mcp_fresh_models.py",
     "tests/test_documentation.py",
     "tests/test_diagnostic_codes.py",
     "tests/test_impact.py",

@@ -28,6 +28,7 @@ ARCHIVE_TESTS = [
     "tests/test_release_verification.py",
     "tests/test_documentation.py",
     "tests/test_diagnostic_codes.py",
+    "tests/test_event_payload_constraints.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",
     "tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace",

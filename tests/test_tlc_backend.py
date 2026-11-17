@@ -275,6 +275,41 @@ def test_check_tlc_decides_what_the_budget_left_open(tmp_path):
     assert decided.verdict == "FAIL"
 
 
+@pytest.mark.parametrize("sliced", [False, True])
+@pytest.mark.parametrize(
+    "constraint", ["ge=0, le=10", "values=[0, 5]", "ge=0, le=10, saturate=True"]
+)
+def test_constrained_emissions_cannot_be_ignored_by_tlc(tmp_path, sliced, constraint):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, AlwaysHolds, Entity, Event, Field, Spec\n"
+        "class Counter(Entity):\n"
+        "    n: int = Field(0, ge=0, le=2)\n"
+        "class Paid(Event):\n"
+        f"    amount: int = Field(0, {constraint})\n"
+        "tick = Action(pre=[Counter.n < 2], effect=[Add(Counter.n, 1)])\n"
+        # Writing the queried field keeps pay in the property slice as well as
+        # its own defect slice, so TLC must account for its payload validation.
+        "pay = Action(pre=[Counter.n == 2], effect=[Add(Counter.n, 0)],\n"
+        "             emits=[Paid(amount=Counter.n - 10)])\n"
+        "safe = AlwaysHolds(Counter.n >= 0)\n"
+        "spec = Spec(id='s', name='S', actions=[tick, pay], queries=[safe])\n"
+    )
+    full = validate(entry, sliced=sliced)
+    assert full.verdict == "FAIL"
+    assert any(f.code.value == "transition.field_constraint" for f in full.exploration_findings)
+    capped = validate(entry, sliced=sliced, max_states=1, tlc=True)
+    assert capped.verdict == "INCONCLUSIVE"
+    [query] = capped.query_results
+    assert query.status == "INCONCLUSIVE"
+    assert query.backend != "tlc"
+    assert any(
+        f.code.value == "tlc.not_exported"
+        and "constrained emitted payload Paid.amount" in f.message
+        for f in query.findings
+    )
+
+
 @pytest.mark.parametrize(("open_at", "status"), [(30, "PASS"), (31, "NOT_CHECKED")])
 def test_check_tlc_tells_a_never_applicable_invariant(tmp_path, open_at, status):
     # the seat exists only after n reaches open_at (31 is out of range: never)

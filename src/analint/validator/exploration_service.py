@@ -60,7 +60,7 @@ def explore_path(
     include_graph: bool = True,
 ) -> ExplorationArtifact:
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
-    if prepared.spec is None:
+    if prepared.load_errors or prepared.spec is None:
         raise ExplorationError(
             "load", "the spec could not be loaded", [str(e) for e in prepared.load_errors]
         )
@@ -121,7 +121,7 @@ def trace_query(
     (listed under ``slice``) then keep their initial values. Query payloads
     retain their ``query`` key; invariant payloads use ``invariant`` instead."""
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
-    if prepared.spec is None:
+    if prepared.load_errors or prepared.spec is None:
         raise ExplorationError(
             "load", "the spec could not be loaded", [str(e) for e in prepared.load_errors]
         )

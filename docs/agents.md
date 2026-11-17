@@ -63,6 +63,12 @@ when the client's working directory is uncertain.
 
 ### Tool reference
 
+**Unreleased:** every MCP tool request loads the current model sources in a
+fresh worker, so edits to entry points and imported modules are visible without
+restarting the server. Python class identities are shared within the request.
+The in-process loader still caches imports; use a fresh process for library
+calls that must observe edited source files.
+
 All five tools return structured dictionaries. Optional arguments and defaults
 below match the server's tool definitions.
 

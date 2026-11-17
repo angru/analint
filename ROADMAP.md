@@ -28,13 +28,16 @@ verification of the exact build artifacts on that Python matrix.
 
 1. **Verification boundary repairs — in progress.** The November audit
    reproduced stale MCP imports, silent Python truthiness, ignored hypothesis
-   load errors in inspection, and stale action execution plans. Track the four
-   bounded fixes in [the audit queue](#verification-boundary-audit-2026-11-17).
+   load errors in inspection, and stale action execution plans. Independent
+   review also found invalid emitted payloads escaping as exceptions (#20).
+   Track the bounded fixes in [the audit queue](#verification-boundary-audit-2026-11-17).
    Preserve the semantic kernel and existing characterization/backend gates.
 2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
    Published 0.0.5 passes its reproduction; the issue is closed. The next
    step is the [one-change trial](#one-change-trial) on an accessible real spec.
+   Include the shared-model check-selection use case below; do not reconstruct
+   a smaller `Spec` for each flow.
 3. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
@@ -50,7 +53,7 @@ semantic-diff command and a Rust core remain outside the current work.
 
 ## Verification boundary audit (2026-11-17)
 
-Baseline: `7d3daf1`, package 0.0.7. The review reproduced four defects outside
+Historical baseline (2026-11-17): `7d3daf1`, package 0.0.7. The review reproduced four defects outside
 existing example-based regression coverage. Across the initial suite and the
 TLC rerun after permitting Java's local socket, 700 tests passed and 17 skipped;
 that baseline does not establish coverage of the newly reproduced defects.
@@ -58,31 +61,75 @@ that baseline does not establish coverage of the newly reproduced defects.
 The immediate fixes are independently reviewable pull requests. Issues remain
 open until the corresponding fix merges; unreleased work is not a shipped fix.
 
-| Priority | Issue | Bounded completion check | Status |
+| Priority | Issue | Bounded completion check | Implementation / review record |
 | --- | --- | --- | --- |
-| P1 | [#7 Fresh MCP sources](https://github.com/angru/analint/issues/7) | One persistent stdio server observes entry/import edits, including same-size/timestamp edits, while preserving within-request identities | [PR #16](https://github.com/angru/analint/pull/16) — awaiting review |
-| P1 | [#8 Symbolic truthiness](https://github.com/angru/analint/issues/8) | Python boolean conversion fails explicitly; supported DSL predicates and example snapshots remain unchanged | [PR #15](https://github.com/angru/analint/pull/15) — awaiting review |
-| P2 | [#9 Failed hypothesis preparation](https://github.com/angru/analint/issues/9) | CLI/MCP explore and trace return load errors rather than unpatched artifacts | [PR #17](https://github.com/angru/analint/pull/17) — awaiting review |
-| P2 | [#10 Action plan lifetime](https://github.com/angru/analint/issues/10) | Edits and copies cannot reuse stale guards/effect plans; plans are reused within one synchronous exploration | [PR #18](https://github.com/angru/analint/pull/18) — awaiting review |
+| P1 | [#7 Fresh MCP sources](https://github.com/angru/analint/issues/7) | One persistent stdio server observes entry/import edits, including same-size/timestamp edits, while preserving within-request identities; worker failures retain bounded diagnostics | [PR #16](https://github.com/angru/analint/pull/16) |
+| P1 | [#8 Symbolic truthiness](https://github.com/angru/analint/issues/8) | Python boolean conversion fails explicitly; constrained symbolic event templates still load and concrete payload constraints still apply | [PR #15](https://github.com/angru/analint/pull/15) |
+| P2 | [#9 Failed hypothesis preparation](https://github.com/angru/analint/issues/9) | CLI/MCP explore and trace return load errors rather than unpatched artifacts | [PR #17](https://github.com/angru/analint/pull/17) |
+| P2 | [#10 Action plan lifetime](https://github.com/angru/analint/issues/10) | Edits and copies cannot reuse stale guards/effect plans; plans are reused within one synchronous exploration | [PR #18](https://github.com/angru/analint/pull/18); parameter binding cache remains in #11 |
+| P2 | [#20 Invalid emitted payload](https://github.com/angru/analint/issues/20) | Out-of-range resolved payloads produce an explicit transition finding and failing check, not an exception; trace and TLC parity or explicit export refusal are covered | [Issue #20](https://github.com/angru/analint/issues/20) |
+
+The [independent review of PR #15](https://github.com/angru/analint/pull/15#pullrequestreview-5946325816)
+identified a constrained-event-template regression that must be corrected and
+re-reviewed before merge. #20 is a separate pre-existing materialization bug,
+not resolved by allowing symbolic templates. Live review and merge state belong
+in the linked pull requests. Collect the four fixes in `CHANGELOG.md` before
+release; documentation's Unreleased notices must be updated at release time.
+
+### Shared model, selective verification
+
+[#21 Separate shared system behavior from verification selection and settings](https://github.com/angru/analint/issues/21)
+(P2) is the next bounded workflow improvement after the correctness repairs.
+One root `Spec` describes the system, including imported `Contract` fragments;
+an invocation selects flows and properties by stable identifiers and supplies
+check options without rebuilding or mutating that model.
+
+- Preserve all declared actions and constraints. Selecting a flow or property
+  must not remove other flows' actions from the modeled system. Existing sound
+  slicing remains an execution optimization, not a membership filter.
+- Keep flow fixtures, property roots and canonical initial states distinct.
+  Selection does not silently replace roots. Required structural validation and
+  supporting invariant proofs still run; reports distinguish selected checks,
+  supporting checks and unassessed scope. PASS applies only to the reported scope.
+- Keep the default full check and existing scenario filtering compatible.
+  Provide consistent library, CLI and MCP selection; reject unknown or ambiguous
+  identifiers and empty matches. Coordinate trace options with #13.
+- Acceptance: reuse one model with two flows and a cross-flow property; an
+  interfering action from the other flow must still expose the counterexample.
+  Compare selected and full results at equal budgets, repeat selections without
+  mutation, and record states, work and timing on the real-spec trial.
+
+This does not require a new public `Model` class, a general IR, another backend,
+or assume-guarantee semantics for `Contract`. First implement selection over the
+existing shared model and measure the benefit.
 
 Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:
 
 1. [#11 Validated immutable snapshot](https://github.com/angru/analint/issues/11)
-   (P2): separate editable declarations from a successfully prepared, owned model;
-   migrate consumers incrementally and tie plans to that model.
-2. [#12 State-store lifetime](https://github.com/angru/analint/issues/12) (P2):
-   release intern tables with their session owner while keeping live exploration
-   results readable; verify lifecycle and cache round trips.
+   (P2): first reproduce and repair stale `_BIND_MEMO` parameter expansions,
+   which #18 does not address. Evaluate immutable predicate/expression nodes
+   with identity equality; frozen dataclasses alone do not freeze nested lists.
+   Introduce a broader preparation boundary only where concrete consumers need it.
+2. [#12 State-store lifetime](https://github.com/angru/analint/issues/12) (P3):
+   after #16, MCP workers release their process storage per request. Prioritize
+   further ownership changes only with measured retention in a long-lived
+   in-process consumer; keep live exploration results readable and verify cache
+   round trips. A global reset while results remain live is not a safe fix.
 3. [#13 Trace provenance](https://github.com/angru/analint/issues/13) (P2):
-   preserve the model revision and effective check options when retrieving a
-   witness, including budget overrides and TLC decisions.
+   first expose matching budget, slicing and TLC options through CLI/MCP trace,
+   and return the actual TLC witness rather than rerunning Python exploration.
+   Add persisted revision/provenance machinery only for a demonstrated mismatch;
+   coordinate selected-check identity with #21.
 4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
-   (P3): centralize node analysis with an explicit unsupported-node policy; add
-   small generated differential checks while retaining independent backend gates.
+   (P3): first inventory AST nodes and require each walker to handle or explicitly
+   refuse them. Add small fixed-seed differential probes (including constrained
+   emitted payloads from #20); centralize walkers only where duplication warrants
+   it, retaining independent backend gates.
 
-After the four repairs are reviewed, return to the one-change real-spec trial.
-Its results should guide the order and scope of the architecture follow-ups.
+After the correctness repairs are reviewed, return to the one-change real-spec
+trial and #21. Its results should guide the remaining architecture work rather
+than starting a general rewrite.
 
 ## Review baseline (2026-11-06, before the 0.0.5 patch)
 

@@ -15,7 +15,7 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-17)
+## Current priorities (2026-11-18)
 
 The documentation baseline is complete: a runnable first-spec tutorial,
 verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
@@ -26,12 +26,11 @@ Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validati
 Release acceptance is shared by Quality and Publish; both registry jobs require
 verification of the exact build artifacts on that Python matrix.
 
-1. **Verification boundary repairs — in progress.** The November audit
-   reproduced stale MCP imports, silent Python truthiness, ignored hypothesis
-   load errors in inspection, and stale action execution plans. Independent
-   review also found invalid emitted payloads escaping as exceptions (#20).
-   Track the bounded fixes in [the audit queue](#verification-boundary-audit-2026-11-17).
-   Preserve the semantic kernel and existing characterization/backend gates.
+1. **Verification boundary repairs — merged, unreleased.** PRs #15–#18 and
+   #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
+   stale action plans and invalid emitted payloads. The audit below links their
+   implementation and review records. Concurrent TLC isolation (#23) remains a
+   bounded reliability follow-up; preserve the semantic and backend gates.
 2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
    Published 0.0.5 passes its reproduction; the issue is closed. The next
@@ -58,8 +57,9 @@ existing example-based regression coverage. Across the initial suite and the
 TLC rerun after permitting Java's local socket, 700 tests passed and 17 skipped;
 that baseline does not establish coverage of the newly reproduced defects.
 
-The immediate fixes are independently reviewable pull requests. Issues remain
-open until the corresponding fix merges; unreleased work is not a shipped fix.
+The five immediate fixes merged by 2026-11-18 (through `a8f4a25`); their issues
+are closed. They are unreleased, not part of the published 0.0.7 package.
+Implementation and review evidence remain in the linked pull requests.
 
 | Priority | Issue | Bounded completion check | Implementation / review record |
 | --- | --- | --- | --- |
@@ -67,41 +67,19 @@ open until the corresponding fix merges; unreleased work is not a shipped fix.
 | P1 | [#8 Symbolic truthiness](https://github.com/angru/analint/issues/8) | Python boolean conversion fails explicitly; constrained symbolic event templates still load and concrete payload constraints still apply | [PR #15](https://github.com/angru/analint/pull/15) |
 | P2 | [#9 Failed hypothesis preparation](https://github.com/angru/analint/issues/9) | CLI/MCP explore and trace return load errors rather than unpatched artifacts | [PR #17](https://github.com/angru/analint/pull/17) |
 | P2 | [#10 Action plan lifetime](https://github.com/angru/analint/issues/10) | Edits and copies cannot reuse stale guards/effect plans; plans are reused within one synchronous exploration | [PR #18](https://github.com/angru/analint/pull/18); parameter binding cache remains in #11 |
-| P2 | [#20 Invalid emitted payload](https://github.com/angru/analint/issues/20) | Out-of-range resolved payloads produce an explicit transition finding and failing check, not an exception; trace and TLC parity or explicit export refusal are covered | [Issue #20](https://github.com/angru/analint/issues/20) |
+| P2 | [#20 Invalid emitted payload](https://github.com/angru/analint/issues/20) | Out-of-range resolved payloads produce an explicit transition finding and failing check, not an exception; trace and TLC parity or explicit export refusal are covered | [PR #22](https://github.com/angru/analint/pull/22) |
 
-The [independent review of PR #15](https://github.com/angru/analint/pull/15#pullrequestreview-5946325816)
-identified a constrained-event-template regression that must be corrected and
-re-reviewed before merge. #20 is a separate pre-existing materialization bug,
-not resolved by allowing symbolic templates. Live review and merge state belong
-in the linked pull requests. Collect the four fixes in `CHANGELOG.md` before
-release; documentation's Unreleased notices must be updated at release time.
+The constrained-template regression in #15 was fixed and re-reviewed at
+`fee3e46`; #22 separately repaired materialized payload failures. The consolidated
+`CHANGELOG.md` records these repairs. Documentation's Unreleased notices must be
+updated when the next version is released.
 
 ### Shared model, selective verification
 
-[#21 Separate shared system behavior from verification selection and settings](https://github.com/angru/analint/issues/21)
-(P2) is the next bounded workflow improvement after the correctness repairs.
-One root `Spec` describes the system, including imported `Contract` fragments;
-an invocation selects flows and properties by stable identifiers and supplies
-check options without rebuilding or mutating that model.
-
-- Preserve all declared actions and constraints. Selecting a flow or property
-  must not remove other flows' actions from the modeled system. Existing sound
-  slicing remains an execution optimization, not a membership filter.
-- Keep flow fixtures, property roots and canonical initial states distinct.
-  Selection does not silently replace roots. Required structural validation and
-  supporting invariant proofs still run; reports distinguish selected checks,
-  supporting checks and unassessed scope. PASS applies only to the reported scope.
-- Keep the default full check and existing scenario filtering compatible.
-  Provide consistent library, CLI and MCP selection; reject unknown or ambiguous
-  identifiers and empty matches. Coordinate trace options with #13.
-- Acceptance: reuse one model with two flows and a cross-flow property; an
-  interfering action from the other flow must still expose the counterexample.
-  Compare selected and full results at equal budgets, repeat selections without
-  mutation, and record states, work and timing on the real-spec trial.
-
-This does not require a new public `Model` class, a general IR, another backend,
-or assume-guarantee semantics for `Contract`. First implement selection over the
-existing shared model and measure the benefit.
+[#21](https://github.com/angru/analint/issues/21) (P2) is the next bounded workflow
+improvement: select flows and properties over one shared `Spec`, preserving all
+system actions. Acceptance and API details live in the issue; validate usefulness
+in the one-change real-spec trial without requiring an IR or backend rewrite.
 
 Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:
@@ -127,8 +105,18 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    emitted payloads from #20); centralize walkers only where duplication warrants
    it, retaining independent backend gates.
 
-After the correctness repairs are reviewed, return to the one-change real-spec
-trial and #21. Its results should guide the remaining architecture work rather
+Review follow-ups are tracked separately:
+
+- [#23 Concurrent TLC isolation](https://github.com/angru/analint/issues/23)
+  (P3): isolate Java's extracted standard modules per invocation, covering parallel
+  agents and MCP workers with a concurrent-run regression check.
+- [#24 Constrained payload export](https://github.com/angru/analint/issues/24)
+  (P3): restore TLC fallback for payload constraints that can be mirrored exactly;
+  keep explicit refusal for unsupported cases. This is a capability improvement,
+  not a blocker to the fail-closed #22 repair.
+
+With the correctness repairs merged, return to the one-change real-spec trial
+and #21. Its results should guide the remaining architecture work rather
 than starting a general rewrite.
 
 ## Review baseline (2026-11-06, before the 0.0.5 patch)

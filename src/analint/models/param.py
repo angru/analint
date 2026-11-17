@@ -52,6 +52,7 @@ from analint.models.predicate import (
 )
 from analint.models.quantifier import _Count, _Exists, _ForAll, _Max, _Min, _Present, _Sum
 from analint.models.scope import InstanceRef, Scope
+from analint.models.symbolic import Symbolic
 
 if TYPE_CHECKING:
     from analint.models.action import Action
@@ -59,7 +60,7 @@ if TYPE_CHECKING:
 Binding = dict[str, Any]
 
 
-class Param:
+class Param(Symbolic):
     """A named finite domain.
 
     Three ways to declare the domain, by intent:
@@ -146,7 +147,7 @@ class Param:
         return f"Param({self.name})"
 
 
-class ParamField:
+class ParamField(Symbolic):
     """`src.coins` — a field of a not-yet-bound entity parameter."""
 
     def __init__(self, param: Param, field_name: str) -> None:

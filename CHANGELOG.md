@@ -9,6 +9,18 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Symbolic DSL expressions now reject Python boolean conversion (`and`/`or`,
+  `if`, chained comparisons) with explicit guidance instead of silently dropping
+  conditions. Constrained symbolic event templates still load, with value
+  validation deferred until materialization. ([#15](https://github.com/angru/analint/pull/15))
+- Persistent MCP tools read current model sources in a fresh worker per request,
+  including same-size/same-timestamp edits. Unexpected worker failures retain
+  bounded error diagnostics. ([#16](https://github.com/angru/analint/pull/16))
+- Explore and trace return load errors when a what-if hypothesis fails to load,
+  instead of returning an artifact of the unpatched model. ([#17](https://github.com/angru/analint/pull/17))
+- Compiled action plans are scoped to an exploration and rebuilt for later runs,
+  so declaration edits cannot reuse stale guards or effects. Parameter-family
+  binding cache lifetime remains tracked separately in #11. ([#18](https://github.com/angru/analint/pull/18))
 - Invalid materialized event payloads now produce `transition.field_constraint`
   findings and failing scenarios/flows instead of escaping as exceptions.
   Payloads retain non-clamping event-construction semantics; unexpected

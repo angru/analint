@@ -15,7 +15,7 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-07)
+## Current priorities (2026-11-17)
 
 The documentation baseline is complete: a runnable first-spec tutorial,
 verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
@@ -26,23 +26,63 @@ Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validati
 Release acceptance is shared by Quality and Publish; both registry jobs require
 verification of the exact build artifacts on that Python matrix.
 
-1. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
+1. **Verification boundary repairs — in progress.** The November audit
+   reproduced stale MCP imports, silent Python truthiness, ignored hypothesis
+   load errors in inspection, and stale action execution plans. Track the four
+   bounded fixes in [the audit queue](#verification-boundary-audit-2026-11-17).
+   Preserve the semantic kernel and existing characterization/backend gates.
+2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
    introspection defect; do not infer checker unsoundness or trial success.
-   Published 0.0.5 passes its reproduction; the issue is closed. Next, observe
-   one real requirement change through `show → affects → what-if → check → trace`; this needs an
-   accessible real spec and the intended change, not another invented model.
-2. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
+   Published 0.0.5 passes its reproduction; the issue is closed. The next
+   step is the [one-change trial](#one-change-trial) on an accessible real spec.
+3. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
    included in 0.0.6. Compact diagnostics in 0.0.7 reduce the Kubernetes
-   regression report by 98.69% (see below). Real-spec follow-up remains priority 1.
-3. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
+   regression report by 98.69% (see below). Real-spec follow-up remains priority 2.
+4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
    performance history conditional on a controlled runner or a reproduced
    regression; further engine optimization requires a measured bottleneck.
 
 New semantic primitives remain evidence-gated. Liveness/fairness, automatic event
 dispatch, unbounded structures, a general implementation bridge, a separate
 semantic-diff command and a Rust core remain outside the current work.
+
+## Verification boundary audit (2026-11-17)
+
+Baseline: `7d3daf1`, package 0.0.7. The review reproduced four defects outside
+existing example-based regression coverage. Across the initial suite and the
+TLC rerun after permitting Java's local socket, 700 tests passed and 17 skipped;
+that baseline does not establish coverage of the newly reproduced defects.
+
+The immediate fixes are independently reviewable pull requests. Issues remain
+open until the corresponding fix merges; unreleased work is not a shipped fix.
+
+| Priority | Issue | Bounded completion check | Status |
+| --- | --- | --- | --- |
+| P1 | [#7 Fresh MCP sources](https://github.com/angru/analint/issues/7) | One persistent stdio server observes entry/import edits, including same-size/timestamp edits, while preserving within-request identities | [PR #16](https://github.com/angru/analint/pull/16) — awaiting review |
+| P1 | [#8 Symbolic truthiness](https://github.com/angru/analint/issues/8) | Python boolean conversion fails explicitly; supported DSL predicates and example snapshots remain unchanged | [PR #15](https://github.com/angru/analint/pull/15) — awaiting review |
+| P2 | [#9 Failed hypothesis preparation](https://github.com/angru/analint/issues/9) | CLI/MCP explore and trace return load errors rather than unpatched artifacts | [PR #17](https://github.com/angru/analint/pull/17) — awaiting review |
+| P2 | [#10 Action plan lifetime](https://github.com/angru/analint/issues/10) | Edits and copies cannot reuse stale guards/effect plans; plans are reused within one synchronous exploration | [PR #18](https://github.com/angru/analint/pull/18) — awaiting review |
+
+Architecture follow-ups are scoped separately. Implement them incrementally
+after the repairs, preserving the public Python DSL and wire compatibility:
+
+1. [#11 Validated immutable snapshot](https://github.com/angru/analint/issues/11)
+   (P2): separate editable declarations from a successfully prepared, owned model;
+   migrate consumers incrementally and tie plans to that model.
+2. [#12 State-store lifetime](https://github.com/angru/analint/issues/12) (P2):
+   release intern tables with their session owner while keeping live exploration
+   results readable; verify lifecycle and cache round trips.
+3. [#13 Trace provenance](https://github.com/angru/analint/issues/13) (P2):
+   preserve the model revision and effective check options when retrieving a
+   witness, including budget overrides and TLC decisions.
+4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
+   (P3): centralize node analysis with an explicit unsupported-node policy; add
+   small generated differential checks while retaining independent backend gates.
+
+After the four repairs are reviewed, return to the one-change real-spec trial.
+Its results should guide the order and scope of the architecture follow-ups.
 
 ## Review baseline (2026-11-06, before the 0.0.5 patch)
 
@@ -298,6 +338,41 @@ After the impact patch:
 Done when the trial's findings have explicit dispositions and a follow-up outcome;
 a clean trial is useful evidence too. The reported defect is fixed in 0.0.5;
 the overall trial verdict and any further model-specific problems await evidence.
+
+#### Review feedback (2026-11-10)
+
+- The reviewer reported 702 tests passing, 15 skips and expected example
+  verdicts. The review covered PR #6 and the Kubernetes spec. The ability to
+  maintain a real spec through a requirement change remains the open question.
+  Track authoring friction around imports, overloaded equality and helper
+  functions in that trial.
+- Compact output can sample three findings from one location while other
+  locations share its group. Long traces can also dominate the report size.
+  Record either case if it obscures the diagnosis during the trial.
+- `scripts/bench.py` reports the fastest full validation and the largest
+  property state count. Engine throughput, TLC comparisons and scale limits
+  require a controlled comparison of equivalent work. Keep the trial record
+  short and let observed blockers drive further tooling work.
+
+#### One-change trial
+
+**Input.** Pick one accessible real spec and one requested rule change. Record
+the spec revision, analint version, old and new rule, and expected results for
+one allowed and one rejected case.
+
+1. **Baseline.** Run `show` and `affects` on the relevant field or action. Note
+   the affected checks and record a baseline `check -f json` with its budget.
+2. **Probe.** Add a scenario or property with `check --what-if` and confirm the
+   expected result on the old model. Use an isolated copy for replacement edits.
+3. **Apply and verify.** Make the smallest model edit. Repeat the full `check`
+   with the same settings and verify both cases and the affected properties.
+   Capture one `trace` when a witness or counterexample is available.
+4. **Record.** Keep the before/after verdicts, relevant findings or trace, and
+   a short note on source reads, retries and whether the finite model expressed
+   the rule. Compare compact and full output if the report is hard to navigate.
+   Treat `INCONCLUSIVE` as an open result and record the budget or modeling
+   blocker. Close the trial with either a verified change or a reproducible
+   blocker and its next action.
 
 ### 2. Fixed-only Initial — complete (2026-10-30), available in 0.0.4
 

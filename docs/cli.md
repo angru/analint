@@ -71,7 +71,10 @@ Filtered JSON reports add `selection` (also in compact mode): `requested`,
 `excluded_actions`, effective `options` and `budgets`. `not_selected` describes
 checks, never removed actions. `action_coverage` states the requested policy, not
 exhaustiveness; read per-property status, budget and excluded-action findings too.
-A selected PASS covers the reported work only. `--strict` still applies to all
+Queries requiring complete exploration return INCONCLUSIVE when their transition
+relation excludes unsupported actions. Found reachability witnesses and safety
+counterexamples remain conclusive. A selected PASS covers the reported work only.
+`--strict` still applies to all
 warnings, including structural warnings about unselected behavior.
 
 The cache directory defaults to `~/.cache/analint`; set `ANALINT_CACHE_DIR` to

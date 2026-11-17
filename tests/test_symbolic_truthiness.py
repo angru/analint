@@ -69,3 +69,44 @@ def test_supported_combinators_preserve_both_operands():
     assert not evaluate(And(Account.balance >= 0, Account.enabled), context)
     assert evaluate(Or(Account.balance >= 0, Account.enabled), context)
     assert not evaluate(Not(Account.enabled), context)
+
+
+@pytest.mark.parametrize("constraint", ["ge=0, le=10", "values=[0, 5]"])
+@pytest.mark.parametrize("template", ["Order.total", "Order.total + 0"])
+def test_constrained_event_templates_validate_after_resolution(tmp_path, constraint, template):
+    from analint.validator.engine import prepare_model
+    from analint.validator.kernel import Outcome, step
+
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, AlwaysHolds, Entity, Event, Field, Scenario, Set, Spec\n"
+        "class Order(Entity):\n"
+        "    total: int = Field(5, ge=0, le=10)\n"
+        "class Paid(Event):\n"
+        f"    amount: int = Field(0, {constraint})\n"
+        "pay = Action(pre=[Order.total > 0], effect=[Set(Order.total, 0)],\n"
+        f"             emits=[Paid(amount={template})])\n"
+        "scenario = Scenario(name='pay', action=pay, given=[Order()])\n"
+        "safe = AlwaysHolds(Order.total >= 0)\n"
+        "spec = Spec(id='s', name='S', actions=[pay], scenarios=[scenario], queries=[safe])\n"
+    )
+    assert validate(entry).verdict == "PASS"
+    model = prepare_model(entry).spec
+    order = model.scenarios[0].given[0]
+    transition = step(model, model.actions[0], {type(order): order})
+    assert transition.outcome is Outcome.ACCEPTED
+    assert transition.emitted[0].amount == 0  # payload reads the post-state
+    with pytest.raises(ValueError, match=r"Paid\.amount"):
+        type(transition.emitted[0])(amount=-1)
+    with pytest.raises(TypeError, match="no Python truth value"):
+        type(order)(total=type(order).total)
+
+
+def test_predicate_dataclass_equality_must_not_replace_identity():
+    from analint import Bound
+
+    first = bound.balance == 0
+    second = Bound("other", accounts).balance == 0
+    assert first is not second
+    with pytest.raises(TypeError, match="no Python truth value"):
+        _ = first == second

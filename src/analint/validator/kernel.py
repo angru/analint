@@ -491,7 +491,9 @@ def _materialize_emitted(
 
     A bare ``Event`` class carries no payload and passes through unchanged. An
     ``Event`` instance whose field templates cannot be resolved (a type error, a
-    reference to an absent entity) is a model defect, not a silent emission."""
+    reference to an absent entity) is a model defect, not a silent emission.
+    Payload constraints validate the resolved values without clamping: event
+    construction, unlike state effects, does not apply ``saturate``."""
     materialized: list = []
     for event in action.emits:
         if isinstance(event, type):
@@ -499,7 +501,20 @@ def _materialize_emitted(
             continue
         cls = type(event)
         try:
-            values = {fname: resolve(event.__dict__.get(fname), post) for fname in all_fields(cls)}
+            fields = all_fields(cls)
+            values = {fname: resolve(event.__dict__.get(fname), post) for fname in fields}
+            for fname, desc in fields.items():
+                if desc.spec is None:
+                    continue
+                problem = desc.spec.violation(values[fname])
+                if problem is not None:
+                    return [], _defect(
+                        action,
+                        Code.FIELD_CONSTRAINT,
+                        f"field constraint violated: emitted {cls.__name__}.{fname} "
+                        f"{problem}{_after(action, trace)}",
+                    )
+            materialized.append(cls(**values))
         except Exception as exc:
             return [], _defect(
                 action,
@@ -507,7 +522,6 @@ def _materialize_emitted(
                 f"emitted payload evaluation error: {exc} "
                 f"(event: {cls.__name__}){_after(action, trace)}",
             )
-        materialized.append(cls(**values))
     return materialized, None
 
 

@@ -117,34 +117,32 @@ class _Plan:
     frozen: frozenset  # targets the terminal lock protects (touched + deleted)
 
 
-def _plan(action: Action) -> _Plan:
-    # Cached on the action: pre/effect are fixed after construction, and walking
-    # their ASTs on every transition dominated exploration (research/34 §2.3).
-    # Read through __pydantic_private__: pydantic's __getattr__ for private
-    # attributes is a measurable cost at one call per transition.
-    plan = (action.__pydantic_private__ or {}).get("_kernel_plan")
-    if plan is None:
-        touched = frozenset(
-            field_context_key(e.field)
-            for e in action.effect
-            if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
-        )
-        deletes = tuple(e for e in action.effect if isinstance(e, Delete))
-        plan = _Plan(
-            guards=tuple(
-                (
-                    pred,
-                    frozenset(field_context_key(r) for r in _collect_field_refs(pred)),
-                    compile_predicate(pred),
-                )
-                for pred in action.pre
-            ),
-            touched=touched,
-            creates=tuple(e for e in action.effect if isinstance(e, Create)),
-            deletes=deletes,
-            frozen=touched | {e.target for e in deletes},
-        )
-        action._kernel_plan = plan
+def build_plan(action: Action) -> _Plan:
+    """Compile the current declaration for one synchronous exploration.
+
+    Actions remain editable between runs. A plan belongs to its caller, never
+    to the Action, so later runs and copied actions cannot inherit stale guards.
+    """
+    touched = frozenset(
+        field_context_key(e.field)
+        for e in action.effect
+        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
+    )
+    deletes = tuple(e for e in action.effect if isinstance(e, Delete))
+    plan = _Plan(
+        guards=tuple(
+            (
+                pred,
+                frozenset(field_context_key(r) for r in _collect_field_refs(pred)),
+                compile_predicate(pred),
+            )
+            for pred in action.pre
+        ),
+        touched=touched,
+        creates=tuple(e for e in action.effect if isinstance(e, Create)),
+        deletes=deletes,
+        frozen=touched | {e.target for e in deletes},
+    )
     return plan
 
 
@@ -155,6 +153,7 @@ def step(
     *,
     trace: list[str] | None = None,
     explain: bool = True,
+    plan: _Plan | None = None,
 ) -> TransitionResult:
     """Evaluate one transition. See module docstring for outcome semantics.
 
@@ -166,7 +165,8 @@ def step(
     explorer discards it); outcomes and defect findings are unchanged.
     """
     lifecycles = spec.lifecycles
-    plan = _plan(action)
+    if plan is None:
+        plan = build_plan(action)
 
     # ── pre guards: a false/absent precondition rejects; an error is a defect ──
     context_keys = context.keys()

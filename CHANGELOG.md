@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format is based on
   Payloads retain non-clamping event-construction semantics; unexpected
   constructor errors are evaluation findings. TLC explicitly refuses constrained
   payload templates rather than silently ignoring their bounds. ([#20](https://github.com/angru/analint/issues/20))
+- Concurrent TLC runs now isolate Java's extracted standard-module files per
+  invocation, preventing shared temporary-file races between agents or MCP
+  workers. ([#23](https://github.com/angru/analint/issues/23))
 
 ## [0.0.7] — 2026-11-10
 

@@ -6,8 +6,10 @@ CI job requires both before running this suite."""
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 
@@ -29,6 +31,7 @@ from analint import (
     Set,
     Spec,
 )
+from analint.backends import tlc
 from analint.backends.tla import ExportError, Target, export_tla
 from analint.backends.tlc import TlcUnavailable, find_tlc, run_tlc
 from analint.validator.engine import prepare_model, validate
@@ -47,6 +50,38 @@ SLICED = [ROOT / "examples" / name for name in EXAMPLES] + [
     ROOT / "benchmarks" / "broker" / f"{name}.py"
     for name in ("m5_partners", "m5_profile_partners", "m6_methods")
 ]
+
+
+def test_concurrent_runs_isolate_java_standard_module_files(monkeypatch):
+    class Counter(Entity):
+        n: int = Field(0, ge=0, le=2)
+
+    tick = Action(id="tick", pre=[Counter.n < 2], effect=[Add(Counter.n, 1)])
+    spec = Spec(id="parallel", name="Parallel", actions=[tick])
+    roots, _ = build_canonical_initials(spec)
+    export = export_tla(spec, roots, target=Target("always", Counter.n <= 2))
+    run = tlc.subprocess.run
+    ready = Barrier(2)
+    directories = []
+
+    def synchronized_run(command, **kwargs):
+        if "tlc2.TLC" in command:
+            # Concurrent verdicts alone can pass by chance on the broken runner.
+            # Also pin Java's extraction directory, not just cwd or -metadir.
+            directory = kwargs["cwd"]
+            assert f"-Djava.io.tmpdir={directory}" in command
+            directories.append(directory)
+            ready.wait(timeout=30)
+        return run(command, **kwargs)
+
+    monkeypatch.setattr(tlc.subprocess, "run", synchronized_run)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(run_tlc, export, timeout=30) for _ in range(2)]
+        results = [future.result() for future in futures]
+    assert len(set(directories)) == 2
+    for result in results:
+        assert result.status == "ok", result.output
+        assert result.distinct_states == 3
 
 
 @pytest.mark.parametrize("name", EXAMPLES)

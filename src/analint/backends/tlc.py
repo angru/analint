@@ -91,6 +91,9 @@ def run_tlc(export: TlaExport, *, timeout: float | None = None) -> TlcResult:
         config.write_text(export.config)
         command = [
             java,
+            # SANY extracts standard modules into java.io.tmpdir. Isolate those
+            # files too: cwd and -metadir alone do not protect concurrent runs.
+            f"-Djava.io.tmpdir={tmp}",
             "-XX:+UseParallelGC",
             "-cp",
             jar,

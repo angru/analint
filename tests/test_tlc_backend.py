@@ -369,3 +369,26 @@ def test_check_tlc_tells_a_never_applicable_invariant(tmp_path, open_at, status)
     full = validate(entry, max_states=1000)
     assert [(r.status, r.backend) for r in decided.invariant_results] == [(status, "tlc")]
     assert [r.status for r in full.invariant_results] == [status]
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+def test_selected_check_and_trace_use_the_same_tlc_decision(tmp_path, sliced):
+    from analint.validator.exploration_service import trace_query
+
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        (ROOT / "benchmarks/shared_checks.py")
+        .read_text()
+        .replace("pre=[Order.reserved, Not(Order.shipped)],", "pre=[Order.reserved],")
+    )
+    options = {"max_states": 1, "sliced": sliced, "tlc": True, "tlc_timeout": 30}
+    selected = validate(entry, checks=["shipment_keeps_reservation"], **options)
+    [query] = selected.query_results
+    assert (query.status, query.backend) == ("FAIL", "tlc")
+    trace = trace_query(entry, "shipment_keeps_reservation", **options)
+    assert trace["status"] == query.status
+    assert trace["backend"] == "tlc"
+    assert trace["selection"] == selected.selection
+    assert trace["action_trace"] == query.trace == ["reserve", "ship", "release"]
+    assert trace["state_trace_available"] is False
+    assert trace["root"] is None and trace["steps"] == [] and trace["final_state"] == {}

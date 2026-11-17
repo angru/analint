@@ -20,6 +20,7 @@ from analint import query as q
 from analint.mcp_worker import isolated_request
 from analint.reporter.json_reporter import result_to_dict
 from analint.validator.engine import build_spec, validate
+from analint.validator.selection import SelectionError
 
 
 @isolated_request
@@ -31,6 +32,10 @@ def check_spec(
     tlc: bool = False,
     cache: bool = False,
     compact: bool = False,
+    checks: list[str] | None = None,
+    scenario_ids: list[str] | None = None,
+    tags: list[str] | None = None,
+    tlc_timeout: float | None = None,
 ) -> dict:
     if max_states is not None and max_states < 1:
         return {
@@ -39,14 +44,21 @@ def check_spec(
             "kind": "usage",
             "details": [],
         }
-    result = validate(
-        Path(path),
-        extra=Path(what_if) if what_if else None,
-        max_states=max_states,
-        sliced=slice,
-        tlc=tlc,
-        cache=cache,
-    )
+    try:
+        result = validate(
+            Path(path),
+            checks=checks,
+            scenario_ids=scenario_ids,
+            tags=tags,
+            extra=Path(what_if) if what_if else None,
+            max_states=max_states,
+            sliced=slice,
+            tlc=tlc,
+            tlc_timeout=tlc_timeout,
+            cache=cache,
+        )
+    except SelectionError as exc:
+        return exc.to_dict()
     return result_to_dict(result, compact=compact)
 
 
@@ -86,12 +98,28 @@ def explore_spec(
 
 @isolated_request
 def trace_spec(
-    path: str = ".", query: str = "", what_if: str | None = None, slice: bool = True
+    path: str = ".",
+    query: str = "",
+    what_if: str | None = None,
+    slice: bool = True,
+    max_states: int | None = None,
+    cache: bool = False,
+    tlc: bool = False,
+    tlc_timeout: float | None = None,
 ) -> dict:
     from analint.validator.exploration_service import ExplorationError, trace_query
 
     try:
-        return trace_query(path, query, what_if=what_if, sliced=slice)
+        return trace_query(
+            path,
+            query,
+            what_if=what_if,
+            sliced=slice,
+            max_states=max_states,
+            cache=cache,
+            tlc=tlc,
+            tlc_timeout=tlc_timeout,
+        )
     except ExplorationError as exc:
         return exc.to_dict()
 
@@ -134,9 +162,17 @@ def build_server() -> Any:
         tlc: bool = False,
         cache: bool = False,
         compact: bool = False,
+        checks: list[str] | None = None,
+        scenario_ids: list[str] | None = None,
+        tags: list[str] | None = None,
+        tlc_timeout: float | None = None,
     ) -> dict:
         """Validate the analint spec at `path` (structural checks + scenario runs).
 
+        `checks` selects flow/query/invariant ids (KIND:ID disambiguates), retaining
+        every system action. A selected PASS covers only the reported scope.
+        `scenario_ids` and `tags` add matching scenarios to an explicit selection.
+        Canonical invariant proofs support reachability checks even if unselected.
         `what_if` — optional path to a standalone .py file whose objects
         (invariants, scenarios, actions) are added to the model for this run
         only: use it to test a hypothesis before editing the spec.
@@ -151,7 +187,19 @@ def build_server() -> Any:
         `compact` — return grouped findings with counts and up to three examples
         per group (`analint.check.compact/v1`). Omit it for full findings.
         """
-        return check_spec(path, what_if, max_states, slice, tlc, cache, compact)
+        return check_spec(
+            path,
+            what_if,
+            max_states,
+            slice,
+            tlc,
+            cache,
+            compact,
+            checks=checks,
+            scenario_ids=scenario_ids,
+            tags=tags,
+            tlc_timeout=tlc_timeout,
+        )
 
     @mcp.tool()
     def explore(
@@ -173,7 +221,14 @@ def build_server() -> Any:
 
     @mcp.tool()
     def trace(
-        path: str = ".", query: str = "", what_if: str | None = None, slice: bool = True
+        path: str = ".",
+        query: str = "",
+        what_if: str | None = None,
+        slice: bool = True,
+        max_states: int | None = None,
+        cache: bool = False,
+        tlc: bool = False,
+        tlc_timeout: float | None = None,
     ) -> dict:
         """A query or invariant's witness/counterexample as states and changes.
 
@@ -184,9 +239,11 @@ def build_server() -> Any:
         The property is decided exactly as `check` decides it (budgets, and its
         slice unless `slice` is false; the payload then carries `slice`, and
         fields outside it keep their initial values). Invariant payloads have
-        an `invariant` key in place of `query`.
+        an `invariant` key in place of `query`. Pass the same `max_states`, `cache`,
+        `tlc` and `tlc_timeout` settings as check; calls do not inherit options.
+        TLC-decided properties return `action_trace` without state snapshots.
         """
-        return trace_spec(path, query, what_if, slice)
+        return trace_spec(path, query, what_if, slice, max_states, cache, tlc, tlc_timeout)
 
     @mcp.tool()
     def show(path: str = ".", kind: str | None = None, name: str | None = None) -> dict:

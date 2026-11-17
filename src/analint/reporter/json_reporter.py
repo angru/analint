@@ -44,6 +44,7 @@ def result_to_dict(
         "spec": {"id": result.spec_id, "name": result.spec_name},
         "verdict": verdict.value,
         "passed": verdict == "PASS",
+        **({"selection": result.selection} if result.selection is not None else {}),
         "load_errors": result.load_errors,
         "structural": _findings(result.structural_findings, compact),
         "scenarios": [

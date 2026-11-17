@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -19,6 +19,7 @@ from analint.loader.python_loader import (
 from analint.models.root import Spec
 from analint.reporter.base import Code, Finding, Severity, ValidationResult
 from analint.validator.scenario_runner import run_scenario
+from analint.validator.selection import SelectionError, select_checks
 from analint.validator.structural import validate_structural
 
 if TYPE_CHECKING:
@@ -147,8 +148,14 @@ def validate(
     tlc: bool = False,
     tlc_timeout: float | None = None,
     cache: bool = False,
+    checks: list[str] | None = None,
 ) -> ValidationResult:
-    """``max_states`` overrides every exploration budget for this run — the
+    """``checks`` selects flow/query/invariant ids (or KIND:ID). None retains
+    the full check; [] or unknown/ambiguous ids raise SelectionError. Selection
+    never changes model behavior. Reachability retains all canonical invariant
+    proofs as supporting checks and the existing per-action defect coverage.
+
+    ``max_states`` overrides every exploration budget for this run — the
     spec's canonical one and each query's — without mutating the model.
 
     ``sliced`` checks each invariant/query on its cone of influence instead of
@@ -160,26 +167,97 @@ def validate(
 
     ``cache`` memoises explorations on disk (``validator/exploration_cache.py``):
     the result is the one a fresh run gives."""
-    args = (path, scenario_ids, tags, extra, max_states, sliced, tlc, tlc_timeout)
-    if not cache:
-        return _validate(*args)
+    prepared = prepare_model(path, what_if=extra)
+    return _validate_prepared(
+        prepared,
+        scenario_ids=scenario_ids,
+        tags=tags,
+        checks=checks,
+        max_states=max_states,
+        sliced=sliced,
+        tlc=tlc,
+        tlc_timeout=tlc_timeout,
+        cache=cache,
+    )
+
+
+def validate_spec(
+    spec: Spec,
+    *,
+    checks: list[str] | None = None,
+    scenario_ids: list[str] | None = None,
+    tags: list[str] | None = None,
+    max_states: int | None = None,
+    sliced: bool = True,
+    tlc: bool = False,
+    tlc_timeout: float | None = None,
+    cache: bool = False,
+) -> ValidationResult:
+    """Verify a reusable Spec with invocation-only selection/settings.
+
+    Explicit ids are required, as for other in-memory APIs. Structural checks
+    run each time; no Spec is reconstructed and no declarations are mutated.
+    """
+    prepared = PreparedModel(spec, [], [], validate_structural(spec))
+    return _validate_prepared(
+        prepared,
+        scenario_ids=scenario_ids,
+        tags=tags,
+        checks=checks,
+        max_states=max_states,
+        sliced=sliced,
+        tlc=tlc,
+        tlc_timeout=tlc_timeout,
+        cache=cache,
+    )
+
+
+def _validate_prepared(
+    prepared: PreparedModel,
+    *,
+    checks: list[str] | None = None,
+    scenario_ids: list[str] | None = None,
+    tags: list[str] | None = None,
+    max_states: int | None = None,
+    sliced: bool = True,
+    tlc: bool = False,
+    tlc_timeout: float | None = None,
+    cache: bool = False,
+    decided: dict[str, Exploration] | None = None,
+) -> ValidationResult:
     from analint.validator.exploration_cache import use_store
 
-    with use_store(None):
-        return _validate(*args)
+    if max_states is not None and (type(max_states) is not int or max_states < 1):
+        raise SelectionError("max_states must be a positive integer")
+    if tlc_timeout is not None and tlc_timeout <= 0:
+        raise SelectionError("tlc_timeout must be positive")
+    with use_store(None) if cache else nullcontext():
+        return _run_checks(
+            prepared,
+            checks,
+            scenario_ids,
+            tags,
+            max_states,
+            sliced,
+            tlc,
+            tlc_timeout,
+            cache,
+            decided,
+        )
 
 
-def _validate(
-    path: Path,
+def _run_checks(
+    prepared: PreparedModel,
+    checks: list[str] | None,
     scenario_ids: list[str] | None,
     tags: list[str] | None,
-    extra: Path | None,
     max_states: int | None,
     sliced: bool,
     tlc: bool,
     tlc_timeout: float | None,
+    cache: bool,
+    decided: dict[str, Exploration] | None,
 ) -> ValidationResult:
-    prepared = prepare_model(path, what_if=extra)
     spec, load_errors = prepared.spec, prepared.load_errors
 
     if spec is None:
@@ -201,19 +279,27 @@ def _validate(
     if prepared.has_structural_errors:
         return result
 
-    scenarios = spec.scenarios
-    if scenario_ids:
-        scenarios = [sc for sc in scenarios if sc.id in scenario_ids]
-    if tags:
-        scenarios = [sc for sc in scenarios if any(t in sc.tags for t in tags)]
-
-    for scenario in scenarios:
+    selection = select_checks(spec, checks, scenario_ids, tags)
+    result.selection = selection.scope
+    if result.selection is not None:
+        result.selection["options"] = {
+            "max_states": max_states,
+            "sliced": sliced,
+            "tlc": tlc,
+            "tlc_timeout": tlc_timeout,
+            "cache": cache,
+        }
+        result.selection["budgets"] = {
+            "canonical": max_states or spec.max_states,
+            "queries": {q.id: max_states or q.max_states for q in selection.queries},
+        }
+    for scenario in selection.scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
 
-    if spec.flows:
+    if selection.flows:
         from analint.validator.flow_runner import run_flow
 
-        for flow in spec.flows:
+        for flow in selection.flows:
             result.flow_results.append(run_flow(flow, spec))
 
     # Findings from different explorations of the same state space overlap, so
@@ -235,7 +321,7 @@ def _validate(
 
     canonical_initials: list | None = None
     canonical_error: str | None = None
-    if spec.initial is not None or spec.invariants:
+    if spec.initial is not None or selection.invariants:
         canonical_initials, canonical_error = build_canonical_initials(spec)
     if spec.initial is not None and canonical_initials is None:
         result.exploration_findings.append(
@@ -251,11 +337,11 @@ def _validate(
     # query with the same roots and budget reuses the canonical exploration.
     explorations: dict = {}
     analysis = None
-    if sliced and (spec.invariants or spec.queries):
+    if sliced and (selection.invariants or selection.queries):
         from analint.validator.slicing import SliceAnalysis
 
         analysis = SliceAnalysis(spec)
-    if spec.invariants:
+    if selection.invariants:
         from analint.validator.explorer import verify_invariants
 
         result.invariant_results, _ = verify_invariants(
@@ -265,14 +351,22 @@ def _validate(
             max_states=max_states or spec.max_states,
             cache=explorations,
             analysis=analysis,
+            explorations=decided,
         )
 
-    if spec.queries:
+    if selection.queries:
         from analint.validator.explorer import run_query
 
-        for query in spec.queries:
+        for query in selection.queries:
             result.query_results.append(
-                run_query(query, spec, explorations, max_states=max_states, analysis=analysis)
+                run_query(
+                    query,
+                    spec,
+                    explorations,
+                    max_states=max_states,
+                    analysis=analysis,
+                    explorations=decided,
+                )
             )
 
     if tlc:
@@ -285,6 +379,8 @@ def _validate(
     # must fail the run, not hide behind a green invariant.
     for exp in [*explorations.values(), *used]:
         _merge_exploration_findings(exp)
+        if result.selection is not None:
+            result.selection["excluded_actions"].update(exp.excluded)
 
     return result
 

@@ -1507,6 +1507,8 @@ def _eval_reachable(
 
     if exp.capped:
         return _inconclusive(qid, kind, exp)
+    if exp.excluded:
+        return _excluded_actions_result(qid, kind, exp)
     if expect_reachable:
         return QueryResult(
             query_id=qid,
@@ -1568,6 +1570,8 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
         return _never_applicable_result(qid, "AlwaysHolds", exp, text)
     if exp.capped:
         return _inconclusive(qid, "AlwaysHolds", exp)
+    if exp.excluded:
+        return _excluded_actions_result(qid, "AlwaysHolds", exp)
     return QueryResult(
         query_id=qid, kind="AlwaysHolds", status="PASS", states_explored=len(exp.states)
     )
@@ -1599,6 +1603,9 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
         return _model_error_result(qid, "NoDeadEnd", exp, errors)
     if applicable == 0:
         return _never_applicable_result(qid, "NoDeadEnd", exp, text)
+    if exp.excluded:
+        # Missing transitions can both hide new dead ends and enable recovery.
+        return _excluded_actions_result(qid, "NoDeadEnd", exp)
     if not goal_states:
         return QueryResult(
             query_id=qid,
@@ -1813,6 +1820,25 @@ def _inconclusive(qid: str, kind: str, exp: Exploration) -> QueryResult:
                 f"query:{qid}",
                 f"state space exceeded max_states={len(exp.states)} — {_cap_hint(exp, tlc=tlc)}",
                 Code.BUDGET_EXHAUSTED,
+            )
+        ],
+    )
+
+
+def _excluded_actions_result(qid: str, kind: str, exp: Exploration) -> QueryResult:
+    return QueryResult(
+        query_id=qid,
+        kind=kind,
+        status="INCONCLUSIVE",
+        states_explored=len(exp.states),
+        findings=[
+            Finding(
+                Severity.WARNING,
+                f"query:{qid}",
+                "inconclusive: actions ["
+                + ", ".join(sorted(exp.excluded))
+                + "] were excluded from exploration, so the transition relation is incomplete",
+                Code.EXCLUDED_ACTIONS,
             )
         ],
     )

@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Select flows, queries and invariant checks through repeatable CLI `--check`,
+  MCP `checks`, or Python `validate(..., checks=...)`. `validate_spec` reuses an
+  existing Spec without reconstructing or filtering the system's behavior.
+  Reports distinguish selected, supporting and unselected checks; canonical
+  invariant proofs and action-defect coverage remain intact for reachability.
+  Unknown/ambiguous selections and empty scenario matches are usage errors.
+- Trace accepts matching budget, slicing, cache and TLC settings through the
+  shared verification pipeline. TLC traces expose their parsed action sequence
+  with unavailable state snapshots explicitly marked, without a native rerun.
+
 ### Fixed
 
 - Symbolic DSL expressions now reject Python boolean conversion (`and`/`or`,
@@ -21,6 +33,9 @@ All notable changes to this project are documented here. The format is based on
 - Compiled action plans are scoped to an exploration and rebuilt for later runs,
   so declaration edits cannot reuse stale guards or effects. Parameter-family
   binding cache lifetime remains tracked separately in #11. ([#18](https://github.com/angru/analint/pull/18))
+- Queries requiring complete exploration no longer conclude PASS/FAIL from a
+  partial transition relation with excluded event actions. Existing witnesses
+  and counterexamples remain conclusive.
 - Invalid materialized event payloads now produce `transition.field_constraint`
   findings and failing scenarios/flows instead of escaping as exceptions.
   Payloads retain non-clamping event-construction semantics; unexpected

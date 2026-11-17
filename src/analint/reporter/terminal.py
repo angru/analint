@@ -24,6 +24,15 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
 
     console.print(f"\n[bold]analint v{ver}[/bold]  spec: [cyan]{result.spec_name}[/cyan]\n")
 
+    if result.selection is not None:
+        console.print("[bold]SELECTED CHECKS[/bold] (verdict applies only to this scope)")
+        console.print("  " + ", ".join(result.selection["requested"]), markup=False)
+        if result.selection["supporting"]:
+            console.print(
+                "  Supporting: " + ", ".join(result.selection["supporting"]), markup=False
+            )
+        console.print()
+
     if result.load_errors:
         for err in result.load_errors:
             console.print(f"  [red]LOAD ERROR[/red]  {err}")

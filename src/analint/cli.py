@@ -14,6 +14,7 @@ from analint.models.root import Spec
 from analint.reporter.json_reporter import report_json
 from analint.reporter.terminal import report_terminal
 from analint.validator.engine import build_spec, validate
+from analint.validator.selection import SelectionError
 
 if TYPE_CHECKING:
     from analint.reporter.exploration_artifact import ExplorationArtifact
@@ -84,6 +85,11 @@ def check(
     format: OutputFormat = typer.Option(
         OutputFormat.terminal, "--format", "-f", help="Output format: terminal or json"
     ),
+    checks: list[str] | None = typer.Option(
+        None,
+        "--check",
+        help="Select a flow, query or invariant id (repeatable; KIND:ID disambiguates)",
+    ),
     scenario: list[str] | None = typer.Option(
         None, "--scenario", "-s", help="Run only this scenario id"
     ),
@@ -128,17 +134,24 @@ def check(
     """Validate the spec: structural checks + scenario runs."""
     if compact and format != OutputFormat.json:
         raise typer.BadParameter("requires --format json", param_hint="--compact")
-    result = validate(
-        path,
-        scenario_ids=scenario or None,
-        tags=tag or None,
-        extra=what_if,
-        max_states=max_states,
-        sliced=not no_slice,
-        tlc=tlc,
-        tlc_timeout=tlc_timeout,
-        cache=cache,
-    )
+    try:
+        result = validate(
+            path,
+            checks=checks,
+            scenario_ids=scenario or None,
+            tags=tag or None,
+            extra=what_if,
+            max_states=max_states,
+            sliced=not no_slice,
+            tlc=tlc,
+            tlc_timeout=tlc_timeout,
+            cache=cache,
+        )
+    except SelectionError as exc:
+        if format == OutputFormat.json:
+            typer.echo(json.dumps(exc.to_dict()))
+            raise typer.Exit(2) from None
+        raise typer.BadParameter(str(exc)) from None
 
     if format == "json":
         report_json(result, strict, compact=compact)
@@ -216,6 +229,13 @@ def explore(
 def _print_trace(t: dict) -> None:
     kind = "invariant" if "invariant" in t else "query"
     print(f"analint trace  {kind}: {t[kind]}  status: {t['status']}")
+    if "verification_verdict" in t:
+        print(f"  Selected verification: {t['verification_verdict']}")
+    if t.get("backend") == "tlc":
+        print(f"  {t['message']}")
+        for i, action in enumerate(t["action_trace"] or [], 1):
+            print(f"  {i}. {action}")
+        return
     if t.get("root") is None:
         print(f"  {t.get('message', 'no witness/counterexample to trace')}")
         return
@@ -249,18 +269,37 @@ def trace(
         "--no-slice",
         help="Trace on the whole model instead of the property's slice (as check --no-slice)",
     ),
+    max_states: int | None = typer.Option(
+        None, "--max-states", min=1, help="Use the check budget override"
+    ),
+    cache: bool = typer.Option(False, "--cache", help="Reuse the check's exploration cache"),
+    tlc: bool = typer.Option(
+        False, "--tlc", help="Use TLC fallback; return its action trace when decided there"
+    ),
+    tlc_timeout: float | None = typer.Option(
+        None, "--tlc-timeout", min=1, help="Seconds per TLC run"
+    ),
 ) -> None:
     """Show a query or invariant's witness/counterexample as states and changes."""
     from analint.validator.exploration_service import ExplorationError, trace_query
 
     try:
-        result = trace_query(path, query, what_if=what_if, sliced=not no_slice)
+        result = trace_query(
+            path,
+            query,
+            what_if=what_if,
+            sliced=not no_slice,
+            max_states=max_states,
+            cache=cache,
+            tlc=tlc,
+            tlc_timeout=tlc_timeout,
+        )
     except ExplorationError as exc:
         if format == "json":
             print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))
         else:
             typer.echo(f"TRACE ERROR ({exc.kind}): {exc.message}", err=True)
-        raise typer.Exit(3) from None
+        raise typer.Exit(2 if exc.kind == "usage" else 3) from None
 
     if format == "json":
         print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -35,11 +35,19 @@ All notable changes to this project are documented here. The format is based on
 - Trace exposes the same scoped diagnostics. TLC preserves the transition system
   while selecting defect assertions belonging to the requested proof's dependencies.
 
+### Changed
+
+- **Breaking:** native operand literals are now limited to `None`, `bool`, `int`,
+  `float`, `str`, `Enum`, and `InstanceRef`. Declared `Entity` classes remain
+  supported identities for parameter filters. Other Python objects, including
+  `decimal.Decimal` and `datetime.date` literals that previously worked in native
+  checks, now produce `structural.invalid_entry` errors. Specs using these types
+  must convert their literals and corresponding modeled field values to supported
+  representations. This explicit domain also rejects opaque objects wrapping
+  field references, preventing false PASS results. (#14)
+
 ### Fixed
 
-- Reject opaque Python operands (including plain dataclasses wrapping field
-  references) through an explicit literal domain, closing another false PASS
-  path. Preserve entity-class identities used in parameter filters. (#14)
 - `affects` and dependency-bearing `show` requests return structured errors for
   unsupported nodes/effects through Python, CLI and MCP, with guidance to run
   `analint check`; the CLI exits 1 without a private-exception traceback. (#14)

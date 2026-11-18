@@ -38,6 +38,7 @@ from analint.models.scope import (
     is_present,
     present_instances,
 )
+from analint.models.value import is_literal_operand
 
 Context = dict[Any, Any]
 
@@ -111,6 +112,8 @@ def resolve(
         if isinstance(operand, _Min):
             return min(values)
         return max(values)
+    if not is_literal_operand(operand):
+        raise UnsupportedPredicateError(f"unsupported operand node: {type(operand).__name__}")
     return operand
 
 
@@ -299,5 +302,8 @@ def _compile_operand(operand: Any) -> Any:
         )
     if isinstance(operand, (_Sum, _Min, _Max)):
         # empty Min/Max raises exactly as resolve() does
+        return lambda ctx, b: resolve(operand, ctx, b)
+    # Unknown nodes and opaque objects must not become truthy literal values.
+    if not is_literal_operand(operand):
         return lambda ctx, b: resolve(operand, ctx, b)
     return lambda ctx, b: operand

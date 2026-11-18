@@ -277,3 +277,92 @@ def test_nonterminal_lifecycle_assignment_reads_the_old_state():
     spec = Spec(id="s", name="S", actions=[finish])
     assert q.affects(spec, "finish")["reads"] == ["Job.status"]
     assert q.affects(spec, "Job.status")["read_by"] == ["finish"]
+
+
+@pytest.fixture(params=["effect", "operand", "predicate"])
+def unsupported_dependency(tmp_path, request):
+    entry = tmp_path / "spec.py"
+    declaration = {
+        "effect": "weird = Action(effect=[Foreign(Counter.n)])",
+        "operand": "weird = Action(pre=[IsNotNull(Plain(Counter.n))])",
+        "predicate": "weird = Invariant(Unknown(Counter.n))",
+    }[request.param]
+    membership = "invariants=[weird]" if request.param == "predicate" else "actions=[weird]"
+    entry.write_text(
+        dedent(f"""\
+        from dataclasses import dataclass
+        from analint import Action, Entity, Invariant, IsNotNull, Spec
+        from analint.models.effect import Effect
+        from analint.models.predicate import Predicate
+        class Counter(Entity):
+            n: int = 0
+        @dataclass
+        class Foreign(Effect):
+            child: object
+        @dataclass
+        class Plain:
+            child: object
+        @dataclass
+        class Unknown(Predicate):
+            child: object
+        {declaration}
+        spec = Spec(id='invalid', name='Invalid', entities=[Counter], {membership})
+        """)
+    )
+    return entry, request.param
+
+
+def test_unsupported_affects_is_a_shared_error_without_traceback(unsupported_dependency):
+    entry, kind = unsupported_dependency
+    spec, _, errors = build_spec(entry)
+    assert spec is not None, errors
+    targets = ["Counter.n", "Counter"] + ([] if kind == "predicate" else ["weird"])
+    for target in targets:
+        expected = q.affects(spec, target)
+        assert expected["schema"] == "analint.affects/v1"
+        assert "unsupported" in expected["error"]
+        assert "analint check" in expected["error"]
+        result = CliRunner().invoke(app, ["affects", target, "-p", str(entry)])
+        assert result.exit_code == 1, result.output
+        assert "Traceback" not in result.output and "_Unsliceable" not in result.output
+        assert json.loads(result.output) == affects_target(target, str(entry)) == expected
+
+
+def test_show_entity_reports_unsupported_dependencies(unsupported_dependency):
+    entry, _ = unsupported_dependency
+    result = CliRunner().invoke(app, ["show", "entity", "Counter", "-p", str(entry)])
+    assert result.exit_code == 1, result.output
+    expected = json.loads(result.output)
+    assert expected["schema"] == "analint.show/v1"
+    assert "unsupported" in expected["error"]
+    assert expected == show_spec(str(entry), "entity", "Counter")
+    # Overview remains useful for inspecting a broken model.
+    assert CliRunner().invoke(app, ["show", "-p", str(entry)]).exit_code == 0
+
+
+@pytest.mark.parametrize("cache", [False, True])
+def test_plain_dataclass_invariant_fails_check_cli_and_mcp(tmp_path, monkeypatch, cache):
+    from analint.mcp_server import check_spec
+
+    monkeypatch.setenv("ANALINT_CACHE_DIR", str(tmp_path / "cache"))
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        dedent("""\
+        from dataclasses import dataclass
+        from analint import Entity, Invariant, IsNotNull, Spec
+        class Counter(Entity):
+            n: int = 0
+        @dataclass
+        class Plain:
+            child: object
+        invalid = Invariant(IsNotNull(Plain(Counter.n)))
+        spec = Spec(id='plain', name='Plain', invariants=[invalid])
+        """)
+    )
+    args = ["check", str(entry), "-f", "json"] + (["--cache"] if cache else [])
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["verdict"] == "FAIL"
+    assert "unsupported operand node: Plain" in result.output
+    assert check_spec(str(entry), cache=cache)["verdict"] == "FAIL"

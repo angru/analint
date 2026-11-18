@@ -118,10 +118,16 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    unavailable state snapshots explicit. Revision/provenance persistence remains
    deferred until a demonstrated mismatch requires it; the broader issue stays open.
 4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
-   (P3): first inventory AST nodes and require each walker to handle or explicitly
-   refuse them. Add small fixed-seed differential probes (including constrained
-   emitted payloads from #20); centralize walkers only where duplication warrants
-   it, retaining independent backend gates.
+   (P3) — implemented, unreleased: an executable AST inventory covers structural
+   references, slicing/impact, interpretation/compilation, cache and TLA rendering,
+   with explicit binding and unsupported-node probes. A bounded fixed-seed corpus
+   compares sliced/whole results, interpreter/compiler values and errors, and
+   fresh/cold/warm cache reports, including constrained emitted payloads from #20.
+   Unknown operands/predicates (including opaque non-symbolic Python objects),
+   unaudited dataclass cache schemas and
+   unknown exported effects now fail closed. Inspection reports unsupported
+   dependencies as structured CLI/MCP errors. The audit justified narrow boundary
+   fixes, not a shared visitor framework; independent TLC gates remain in place.
 
 Review follow-ups are tracked separately:
 

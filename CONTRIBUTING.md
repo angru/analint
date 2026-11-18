@@ -57,6 +57,55 @@ A few specific things to know about the test suite:
   checks agreed transition semantics directly; the historical target changes
   have been resolved and no strict-xfail placeholders remain.
 
+## Extending the AST
+
+`tests/test_ast_coverage.py` is the executable node inventory. It discovers
+concrete `Symbolic` and `Effect` subclasses and requires a representative case
+for each (excluding the explicit abstract bases). Bound variables, scopes,
+instance identities and parameter substitution have authoring-leaf probes.
+Adding a node requires a decision in every applicable column:
+
+| Node family | Structural references | Slicing / impact | Interpreter / compiler | Cache | TLA export |
+| --- | --- | --- | --- | --- | --- |
+| Comparisons, boolean/null/membership predicates | All operand fields | All operand reads | Evaluate both paths | Explicit schema | Render |
+| ForAll / Exists / Present | Bound fields; presence has no field reference | Include slot presence | Present members only | Explicit schema | Render with presence guards |
+| Arithmetic / Key / Count / Sum | Fields; Key reads no state | Fields and aggregate membership | Evaluate both paths | Explicit schema | Render |
+| Min / Max | Bound fields | Fields and membership | Empty scope raises | Explicit schema | Refuse |
+| Set / Add / Subtract / Create / Delete | Targets and RHS checked | Reads, writes and presence guards | Transition kernel (existing conformance suite) | Explicit schema | Render |
+| Param / ParamField / BoundField | Substitute or bind before execution | Reject unbound runtime reads | Binding required | Params refused; bound schemas recorded | Refuse unbound operands |
+
+Reference collectors are helpers for structurally validated trees, not validators.
+Unknown predicates/operands must be rejected at structural validation and runtime;
+slicing must fall back to the whole model. Impact analysis refuses unknown reads
+or effects, returning the same structured error to Python, CLI and MCP callers
+(CLI exit 1), with guidance to run `analint check`. Dependency-bearing `show`
+requests use the same error boundary; the overview remains inspectable.
+Cache encoding only accepts audited dataclass schemas; an unknown
+schema bypasses the cache. TLA export refuses unknown nodes/effects. Do not add a
+catch-all that treats arbitrary Python objects as literals or drops unknown effects.
+
+The operand literal domain is explicit: `None`, `bool`, `int`, `float`, `str`,
+`Enum`, and `InstanceRef`. Declared `Entity` classes also remain valid identities
+for parameter filters such as `where=[src != dst]`; arbitrary Python classes
+are not literals. Plain dataclasses, containers, callbacks and entity snapshots
+in operand position are structural errors even if they do not inherit `Symbolic`.
+This boundary is shared by native structural validation, evaluation and slicing;
+backend rendering remains independently checked.
+
+`tests/test_generated_conformance.py` adds 24 fixed-seed tiny singleton models
+and eight scoped cases. It compares sliced/whole verdicts and witness lengths,
+interpreted/compiled values and exceptions, and full cold/warm/fresh JSON reports
+(excluding timing) for the singleton models. It proves cache hits and exercises
+smaller slices, with both valid models and planted invariant/payload defects.
+The bounded corpus runs in seconds; it is not exhaustive model generation.
+NoDeadEnd's documented out-of-slice illegal-state divergence is outside this
+corpus. Keep the example snapshots and independent TLC conformance gates: a
+shared implementation bug can fool differential tests.
+
+No shared visitor framework is required. Inventory failures should first produce
+a narrow semantic fix; consolidate walkers only when a concrete duplication cost
+justifies coupling them.
+
 ## Trying the CLI
 
 ```bash

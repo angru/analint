@@ -24,8 +24,8 @@ from analint.models.scope import (
     instance_context_key,
     is_field_ref,
 )
-from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars
-from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
+from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars, _Unsliceable
+from analint.validator.structural import _describe, _describe_operand
 
 # ── Rendering helpers ──────────────────────────────────────────────────────────
 
@@ -130,6 +130,8 @@ def _action_reads(spec: Spec, action: Action) -> set[Var]:
                     _operand_vars(value, reads)
             else:
                 frozen.add(effect.target)
+        else:
+            raise _Unsliceable(effect)
     for lifecycle in spec.lifecycles:
         if lifecycle.terminal:
             for target in frozen:
@@ -161,6 +163,8 @@ def _action_writes(action: Action) -> list[tuple[FieldRef, Effect]]:
                 (getattr(effect.target, name), effect)
                 for name in all_fields(effect.target.entity_cls)
             )
+        elif not isinstance(effect, Delete):
+            raise _Unsliceable(effect)
     return writes
 
 
@@ -247,7 +251,11 @@ def describe(spec: Spec, kind: str, name: str) -> dict:
     fn = dispatch.get(kind)
     if fn is None:
         return {"schema": SHOW_SCHEMA, "error": f"unknown kind '{kind}'", "kinds": sorted(dispatch)}
-    return {"schema": SHOW_SCHEMA, **fn(spec, name)}
+    try:
+        payload = fn(spec, name)
+    except _Unsliceable as exc:
+        payload = _unsupported_dependency(exc)
+    return {"schema": SHOW_SCHEMA, **payload}
 
 
 def _describe_contract(spec: Spec, name: str) -> dict:
@@ -538,7 +546,18 @@ def affects(spec: Spec, target: str) -> dict:
 
     Target forms: 'Entity.field', 'Entity' (or event name), or an action id.
     """
-    return {"schema": AFFECTS_SCHEMA, **_affects(spec, target)}
+    try:
+        payload = _affects(spec, target)
+    except _Unsliceable as exc:
+        payload = _unsupported_dependency(exc)
+    return {"schema": AFFECTS_SCHEMA, **payload}
+
+
+def _unsupported_dependency(exc: _Unsliceable) -> dict:
+    return {
+        "error": f"Cannot analyze model dependencies: unsupported {type(exc.args[0]).__name__}. "
+        "Run 'analint check' on this spec and fix its structural errors."
+    }
 
 
 def _affects(spec: Spec, target: str) -> dict:
@@ -575,7 +594,9 @@ def _affects_field(spec: Spec, entity_name: str, field_name: str) -> dict:
         a.id for a in spec.actions if any(_matches(r) for r in _field_refs(_action_reads(spec, a)))
     )
     invariants = [
-        i.id for i in spec.invariants if any(_matches(r) for r in _collect_field_refs(i.expression))
+        i.id
+        for i in spec.invariants
+        if any(_matches(r) for r in _field_refs(_predicate_reads(i.expression)))
     ]
     lifecycles = [lc.id for lc in spec.lifecycles if _matches(lc.field)]
 

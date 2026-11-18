@@ -29,9 +29,12 @@ from pathlib import Path
 from typing import Any
 
 import analint
+from analint.models import effect, expr, predicate, quantifier
 from analint.models.action import Action
 from analint.models.effect import Create, Delete
 from analint.models.entity import _MISSING, FieldDescriptor, FieldSpec, all_fields
+from analint.models.invariant import Invariant
+from analint.models.key import Key
 from analint.models.lifecycle import Lifecycle
 from analint.models.quantifier import Bound, BoundField
 from analint.models.root import Spec
@@ -41,6 +44,39 @@ from analint.validator import explorer
 from analint.validator.explorer import Exploration
 
 FORMAT = 2
+# Only these dataclass schemas have been audited for semantic cache inputs.
+# A future node (including a dataclass) must opt in, never inherit acceptance.
+_CANON_DATACLASSES = {
+    effect.Set,
+    effect.Add,
+    effect.Subtract,
+    expr._AddExpr,
+    expr._SubExpr,
+    expr._MulExpr,
+    Key,
+    predicate._Eq,
+    predicate._Ne,
+    predicate._Gt,
+    predicate._Gte,
+    predicate._Lt,
+    predicate._Lte,
+    predicate._And,
+    predicate._Or,
+    predicate._Not,
+    predicate._Implies,
+    predicate._In,
+    predicate._IsNull,
+    predicate._IsNotNull,
+    quantifier._ForAll,
+    quantifier._Exists,
+    quantifier._Present,
+    quantifier._Count,
+    quantifier._Sum,
+    quantifier._Min,
+    quantifier._Max,
+    Invariant,
+    FieldSpec,
+}
 MAX_BYTES = 512 * 1024 * 1024  # pruned oldest-first beyond this
 
 
@@ -139,7 +175,7 @@ def _canon(obj: Any, classes: dict[str, type]) -> Any:
             ),
             [_value(t, classes) for t in obj.terminal],
         ]
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+    if type(obj) in _CANON_DATACLASSES:
         # predicate/expression/effect nodes, Invariant, FieldSpec
         return [
             _name(type(obj)),

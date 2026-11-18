@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Executable AST coverage inventory and bounded fixed-seed conformance probes
+  for slicing, compiled evaluation and disk cache parity, including constrained
+  emitted payloads. The source-archive release gate runs both suites. (#14)
+
 - TLC exports supported emitted payload constraints, including optional values,
   instead of refusing every constrained template. It checks the post-state and
   reports invalid payloads without clamping. (#24)
@@ -31,7 +35,29 @@ All notable changes to this project are documented here. The format is based on
 - Trace exposes the same scoped diagnostics. TLC preserves the transition system
   while selecting defect assertions belonging to the requested proof's dependencies.
 
+### Changed
+
+- **Breaking:** native operand literals are now limited to `None`, `bool`, `int`,
+  `float`, `str`, `Enum`, and `InstanceRef`. Declared `Entity` classes remain
+  supported identities for parameter filters. Other Python objects, including
+  `decimal.Decimal` and `datetime.date` literals that previously worked in native
+  checks, now produce `structural.invalid_entry` errors. Specs using these types
+  must convert their literals and corresponding modeled field values to supported
+  representations. This explicit domain also rejects opaque objects wrapping
+  field references, preventing false PASS results. (#14)
+
 ### Fixed
+
+- `affects` and dependency-bearing `show` requests return structured errors for
+  unsupported nodes/effects through Python, CLI and MCP, with guidance to run
+  `analint check`; the CLI exits 1 without a private-exception traceback. (#14)
+
+- Reject unknown symbolic operands and predicate subclasses during structural
+  validation instead of accepting them as constants or empty trees. Interpreted
+  and compiled evaluation reject unknown symbolic operands, slicing falls back
+  to the whole model, and impact analysis refuses unknown effects. Cache encoding
+  accepts only audited dataclass schemas; TLA export rejects unknown effects
+  instead of silently dropping them. (#14)
 
 - Parameter-family bindings refresh guards, effects, postconditions and payloads
   from the current declaration on each bind/expansion, preserving bound-action

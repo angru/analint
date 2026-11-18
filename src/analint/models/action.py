@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from weakref import ReferenceType
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
@@ -52,6 +53,11 @@ class Action(BaseModel):
     # Structured parameter bindings of a concrete instance (param name → value),
     # set by bind_action. Private: surfaced only through the exploration artifact.
     _bindings: dict[str, Any] | None = PrivateAttr(default=None)
+    # Owned by the declaration, not a process-global registry. The weak owner
+    # distinguishes shallow/deep model copies before they reuse this memo.
+    _bound_memo: tuple[ReferenceType[Action], dict[tuple, Action]] | None = PrivateAttr(
+        default=None
+    )
 
     @field_validator("emits", "pre", "post", "effect", "params", "where", mode="before")
     @classmethod
@@ -73,9 +79,10 @@ class Action(BaseModel):
     def bind(self, **binding: Any) -> Action:
         """A concrete instance of this parameterized action for one binding.
 
-        Memoized: the same binding always returns the same object, so a
-        scenario's `action=send.bind(src=…)` is identical to the instance
-        the Spec expansion registers.
+        The same binding returns the same object, refreshed from the current
+        declaration on each call, so a scenario's `action=send.bind(src=…)`
+        remains identical to the instance the Spec expansion registers.
+        Existing Specs are not automatically re-expanded after template edits.
         """
         from analint.models.param import bind_action
 

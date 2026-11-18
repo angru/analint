@@ -31,6 +31,7 @@ ARCHIVE_TESTS = [
     "tests/test_diagnostic_codes.py",
     "tests/test_check_selection.py",
     "tests/test_verification_scope.py",
+    "tests/test_parameter_refresh.py",
     "tests/test_event_payload_constraints.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",

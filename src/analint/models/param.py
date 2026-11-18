@@ -391,10 +391,12 @@ def bind_action(action: Action, binding: Binding) -> Action:
     memo = _bound_actions(action)
     cached = memo.get(key)
     if cached is not None:
-        # Preserve scenario/flow/Spec identity while replacing derived fields.
-        for name in Action.model_fields:
+        # Keep loader-assigned ids and established family labels stable, as on
+        # the old memo-hit path. Only derived semantic/metadata fields refresh.
+        for name in ("pre", "post", "effect", "emits", "name", "description", "tags"):
             setattr(cached, name, getattr(concrete, name))
         cached._bindings = concrete._bindings
+        _refresh_bound_id(action, key, cached)
         return cached
     memo[key] = concrete
     return concrete

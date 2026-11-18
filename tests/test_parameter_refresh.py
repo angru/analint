@@ -119,6 +119,49 @@ def test_naming_existing_bindings_does_not_recheck_where():
     assert bound.id == "named(p=1)" and bound.family == "named"
 
 
+def test_rebind_preserves_loader_names_when_bound_is_named_before_family(tmp_path):
+    from analint.validator.engine import prepare_model
+
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, Entity, Field, Param, Scenario, Scope, Spec\n"
+        "class C(Entity):\n    n: int = Field(0, ge=0, le=3)\n"
+        "S = Scope(C, keys=['a', 'b'])\n"
+        "p = Param('p', S)\n"
+        "zfam = Action(params=[p], pre=[p.n < 3], effect=[Add(p.n, 1)])\n"
+        "ab = zfam.bind(p=S['a'])\n"
+        "example = Scenario(action=ab, given=[S['a'](n=0), S['b'](n=0)])\n"
+        "spec = Spec(id='s', name='S', actions=[zfam], scenarios=[example])\n"
+    )
+    prepared = prepare_model(entry)
+    assert prepared.spec is not None, prepared.load_errors
+    spec = prepared.spec
+    family = spec._declared_actions[0]
+    bound = spec.scenarios[0].action
+    assert bound.id == "ab"  # named alphabetically before zfam
+    identities = [(a.id, a.family) for a in spec.actions]
+    assert validate_spec(spec).verdict == "PASS"
+    family.pre.append(family.params[0].n < 0)
+    assert family.bind(**bound._bindings) is bound
+    expanded = expand_action(family)
+    assert all(a is b for a, b in zip(expanded, spec.actions, strict=True))
+    assert [(a.id, a.family) for a in spec.actions] == identities
+    assert spec.scenarios[0].action.id == "ab"
+    assert validate_spec(spec).verdict == "FAIL"
+
+
+def test_rebind_fills_unnamed_identity_but_keeps_established_identity():
+    p = Param("p", 1)
+    family = Action(params=[p], effect=[Set(Counter.n, p)])
+    bound = family.bind(p=1)
+    family.id = "named"
+    assert family.bind(p=1) is bound
+    assert (bound.id, bound.family) == ("named(p=1)", "named")
+    family.id = "renamed"
+    family.bind(p=1)
+    assert (bound.id, bound.family) == ("named(p=1)", "named")
+
+
 def test_releasing_a_family_releases_its_binding_memo_but_live_results_survive():
     p = Param("p", 1, 2)
     family = Action(id="tick", params=[p], effect=[Set(Counter.n, p)])

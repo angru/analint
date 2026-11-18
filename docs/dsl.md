@@ -263,7 +263,10 @@ declaration, including nested guard/effect/payload edits. Rebinding the same
 family and arguments preserves the action's identity so existing scenario and
 flow references still match Spec expansion. Those references see the refreshed
 contents; this is not an immutable model snapshot. Copied families own separate
-binding memos, and a discarded family no longer leaves its memo in a global store.
+binding memos. Rebinding preserves established action IDs and family labels,
+including IDs assigned to bound variables by the loader. Unnamed bindings are
+named once their family is named. A discarded family no longer leaves its memo
+in a global store.
 Refresh happens on `.bind(...)` or a new family expansion, not automatically when
 an existing Spec is validated. Rebuild the Spec after changing parameter domains,
 `where`, or referenced model elements so membership/reference closure is current.

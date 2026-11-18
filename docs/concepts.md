@@ -141,17 +141,17 @@ work actually performed, and shared work is charged to its first consumer.
 slice. It requires Java and a TLC jar, selected by `ANALINT_TLC_JAR` or a discovered
 Quint/Apalache installation. Use `--tlc-timeout SECONDS` to bound each exported
 check. A result decided by TLC carries `backend: "tlc"`.
-**Unreleased:** selected safety queries can first use an unconstrained proof
+**0.1.0:** selected safety queries can first use an unconstrained proof
 attempt, including TLC when requested. Only a clean PASS discharges support;
 all other attempts return to constrained verification. Own-root attempts never
-inherit canonical invariant trust. See [check selection](cli.md#selecting-checks-over-one-model-unreleased).
+inherit canonical invariant trust. See [check selection](cli.md#selecting-checks-over-one-model).
 
 The exporter mirrors the transition kernel and refuses constructs it cannot
 represent. Unsupported exports and timeouts leave the property INCONCLUSIVE.
 Current fallback supports invariants and `Reachable`, `Unreachable` and
 `AlwaysHolds`; `NoDeadEnd` and `DeadActions` are not exported. Floats,
 `Min`/`Max` and unsafe absent-slot reads are examples of export restrictions.
-**Unreleased:** emitted payload constraints use the same post-state, nullable and
+**0.1.0:** emitted payload constraints use the same post-state, nullable and
 non-clamping rules as native verification. A transition defect found by TLC makes
 the run FAIL; the target property's status can remain INCONCLUSIVE when TLC stops
 before deciding it. Defect diagnostics show the reachable prefix and attempted

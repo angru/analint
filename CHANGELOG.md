@@ -7,7 +7,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.0]
+
+Select checks over a shared model, inspect scoped diagnostics, and use the
+verification-boundary fixes below. See the [migration notes](docs/dsl.md#migrating-to-010)
+for incompatible literal and truthiness changes and the
+[selection contract](docs/cli.md#selecting-checks-over-one-model) for verdict scope.
+
 ### Added
+
+- Reproducible fulfillment requirement-change trial over one shared model:
+  44 full/selected and sliced/whole cases, including an off-flow cancellation
+  without refund. CI compares verdicts, per-query state counts, flow outcomes and
+  action counts with the committed record; timing and size observations are not
+  gates. The source archive includes the record and runs this check against the
+  built wheel. (#37)
 
 - Selected `AlwaysHolds` and `Unreachable` queries can discharge supporting
   invariant proofs after a complete, applicable unconstrained PASS, natively or

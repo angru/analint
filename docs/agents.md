@@ -63,7 +63,7 @@ when the client's working directory is uncertain.
 
 ### Tool reference
 
-**Unreleased:** every MCP tool request loads the current model sources in a
+**0.1.0:** every MCP tool request loads the current model sources in a
 fresh worker, so edits to entry points and imported modules are visible without
 restarting the server. Python class identities are shared within the request.
 The in-process loader still caches imports; use a fresh process for library
@@ -84,12 +84,12 @@ below match the server's tool definitions.
 exploration budget and must be positive; `slice=false` corresponds to CLI
 `--no-slice`. `tlc=true` tries the supported TLC fallback for INCONCLUSIVE
 properties. MCP exposes no `strict` parameter; use the CLI when that policy is
-needed. Unreleased: `checks` selects flow/query/invariant ids without removing
+needed. 0.1.0: `checks` selects flow/query/invariant ids without removing
 system actions. `scenario_ids`/`tags` add filtered scenarios, and `tlc_timeout`
 bounds each TLC run. None selects the usual full check; an empty `checks` list or
 unknown/ambiguous ids return an `analint.error/v1` usage error. Qualified ids
 (`flow:ID`, `query:ID`, `invariant:ID`) resolve collisions. See the
-[selection contract](cli.md#selecting-checks-over-one-model-unreleased), including
+[selection contract](cli.md#selecting-checks-over-one-model), including
 dependency-related supporting proofs and the selected-scope JSON metadata.
 For explicit selections, read `model_findings` and `model_coverage` separately:
 unrelated diagnostic errors do not turn a selected PASS into FAIL. They are not
@@ -135,7 +135,7 @@ why `graph` is null. Read `completeness` separately.
 `trace` accepts an invariant id as well as a query id, despite the argument's
 name. It follows the same slice and budget decisions as `check`. A property
 without a witness returns `witness: null` with an explanation.
-Invocation settings do not carry over between calls. Unreleased: pass the same
+Invocation settings do not carry over between calls. 0.1.0: pass the same
 `max_states`, `slice`, `cache`, `tlc` and `tlc_timeout` to trace. Both tools share
 the selection/execution pipeline. A TLC-decided trace returns the parsed
 `action_trace` and explicitly reports unavailable state snapshots; native traces

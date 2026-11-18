@@ -11,10 +11,11 @@ pip install analint
 analint check path/to/spec/
 ```
 
-Requires Python 3.12 or newer. This guide covers **analint 0.0.4**, including
-fixed initial worlds, scope keys, explicit initial presence and `check --cache`.
-The site tracks the repository's main branch; future unreleased
-features will be marked explicitly. For development:
+Requires Python 3.12 or newer. This guide targets **analint 0.1.0**, including
+shared-model check selection, scoped diagnostics and the verification-boundary
+repairs. The site tracks the main branch; check your installed version with
+`analint --version`. Read the [0.1.0 migration notes](dsl.md#migrating-to-010)
+before upgrading. To run this checkout from source:
 
 ```bash
 git clone https://github.com/angru/analint

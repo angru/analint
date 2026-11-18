@@ -64,7 +64,7 @@ from analint.validator.slicing import (
     _target_key,
     _Unsliceable,
 )
-from analint.validator.state_checks import invariant_holds, invariant_is_applicable
+from analint.validator.state_checks import InvariantPlan
 from analint.validator.structural import _collect_field_refs, _describe
 
 StateKey = bytes
@@ -708,6 +708,7 @@ def _explore(
     # Each frontier entry also carries the actions already known REJECTED in it:
     # those its parent rejected whose guard reads the parent's transition left
     # untouched (``_guard_invalidation``); they are skipped, not re-evaluated.
+    invariant_plans = {id(inv): InvariantPlan(inv) for inv in spec.invariants}
     queue: deque[tuple[int, dict, int]] = deque()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
@@ -718,7 +719,10 @@ def _explore(
         exp.roots[key0] = index
         # An initial state that already violates an invariant is illegal: keep it
         # as a witness but do not explore from it, exactly as for any successor.
-        if not _report_invariant_violations(spec, ctx, key0, exp) and pos not in inert_roots:
+        if (
+            not _report_invariant_violations(spec, ctx, key0, exp, plans=invariant_plans)
+            and pos not in inert_roots
+        ):
             queue.append((idx0, ctx, 0))
     codes = [exp.action_code(action.id) for action in spec.actions]
     invalidated = _guard_invalidation(spec)
@@ -780,7 +784,9 @@ def _explore(
             if known is not None:
                 continue
             # the parent is legal: only invariants reading what changed can break
-            if _report_invariant_violations(spec, post, k2, exp, rechecks[i]):
+            if _report_invariant_violations(
+                spec, post, k2, exp, rechecks[i], plans=invariant_plans
+            ):
                 continue  # illegal state: reported, not expanded further
             successors.append((idx2, post, i))
         # pushed after the loop, when this state's rejections are all known
@@ -886,13 +892,16 @@ def _report_invariant_violations(
     key: StateKey,
     exp: Exploration,
     invariants: Sequence[Invariant] | None = None,
+    *,
+    plans: dict[int, InvariantPlan],
 ) -> bool:
     violated = False
     for inv in spec.invariants if invariants is None else invariants:
-        if not invariant_is_applicable(inv, ctx):
+        plan = plans[id(inv)]
+        if not plan.is_applicable(ctx):
             continue  # a referenced entity/Scope slot is absent — not applicable here
         try:
-            ok = invariant_holds(inv, ctx)
+            ok = plan.holds(ctx)
         except Exception as exc:
             # an unevaluable invariant is a model defect, not a pass: mark the
             # state illegal so it is kept as a witness but not expanded, matching
@@ -1269,6 +1278,7 @@ def _verify_invariants(invs: list[Invariant], exp: Exploration) -> list[Invarian
     failed: dict[int, InvariantResult] = {}
     evaluated: set[int] = set()
     spent = [0.0] * len(invs)
+    plans = [InvariantPlan(inv) for inv in invs]
     for key in exp.order:
         if len(failed) == len(invs):
             break
@@ -1279,7 +1289,7 @@ def _verify_invariants(invs: list[Invariant], exp: Exploration) -> list[Invarian
             if i in failed:
                 continue
             started = perf_counter()
-            outcome = _check_invariant_at(inv, exp, key, ctx)
+            outcome = _check_invariant_at(inv, exp, key, ctx, plans[i])
             spent[i] += perf_counter() - started
             if outcome is None:
                 continue
@@ -1296,14 +1306,14 @@ def _verify_invariants(invs: list[Invariant], exp: Exploration) -> list[Invarian
 
 
 def _check_invariant_at(
-    inv: Invariant, exp: Exploration, key: StateKey, ctx: dict
+    inv: Invariant, exp: Exploration, key: StateKey, ctx: dict, plan: InvariantPlan
 ) -> InvariantResult | bool | None:
     """None — not applicable here; True — holds; a FAIL ``InvariantResult``
     otherwise."""
-    if not invariant_is_applicable(inv, ctx):
+    if not plan.is_applicable(ctx):
         return None  # presence-aware: a referenced entity/slot is absent here
     try:
-        ok = invariant_holds(inv, ctx)
+        ok = plan.holds(ctx)
     except Exception as exc:
         return _invariant_failure(
             inv, exp, key, f"evaluation error: {exc}", Code.INVARIANT_EVALUATION_ERROR

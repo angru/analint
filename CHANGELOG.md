@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Repeated checks and traces now observe nested invariant edits and copies of
+  previously checked models. Compiled predicates and presence-dependent
+  applicability plans belong to one exploration or verification scan, rather
+  than the editable invariant. This prevents false PASS results after changing
+  a bound, a nested list, or the referenced instance. (#11)
+
 ## [0.1.0] — 2026-11-18
 
 Select checks over a shared model, inspect scoped diagnostics, and use the

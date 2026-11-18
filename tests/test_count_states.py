@@ -41,3 +41,7 @@ def test_violating_states_are_counted_but_not_expanded(tmp_path):
     initials, _ = build_canonical_initials(spec)
     assert len(explore(spec, initials, 100).states) == 3  # n = 0, 1, 2 (illegal, kept)
     assert count_states.count_states(entry) == {"states": 3, "defects": 0, "illegal": 1}
+    spec.invariants[0].expression.right = 3
+    assert count_states.count_states(entry) == {"states": 4, "defects": 0, "illegal": 0}
+    spec.invariants[0].expression.right = 0
+    assert count_states.count_states(entry) == {"states": 2, "defects": 0, "illegal": 1}

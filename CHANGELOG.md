@@ -55,6 +55,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Selected checks no longer repeat an illegal root as an unrelated model
+  diagnostic when a blocking root finding already represents it. Internal
+  state provenance survives the exploration cache; later violations, other
+  roots and findings without matching provenance are preserved. Verdicts and
+  public finding schemas are unchanged. (#29)
+
 - `affects` and dependency-bearing `show` requests return structured errors for
   unsupported nodes/effects through Python, CLI and MCP, with guidance to run
   `analint check`; the CLI exits 1 without a private-exception traceback. (#14)

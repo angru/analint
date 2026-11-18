@@ -98,6 +98,13 @@ Speculative safety graphs are not part of diagnostic coverage.
 Structural errors, load failures and invalid declared initial relations remain
 blocking. Every invariant still participates in initial-state legality: an illegal
 root affects the requested verification even when the invariant reads other fields.
+**Unreleased:** when exploration reports that same illegal root, its duplicate
+non-blocking model diagnostic is suppressed using recorded state provenance.
+The blocking root failure remains. Later violations and diagnostics without
+matching provenance are retained; sharing a code or invariant location is not
+enough to merge them. Full reports may therefore contain several paths to the
+same invariant. Use `--compact` to group these findings without treating the
+group count as a count of unique defects.
 `NoDeadEnd` retains global support because any invariant violation can strand a
 full-model state; `DeadActions` asks about all actions. Unknown dependency analysis
 falls back to the whole model. No action or invariant is removed from the model.

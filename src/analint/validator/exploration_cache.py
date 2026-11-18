@@ -43,7 +43,7 @@ from analint.reporter.base import Code, Finding, Severity
 from analint.validator import explorer
 from analint.validator.explorer import Exploration
 
-FORMAT = 2
+FORMAT = 3
 # Only these dataclass schemas have been audited for semantic cache inputs.
 # A future node (including a dataclass) must opt in, never inherit acceptance.
 _CANON_DATACLASSES = {
@@ -313,6 +313,7 @@ def encode(exp: Exploration) -> dict:
         "roots": [[exp.index[key], number] for key, number in exp.roots.items()],
         "fired": sorted(exp.fired),
         "findings": [[f.severity.value, f.location, f.message, f.code.value] for f in exp.findings],
+        "finding_states": [[index, sorted(states)] for index, states in exp.finding_states.items()],
         "excluded": exp.excluded,
         "capped": exp.capped,
         "growing": exp.growing,
@@ -384,7 +385,15 @@ def decode(data: dict, spec: Spec, initials: list[dict], classes: dict[str, type
     exp.findings = [
         Finding(Severity(s), loc, msg, Code(code)) for s, loc, msg, code in data["findings"]
     ]
-    exp._seen = {(f.location, f.message) for f in exp.findings}
+    exp._seen = {(f.location, f.message): index for index, f in enumerate(exp.findings)}
+    exp.finding_states = {index: set(states) for index, states in data["finding_states"]}
+    if any(
+        not 0 <= index < len(exp.findings)
+        or not states
+        or any(not 0 <= state < len(exp.keys) for state in states)
+        for index, states in exp.finding_states.items()
+    ):
+        raise ValueError("inconsistent stored finding provenance")
     exp.excluded = dict(data["excluded"])
     exp.capped = data["capped"]
     exp.growing = list(data["growing"])

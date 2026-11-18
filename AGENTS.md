@@ -178,6 +178,12 @@ value raises `_Uncacheable`, and that exploration simply runs.
 fresh run's (in process and across processes), and each digest ingredient
 has a probe. `test_skipped_guards_and_invariants_change_nothing`
 compares the result against a run that evaluates everything.
+Invariant exploration findings retain internal finding-to-state indices, including
+every origin of a coalesced evaluation error. Cache encoding preserves these
+indices. Selected reports suppress a non-blocking duplicate only if all its
+origins are roots already covered by blocking root findings. Missing provenance
+or any later state retains the diagnostic; never infer ownership from prose or
+an invariant location alone. Public Finding JSON is unchanged.
 
 **Soundness rules (research/14 §7 — do not regress):**
 - an unknown predicate node raises `UnsupportedPredicateError`, never `True`

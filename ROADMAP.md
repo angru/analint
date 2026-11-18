@@ -1,10 +1,10 @@
 # analint — Roadmap
 
-Current status (2026-11-18): **0.1.0 prepared for release; review and publication pending.**
-0.0.7 remains the latest published version. The prepared release adds shared-model
-check selection, scoped diagnostics, stricter operand validation and the boundary
-repairs below. Its wheel/source artifacts must pass release acceptance before
-publication; this roadmap does not record a tag or upload as completed.
+Current status (2026-11-18): **0.1.0 released and verified on PyPI.**
+The release adds shared-model check selection, scoped diagnostics, stricter operand
+validation and the boundary repairs below. Publish verified the exact wheel/source
+pair on Python 3.12–3.15; public registry hashes and a clean installed-package
+check match those artifacts. See the publication checkpoint below.
 Semantic core and P5 are complete.
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -29,7 +29,7 @@ Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validati
 Release acceptance is shared by Quality and Publish; both registry jobs require
 verification of the exact build artifacts on that Python matrix.
 
-1. **Verification boundary repairs — included in 0.1.0 preparation.** PRs #15–#18 and
+1. **Verification boundary repairs — released in 0.1.0.** PRs #15–#18 and
    #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
    stale action plans and invalid emitted payloads. The audit below links their
    implementation and review records. Concurrent TLC isolation (#23) is merged
@@ -63,7 +63,7 @@ TLC rerun after permitting Java's local socket, 700 tests passed and 17 skipped;
 that baseline does not establish coverage of the newly reproduced defects.
 
 The five immediate fixes merged by 2026-11-18 (through `a8f4a25`); their issues
-are closed. They are unreleased, not part of the published 0.0.7 package.
+are closed. They are included in 0.1.0; the earlier 0.0.7 package does not contain them.
 Implementation and review evidence remain in the linked pull requests.
 
 | Priority | Issue | Bounded completion check | Implementation / review record |
@@ -76,13 +76,12 @@ Implementation and review evidence remain in the linked pull requests.
 
 The constrained-template regression in #15 was fixed and re-reviewed at
 `fee3e46`; #22 separately repaired materialized payload failures. The consolidated
-`CHANGELOG.md` records these repairs under 0.1.0. Documentation names their target
-version without claiming a registry upload. After publication, record its evidence
-here and add the actual release date to the changelog.
+`CHANGELOG.md` records these repairs under the dated 0.1.0 release. The publication
+checkpoint below links the verified workflow and public registry artifacts.
 
 ### Shared model, selective verification
 
-[#21](https://github.com/angru/analint/issues/21) is implemented, unreleased.
+[#21](https://github.com/angru/analint/issues/21) is released in 0.1.0.
 [PR #26](https://github.com/angru/analint/pull/26) introduced selection over a
 shared Spec. The follow-up selects supporting proofs by dependency and separates
 unrelated defects into `model_findings` with bounded `model_coverage`; they no
@@ -105,7 +104,7 @@ Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:
 
 1. [#11 Validated immutable snapshot](https://github.com/angru/analint/issues/11)
-   (P2): the concrete stale parameter-expansion repair is implemented, unreleased.
+   (P2): the concrete stale parameter-expansion repair is released in 0.1.0.
    Each bind/expansion refreshes the existing derived action from its template;
    identity remains stable for scenario/flow references. Memos belong to the
    family, and copied families cannot reuse another owner's bindings. Existing
@@ -119,7 +118,7 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    in-process consumer; keep live exploration results readable and verify cache
    round trips. A global reset while results remain live is not a safe fix.
 3. [#13 Trace input parity](https://github.com/angru/analint/issues/13)
-   — completed and closed, unreleased:
+   — completed and closed, released in 0.1.0:
    matching budget, slicing, cache and TLC options now share the selected-check
    pipeline (#21). TLC traces return the actual parsed action sequence, with
    unavailable state snapshots explicit. The original five-step counterexample
@@ -127,7 +126,7 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    existing CLI/MCP trace regressions also pass. Revision/provenance persistence
    remains deferred until a new demonstrated mismatch requires it.
 4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
-   (P3) — implemented, unreleased: an executable AST inventory covers structural
+   (P3) — released in 0.1.0: an executable AST inventory covers structural
    references, slicing/impact, interpretation/compilation, cache and TLA rendering,
    with explicit binding and unsupported-node probes. A bounded fixed-seed corpus
    compares sliced/whole results, interpreter/compiler values and errors, and
@@ -141,17 +140,17 @@ after the repairs, preserving the public Python DSL and wire compatibility:
 Review follow-ups are tracked separately:
 
 - [#23 Concurrent TLC isolation](https://github.com/angru/analint/issues/23)
-  (P3) — merged in [PR #25](https://github.com/angru/analint/pull/25), unreleased:
+  (P3) — merged in [PR #25](https://github.com/angru/analint/pull/25), released in 0.1.0:
   each TLC run extracts Java's standard modules into its own directory.
 - [#24 Constrained payload export](https://github.com/angru/analint/issues/24)
-  (P3) — implemented, unreleased: TLC checks supported payload constraints on
+  (P3) — released in 0.1.0: TLC checks supported payload constraints on
   the post-state, including None and non-clamping semantics. Native/TLC gates
   cover strict bounds, enumerations and invalid payload paths. Unsupported
   constructors/domains and null-sentinel collisions remain explicit refusals.
   TLC-only transition defects also fail unfiltered runs; the requested property
   may remain undecided when TLC stops at a defect.
 - [#28 Unconstrained safety-query proofs](https://github.com/angru/analint/issues/28)
-  (P3) — implemented, unreleased: sliced explicit selections first attempt a
+  (P3) — released in 0.1.0: sliced explicit selections first attempt a
   clean unconstrained safety proof, natively or with TLC. Only a complete,
   applicable PASS with legal roots and no transition errors discharges support.
   Other attempts use the constrained path; speculative own-root graphs never
@@ -165,7 +164,7 @@ Review follow-ups are tracked separately:
   attempts can add work. Regression gates cover roots, constrained retries,
   defects, budgets, exclusions, cache, reports and check/trace/TLC parity.
 - [#29 Duplicate root diagnostics](https://github.com/angru/analint/issues/29)
-  (P3) — implemented, unreleased: selected reports suppress only non-blocking
+  (P3) — released in 0.1.0: selected reports suppress only non-blocking
   diagnostics whose recorded states are illegal roots already represented by
   blocking root findings. Provenance is portable through the exploration cache;
   no message parsing or location-only grouping is used. Later violations,
@@ -173,7 +172,7 @@ Review follow-ups are tracked separately:
   multiple paths to an invariant; compact reports group them for readability.
 
 - [#32 TLC defect reporting](https://github.com/angru/analint/issues/32)
-  (P3) — implemented, unreleased: first-step defect paths include the initial
+  (P3) — released in 0.1.0: first-step defect paths include the initial
   state marker and attempted action. The report contract documents repeated
   property/aggregate attribution and section-level counts. Tests retain
   FAIL/exit 1 with an undecided target across selected/full checks, compact JSON,
@@ -208,6 +207,26 @@ through real changes (research/31 §2.4). Another synthetic model or language
 primitive would not resolve that question.
 
 ## Post-release work queue (reviewed 2026-11-07)
+
+### 0.1.0 publication — verified (2026-11-18)
+
+[v0.1.0](https://github.com/angru/analint/releases/tag/v0.1.0) tags the reviewed
+squash merge `5e6cd0e` from #38. Its tree is identical to reviewed PR head
+`238a4f7`. [Publish](https://github.com/angru/analint/actions/runs/44395730137)
+verified one wheel/sdist pair on Python 3.12–3.15, including the fulfillment
+record guard, before uploading to [PyPI](https://pypi.org/project/analint/0.1.0/).
+Both downloaded registry files match the verified workflow artifacts:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `analint-0.1.0-py3-none-any.whl` | `8a5acb82a06158af251d858eaeb4c3ec68145ae0a8e21903412ff2f45be118ee` |
+| `analint-0.1.0.tar.gz` | `9e298382446318b75c8552620f3b9b9159166244773adf12a86253dd5fda029d` |
+
+A clean Python 3.14 installation of `analint[mcp]==0.1.0` from PyPI passed
+CLI PASS/FAIL/INCONCLUSIVE, what-if isolation, cache and Create-impact checks,
+and MCP stdio initialization plus all five tools. The same installed package
+passed all 44 fulfillment cases, matching the committed semantic record. This
+confirms the published package; it does not close the external real-spec trial.
 
 ### 0.0.7 publication — verified (2026-11-10)
 
@@ -501,14 +520,13 @@ and `benchmarks/fulfillment-trial-results.json` record the evidence.
   was corrected during setup for loader-assigned IDs, CLI invocation and cache
   option metadata; the model extension required no semantic rewrite or engine fix.
 
-The 0.1.0 preparation adds a CI guard against the committed record: verdicts,
+Release 0.1.0 includes a CI guard against the committed record: verdicts,
 per-query states, flow outcomes and action counts must agree, ignoring timings,
 byte sizes and historical source metadata. The sdist includes the record and
 release acceptance runs the guard against the built wheel. Intentional semantic
 changes require reviewing the record and guide together.
 
-Next: review and publish the prepared 0.1.0 artifacts, and use an independently
-chosen real requirement for the external trial.
+Next: use an independently chosen real requirement for the external trial.
 Issues #11/#12 remain conditional on consumer evidence; this exercise supplies no
 reason for a broad snapshot or state-store rewrite.
 

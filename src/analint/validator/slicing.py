@@ -70,7 +70,7 @@ from analint.models.quantifier import (
 )
 from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, context_key_label, is_present
-from analint.models.symbolic import Symbolic
+from analint.models.value import is_literal_operand
 from analint.validator.rule_checker import evaluate
 from analint.validator.state_checks import invariant_is_applicable
 
@@ -144,9 +144,8 @@ def _operand_vars(op: Any, out: set[Var]) -> None:
         for ref in _slots(op.variable):
             out.add((ref, PRESENT))
             _operand_vars(bind_operand(op.operand, op.variable, ref), out)
-    elif isinstance(op, (Symbolic, Bound)):
-        raise _Unsliceable(op)  # a predicate in operand position / unbound variable
-    # anything else is a literal value (numbers, strings, enums, refs as values)
+    elif not is_literal_operand(op):
+        raise _Unsliceable(op)  # unknown node, opaque object or unbound variable
 
 
 def _entity_cls(key: Any) -> type:

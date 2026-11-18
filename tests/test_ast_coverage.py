@@ -7,6 +7,7 @@ TLA rendering is a coverage check; the independent TLC suite checks semantics.
 
 import json
 from dataclasses import dataclass
+from enum import Enum
 
 import pytest
 
@@ -67,6 +68,10 @@ from analint.validator.structural import (
     _operand_refs,
     validate_structural,
 )
+
+
+class Token(Enum):
+    ONE = "one"
 
 
 class Counter(Entity):
@@ -202,9 +207,24 @@ def test_effect_across_walkers(effect, writes, reads):
 
 @pytest.mark.parametrize(
     "leaf,value",
-    [(Counter.n, 1), (a.n, 2), (Key(a), "a"), (1, 1), (True, True), (None, None), ("a", "a")],
+    [
+        (Counter.n, 1),
+        (a.n, 2),
+        (Key(a), "a"),
+        (1, 1),
+        (1.5, 1.5),
+        (True, True),
+        (None, None),
+        ("a", "a"),
+        (Token.ONE, Token.ONE),
+        (a, a),
+        (Counter, Counter),
+    ],
 )
 def test_literal_and_reference_leaves(leaf, value):
+    assert not _check_pred_nodes(_Eq(leaf, value), "literal")
+    reads = set()
+    _operand_vars(leaf, reads)
     assert resolve(leaf, CTX) == value
     assert evaluate(_Eq(leaf, value), CTX) is True
     assert compile_predicate(_Eq(leaf, value))(CTX) is True
@@ -277,3 +297,59 @@ def test_unknown_effect_is_rejected_and_cannot_disappear_from_export():
         _canon(action, {})
     with pytest.raises(ExportError, match="effect"):
         export_tla(spec, [CTX], target=Target("always", True))
+
+
+@dataclass
+class Plain:
+    child: object
+
+
+@pytest.mark.parametrize(
+    "operand",
+    [
+        Plain(Counter.n),
+        object(),
+        [Counter.n],
+        (Counter.n,),
+        {"n": Counter.n},
+        Counter(),
+        Plain,
+        tuple,
+        lambda: Counter.n,
+    ],
+)
+def test_foreign_plain_operands_are_not_literals(operand, tmp_path, monkeypatch):
+    monkeypatch.setenv("ANALINT_CACHE_DIR", str(tmp_path / "cache"))
+    for predicate in [IsNotNull(operand), Not(Counter.n == operand), In(Counter.n, [operand])]:
+        spec = Spec(id="plain", name="Plain operand", invariants=[Invariant(predicate, id="bad")])
+        for cache in [False, True]:
+            result = validate_spec(spec, cache=cache)
+            assert result.verdict == "FAIL"
+            assert any(f.code is Code.INVALID_ENTRY for f in result.structural_findings)
+        for run in [
+            lambda p=predicate: evaluate(p, CTX),
+            lambda p=predicate: compile_predicate(p)(CTX),
+        ]:
+            with pytest.raises(TypeError, match="unsupported operand"):
+                run()
+        analysis = SliceAnalysis(spec)
+        assert analysis.predicate_slice(predicate, canonical=True) is analysis.whole
+
+
+def test_plain_operands_in_effects_and_nested_aggregates_are_invalid():
+    for effect in [Set(Counter.n, Plain(Counter.n)), Create(a, n=Plain(Counter.n))]:
+        spec = Spec(id="effect", name="Effect", actions=[Action(id="bad", effect=[effect])])
+        assert any(f.code is Code.INVALID_ENTRY for f in validate_structural(spec))
+    predicate = Sum(x, Plain(x.n)) == 0
+    spec = Spec(id="aggregate", name="Aggregate", invariants=[Invariant(predicate, id="bad")])
+    assert validate_spec(spec).verdict == "FAIL"
+
+
+def test_entity_class_identities_remain_supported_for_parameter_filters():
+    p, q = Param("p", Counter, Item), Param("q", Counter, Item)
+    family = Action(id="pair", params=[p, q], where=[p != q], pre=[p.n >= 0], effect=[Set(q.n, 1)])
+    spec = Spec(id="pairs", name="Pairs", actions=[family])
+    assert len(spec.actions) == 2
+    assert not [f for f in validate_structural(spec) if f.severity is Severity.ERROR]
+    assert resolve(Counter, CTX) is Counter
+    assert compile_predicate(_Eq(Counter, Counter))(CTX) is True

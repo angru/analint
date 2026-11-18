@@ -50,7 +50,7 @@ from analint.models.scope import (
     is_field_ref,
     is_present,
 )
-from analint.models.symbolic import Symbolic
+from analint.models.value import is_literal_operand
 from analint.reporter.base import Code, Finding, Severity
 
 
@@ -1050,7 +1050,7 @@ def _check_operand_nodes(
     elif isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
         findings.extend(_check_operand_nodes(operand.left, bound, loc))
         findings.extend(_check_operand_nodes(operand.right, bound, loc))
-    elif not is_field_ref(operand) and isinstance(operand, (Symbolic, Bound)):
+    elif not is_field_ref(operand) and not is_literal_operand(operand):
         findings.append(
             Finding(
                 Severity.ERROR,

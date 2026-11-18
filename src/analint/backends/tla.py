@@ -10,7 +10,7 @@ The generated module is the analint transition system, not a paraphrase of it:
   guards, the terminal lock, then simultaneous effects computed from the
   pre-state; saturating ``Field`` bounds clamp;
 - a transition analint would report as a *defect* (a hard ``Field`` bound, an
-  undeclared lifecycle edge, a false ``post``) is not a transition here either,
+  undeclared lifecycle edge, a false ``post`` or invalid emitted payload) is not a transition here either,
   and ``NoDefect_<action>`` invariants report it;
 - the slice's invariants are TLC's ``CONSTRAINT``: a state breaking one is kept
   and checked but not expanded — analint's pruning — and so are inert roots;
@@ -19,7 +19,8 @@ The generated module is the analint transition system, not a paraphrase of it:
 What TLA+ cannot mirror is refused (``ExportError``) rather than approximated:
 reading a Scope slot that may be absent where analint would raise an evaluation
 error, ``Min``/``Max`` (an error on an empty scope), event-payload guards, and
-values other than bools, ints, strings, enums, references and ``None``.
+values other than bools, ints, strings, enums, references and ``None``. Custom
+event constructors and strings colliding with the null sentinel are refused.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from typing import Any
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import _MISSING, FieldDescriptor, all_fields
+from analint.models.event import Event
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
 from analint.models.predicate import (
@@ -110,6 +112,8 @@ def _literal(value: Any) -> str:
     if isinstance(value, int):
         return str(int(value))
     if isinstance(value, str):
+        if value == "__null__":
+            raise ExportError("string '__null__' collides with the TLA null sentinel")
         return json.dumps(value)
     if isinstance(value, Enum):
         if isinstance(value, float):
@@ -367,12 +371,15 @@ def _clamp(expr: str, spec: Any) -> str:
     return expr
 
 
-def _bounds(expr: str, spec: Any) -> list[str]:
+def _bounds(expr: str, spec: Any, *, nullable: bool = False) -> list[str]:
     if spec is None or not spec.has_constraints():
         return []
     out = []
     if spec.values is not None:
-        out.append(f"({expr} \\in {{{', '.join(_literal(v) for v in spec.values)}}})")
+        # Payload nulls are accepted separately. Removing them here also avoids
+        # TLC trying to sort/compare a mixed string-sentinel/integer value set.
+        values = (v for v in spec.values if not nullable or v is not None)
+        out.append(f"({expr} \\in {{{', '.join(_literal(v) for v in values)}}})")
     for attr, op in (("ge", ">="), ("gt", ">"), ("le", "<="), ("lt", "<")):
         bound = getattr(spec, attr, None)
         if bound is not None:
@@ -501,19 +508,25 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
 
     post_safe = rhs_safe | set(created)
     ok += [_Renderer(model, post_rec, post_safe).pred(pred) for pred in action.post]
-    for emitted in action.emits:  # an unmaterialisable payload is a defect: refuse
+    for emitted in action.emits:
         if not isinstance(emitted, type):
-            # Rendering the operand alone would erase materialization defects.
-            # Refuse until payload validation (including None and non-clamping
-            # event semantics) has an exact backend representation.
-            for fname, desc in all_fields(type(emitted)).items():
-                if desc.spec is not None and desc.spec.has_constraints():
-                    raise ExportError(
-                        f"'{action.id}' has constrained emitted payload "
-                        f"{type(emitted).__name__}.{fname}; payload constraints are not exported"
-                    )
-            for value in emitted.__dict__.values():
-                _Renderer(model, post_rec, post_safe).operand(value)
+            if (
+                type(emitted).__init__ is not Event.__init__
+                or type(emitted).__new__ is not Event.__new__
+            ):
+                raise ExportError(f"'{action.id}' has a custom event constructor")
+            fields = all_fields(type(emitted))
+            for fname, value in emitted.__dict__.items():
+                expr = _Renderer(model, post_rec, post_safe).operand(value)
+                desc = fields.get(fname)
+                bounds = _bounds(expr, desc.spec, nullable=True) if desc is not None else []
+                if bounds:
+                    # Event construction accepts None before checking bounds,
+                    # and never clamps payloads (even with saturate=True).
+                    valid = " /\\ ".join(bounds)
+                    # TLC equality between an integer/bool and a string errors;
+                    # ToString makes the null test total on exported scalars.
+                    ok.append(f"(IF ToString({expr}) = ToString({NULL}) THEN TRUE ELSE ({valid}))")
 
     enabled = " /\\ ".join(guards) or "TRUE"
     accepted = " /\\ ".join(ok) or "TRUE"

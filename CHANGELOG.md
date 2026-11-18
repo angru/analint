@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- TLC exports supported emitted payload constraints, including optional values,
+  instead of refusing every constrained template. It checks the post-state and
+  reports invalid payloads without clamping. (#24)
 - Select flows, queries and invariant checks through repeatable CLI `--check`,
   MCP `checks`, or Python `validate(..., checks=...)`. `validate_spec` reuses an
   existing Spec without reconstructing or filtering the system's behavior.
@@ -35,6 +38,11 @@ All notable changes to this project are documented here. The format is based on
   identity for scenarios and flows. Family-owned memos replace the process-global
   registry; copied families cannot reuse another family's bound instances.
   Existing Specs are not automatically re-expanded after template edits. (#11)
+- Transition defects discovered only by TLC now make unfiltered runs FAIL
+  (exit 1), matching explicit check selections, instead of leaving the aggregate
+  INCONCLUSIVE (exit 4). The target property can remain undecided; diagnostics
+  include the attempted action. Custom event constructors and literal strings
+  colliding with TLC's null sentinel are explicitly refused.
 - Symbolic DSL expressions now reject Python boolean conversion (`and`/`or`,
   `if`, chained comparisons) with explicit guidance instead of silently dropping
   conditions. Constrained symbolic event templates still load, with value
@@ -58,8 +66,8 @@ All notable changes to this project are documented here. The format is based on
 - Invalid materialized event payloads now produce `transition.field_constraint`
   findings and failing scenarios/flows instead of escaping as exceptions.
   Payloads retain non-clamping event-construction semantics; unexpected
-  constructor errors are evaluation findings. TLC explicitly refuses constrained
-  payload templates rather than silently ignoring their bounds. ([#20](https://github.com/angru/analint/issues/20))
+  constructor errors are evaluation findings. TLC checks supported payload bounds
+  and explicitly refuses unsupported exports. ([#20](https://github.com/angru/analint/issues/20))
 - Concurrent TLC runs now isolate Java's extracted standard-module files per
   invocation, preventing shared temporary-file races between agents or MCP
   workers. ([#23](https://github.com/angru/analint/issues/23))

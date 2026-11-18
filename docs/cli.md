@@ -60,13 +60,22 @@ behavior. Flows keep their own `given`; queries keep their declared roots or the
 canonical initial relation. No selection changes roots or mutates budgets.
 
 An explicit `--check` run proves **only dependency-related supporting invariants**.
-With slicing, canonical queries request the proofs their unconstrained cone needs.
-An invariant proved without constraints needs no further support. If a proof or
-query needs invariant constraints, their dependencies are added until the set is
-closed. This is a dependency analysis, not logical minimization of predicates.
-Queries with their own roots remain constrained and never borrow proofs from
-`Spec.initial`. Budgets can affect which proof strategy succeeds and therefore
-which supporting checks are needed. `--no-slice` uses a conservative constrained
+With slicing, selected `AlwaysHolds` and `Unreachable` queries first attempt a
+proof without invariant pruning. A complete, applicable PASS with legal roots
+and no transition errors discharges that query's supporting invariant proofs.
+With `--tlc`, TLC can complete a capped attempt. Counterexamples, evaluation
+errors, exclusions, unsupported exports and other unsuccessful attempts use the
+ordinary constrained pipeline; a speculative counterexample is never reported
+as a real failure without rechecking it. `Reachable` witnesses retain constrained
+path validation, and explicitly requested invariants are still proved.
+
+This works with canonical or query-owned roots. An own-root safety proof is
+independent and never borrows or grants canonical invariant trust. Other queries
+request dependency proofs as before; the set grows when invariant constraints
+are needed. An invariant proved without constraints needs no further support.
+This is a dependency analysis, not logical minimization of predicates.
+Budgets can affect which proof strategy succeeds and therefore which supporting
+checks are needed. `--no-slice` uses a conservative constrained
 dependency closure and still explores the whole state space.
 
 The verdict and exit code aggregate requested checks, their supporting proofs,
@@ -84,6 +93,7 @@ severity, code, location and trace text, but affect neither the selected verdict
 nor `--strict`. A model diagnostic is not a proof result, and an empty diagnostic
 list does not establish model health. Run an unfiltered check for full validation.
 Counts include reused explorations and are not a measure of newly performed work.
+Speculative safety graphs are not part of diagnostic coverage.
 
 Structural errors, load failures and invalid declared initial relations remain
 blocking. Every invariant still participates in initial-state legality: an illegal
@@ -107,6 +117,10 @@ warnings in verdict-bearing sections, including structural warnings about the
 whole model. Scenario/tag filters without `--check` retain full-check behavior.
 The all-action diagnostic pass remains work even when the proof set is small;
 selection is not a guarantee of a smaller state space or a faster check.
+An unsuccessful safety attempt can add work before the constrained retry.
+`benchmarks/safety_bridge.py` demonstrates a passing local safety query whose
+bridge constraint would otherwise pull in broken, unrelated proofs. The selected
+run passes while the unfiltered run fails; no system actions are removed.
 
 The cache directory defaults to `~/.cache/analint`; set `ANALINT_CACHE_DIR` to
 override it. Caching does not change findings or completeness. Timings measure
@@ -129,9 +143,10 @@ PASS, including the effect of `--strict`.
 
 Property results can include `slice`, `elapsed_ms` and `backend: "tlc"`.
 `elapsed_ms` measures incremental work for that property; shared exploration is
-charged to its first consumer, and invariant retries are included. Model
-preparation and shared action coverage are excluded. Summing these timings does
-not give total command time.
+charged to its first consumer, and invariant retries are included. Query timing
+includes safety attempts (even discarded attempts) and action coverage requested
+by that query. Model preparation and invariant-phase shared action coverage are
+excluded. Summing these timings does not give total command time.
 
 #### Compact findings
 

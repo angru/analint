@@ -215,8 +215,12 @@ own slice for defect parity and DeadActions. Do not regress:
   first checked on unconstrained slices (a PASS there is final). A slice whose
   mentioned invariants are all proven stays unconstrained. A FAIL found on a
   non-exact slice is re-checked constrained. Non-exact explorations contribute
-  no findings. Trust is per canonical roots; own-root queries are always
-  constrained;
+  no findings. Trust is per canonical roots; own-root ordinary queries are
+  constrained. Explicit selected AlwaysHolds/Unreachable checks first try a clean
+  unconstrained safety proof (native or TLC). Only PASS with legal roots and no
+  transition errors discharges pruning support; all other attempts re-enter the
+  ordinary pipeline. Speculative graphs use a separate SliceAnalysis and never
+  inherit canonical trust, route findings or supply constrained witnesses;
 - disable-only writers: a writer that only sets a *flag* (`SliceAnalysis.flags`)
   to its `off` value does not join a slice through it. A flag is constant-written,
   read only antitonically in `pre` (or by a boolean enabler) and never in

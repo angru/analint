@@ -78,6 +78,7 @@ jobs:
           tests/test_fixed_initial.py
           tests/test_initial_presence.py
           tests/test_keys.py
+          tests/test_safety_query_support.py
 
   package:
     name: release verification

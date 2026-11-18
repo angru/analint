@@ -1,6 +1,7 @@
 """Dependency closure and diagnostic ownership for explicit check selections.
 
-Canonical queries first request the proofs their unconstrained cone needs.
+A clean unconstrained safety PASS discharges pruning support. Other canonical
+queries request the proofs their unconstrained cone needs.
 Successful unconstrained invariant proofs need no further support; other proofs
 and constrained queries grow the dependency set until it is closed. Whole-model
 execution uses a conservative constrained closure. No analysis removes model
@@ -29,14 +30,26 @@ def _root_key(initials: list[dict]) -> tuple:
 
 
 class VerificationScope:
-    def __init__(self, spec: Spec, selection: Selection, *, sliced: bool) -> None:
+    def __init__(
+        self,
+        spec: Spec,
+        selection: Selection,
+        *,
+        sliced: bool,
+        discharged: dict[str, Slice] | None = None,
+    ) -> None:
         self.spec = spec
         self.sliced = sliced
         self.selection = selection
+        self.discharged = discharged or {}
         planner = SliceAnalysis(spec)
         self.pieces: dict[str, Slice] = {}
         targets = {id(inv) for inv in selection.invariants}
         for query in selection.queries:
+            name = f"query:{query.id}"
+            if name in self.discharged:
+                self.pieces[name] = self.discharged[name]
+                continue
             # Recoverability is global under invariant pruning: an unrelated
             # violation can strand a full-model state. DeadActions asks about
             # every action. Neither may hide defects behind a local predicate.
@@ -115,6 +128,8 @@ class VerificationScope:
             if not trusted:
                 needed.update(id(dep) for dep in analysis.supporting_invariants(piece))
         for query in self.selection.queries:
+            if f"query:{query.id}" in self.discharged:
+                continue
             canonical = not (query.given or query.given_any or query.initial is not None)
             piece = (
                 analysis.whole

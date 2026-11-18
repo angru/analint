@@ -48,7 +48,8 @@ analint check benchmarks/shared_checks.py --check checkout --check can_ship --ma
 ```
 
 Without `--check`, the existing full-check behavior remains. With it, only the
-named flows/properties run; add `--scenario`/`--tag` to include matching scenarios.
+named flows/properties and their supporting checks run; add `--scenario`/`--tag`
+to include matching scenarios.
 Scenario ids and tags intersect as before. Unknown ids/tags, ambiguous check ids,
 and filters matching no scenarios fail as usage errors (exit 2). Bare check ids
 must be unique across flows, queries and invariants; `flow:ID`, `query:ID` and
@@ -65,6 +66,14 @@ or exhausted budgets affect the overall verdict; a green selected property canno
 hide a model defect. Flow-only runs still check applicable invariants at each step,
 but do not explore global reachability. Selecting a flow verifies that journey,
 not all interleavings: select a cross-flow property to check interference.
+
+The overall verdict is therefore **not limited to the requested properties**.
+For example, if `q_a` only reads an independent counter A but invariant `inv_b`
+fails on counter B, `--check q_a` can report `q_a: PASS` and still exit 1 with
+an overall FAIL. Unrelated action defects can also fail the run. This policy
+can retain the full exploration work for a property selection.
+Dependency-based supporting checks and a separate treatment of model-wide
+findings remain open in [#21](https://github.com/angru/analint/issues/21).
 
 Filtered JSON reports add `selection` (also in compact mode): `requested`,
 `supporting`, `not_selected`, the full `model_actions`, `action_coverage`,
@@ -246,6 +255,9 @@ and budget decisions; use `--no-slice` for the whole model. Unreleased: pass the
 same budget/cache/TLC options used for the selected check. A trace call selects
 that one property plus the same supporting invariant proofs; it does not inherit
 settings from a previous process. `query:ID` and `invariant:ID` disambiguate.
+`trace` accepts only queries and invariants: a `flow:ID` selector copied from
+`--check` is not a valid trace target and returns an unknown-property error.
+Run that flow with `check --check flow:ID` instead.
 
 Unreleased trace metadata includes `selection`, `verification_verdict` and
 exploration `findings`. A property's status does not override failures in its

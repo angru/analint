@@ -33,9 +33,14 @@ All notable changes to this project are documented here. The format is based on
 - Compiled action plans are scoped to an exploration and rebuilt for later runs,
   so declaration edits cannot reuse stale guards or effects. Parameter-family
   binding cache lifetime remains tracked separately in #11. ([#18](https://github.com/angru/analint/pull/18))
-- Queries requiring complete exploration no longer conclude PASS/FAIL from a
-  partial transition relation with excluded event actions. Existing witnesses
-  and counterexamples remain conclusive.
+- Previously passing `AlwaysHolds`, `Unreachable` and `NoDeadEnd` checks now
+  return `INCONCLUSIVE` (CLI exit **4**) when an event-payload subscriber is
+  excluded from the explored slice (or the whole model with `--no-slice`).
+  CI scripts must handle this exit code rather than treating those checks as
+  proved. A `Reachable` search without a witness and `NoDeadEnd` failures also
+  remain inconclusive when missing transitions could change the answer.
+  Already found reachability witnesses and safety counterexamples remain
+  conclusive.
 - Invalid materialized event payloads now produce `transition.field_constraint`
   findings and failing scenarios/flows instead of escaping as exceptions.
   Payloads retain non-clamping event-construction semantics; unexpected

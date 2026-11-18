@@ -76,13 +76,19 @@ updated when the next version is released.
 
 ### Shared model, selective verification
 
-[#21](https://github.com/angru/analint/issues/21) is implemented, unreleased:
+[#21](https://github.com/angru/analint/issues/21) has a first increment in
+[PR #26](https://github.com/angru/analint/pull/26), unreleased:
 repeatable CLI `--check`, MCP `checks` and Python `validate_spec` select flows and
 properties over one shared `Spec`, preserving system actions and declared roots.
 Reports distinguish requested, supporting and unselected checks. Reachability
 conservatively retains all canonical invariant proofs and action-defect coverage;
 flow-only requests skip global exploration. The static shared-model benchmark and
 regression tests cover cross-flow interference, budgets and repeat requests.
+The issue remains open: an unrelated invariant or action defect can still fail
+any selected property run, and selection need not reduce its exploration work.
+The next increment must determine required supporting proofs from dependencies
+and distinguish requested-check verdicts from model-wide diagnostics, preserving
+structural validation, invariant trust and interfering system actions.
 Validate authoring usefulness in the one-change real-spec trial; this does not
 establish that selecting a property shrinks a coupled state space. See the
 [selection contract](docs/cli.md#selecting-checks-over-one-model-unreleased).

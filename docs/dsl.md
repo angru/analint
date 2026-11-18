@@ -421,9 +421,14 @@ exploration reports the path and attempted action without adding an invalid
 transition. Resolution or constructor errors use `transition.evaluation_error`.
 Event payloads are validated without clamping, even with `saturate=True`; that
 option clamps state updates, not event construction. Bare event classes still
-carry no payload. TLC export explicitly refuses constrained payload templates
-until it can mirror their validation; a capped check stays INCONCLUSIVE with
-`tlc.not_exported`, never PASS by ignoring the constraints.
+carry no payload. TLC exports supported payload bounds and enumerated values as
+transition-defect checks over the post-state, including the kernel's acceptance
+of `None`. Invalid payloads reject the transition without clamping. A reachable
+TLC transition defect makes the run FAIL even if the requested predicate remains
+INCONCLUSIVE because TLC stopped at that defect; its diagnostic includes the
+attempted action. Custom event constructors, unsupported scalar bounds such as
+floats, and literal strings equal to the reserved `__null__` sentinel are refused
+with `tlc.not_exported` rather than approximated.
 
 ## Scenario and Flow
 

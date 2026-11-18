@@ -105,8 +105,9 @@ def test_payload_constraints_fail_every_native_execution_path(
         f.code is Code.FIELD_CONSTRAINT and "[after: start → pay]" in f.message
         for f in exploration.findings
     )
-    with pytest.raises(ExportError, match=r"constrained emitted payload Paid\.amount"):
-        export_tla(spec, roots, target=Target("always", True))
+    exported = export_tla(spec, roots, target=Target("always", True))
+    assert "ToString(" in exported.module
+    assert "NoDefect_" in exported.config
 
 
 def test_cli_and_mcp_return_reports_for_invalid_payload(entry):
@@ -199,3 +200,37 @@ def test_constructor_errors_are_evaluation_defects_and_discard_partial_emissions
     assert result.findings[0].code is Code.EVALUATION_ERROR
     assert "constructor failed" in result.findings[0].message
     assert "[after: start → pay]" in result.findings[0].message
+    roots, _ = build_canonical_initials(spec)
+    with pytest.raises(ExportError, match="custom event constructor"):
+        export_tla(spec, roots, target=Target("always", True))
+
+
+@pytest.mark.parametrize("constraint", ["ge=0.5", "values=[0.5, 1.5]"])
+def test_unsupported_payload_bounds_remain_explicit_export_errors(tmp_path, constraint):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        SOURCE.replace("DEFAULT", "1.5")
+        .replace("CONSTRAINT", constraint)
+        .replace("EXPRESSION", "Order.total")
+    )
+    spec = prepare_model(entry).spec
+    roots, _ = build_canonical_initials(spec)
+    with pytest.raises(ExportError, match="has no TLA"):
+        export_tla(spec, roots, target=Target("always", True))
+
+
+def test_literal_null_sentinel_is_refused_instead_of_bypassing_payload_constraints():
+    class Label(Entity):
+        text: str = "__null__"
+
+    class Named(Event):
+        text: str = Field("valid", values=["valid"])
+
+    pay = Action(id="pay", emits=[Named(text=Label.text)])
+    spec = Spec(id="s", name="S", entities=[Label], actions=[pay])
+    roots = [{Label: Label()}]
+    transition = step(spec, pay, roots[0])
+    assert transition.outcome is Outcome.DEFECT
+    assert transition.findings[0].code is Code.FIELD_CONSTRAINT
+    with pytest.raises(ExportError, match="null sentinel"):
+        export_tla(spec, roots, target=Target("always", True))

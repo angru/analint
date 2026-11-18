@@ -147,6 +147,12 @@ represent. Unsupported exports and timeouts leave the property INCONCLUSIVE.
 Current fallback supports invariants and `Reachable`, `Unreachable` and
 `AlwaysHolds`; `NoDeadEnd` and `DeadActions` are not exported. Floats,
 `Min`/`Max` and unsafe absent-slot reads are examples of export restrictions.
+**Unreleased:** emitted payload constraints use the same post-state, nullable and
+non-clamping rules as native verification. A transition defect found by TLC makes
+the run FAIL; the target property's status can remain INCONCLUSIVE when TLC stops
+before deciding it. Defect diagnostics show the reachable prefix and attempted
+action. Custom event constructors and literal strings colliding with the reserved
+`__null__` representation remain explicit export refusals.
 TLC is an additional verifier for the same finite abstraction; it does not turn
 an unbounded or incomplete model into a proven system.
 

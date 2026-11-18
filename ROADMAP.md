@@ -129,9 +129,12 @@ Review follow-ups are tracked separately:
   (P3) — merged in [PR #25](https://github.com/angru/analint/pull/25), unreleased:
   each TLC run extracts Java's standard modules into its own directory.
 - [#24 Constrained payload export](https://github.com/angru/analint/issues/24)
-  (P3): restore TLC fallback for payload constraints that can be mirrored exactly;
-  keep explicit refusal for unsupported cases. This is a capability improvement,
-  not a blocker to the fail-closed #22 repair.
+  (P3) — implemented, unreleased: TLC checks supported payload constraints on
+  the post-state, including None and non-clamping semantics. Native/TLC gates
+  cover strict bounds, enumerations and invalid payload paths. Unsupported
+  constructors/domains and null-sentinel collisions remain explicit refusals.
+  TLC-only transition defects also fail unfiltered runs; the requested property
+  may remain undecided when TLC stops at a defect.
 - [#28 Unconstrained safety-query proofs](https://github.com/angru/analint/issues/28)
   (P3): evaluate discharging support for AlwaysHolds/Unreachable after an
   unconstrained proof, retaining constrained witness checks and soundness gates.

@@ -147,14 +147,16 @@ def _run(
         )
         return None
     if outcome.violated and outcome.violated.startswith("NoDefect_"):
-        action = outcome.violated.removeprefix("NoDefect_")
+        name = outcome.violated.removeprefix("NoDefect_")
+        action = export.actions.get(name, name)
+        attempted = [*outcome.trace, action]
         findings.append(
             Finding(
                 Severity.ERROR,
                 loc,
                 f"--tlc: a transition defect (hard Field bound, undeclared lifecycle "
-                f"edge or false post) is reachable in {action}: "
-                f"{' → '.join(outcome.trace) or '(initial state)'}",
+                f"edge, false post or invalid emitted payload) is reachable in {action}: "
+                f"{' → '.join(attempted)}",
                 Code.TLC_TRANSITION_DEFECT,
             )
         )

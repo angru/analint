@@ -312,9 +312,18 @@ def test_check_tlc_decides_what_the_budget_left_open(tmp_path):
 
 @pytest.mark.parametrize("sliced", [False, True])
 @pytest.mark.parametrize(
-    "constraint", ["ge=0, le=10", "values=[0, 5]", "ge=0, le=10, saturate=True"]
+    ("constraint", "payload"),
+    [
+        ("ge=0, le=10", "Counter.n - 10"),
+        ("ge=0, le=10", "Counter.n + 10"),
+        ("gt=0, lt=10", "Counter.n - 2"),
+        ("gt=0, lt=10", "Counter.n + 8"),
+        ("values=[0, 5]", "Counter.n"),
+        ("values=[None]", "Counter.n"),
+        ("ge=0, le=10, saturate=True", "Counter.n - 10"),
+    ],
 )
-def test_constrained_emissions_cannot_be_ignored_by_tlc(tmp_path, sliced, constraint):
+def test_constrained_emissions_cannot_be_ignored_by_tlc(tmp_path, sliced, constraint, payload):
     entry = tmp_path / "spec.py"
     entry.write_text(
         "from analint import Action, Add, AlwaysHolds, Entity, Event, Field, Spec\n"
@@ -326,7 +335,7 @@ def test_constrained_emissions_cannot_be_ignored_by_tlc(tmp_path, sliced, constr
         # Writing the queried field keeps pay in the property slice as well as
         # its own defect slice, so TLC must account for its payload validation.
         "pay = Action(pre=[Counter.n == 2], effect=[Add(Counter.n, 0)],\n"
-        "             emits=[Paid(amount=Counter.n - 10)])\n"
+        f"             emits=[Paid(amount={payload})])\n"
         "safe = AlwaysHolds(Counter.n >= 0)\n"
         "spec = Spec(id='s', name='S', actions=[tick, pay], queries=[safe])\n"
     )
@@ -334,15 +343,120 @@ def test_constrained_emissions_cannot_be_ignored_by_tlc(tmp_path, sliced, constr
     assert full.verdict == "FAIL"
     assert any(f.code.value == "transition.field_constraint" for f in full.exploration_findings)
     capped = validate(entry, sliced=sliced, max_states=1, tlc=True)
-    assert capped.verdict == "INCONCLUSIVE"
+    assert capped.verdict == "FAIL"
     [query] = capped.query_results
     assert query.status == "INCONCLUSIVE"
     assert query.backend != "tlc"
     assert any(
-        f.code.value == "tlc.not_exported"
-        and "constrained emitted payload Paid.amount" in f.message
+        f.code.value == "tlc.transition_defect" and "tick → tick → pay" in f.message
         for f in query.findings
     )
+    assert any("tick → tick → pay" in f.message for f in full.exploration_findings)
+    selected = validate(entry, checks=["safe"], sliced=sliced, max_states=1, tlc=True)
+    assert selected.verdict == full.verdict
+    from analint.validator.exploration_service import trace_query
+
+    trace = trace_query(entry, "safe", sliced=sliced, max_states=1, tlc=True)
+    assert trace["verification_verdict"] == "FAIL"
+    assert any(f["code"] == "tlc.transition_defect" for f in trace["findings"])
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+@pytest.mark.parametrize(
+    ("annotation", "constraint", "payload"),
+    [
+        ("int", "ge=0, le=3", "Counter.n"),
+        ("int", "gt=2, lt=4", "Counter.n"),
+        ("int", "values=[3]", "Counter.n"),
+        ("int", "ge=0, le=3, saturate=True", "Counter.n"),
+        ("int | None", "ge=0, le=3", "Counter.m"),
+        ("int | None", "values=[3]", "None"),
+        ("int | None", "values=[None, 3]", "Counter.n"),
+        ("int | None", "values=[None]", "Counter.m"),
+        ("Mode", "values=[Mode.OK]", "Mode.OK"),
+        ("bool", "values=[True]", "True"),
+    ],
+)
+def test_valid_constrained_payloads_can_be_decided_by_tlc(
+    tmp_path, sliced, annotation, constraint, payload
+):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from enum import Enum\n"
+        "from analint import Action, Add, AlwaysHolds, Entity, Event, Field, Spec\n"
+        "class Mode(Enum):\n    OK = 'ok'\n"
+        "class Counter(Entity):\n    n: int = Field(0, ge=0, le=3)\n"
+        "    m: int | None = None\n"
+        f"class Paid(Event):\n    amount: {annotation} = Field(None, {constraint})\n"
+        "tick = Action(pre=[Counter.n < 2], effect=[Add(Counter.n, 1)])\n"
+        "pay = Action(pre=[Counter.n == 2], effect=[Add(Counter.n, 1)],\n"
+        f"             emits=[Paid(amount={payload})])\n"
+        "safe = AlwaysHolds(Counter.n <= 3)\n"
+        "spec = Spec(id='s', name='S', actions=[tick, pay], queries=[safe])\n"
+    )
+    full = validate(entry, sliced=sliced)
+    capped = validate(entry, sliced=sliced, max_states=1, tlc=True)
+    assert full.verdict == capped.verdict == "PASS"
+    assert capped.query_results[0].backend == "tlc"
+    assert capped.query_results[0].states_explored == full.query_results[0].states_explored == 4
+    # The payload reads n=3 after pay; pre-state evaluation would reject three
+    # of the cases above and silently clamp the saturated case instead.
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+def test_invalid_enum_payload_is_a_tlc_transition_defect(tmp_path, sliced):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from enum import Enum\n"
+        "from analint import Action, Add, AlwaysHolds, Entity, Event, Field, Set, Spec\n"
+        "class Mode(Enum):\n    OK = 'ok'\n    BAD = 'bad'\n"
+        "class C(Entity):\n    n: int = Field(0, ge=0, le=2)\n"
+        "    mode: Mode = Field(Mode.OK, values=list(Mode))\n"
+        "class E(Event):\n    value: Mode = Field(Mode.OK, values=[Mode.OK])\n"
+        "tick = Action(pre=[C.n < 2], effect=[Add(C.n, 1)])\n"
+        "pay = Action(pre=[C.n == 2], effect=[Add(C.n, 0), Set(C.mode, Mode.BAD)],\n"
+        "             emits=[E(value=C.mode)])\n"
+        "safe = AlwaysHolds(C.n <= 2)\n"
+        "spec = Spec(id='s', name='S', actions=[tick, pay], queries=[safe])\n"
+    )
+    assert validate(entry, sliced=sliced).verdict == "FAIL"
+    report = validate(entry, sliced=sliced, max_states=1, tlc=True)
+    assert report.verdict == "FAIL"
+    assert any(f.code.value == "tlc.transition_defect" for f in report.exploration_findings)
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+def test_tlc_payload_defect_blocks_invariant_runs_and_cli(tmp_path, sliced):
+    import json
+
+    from typer.testing import CliRunner
+
+    from analint.cli import app
+    from analint.mcp_server import check_spec
+
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, Entity, Event, Field, Invariant, Spec\n"
+        "class C(Entity):\n    n: int = Field(0, ge=0, le=2)\n"
+        "class E(Event):\n    value: int = Field(0, ge=0)\n"
+        "tick = Action(pre=[C.n < 2], effect=[Add(C.n, 1)])\n"
+        "pay = Action(pre=[C.n == 2], effect=[Add(C.n, 0)], emits=[E(value=C.n-3)])\n"
+        "safe = Invariant(C.n >= 0)\n"
+        "spec = Spec(id='s', name='S', actions=[tick, pay], invariants=[safe])\n"
+    )
+    options = {"sliced": sliced, "max_states": 1, "tlc": True}
+    for checks in (None, ["safe"]):
+        report = validate(entry, checks=checks, **options)
+        assert report.verdict == "FAIL"
+        assert any(f.code.value == "tlc.transition_defect" for f in report.exploration_findings)
+    cli = CliRunner().invoke(
+        app,
+        ["check", str(entry), "--tlc", "--max-states", "1", "-f", "json"]
+        + ([] if sliced else ["--no-slice"]),
+    )
+    assert cli.exit_code == 1
+    assert json.loads(cli.stdout)["verdict"] == "FAIL"
+    assert check_spec(str(entry), slice=sliced, max_states=1, tlc=True)["verdict"] == "FAIL"
 
 
 @pytest.mark.parametrize(("open_at", "status"), [(30, "PASS"), (31, "NOT_CHECKED")])

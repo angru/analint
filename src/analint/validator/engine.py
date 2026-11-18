@@ -420,6 +420,14 @@ def _run_checks(
         if result.selection is not None:
             result.selection["excluded_actions"].update(exp.excluded)
 
+    # A backend-discovered transition defect is a hard model failure even if
+    # TLC stopped before deciding the requested predicate. Explicit selections
+    # already collect these through VerificationScope above.
+    for check in [*result.query_results, *result.invariant_results]:
+        result.exploration_findings.extend(
+            f for f in check.findings if f.code == Code.TLC_TRANSITION_DEFECT
+        )
+
     return result
 
 

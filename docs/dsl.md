@@ -482,7 +482,13 @@ full_result = validate_spec(spec)
 Neither function edits the declaration lists, query budgets or fixtures. Results
 with a selection describe its scope; only that scope is established by PASS.
 Structural checks always cover the whole model, and reachability checks retain
-canonical invariant proofs and action-defect coverage. See the
+dependency-related invariant proofs and action-defect coverage. Unrelated defects
+are reported in `model_findings` with `model_coverage`, outside the selected verdict.
+An unfiltered run still aggregates all checks and defects. See the
 [CLI selection contract](cli.md#selecting-checks-over-one-model-unreleased) for
 supporting checks, scenario/tag compatibility and trace settings. A static shared
 model for two flows and cross-flow properties is in `benchmarks/shared_checks.py`.
+
+A second example, `benchmarks/independent_checks.py`, has an independent failed
+invariant: selecting `safe_a` succeeds while the full check fails. The report
+preserves the B findings without treating them as a failure of A's selected check.

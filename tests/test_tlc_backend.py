@@ -392,3 +392,34 @@ def test_selected_check_and_trace_use_the_same_tlc_decision(tmp_path, sliced):
     assert trace["action_trace"] == query.trace == ["reserve", "ship", "release"]
     assert trace["state_trace_available"] is False
     assert trace["root"] is None and trace["steps"] == [] and trace["final_state"] == {}
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+@pytest.mark.parametrize("related_defect", [False, True])
+def test_selected_tlc_defect_scope_matches_native_check_and_trace(tmp_path, sliced, related_defect):
+    from analint.validator.exploration_service import trace_query
+
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Action, Add, AlwaysHolds, Entity, Field, Invariant, Spec\n"
+        "class A(Entity):\n    n: int = Field(0, ge=0, le=3)\n"
+        "class B(Entity):\n    n: int = Field(0, ge=0, le=2)\n"
+        f"a = Action(pre=[A.n < 3], effect=[Add(A.n, 1)], post=[A.n < {2 if related_defect else 4}])\n"
+        "b = Action(effect=[Add(B.n, 5)])\n"
+        "bound = Invariant(A.n <= 3)\n"
+        "safe = AlwaysHolds(A.n <= 3)\n"
+        "spec = Spec(id='s', name='S', actions=[a,b], invariants=[bound], queries=[safe])\n"
+    )
+    native = validate(entry, checks=["safe"], sliced=sliced)
+    options = {"sliced": sliced, "max_states": 2, "tlc": True, "tlc_timeout": 30}
+    report = validate(entry, checks=["safe"], **options)
+    assert report.verdict == native.verdict == ("FAIL" if related_defect else "PASS")
+    assert any(f.location == "action:b" for f in report.model_findings)
+    trace = trace_query(entry, "safe", **options)
+    assert trace["verification_verdict"] == report.verdict
+    assert trace["selection"] == report.selection
+    if related_defect:
+        assert any(f.code.value == "tlc.transition_defect" for f in report.exploration_findings)
+    else:
+        assert report.query_results[0].backend == trace["backend"] == "tlc"
+        assert trace["status"] == "PASS"

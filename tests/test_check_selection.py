@@ -253,8 +253,9 @@ def test_selected_invariant_and_duplicate_selectors(entry):
     )
     assert result.verdict == "PASS"
     assert result.selection["requested"] == ["invariant:reservation_owns_stock"]
-    assert result.selection["supporting"] == ["invariant:reflexive"]
-    assert len(result.invariant_results) == 2
+    assert result.selection["supporting"] == []
+    assert "invariant:reflexive" in result.selection["not_selected"]
+    assert len(result.invariant_results) == 1
     assert result.query_results == result.flow_results == result.scenario_results == []
 
 

@@ -191,6 +191,8 @@ def trace_query(
     metadata = {
         "selection": verification.selection,
         "verification_verdict": verification.verdict.value,
+        "model_findings": [f.to_dict() for f in verification.model_findings],
+        "model_coverage": verification.model_coverage,
         "findings": [f.to_dict() for f in verification.exploration_findings],
     }
     if result.backend == "tlc":

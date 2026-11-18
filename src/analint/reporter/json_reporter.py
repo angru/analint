@@ -45,6 +45,14 @@ def result_to_dict(
         "verdict": verdict.value,
         "passed": verdict == "PASS",
         **({"selection": result.selection} if result.selection is not None else {}),
+        **(
+            {
+                "model_findings": _findings(result.model_findings, compact),
+                "model_coverage": result.model_coverage,
+            }
+            if result.model_coverage is not None
+            else {}
+        ),
         "load_errors": result.load_errors,
         "structural": _findings(result.structural_findings, compact),
         "scenarios": [

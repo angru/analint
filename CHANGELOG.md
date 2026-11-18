@@ -13,11 +13,20 @@ All notable changes to this project are documented here. The format is based on
   MCP `checks`, or Python `validate(..., checks=...)`. `validate_spec` reuses an
   existing Spec without reconstructing or filtering the system's behavior.
   Reports distinguish selected, supporting and unselected checks; canonical
-  invariant proofs and action-defect coverage remain intact for reachability.
+  invariant proofs are selected by dependency; action-defect coverage is retained.
   Unknown/ambiguous selections and empty scenario matches are usage errors.
 - Trace accepts matching budget, slicing, cache and TLC settings through the
   shared verification pipeline. TLC traces expose their parsed action sequence
   with unavailable state snapshots explicitly marked, without a native rerun.
+
+- Explicit selections now report unrelated invariant/action defects in
+  `model_findings` with bounded `model_coverage`, outside verdict and strict-mode
+  aggregation. Requested checks, supporting proofs, relevant defects, structural
+  validation and root legality still gate the selected result. Unfiltered checks
+  retain their original behavior. This can change a selected check from FAIL/exit 1
+  to PASS/exit 0 even while unrelated ERROR diagnostics remain visible.
+- Trace exposes the same scoped diagnostics. TLC preserves the transition system
+  while selecting defect assertions belonging to the requested proof's dependencies.
 
 ### Fixed
 

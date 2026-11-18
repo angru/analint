@@ -152,8 +152,8 @@ def validate(
 ) -> ValidationResult:
     """``checks`` selects flow/query/invariant ids (or KIND:ID). None retains
     the full check; [] or unknown/ambiguous ids raise SelectionError. Selection
-    never changes model behavior. Reachability retains all canonical invariant
-    proofs as supporting checks and the existing per-action defect coverage.
+    never changes model behavior. Explicit selections prove dependency-related
+    canonical invariants and report unrelated exploration defects separately.
 
     ``max_states`` overrides every exploration budget for this run — the
     spec's canonical one and each query's — without mutating the model.
@@ -280,6 +280,11 @@ def _run_checks(
         return result
 
     selection = select_checks(spec, checks, scenario_ids, tags)
+    verification_scope = None
+    if checks is not None:
+        from analint.validator.verification_scope import VerificationScope
+
+        verification_scope = VerificationScope(spec, selection, sliced=sliced)
     result.selection = selection.scope
     if result.selection is not None:
         result.selection["options"] = {
@@ -344,20 +349,35 @@ def _run_checks(
     if selection.invariants:
         from analint.validator.explorer import verify_invariants
 
-        result.invariant_results, _ = verify_invariants(
-            spec,
-            canonical_initials,
-            build_error=canonical_error,
-            max_states=max_states or spec.max_states,
-            cache=explorations,
-            analysis=analysis,
-            explorations=decided,
-        )
+        while True:
+            result.invariant_results, _ = verify_invariants(
+                spec,
+                canonical_initials,
+                build_error=canonical_error,
+                invariants=selection.invariants,
+                max_states=max_states or spec.max_states,
+                cache=explorations,
+                analysis=analysis,
+                explorations=decided,
+            )
+            if verification_scope is None or not verification_scope.refine(analysis):
+                break
+        if verification_scope is not None:
+            verification_scope.register(
+                canonical_initials,
+                [f"invariant:{inv.id}" for inv in selection.invariants],
+            )
 
     if selection.queries:
-        from analint.validator.explorer import run_query
+        from analint.validator.explorer import resolve_query_initials, run_query
 
         for query in selection.queries:
+            if verification_scope is not None:
+                initials, _ = resolve_query_initials(query, spec)
+                verification_scope.register(
+                    initials,
+                    [f"query:{query.id}"],
+                )
             result.query_results.append(
                 run_query(
                     query,
@@ -372,7 +392,25 @@ def _run_checks(
     if tlc:
         from analint.validator.tlc_fallback import decide_with_tlc
 
-        decide_with_tlc(spec, result, analysis, canonical_initials, timeout=tlc_timeout)
+        decide_with_tlc(
+            spec,
+            result,
+            analysis,
+            canonical_initials,
+            timeout=tlc_timeout,
+            defect_actions=(
+                {
+                    name: {a.id for a in piece.actions}
+                    for name, piece in verification_scope.pieces.items()
+                }
+                if verification_scope is not None
+                else None
+            ),
+        )
+
+    if verification_scope is not None:
+        verification_scope.collect(result, explorations, analysis)
+        return result
 
     used = analysis.explorations() if analysis is not None else []
     # Surface the transition defects every exploration found — a broken action

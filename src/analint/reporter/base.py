@@ -220,6 +220,10 @@ class ValidationResult:
     load_errors: list[str] = field(default_factory=list)
     selection: dict | None = None  # invocation scope; absent on an unfiltered full check
 
+    # Diagnostic coverage outside an explicit selection never gates its verdict.
+    model_findings: list[Finding] = field(default_factory=list)
+    model_coverage: dict | None = None
+
     @property
     def has_errors(self) -> bool:
         """True on a hard failure. NOT a success check — ``not has_errors`` still
@@ -250,7 +254,7 @@ class ValidationResult:
         PASS means no failure among the checks that actually ran — NOT that the
         whole model was exhaustively verified (excluded semantics and run
         completeness are a separate concern, research/19). FAIL on any hard
-        failure or any query status the engine does not recognise; INCONCLUSIVE
+        failure in that scope or any query status the engine does not recognise; INCONCLUSIVE
         when a query ran out of budget or was not assessed but nothing failed.
         """
         if self.has_errors:
@@ -289,8 +293,9 @@ class ValidationResult:
 
     @property
     def warning_count(self) -> int:
-        """Every WARNING the run surfaced, across all sections — so the summary,
-        ``--strict`` and the shown findings agree (not just structural ones)."""
+        """Warnings in verdict-bearing sections, including all structural ones.
+        Separate ``model_findings`` are diagnostic and do not affect strict mode.
+        """
 
         def _warns(findings: list[Finding]) -> int:
             return sum(1 for f in findings if f.severity == Severity.WARNING)

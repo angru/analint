@@ -548,10 +548,13 @@ def export_tla(
     target: Target,
     inert: frozenset[int] = frozenset(),
     module_name: str = "analint_export",
+    defect_actions: set[str] | None = None,
 ) -> TlaExport:
     """The TLA+ module and TLC configuration of ``spec`` explored from ``roots``
     (analint contexts), checking ``target``. Raises ``ExportError`` for what
-    cannot be mirrored exactly."""
+    cannot be mirrored exactly. ``defect_actions`` restricts defect assertions,
+    never Next or Legal; all actions retain the kernel's acceptance guard.
+    None checks every action (the full-check default)."""
     if not roots:
         raise ExportError("no initial state")
     model = _Model(spec, roots)
@@ -580,7 +583,8 @@ def export_tla(
         defs, defect = _action_defs(model, action, name)
         lines += defs
         names[name] = action.id
-        defects.append(defect)
+        if defect_actions is None or action.id in defect_actions:
+            defects.append(defect)
     lines.append(f"Next == {' \\/ '.join(names) or 'FALSE'}")
 
     pred = target.predicate

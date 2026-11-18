@@ -76,22 +76,24 @@ updated when the next version is released.
 
 ### Shared model, selective verification
 
-[#21](https://github.com/angru/analint/issues/21) has a first increment in
-[PR #26](https://github.com/angru/analint/pull/26), unreleased:
-repeatable CLI `--check`, MCP `checks` and Python `validate_spec` select flows and
-properties over one shared `Spec`, preserving system actions and declared roots.
-Reports distinguish requested, supporting and unselected checks. Reachability
-conservatively retains all canonical invariant proofs and action-defect coverage;
-flow-only requests skip global exploration. The static shared-model benchmark and
-regression tests cover cross-flow interference, budgets and repeat requests.
-The issue remains open: an unrelated invariant or action defect can still fail
-any selected property run, and selection need not reduce its exploration work.
-The next increment must determine required supporting proofs from dependencies
-and distinguish requested-check verdicts from model-wide diagnostics, preserving
-structural validation, invariant trust and interfering system actions.
-Validate authoring usefulness in the one-change real-spec trial; this does not
-establish that selecting a property shrinks a coupled state space. See the
-[selection contract](docs/cli.md#selecting-checks-over-one-model-unreleased).
+[#21](https://github.com/angru/analint/issues/21) is implemented, unreleased.
+[PR #26](https://github.com/angru/analint/pull/26) introduced selection over a
+shared Spec. The follow-up selects supporting proofs by dependency and separates
+unrelated defects into `model_findings` with bounded `model_coverage`; they no
+longer change the selected verdict. Unfiltered checks retain their original scope.
+
+Canonical queries use the existing invariant-trust rules; proof dependencies grow
+only when constraints are needed. Own-root queries do not borrow canonical proofs.
+Structural errors and root legality remain blocking, and global questions such as
+NoDeadEnd/DeadActions retain global coverage. TLC selects defect assertions without
+removing actions from its transition system. Regression gates cover independent
+components, constrained proof dependencies, cross-flow interference, roots, budgets,
+cache, strict/compact reports and native/TLC/check/trace agreement.
+
+Validate authoring usefulness in the one-change real-spec trial. This implementation
+does not establish that coupled state spaces shrink: all-action diagnostic coverage
+still costs work. See the [selection contract](docs/cli.md#selecting-checks-over-one-model-unreleased)
+and the static shared-flow and independent-component benchmarks.
 
 Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:

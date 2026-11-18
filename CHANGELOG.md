@@ -44,6 +44,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Clarified the TLC reporting contract: a transition defect remains in both
+  its property's findings and aggregate exploration findings so attribution and
+  FAIL/exit 1 are preserved. Section/group counts are not unique-defect counts;
+  the property may remain INCONCLUSIVE. This documents existing behavior. (#32)
+
 - **Breaking:** native operand literals are now limited to `None`, `bool`, `int`,
   `float`, `str`, `Enum`, and `InstanceRef`. Declared `Entity` classes remain
   supported identities for parameter filters. Other Python objects, including
@@ -54,6 +59,10 @@ All notable changes to this project are documented here. The format is based on
   field references, preventing false PASS results. (#14)
 
 ### Fixed
+
+- TLC transition defects attempted directly from a root now show
+  `(initial state) → action` instead of only the attempted action. Non-empty
+  paths, property status and aggregate verdict behavior are unchanged. (#32)
 
 - Selected checks no longer repeat an illegal root as an unrelated model
   diagnostic when a blocking root finding already represents it. Internal

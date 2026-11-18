@@ -112,11 +112,14 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    further ownership changes only with measured retention in a long-lived
    in-process consumer; keep live exploration results readable and verify cache
    round trips. A global reset while results remain live is not a safe fix.
-3. [#13 Trace provenance](https://github.com/angru/analint/issues/13) (P2):
+3. [#13 Trace input parity](https://github.com/angru/analint/issues/13)
+   — completed and closed, unreleased:
    matching budget, slicing, cache and TLC options now share the selected-check
    pipeline (#21). TLC traces return the actual parsed action sequence, with
-   unavailable state snapshots explicit. Revision/provenance persistence remains
-   deferred until a demonstrated mismatch requires it; the broader issue stays open.
+   unavailable state snapshots explicit. The original five-step counterexample
+   was rechecked on `27d4b67` with native and TLC budgets through library and MCP;
+   existing CLI/MCP trace regressions also pass. Revision/provenance persistence
+   remains deferred until a new demonstrated mismatch requires it.
 4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
    (P3) — implemented, unreleased: an executable AST inventory covers structural
    references, slicing/impact, interpretation/compilation, cache and TLA rendering,
@@ -162,6 +165,13 @@ Review follow-ups are tracked separately:
   no message parsing or location-only grouping is used. Later violations,
   other roots and unknown provenance remain visible. Full reports can retain
   multiple paths to an invariant; compact reports group them for readability.
+
+- [#32 TLC defect reporting](https://github.com/angru/analint/issues/32)
+  (P3) — implemented, unreleased: first-step defect paths include the initial
+  state marker and attempted action. The report contract documents repeated
+  property/aggregate attribution and section-level counts. Tests retain
+  FAIL/exit 1 with an undecided target across selected/full checks, compact JSON,
+  query/invariant results and trace metadata, including real TLC.
 
 With the correctness repairs merged, return to the one-change real-spec trial
 using the selection API from #21. Its results should guide remaining architecture work rather

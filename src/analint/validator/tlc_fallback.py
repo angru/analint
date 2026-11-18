@@ -149,7 +149,7 @@ def _run(
     if outcome.violated and outcome.violated.startswith("NoDefect_"):
         name = outcome.violated.removeprefix("NoDefect_")
         action = export.actions.get(name, name)
-        attempted = [*outcome.trace, action]
+        attempted = [*(outcome.trace or ["(initial state)"]), action]
         findings.append(
             Finding(
                 Severity.ERROR,

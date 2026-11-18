@@ -155,6 +155,21 @@ includes safety attempts (even discarded attempts) and action coverage requested
 by that query. Model preparation and invariant-phase shared action coverage are
 excluded. Summing these timings does not give total command time.
 
+**Unreleased:** a `tlc.transition_defect` finding is retained in the affected
+query or invariant's `findings` and repeated in `exploration`. The first occurrence
+attributes the defect to that check; the second makes the aggregate run FAIL
+(exit 1), even if the target itself stays INCONCLUSIVE because TLC stopped at the
+transition defect. This applies to both full and selected checks. These are two
+report locations for the same defect, not evidence of two distinct bugs.
+Concatenating sections or adding compact group counts does not produce a unique
+defect count; the report does not provide global diagnostic identities.
+
+An empty reachable prefix is rendered as `(initial state) → paint`, including
+the attempted action. Non-empty prefixes keep their action sequence. The defect
+path is diagnostic text, not a proved witness or counterexample for the target:
+`trace` retains the blocking finding and aggregate FAIL while the target can
+remain INCONCLUSIVE with no property witness or state trace.
+
 #### Compact findings
 
 Since 0.0.7, `check --format json --compact` returns `analint.check.compact/v1`. Within

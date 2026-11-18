@@ -79,6 +79,7 @@ jobs:
           tests/test_initial_presence.py
           tests/test_keys.py
           tests/test_safety_query_support.py
+          tests/test_tlc_reporting.py
 
   package:
     name: release verification

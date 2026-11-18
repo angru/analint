@@ -141,6 +141,10 @@ work actually performed, and shared work is charged to its first consumer.
 slice. It requires Java and a TLC jar, selected by `ANALINT_TLC_JAR` or a discovered
 Quint/Apalache installation. Use `--tlc-timeout SECONDS` to bound each exported
 check. A result decided by TLC carries `backend: "tlc"`.
+**Unreleased:** selected safety queries can first use an unconstrained proof
+attempt, including TLC when requested. Only a clean PASS discharges support;
+all other attempts return to constrained verification. Own-root attempts never
+inherit canonical invariant trust. See [check selection](cli.md#selecting-checks-over-one-model-unreleased).
 
 The exporter mirrors the transition kernel and refuses constructs it cannot
 represent. Unsupported exports and timeouts leave the property INCONCLUSIVE.

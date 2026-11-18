@@ -61,7 +61,9 @@ def test_independent_failure_is_diagnostic_not_a_supporting_proof(
     for _ in range(2):  # also exercise disk cache hits and repeat request isolation
         chosen = validate_spec(spec, checks=[check], sliced=sliced, cache=cache)
         assert chosen.verdict == chosen.effective_verdict(strict=True) == "PASS"
-        assert [r.invariant_id for r in chosen.invariant_results] == ["bounded_a"]
+        assert [r.invariant_id for r in chosen.invariant_results] == (
+            [] if sliced and check == "safe_a" else ["bounded_a"]
+        )
         assert "invariant:bounded_b" in chosen.selection["not_selected"]
         assert chosen.selection["model_actions"] == ["bump_a", "bump_b"]
         assert any(f.location == "invariant:bounded_b" for f in chosen.model_findings)
@@ -89,6 +91,11 @@ def test_only_dependency_proofs_are_executed(entry, monkeypatch):
     monkeypatch.setattr(explorer, "_verify_grouped", record)
     result = validate(entry, checks=["safe_a"])
     assert result.verdict == "PASS"
+    assert verified == []
+    # A witness still needs the original support strategy.
+    spec = prepare_model(entry).spec
+    spec.queries[0] = Reachable(spec.queries[0].predicate, id="safe_a")
+    assert validate_spec(spec, checks=["safe_a"]).verdict == "PASS"
     assert verified == ["bounded_a"]
 
 
@@ -111,11 +118,12 @@ def test_unrelated_action_defects_are_separate_but_related_ones_block(entry, sli
     assert all(f.location != "action:bump_a" for f in broken.model_findings)
 
 
-def test_transitive_support_and_other_flow_actions_are_not_removed(entry):
+def test_transitive_witness_support_and_other_flow_actions_are_not_removed(entry):
     spec = prepare_model(entry).spec
     a = next(cls for cls in spec.entities if cls.__name__ == "A")
     b = next(cls for cls in spec.entities if cls.__name__ == "B")
     spec.invariants.append(Invariant(a.n <= b.n, id="bridge"))
+    spec.queries[0] = Reachable(a.n == 3, id="safe_a")
     result = validate_spec(spec, checks=["safe_a"])
     assert result.verdict == "FAIL"
     assert set(result.selection["supporting"]) == {
@@ -289,8 +297,8 @@ def test_proved_bridge_does_not_pull_in_unneeded_transitive_proofs(entry, monkey
     monkeypatch.setattr(explorer, "_verify_grouped", record)
     result = validate_spec(spec, checks=["safe_a"])
     assert result.verdict == "PASS"
-    assert result.selection["supporting"] == ["invariant:bounded_a", "invariant:bridge"]
-    assert proved == ["bounded_a", "bridge"]
+    assert result.selection["supporting"] == []
+    assert proved == []
     assert any(f.location == "invariant:bounded_b" for f in result.model_findings)
     # A direct invariant proved without constraints needs no supporting proof,
     # including the bridge that mentions the same field.

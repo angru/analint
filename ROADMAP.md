@@ -142,8 +142,19 @@ Review follow-ups are tracked separately:
   TLC-only transition defects also fail unfiltered runs; the requested property
   may remain undecided when TLC stops at a defect.
 - [#28 Unconstrained safety-query proofs](https://github.com/angru/analint/issues/28)
-  (P3): evaluate discharging support for AlwaysHolds/Unreachable after an
-  unconstrained proof, retaining constrained witness checks and soundness gates.
+  (P3) — implemented, unreleased: sliced explicit selections first attempt a
+  clean unconstrained safety proof, natively or with TLC. Only a complete,
+  applicable PASS with legal roots and no transition errors discharges support.
+  Other attempts use the constrained path; speculative own-root graphs never
+  inherit canonical trust. Reachable/global checks and explicit invariant
+  requests keep their existing support rules.
+  On `benchmarks/safety_bridge.py`, compared with `207a2d9`, selected `safe_a`
+  needs 0 supporting proofs instead of 3 and 4 query states instead of 81.
+  Instrumenting actual native exploration calls (including action coverage)
+  measures 85 states instead of 190. This is a bounded example, not a general
+  speedup claim; diagnostic coverage still explores 81 states and unsuccessful
+  attempts can add work. Regression gates cover roots, constrained retries,
+  defects, budgets, exclusions, cache, reports and check/trace/TLC parity.
 - [#29 Duplicate root diagnostics](https://github.com/angru/analint/issues/29)
   (P3): avoid showing the same illegal root as both blocking and unrelated without
   hiding distinct later violations or findings from other roots.

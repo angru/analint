@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from types import ModuleType
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,7 @@ from analint.validator.structural import validate_structural
 
 if TYPE_CHECKING:
     from analint.validator.explorer import Exploration
+    from analint.validator.safety import SafetyProof
 
 
 def build_spec(path: Path, extra: Path | None = None) -> tuple[Spec | None, list, list[LoadError]]:
@@ -280,11 +282,38 @@ def _run_checks(
         return result
 
     selection = select_checks(spec, checks, scenario_ids, tags)
+    safety_proofs: dict[str, SafetyProof] = {}
+    probe_ms: dict[str, float] = {}
+    if checks is not None and sliced and selection.queries:
+        from analint.validator.safety import prove_query
+        from analint.validator.slicing import SliceAnalysis
+
+        # Speculative graphs must not acquire canonical trust or contribute
+        # diagnostics. Share only their own roots/budget cache across attempts.
+        probe_analysis = SliceAnalysis(spec)
+        for query in selection.queries:
+            started = perf_counter()
+            proof = prove_query(
+                query,
+                spec,
+                probe_analysis,
+                max_states=max_states,
+                tlc=tlc,
+                tlc_timeout=tlc_timeout,
+            )
+            probe_ms[query.id] = (perf_counter() - started) * 1000
+            if proof is not None:
+                safety_proofs[query.id] = proof
     verification_scope = None
     if checks is not None:
         from analint.validator.verification_scope import VerificationScope
 
-        verification_scope = VerificationScope(spec, selection, sliced=sliced)
+        verification_scope = VerificationScope(
+            spec,
+            selection,
+            sliced=sliced,
+            discharged={f"query:{name}": proof.piece for name, proof in safety_proofs.items()},
+        )
     result.selection = selection.scope
     if result.selection is not None:
         result.selection["options"] = {
@@ -378,8 +407,26 @@ def _run_checks(
                     initials,
                     [f"query:{query.id}"],
                 )
-            result.query_results.append(
-                run_query(
+            proof = safety_proofs.get(query.id)
+            if proof is not None:
+                from analint.validator.explorer import cover_actions
+
+                assert analysis is not None
+                started = perf_counter()
+                canonical = not (query.given or query.given_any or query.initial is not None)
+                cover_actions(
+                    analysis,
+                    proof.initials,
+                    max_states or query.max_states,
+                    explorations,
+                    canonical=canonical,
+                )
+                query_result = proof.result
+                query_result.elapsed_ms = (perf_counter() - started) * 1000
+                if decided is not None:
+                    decided[query.id] = proof.exploration
+            else:
+                query_result = run_query(
                     query,
                     spec,
                     explorations,
@@ -387,7 +434,8 @@ def _run_checks(
                     analysis=analysis,
                     explorations=decided,
                 )
-            )
+            query_result.elapsed_ms = (query_result.elapsed_ms or 0.0) + probe_ms.get(query.id, 0.0)
+            result.query_results.append(query_result)
 
     if tlc:
         from analint.validator.tlc_fallback import decide_with_tlc

@@ -9,6 +9,13 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Selected `AlwaysHolds` and `Unreachable` queries can discharge supporting
+  invariant proofs after a complete, applicable unconstrained PASS, natively or
+  through TLC. Counterexamples and unsuccessful attempts return to constrained
+  verification. Root legality, relevant transition defects, explicit invariant
+  requests and all-action diagnostics remain enforced; own-root attempts never
+  borrow canonical trust. (#28)
+
 - Executable AST coverage inventory and bounded fixed-seed conformance probes
   for slicing, compiled evaluation and disk cache parity, including constrained
   emitted payloads. The source-archive release gate runs both suites. (#14)

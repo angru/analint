@@ -70,6 +70,24 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
             color = "red" if f.severity == Severity.ERROR else "yellow"
             console.print(f"  [{color}]{f.severity.value:<5}[/{color}]  [{f.location}] {f.message}")
 
+    if result.model_coverage is not None:
+        console.print()
+        console.print("[bold]MODEL DIAGNOSTICS[/bold] (do not affect selected verdict)")
+        for finding in result.model_findings:
+            console.print(
+                f"  {finding.severity.value} [{finding.location}] {finding.message}", markup=False
+            )
+        if not result.model_findings:
+            console.print("  [dim]no unrelated findings in the assessed coverage[/dim]")
+        coverage = result.model_coverage
+        console.print(
+            f"  Action coverage: {coverage['explorations']} explorations, "
+            f"{coverage['capped_explorations']} capped, "
+            f"{len(coverage['excluded_actions'])} excluded actions; "
+            "unselected invariants are not proved",
+            markup=False,
+        )
+
     if result.flow_results:
         console.print()
         console.print("[bold]FLOWS[/bold]")

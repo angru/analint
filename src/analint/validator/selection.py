@@ -82,12 +82,7 @@ def select_checks(
     flows = [flow for flow in spec.flows if id(flow) in chosen]
     queries = [query for query in spec.queries if id(query) in chosen]
     requested_invariants = [inv for inv in spec.invariants if id(inv) in chosen]
-    # Reachability includes per-action defect coverage over the entire model.
-    # Retain the existing canonical invariant proofs/trust phase for that work,
-    # rather than granting trust to an unselected invariant or changing pruning.
-    invariants = spec.invariants if queries or requested_invariants else []
-    if checks is None:
-        invariants = spec.invariants
+    invariants = requested_invariants
     scope = None
     if checks is not None or scenario_ids or tags:
         requested = [f"scenario:{sc.id}" for sc in scenarios] + [

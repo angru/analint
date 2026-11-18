@@ -231,6 +231,10 @@ def _print_trace(t: dict) -> None:
     print(f"analint trace  {kind}: {t[kind]}  status: {t['status']}")
     if "verification_verdict" in t:
         print(f"  Selected verification: {t['verification_verdict']}")
+    if t.get("model_findings"):
+        print("  Model diagnostics (do not affect selected verdict):")
+        for finding in t["model_findings"]:
+            print(f"    {finding['severity']} [{finding['location']}] {finding['message']}")
     if t.get("backend") == "tlc":
         print(f"  {t['message']}")
         for i, action in enumerate(t["action_trace"] or [], 1):

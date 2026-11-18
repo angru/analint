@@ -451,7 +451,13 @@ class SliceAnalysis:
 
     # ── slices of the things a run checks ────────────────────────────────────
 
-    def predicate_slice(self, *predicates: Any, locks: bool = False, canonical: bool) -> Slice:
+    def predicate_slice(
+        self,
+        *predicates: Any,
+        locks: bool = False,
+        canonical: bool,
+        unconstrained: bool = False,
+    ) -> Slice:
         seed: set[Var] = set()
         try:
             for pred in predicates:
@@ -461,6 +467,10 @@ class SliceAnalysis:
         # a flag the property itself reads keeps every writer: switching it
         # off is then an observable change, not just a disabled guard
         keep = frozenset(seed & self.flags.keys())
+        if unconstrained:
+            if not self.sliceable:
+                return self.whole
+            return self._close(seed, (), (), locks=locks, constrained=False, keep=keep)
         return self._resolve(seed, (), (), locks=locks, canonical=canonical, keep=keep)
 
     def invariant_slice(self, inv: Invariant, *, unconstrained: bool = False) -> Slice:
@@ -486,6 +496,15 @@ class SliceAnalysis:
             piece = self._resolve(seed, (action,), (), canonical=canonical)
             self._action_slices[key] = piece
         return piece
+
+    def supporting_invariants(self, piece: Slice) -> list[Invariant]:
+        """Proofs/constraints this slice uses; identity-based and in model order."""
+        if piece.vars is None:
+            return self.spec.invariants
+        needed = {id(inv) for inv in piece.invariants}
+        if not piece.constrained:
+            needed.update(id(inv) for var in piece.vars for inv in self.readers.get(var, ()))
+        return [inv for inv in self.spec.invariants if id(inv) in needed]
 
     def is_exact(self, piece: Slice) -> bool:
         """Constrained slices always are; an unconstrained one is while every

@@ -172,7 +172,9 @@ def build_server() -> Any:
         `checks` selects flow/query/invariant ids (KIND:ID disambiguates), retaining
         every system action. A selected PASS covers only the reported scope.
         `scenario_ids` and `tags` add matching scenarios to an explicit selection.
-        Canonical invariant proofs support reachability checks even if unselected.
+        Only dependency-related canonical proofs support selected checks.
+        Unrelated defects are in `model_findings` with bounded `model_coverage`;
+        they do not change the selected verdict. Full checks retain all findings.
         `what_if` — optional path to a standalone .py file whose objects
         (invariants, scenarios, actions) are added to the model for this run
         only: use it to test a hypothesis before editing the spec.

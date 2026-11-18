@@ -90,7 +90,12 @@ bounds each TLC run. None selects the usual full check; an empty `checks` list o
 unknown/ambiguous ids return an `analint.error/v1` usage error. Qualified ids
 (`flow:ID`, `query:ID`, `invariant:ID`) resolve collisions. See the
 [selection contract](cli.md#selecting-checks-over-one-model-unreleased), including
-supporting invariant proofs and the selected-scope JSON metadata.
+dependency-related supporting proofs and the selected-scope JSON metadata.
+For explicit selections, read `model_findings` and `model_coverage` separately:
+unrelated diagnostic errors do not turn a selected PASS into FAIL. They are not
+silently discarded, and the unfiltered full check retains its original verdict.
+Trace exposes the same separation. All-action diagnostic coverage is bounded;
+an empty list does not certify the whole model.
 
 Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected

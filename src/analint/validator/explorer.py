@@ -1132,13 +1132,15 @@ def verify_invariants(
     initials: list[dict] | None,
     *,
     build_error: str | None = None,
+    invariants: list[Invariant] | None = None,
     max_states: int = 10_000,
     cache: dict | None = None,
     analysis: SliceAnalysis | None = None,
     explorations: dict[str, Exploration] | None = None,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
-    model. ``initials`` is the pre-built canonical state set (see
+    model (or only ``invariants`` when supplied, without changing constraints).
+    ``initials`` is the pre-built canonical state set (see
     ``build_canonical_initials``); ``None`` means it could not be built.
 
     Returns the per-invariant results AND the canonical ``Exploration`` (None
@@ -1151,8 +1153,9 @@ def verify_invariants(
     ``explorations``, when given, receives the exploration each final result
     was decided on (by invariant id), so a trace replays exactly the check.
     """
+    targets = spec.invariants if invariants is None else invariants
     explorations = {} if explorations is None else explorations
-    if not spec.invariants:
+    if not targets:
         return [], None
 
     if initials is None:
@@ -1173,7 +1176,7 @@ def verify_invariants(
                     )
                 ],
             )
-            for inv in spec.invariants
+            for inv in targets
         ]
         return results, None
 
@@ -1183,7 +1186,7 @@ def verify_invariants(
         # less than the whole one, so a PASS there is final — and makes the
         # invariant trusted: it never prunes, other slices need not include it.
         pending = []
-        for inv in spec.invariants:
+        for inv in targets:
             started = perf_counter()
             exp, used = explore_slice(
                 analysis,
@@ -1223,9 +1226,9 @@ def verify_invariants(
     started = perf_counter()
     exp = explore_cached(spec, initials, max_states, cache)
     explore_ms = (perf_counter() - started) * 1000
-    results = _verify_invariants(spec.invariants, exp)
+    results = _verify_invariants(targets, exp)
     results[0].elapsed_ms = (results[0].elapsed_ms or 0.0) + explore_ms
-    for inv in spec.invariants:
+    for inv in targets:
         explorations[inv.id] = exp
     return results, exp
 

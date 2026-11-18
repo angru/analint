@@ -59,32 +59,54 @@ Structural validation always covers the whole model, including unselected
 behavior. Flows keep their own `given`; queries keep their declared roots or the
 canonical initial relation. No selection changes roots or mutates budgets.
 
-This first increment conservatively retains **all canonical invariant proofs**
-as supporting checks whenever any query or invariant is selected. The existing
-invariant-trust and per-action defect coverage are unchanged. Supporting failures
-or exhausted budgets affect the overall verdict; a green selected property cannot
-hide a model defect. Flow-only runs still check applicable invariants at each step,
-but do not explore global reachability. Selecting a flow verifies that journey,
-not all interleavings: select a cross-flow property to check interference.
+An explicit `--check` run proves **only dependency-related supporting invariants**.
+With slicing, canonical queries request the proofs their unconstrained cone needs.
+An invariant proved without constraints needs no further support. If a proof or
+query needs invariant constraints, their dependencies are added until the set is
+closed. This is a dependency analysis, not logical minimization of predicates.
+Queries with their own roots remain constrained and never borrow proofs from
+`Spec.initial`. Budgets can affect which proof strategy succeeds and therefore
+which supporting checks are needed. `--no-slice` uses a conservative constrained
+dependency closure and still explores the whole state space.
 
-The overall verdict is therefore **not limited to the requested properties**.
-For example, if `q_a` only reads an independent counter A but invariant `inv_b`
-fails on counter B, `--check q_a` can report `q_a: PASS` and still exit 1 with
-an overall FAIL. Unrelated action defects can also fail the run. This policy
-can retain the full exploration work for a property selection.
-Dependency-based supporting checks and a separate treatment of model-wide
-findings remain open in [#21](https://github.com/angru/analint/issues/21).
+The verdict and exit code aggregate requested checks, their supporting proofs,
+and relevant transition defects. For example, `safe_a` can PASS (exit 0) while
+an independent invariant `bounded_b` fails: the B finding is shown separately.
+Try `analint check benchmarks/independent_checks.py --check safe_a` from a source
+checkout; the unfiltered check still FAILs. Flow-only requests check applicable
+invariants at each step and skip global exploration.
+
+All-action defect coverage from the verification roots remains enabled. Unrelated
+findings go into **`model_findings`**, with bounded coverage recorded separately in
+**`model_coverage`**: root sets, exploration/state counts, caps, excluded actions,
+and the fact that unselected invariants were not proved. These findings retain
+severity, code, location and trace text, but affect neither the selected verdict
+nor `--strict`. A model diagnostic is not a proof result, and an empty diagnostic
+list does not establish model health. Run an unfiltered check for full validation.
+Counts include reused explorations and are not a measure of newly performed work.
+
+Structural errors, load failures and invalid declared initial relations remain
+blocking. Every invariant still participates in initial-state legality: an illegal
+root affects the requested verification even when the invariant reads other fields.
+`NoDeadEnd` retains global support because any invariant violation can strand a
+full-model state; `DeadActions` asks about all actions. Unknown dependency analysis
+falls back to the whole model. No action or invariant is removed from the model.
 
 Filtered JSON reports add `selection` (also in compact mode): `requested`,
-`supporting`, `not_selected`, the full `model_actions`, `action_coverage`,
-`excluded_actions`, effective `options` and `budgets`. `not_selected` describes
-checks, never removed actions. `action_coverage` states the requested policy, not
-exhaustiveness; read per-property status, budget and excluded-action findings too.
-Queries requiring complete exploration return INCONCLUSIVE when their transition
-relation excludes unsupported actions. Found reachability witnesses and safety
-counterexamples remain conclusive. A selected PASS covers the reported work only.
-`--strict` still applies to all
-warnings, including structural warnings about unselected behavior.
+`supporting`, `not_selected`, `dependencies`, full `model_actions`, `action_coverage`,
+selected-scope `excluded_actions`, effective `options` and `budgets`. Dependencies
+identify actions/constraints used by each check; whole-model fallback is explicit.
+Model-wide exclusions are in `model_coverage.excluded_actions`. `not_selected`
+describes checks, never removed actions. Coverage is bounded, not an exhaustive
+full-model verdict. Caps or excluded actions in unrelated diagnostic exploration
+do not make the requested property INCONCLUSIVE; an incomplete exploration needed
+by the property still does. Found witnesses/counterexamples remain conclusive.
+
+A selected PASS establishes only its reported scope. `--strict` still applies to
+warnings in verdict-bearing sections, including structural warnings about the
+whole model. Scenario/tag filters without `--check` retain full-check behavior.
+The all-action diagnostic pass remains work even when the proof set is small;
+selection is not a guarantee of a smaller state space or a faster check.
 
 The cache directory defaults to `~/.cache/analint`; set `ANALINT_CACHE_DIR` to
 override it. Caching does not change findings or completeness. Timings measure
@@ -260,8 +282,11 @@ settings from a previous process. `query:ID` and `invariant:ID` disambiguate.
 Run that flow with `check --check flow:ID` instead.
 
 Unreleased trace metadata includes `selection`, `verification_verdict` and
-exploration `findings`. A property's status does not override failures in its
-supporting verification. When TLC decides the property, `backend: "tlc"` and
+exploration `findings`. Unrelated findings and their bounded coverage appear in
+`model_findings` and `model_coverage`, with the same verdict separation as check.
+A property's status does not override failures in its supporting verification. TLC checks defect assertions only for the selected
+proof's dependency actions; all exported actions and legal-state constraints stay
+in the transition system. When TLC decides the property, `backend: "tlc"` and
 `action_trace` retain its parsed witness (null means no witness; [] can mean the
 initial state). TLC state snapshots are not available: `state_trace_available`
 is false, `root` is null, `steps` is empty and `final_state` is empty. The tool

@@ -36,6 +36,7 @@ def decide_with_tlc(
     canonical_initials: list[dict] | None,
     *,
     timeout: float | None = None,
+    defect_actions: dict[str, set[str]] | None = None,
 ) -> None:
     undecided_invariants = [r for r in result.invariant_results if r.status == "INCONCLUSIVE"]
     undecided_queries = [r for r in result.query_results if r.status == "INCONCLUSIVE"]
@@ -55,7 +56,16 @@ def decide_with_tlc(
         if inv is None or canonical_initials is None:
             continue
         piece = analysis.invariant_slice(inv) if analysis is not None else None
-        _decide_invariant(spec, res, inv, piece, analysis, canonical_initials, timeout)
+        _decide_invariant(
+            spec,
+            res,
+            inv,
+            piece,
+            analysis,
+            canonical_initials,
+            timeout,
+            defect_actions.get(f"invariant:{inv.id}") if defect_actions is not None else None,
+        )
 
     queries = {q.id: q for q in spec.queries}
     for res in undecided_queries:
@@ -77,7 +87,16 @@ def decide_with_tlc(
         if analysis is not None:
             canonical = not (query.given or query.given_any or query.initial is not None)
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
-        _decide_query(spec, res, query, piece, analysis, initials, timeout)
+        _decide_query(
+            spec,
+            res,
+            query,
+            piece,
+            analysis,
+            initials,
+            timeout,
+            defect_actions.get(f"query:{query.id}") if defect_actions is not None else None,
+        )
 
 
 def _exported(
@@ -86,11 +105,18 @@ def _exported(
     analysis: SliceAnalysis | None,
     initials: list[dict],
     target: Target,
+    defect_actions: set[str] | None = None,
 ) -> TlaExport:
     if analysis is None or piece is None or piece.vars is None:
-        return export_tla(spec, initials, target=target)
+        return export_tla(spec, initials, target=target, defect_actions=defect_actions)
     roots, _, inert = analysis.project_roots(piece, initials)
-    return export_tla(analysis.sliced_spec(piece), roots, target=target, inert=inert)
+    return export_tla(
+        analysis.sliced_spec(piece),
+        roots,
+        target=target,
+        inert=inert,
+        defect_actions=defect_actions,
+    )
 
 
 def _run(
@@ -102,9 +128,10 @@ def _run(
     timeout: float | None,
     loc: str,
     findings: list[Finding],
+    defect_actions: set[str] | None = None,
 ) -> TlcResult | None:
     try:
-        export = _exported(spec, piece, analysis, initials, target)
+        export = _exported(spec, piece, analysis, initials, target, defect_actions)
     except ExportError as exc:
         findings.append(
             Finding(Severity.INFO, loc, f"--tlc: not exported — {exc}", Code.TLC_NOT_EXPORTED)
@@ -152,10 +179,19 @@ def _decide_invariant(
     analysis: SliceAnalysis | None,
     initials: list[dict],
     timeout: float | None,
+    defect_actions: set[str] | None = None,
 ) -> None:
     loc = f"invariant:{inv.id}"
     outcome = _run(
-        spec, piece, analysis, initials, Target("holds", inv.expression), timeout, loc, res.findings
+        spec,
+        piece,
+        analysis,
+        initials,
+        Target("holds", inv.expression),
+        timeout,
+        loc,
+        res.findings,
+        defect_actions,
     )
     if outcome is None:
         return
@@ -187,6 +223,7 @@ def _decide_invariant(
             timeout,
             loc,
             res.findings,
+            defect_actions,
         )
         if witness is None:
             return
@@ -214,11 +251,20 @@ def _decide_query(
     analysis: SliceAnalysis | None,
     initials: list[dict],
     timeout: float | None,
+    defect_actions: set[str] | None = None,
 ) -> None:
     loc = f"query:{res.query_id}"
     kind = "always" if isinstance(query, AlwaysHolds) else "never"
     outcome = _run(
-        spec, piece, analysis, initials, Target(kind, query.predicate), timeout, loc, res.findings
+        spec,
+        piece,
+        analysis,
+        initials,
+        Target(kind, query.predicate),
+        timeout,
+        loc,
+        res.findings,
+        defect_actions,
     )
     if outcome is None:
         return

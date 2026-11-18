@@ -77,9 +77,20 @@ Adding a node requires a decision in every applicable column:
 Reference collectors are helpers for structurally validated trees, not validators.
 Unknown predicates/operands must be rejected at structural validation and runtime;
 slicing must fall back to the whole model. Impact analysis refuses unknown reads
-or effects. Cache encoding only accepts audited dataclass schemas; an unknown
+or effects, returning the same structured error to Python, CLI and MCP callers
+(CLI exit 1), with guidance to run `analint check`. Dependency-bearing `show`
+requests use the same error boundary; the overview remains inspectable.
+Cache encoding only accepts audited dataclass schemas; an unknown
 schema bypasses the cache. TLA export refuses unknown nodes/effects. Do not add a
-catch-all that treats symbolic values as literals or drops unknown effects.
+catch-all that treats arbitrary Python objects as literals or drops unknown effects.
+
+The operand literal domain is explicit: `None`, `bool`, `int`, `float`, `str`,
+`Enum`, and `InstanceRef`. Declared `Entity` classes also remain valid identities
+for parameter filters such as `where=[src != dst]`; arbitrary Python classes
+are not literals. Plain dataclasses, containers, callbacks and entity snapshots
+in operand position are structural errors even if they do not inherit `Symbolic`.
+This boundary is shared by native structural validation, evaluation and slicing;
+backend rendering remains independently checked.
 
 `tests/test_generated_conformance.py` adds 24 fixed-seed tiny singleton models
 and eight scoped cases. It compares sliced/whole verdicts and witness lengths,

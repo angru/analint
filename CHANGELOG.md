@@ -37,6 +37,13 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Reject opaque Python operands (including plain dataclasses wrapping field
+  references) through an explicit literal domain, closing another false PASS
+  path. Preserve entity-class identities used in parameter filters. (#14)
+- `affects` and dependency-bearing `show` requests return structured errors for
+  unsupported nodes/effects through Python, CLI and MCP, with guidance to run
+  `analint check`; the CLI exits 1 without a private-exception traceback. (#14)
+
 - Reject unknown symbolic operands and predicate subclasses during structural
   validation instead of accepting them as constants or empty trees. Interpreted
   and compiled evaluation reject unknown symbolic operands, slicing falls back

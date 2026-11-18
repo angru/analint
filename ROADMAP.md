@@ -123,8 +123,10 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    with explicit binding and unsupported-node probes. A bounded fixed-seed corpus
    compares sliced/whole results, interpreter/compiler values and errors, and
    fresh/cold/warm cache reports, including constrained emitted payloads from #20.
-   Unknown symbolic operands/predicates, unaudited dataclass cache schemas and
-   unknown exported effects now fail closed. The audit justified narrow boundary
+   Unknown operands/predicates (including opaque non-symbolic Python objects),
+   unaudited dataclass cache schemas and
+   unknown exported effects now fail closed. Inspection reports unsupported
+   dependencies as structured CLI/MCP errors. The audit justified narrow boundary
    fixes, not a shared visitor framework; independent TLC gates remain in place.
 
 Review follow-ups are tracked separately:

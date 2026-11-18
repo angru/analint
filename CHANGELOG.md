@@ -30,6 +30,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Parameter-family bindings refresh guards, effects, postconditions and payloads
+  from the current declaration on each bind/expansion, preserving bound-action
+  identity for scenarios and flows. Family-owned memos replace the process-global
+  registry; copied families cannot reuse another family's bound instances.
+  Existing Specs are not automatically re-expanded after template edits. (#11)
 - Symbolic DSL expressions now reject Python boolean conversion (`and`/`or`,
   `if`, chained comparisons) with explicit guidance instead of silently dropping
   conditions. Constrained symbolic event templates still load, with value
@@ -40,8 +45,8 @@ All notable changes to this project are documented here. The format is based on
 - Explore and trace return load errors when a what-if hypothesis fails to load,
   instead of returning an artifact of the unpatched model. ([#17](https://github.com/angru/analint/pull/17))
 - Compiled action plans are scoped to an exploration and rebuilt for later runs,
-  so declaration edits cannot reuse stale guards or effects. Parameter-family
-  binding cache lifetime remains tracked separately in #11. ([#18](https://github.com/angru/analint/pull/18))
+  so declaration edits cannot reuse stale guards or effects.
+  ([#18](https://github.com/angru/analint/pull/18))
 - Previously passing `AlwaysHolds`, `Unreachable` and `NoDeadEnd` checks now
   return `INCONCLUSIVE` (CLI exit **4**) when an event-payload subscriber is
   excluded from the explored slice (or the whole model with `--no-slice`).

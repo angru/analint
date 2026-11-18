@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from itertools import product
 from typing import TYPE_CHECKING, Any
+from weakref import ref
 
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
@@ -294,12 +295,14 @@ def _binding_key(action: Action, binding: Binding) -> tuple:
     return (id(action), tuple((p.name, binding[p.name]) for p in action.params))
 
 
-# bind() and expansion must hand out the same objects: a scenario's bound
-# action has to be identical to the one registered by the expansion. The
-# parent is stored with its instance: it keeps the parent alive so its id()
-# cannot be reused, and a hit is checked by identity.
-# ponytail: grows for the process lifetime (MCP), WeakKeyDictionary if it matters
-_BIND_MEMO: dict[tuple, tuple[Action, Action]] = {}
+def _bound_actions(action: Action) -> dict[tuple, Action]:
+    memo = action._bound_memo
+    if memo is None or memo[0]() is not action:
+        # Pydantic copies private attributes too. A copy gets its own bindings,
+        # even when it inherited the original's memo via model_copy/deepcopy.
+        memo = (ref(action), {})
+        action._bound_memo = memo
+    return memo[1]
 
 
 def _where_holds(action: Action, binding: Binding) -> bool:
@@ -369,11 +372,10 @@ def bind_action(action: Action, binding: Binding) -> Action:
         )
 
     key = _binding_key(action, binding)
-    cached = _BIND_MEMO.get(key)
-    if cached is not None and cached[0] is action:
-        _refresh_bound_id(action, key, cached[1])
-        return cached[1]
-
+    # Re-substitute every time: declarations and nested AST/list values are
+    # editable. A fingerprint would need to track every such semantic input.
+    # Build completely before refreshing an existing object, so errors cannot
+    # leave a partially updated action in a scenario or a Spec.
     concrete = Action(
         id=f"{action.id}({_suffix(key)})" if action.id else "",
         name=action.name,
@@ -386,7 +388,15 @@ def bind_action(action: Action, binding: Binding) -> Action:
         tags=list(action.tags),
     )
     concrete._bindings = dict(binding)
-    _BIND_MEMO[key] = (action, concrete)
+    memo = _bound_actions(action)
+    cached = memo.get(key)
+    if cached is not None:
+        # Preserve scenario/flow/Spec identity while replacing derived fields.
+        for name in Action.model_fields:
+            setattr(cached, name, getattr(concrete, name))
+        cached._bindings = concrete._bindings
+        return cached
+    memo[key] = concrete
     return concrete
 
 
@@ -405,9 +415,8 @@ def _refresh_bound_id(action: Action, key: tuple, bound: Action) -> None:
 def refresh_bound_ids(action: Action) -> None:
     """Re-derive the ids of ``action``'s already-bound instances after the loader
     named it. Touches only existing bindings — no where-clause re-evaluation."""
-    for key, (parent, bound) in _BIND_MEMO.items():
-        if parent is action:
-            _refresh_bound_id(action, key, bound)
+    for key, bound in _bound_actions(action).items():
+        _refresh_bound_id(action, key, bound)
 
 
 def expand_action(action: Action) -> list[Action]:

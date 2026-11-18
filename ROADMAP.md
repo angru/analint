@@ -99,8 +99,12 @@ Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:
 
 1. [#11 Validated immutable snapshot](https://github.com/angru/analint/issues/11)
-   (P2): first reproduce and repair stale `_BIND_MEMO` parameter expansions,
-   which #18 does not address. Evaluate immutable predicate/expression nodes
+   (P2): the concrete stale parameter-expansion repair is implemented, unreleased.
+   Each bind/expansion refreshes the existing derived action from its template;
+   identity remains stable for scenario/flow references. Memos belong to the
+   family, and copied families cannot reuse another owner's bindings. Existing
+   Specs are not automatically re-expanded after declaration edits. The broader
+   issue remains open: evaluate immutable predicate/expression nodes
    with identity equality; frozen dataclasses alone do not freeze nested lists.
    Introduce a broader preparation boundary only where concrete consumers need it.
 2. [#12 State-store lifetime](https://github.com/angru/analint/issues/12) (P3):
@@ -128,6 +132,12 @@ Review follow-ups are tracked separately:
   (P3): restore TLC fallback for payload constraints that can be mirrored exactly;
   keep explicit refusal for unsupported cases. This is a capability improvement,
   not a blocker to the fail-closed #22 repair.
+- [#28 Unconstrained safety-query proofs](https://github.com/angru/analint/issues/28)
+  (P3): evaluate discharging support for AlwaysHolds/Unreachable after an
+  unconstrained proof, retaining constrained witness checks and soundness gates.
+- [#29 Duplicate root diagnostics](https://github.com/angru/analint/issues/29)
+  (P3): avoid showing the same illegal root as both blocking and unrelated without
+  hiding distinct later violations or findings from other roots.
 
 With the correctness repairs merged, return to the one-change real-spec trial
 using the selection API from #21. Its results should guide remaining architecture work rather

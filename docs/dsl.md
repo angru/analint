@@ -258,6 +258,17 @@ including `Present`, belong in `pre`. List the family on `Spec.actions`, and use
 `.bind(...)` to select the concrete action for a scenario or flow. Do not generate
 model elements with Python factory loops; finite families belong in `Param`.
 
+**Unreleased:** binding refreshes the concrete action from the current family
+declaration, including nested guard/effect/payload edits. Rebinding the same
+family and arguments preserves the action's identity so existing scenario and
+flow references still match Spec expansion. Those references see the refreshed
+contents; this is not an immutable model snapshot. Copied families own separate
+binding memos, and a discarded family no longer leaves its memo in a global store.
+Refresh happens on `.bind(...)` or a new family expansion, not automatically when
+an existing Spec is validated. Rebuild the Spec after changing parameter domains,
+`where`, or referenced model elements so membership/reference closure is current.
+Do not edit declarations during an active verification run.
+
 ## Bound, quantifiers and aggregates
 
 `Bound(name, scope)` binds a variable over present instances of that scope.

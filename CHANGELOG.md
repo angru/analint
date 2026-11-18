@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Executable AST coverage inventory and bounded fixed-seed conformance probes
+  for slicing, compiled evaluation and disk cache parity, including constrained
+  emitted payloads. The source-archive release gate runs both suites. (#14)
+
 - TLC exports supported emitted payload constraints, including optional values,
   instead of refusing every constrained template. It checks the post-state and
   reports invalid payloads without clamping. (#24)
@@ -32,6 +36,13 @@ All notable changes to this project are documented here. The format is based on
   while selecting defect assertions belonging to the requested proof's dependencies.
 
 ### Fixed
+
+- Reject unknown symbolic operands and predicate subclasses during structural
+  validation instead of accepting them as constants or empty trees. Interpreted
+  and compiled evaluation reject unknown symbolic operands, slicing falls back
+  to the whole model, and impact analysis refuses unknown effects. Cache encoding
+  accepts only audited dataclass schemas; TLA export rejects unknown effects
+  instead of silently dropping them. (#14)
 
 - Parameter-family bindings refresh guards, effects, postconditions and payloads
   from the current declaration on each bind/expansion, preserving bound-action

@@ -33,6 +33,8 @@ ARCHIVE_TESTS = [
     "tests/test_verification_scope.py",
     "tests/test_parameter_refresh.py",
     "tests/test_event_payload_constraints.py",
+    "tests/test_ast_coverage.py",
+    "tests/test_generated_conformance.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",
     "tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace",

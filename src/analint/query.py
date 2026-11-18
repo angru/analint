@@ -24,7 +24,7 @@ from analint.models.scope import (
     instance_context_key,
     is_field_ref,
 )
-from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars
+from analint.validator.slicing import PRESENT, Var, _operand_vars, _pred_vars, _Unsliceable
 from analint.validator.structural import _collect_field_refs, _describe, _describe_operand
 
 # ── Rendering helpers ──────────────────────────────────────────────────────────
@@ -130,6 +130,8 @@ def _action_reads(spec: Spec, action: Action) -> set[Var]:
                     _operand_vars(value, reads)
             else:
                 frozen.add(effect.target)
+        else:
+            raise _Unsliceable(effect)
     for lifecycle in spec.lifecycles:
         if lifecycle.terminal:
             for target in frozen:
@@ -161,6 +163,8 @@ def _action_writes(action: Action) -> list[tuple[FieldRef, Effect]]:
                 (getattr(effect.target, name), effect)
                 for name in all_fields(effect.target.entity_cls)
             )
+        elif not isinstance(effect, Delete):
+            raise _Unsliceable(effect)
     return writes
 
 

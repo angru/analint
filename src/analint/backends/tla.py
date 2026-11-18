@@ -417,6 +417,8 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
             created[effect.target] = effect
         elif isinstance(effect, Delete):
             deleted.add(effect.target)
+        else:
+            raise ExportError(f"effect node {type(effect).__name__} is not exported")
     # presence guards (the kernel rejects before any effect)
     for key in touched:
         if isinstance(key, InstanceRef):

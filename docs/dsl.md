@@ -461,3 +461,28 @@ An empty behaviour model is an error.
 
 The [taskboard](examples.md) and broker examples show composition. Use
 `analint show contract ID -p PATH` to inspect a contract's public surface.
+
+## Reusing a Spec with invocation settings (Unreleased)
+
+Keep actions, constraints, flows and properties in one root model. The Python
+verification functions take selection and budgets separately from that model:
+
+```python
+from analint.validator import validate_spec
+
+# spec is the same already-declared Spec on every call; explicit ids are required.
+checkout_result = validate_spec(spec, checks=["flow:checkout"])
+property_result = validate_spec(
+    spec, checks=["query:shipment_keeps_reservation"], max_states=100, cache=True
+)
+full_result = validate_spec(spec)
+```
+
+`validate(path, checks=[...])` provides the same contract for a loaded file.
+Neither function edits the declaration lists, query budgets or fixtures. Results
+with a selection describe its scope; only that scope is established by PASS.
+Structural checks always cover the whole model, and reachability checks retain
+canonical invariant proofs and action-defect coverage. See the
+[CLI selection contract](cli.md#selecting-checks-over-one-model-unreleased) for
+supporting checks, scenario/tag compatibility and trace settings. A static shared
+model for two flows and cross-flow properties is in `benchmarks/shared_checks.py`.

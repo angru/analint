@@ -76,10 +76,22 @@ updated when the next version is released.
 
 ### Shared model, selective verification
 
-[#21](https://github.com/angru/analint/issues/21) (P2) is the next bounded workflow
-improvement: select flows and properties over one shared `Spec`, preserving all
-system actions. Acceptance and API details live in the issue; validate usefulness
-in the one-change real-spec trial without requiring an IR or backend rewrite.
+[#21](https://github.com/angru/analint/issues/21) has a first increment in
+[PR #26](https://github.com/angru/analint/pull/26), unreleased:
+repeatable CLI `--check`, MCP `checks` and Python `validate_spec` select flows and
+properties over one shared `Spec`, preserving system actions and declared roots.
+Reports distinguish requested, supporting and unselected checks. Reachability
+conservatively retains all canonical invariant proofs and action-defect coverage;
+flow-only requests skip global exploration. The static shared-model benchmark and
+regression tests cover cross-flow interference, budgets and repeat requests.
+The issue remains open: an unrelated invariant or action defect can still fail
+any selected property run, and selection need not reduce its exploration work.
+The next increment must determine required supporting proofs from dependencies
+and distinguish requested-check verdicts from model-wide diagnostics, preserving
+structural validation, invariant trust and interfering system actions.
+Validate authoring usefulness in the one-change real-spec trial; this does not
+establish that selecting a property shrinks a coupled state space. See the
+[selection contract](docs/cli.md#selecting-checks-over-one-model-unreleased).
 
 Architecture follow-ups are scoped separately. Implement them incrementally
 after the repairs, preserving the public Python DSL and wire compatibility:
@@ -95,10 +107,10 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    in-process consumer; keep live exploration results readable and verify cache
    round trips. A global reset while results remain live is not a safe fix.
 3. [#13 Trace provenance](https://github.com/angru/analint/issues/13) (P2):
-   first expose matching budget, slicing and TLC options through CLI/MCP trace,
-   and return the actual TLC witness rather than rerunning Python exploration.
-   Add persisted revision/provenance machinery only for a demonstrated mismatch;
-   coordinate selected-check identity with #21.
+   matching budget, slicing, cache and TLC options now share the selected-check
+   pipeline (#21). TLC traces return the actual parsed action sequence, with
+   unavailable state snapshots explicit. Revision/provenance persistence remains
+   deferred until a demonstrated mismatch requires it; the broader issue stays open.
 4. [#14 Exhaustive AST analysis and generated probes](https://github.com/angru/analint/issues/14)
    (P3): first inventory AST nodes and require each walker to handle or explicitly
    refuse them. Add small fixed-seed differential probes (including constrained
@@ -116,7 +128,7 @@ Review follow-ups are tracked separately:
   not a blocker to the fail-closed #22 repair.
 
 With the correctness repairs merged, return to the one-change real-spec trial
-and #21. Its results should guide the remaining architecture work rather
+using the selection API from #21. Its results should guide remaining architecture work rather
 than starting a general rewrite.
 
 ## Review baseline (2026-11-06, before the 0.0.5 patch)

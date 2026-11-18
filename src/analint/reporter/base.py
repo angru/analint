@@ -218,6 +218,7 @@ class ValidationResult:
     flow_results: list[FlowResult] = field(default_factory=list)
     exploration_findings: list[Finding] = field(default_factory=list)
     load_errors: list[str] = field(default_factory=list)
+    selection: dict | None = None  # invocation scope; absent on an unfiltered full check
 
     @property
     def has_errors(self) -> bool:

@@ -74,17 +74,23 @@ below match the server's tool definitions.
 
 | Tool | Required arguments | Optional arguments |
 | --- | --- | --- |
-| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false` |
+| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false`, `checks=null`, `scenario_ids=null`, `tags=null`, `tlc_timeout=null` |
 | `show` | None | `path="."`, `kind=null`, `name=null` |
 | `affects` | `target` | `path="."` |
 | `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null` |
-| `trace` | A property id in `query` for a useful request | `path="."`, `query=""`, `what_if=null`, `slice=true` |
+| `trace` | A property id in `query` for a useful request | `path="."`, `query=""`, `what_if=null`, `slice=true`, `max_states=null`, `cache=false`, `tlc=false`, `tlc_timeout=null` |
 
 `check` runs the full validation pipeline. `max_states` overrides every
 exploration budget and must be positive; `slice=false` corresponds to CLI
 `--no-slice`. `tlc=true` tries the supported TLC fallback for INCONCLUSIVE
-properties. MCP currently exposes no `strict`, scenario/tag filtering or
-`tlc_timeout` parameter; use the CLI when those options are needed.
+properties. MCP exposes no `strict` parameter; use the CLI when that policy is
+needed. Unreleased: `checks` selects flow/query/invariant ids without removing
+system actions. `scenario_ids`/`tags` add filtered scenarios, and `tlc_timeout`
+bounds each TLC run. None selects the usual full check; an empty `checks` list or
+unknown/ambiguous ids return an `analint.error/v1` usage error. Qualified ids
+(`flow:ID`, `query:ID`, `invariant:ID`) resolve collisions. See the
+[selection contract](cli.md#selecting-checks-over-one-model-unreleased), including
+supporting invariant proofs and the selected-scope JSON metadata.
 
 Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected
@@ -124,10 +130,11 @@ why `graph` is null. Read `completeness` separately.
 `trace` accepts an invariant id as well as a query id, despite the argument's
 name. It follows the same slice and budget decisions as `check`. A property
 without a witness returns `witness: null` with an explanation.
-An override supplied only to `check(max_states=...)` does not carry over to a
-later trace call, which uses the query's declared budget or `Spec.max_states`
-for canonical invariants. The same applies
-to CLI `check --max-states`; CLI `trace` has no budget override.
+Invocation settings do not carry over between calls. Unreleased: pass the same
+`max_states`, `slice`, `cache`, `tlc` and `tlc_timeout` to trace. Both tools share
+the selection/execution pipeline. A TLC-decided trace returns the parsed
+`action_trace` and explicitly reports unavailable state snapshots; native traces
+keep their state changes. See [trace output](cli.md#trace).
 
 For example, send these arguments to `check`:
 

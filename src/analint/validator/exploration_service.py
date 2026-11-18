@@ -21,17 +21,15 @@ from analint.validator.artifact_builder import (
     build_exploration_artifact,
     build_summary_artifact,
 )
-from analint.validator.engine import prepare_model
+from analint.validator.engine import _validate_prepared, prepare_model
 from analint.validator.explorer import (
     Exploration,
     StateKey,
     build_canonical_initials,
     explore,
     resolve_query_initials,
-    run_query,
-    verify_invariants,
 )
-from analint.validator.slicing import SliceAnalysis
+from analint.validator.selection import SelectionError
 
 
 class ExplorationError(Exception):
@@ -110,6 +108,10 @@ def trace_query(
     *,
     what_if: str | Path | None = None,
     sliced: bool = True,
+    max_states: int | None = None,
+    cache: bool = False,
+    tlc: bool = False,
+    tlc_timeout: float | None = None,
 ) -> dict[str, object]:
     """The witness/counterexample of a query or invariant as states and changes
     (schema-aligned with the artifact's node ids). A passing property with no
@@ -133,8 +135,21 @@ def trace_query(
         )
 
     spec = prepared.spec
-    query = next((q for q in spec.queries if q.id == query_id), None)
-    invariant = next((inv for inv in spec.invariants if inv.id == query_id), None)
+    qualifier, separator, bare_id = query_id.partition(":")
+    if separator and qualifier in ("query", "invariant"):
+        query_id = bare_id
+    else:
+        qualifier = ""
+    query = (
+        next((q for q in spec.queries if q.id == query_id), None)
+        if qualifier != "invariant"
+        else None
+    )
+    invariant = (
+        next((inv for inv in spec.invariants if inv.id == query_id), None)
+        if qualifier != "query"
+        else None
+    )
     if query is not None and invariant is not None:
         raise ExplorationError(
             "ambiguous_property",
@@ -152,37 +167,57 @@ def trace_query(
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")
 
-    # Decide the property exactly as check does: the same slices, and for a
-    # query the invariant trust check establishes first, so the witness key and
-    # the parent walk share the one exploration the verdict came from.
-    cache: dict = {}
+    source_kind = "query" if query is not None else "invariant"
     decided: dict[str, Exploration] = {}
-    analysis = SliceAnalysis(spec) if sliced else None
-    invariant_results: list = []
-    if spec.invariants and (analysis is not None or invariant is not None):
-        canonical, canonical_error = (
-            (initials, None) if invariant is not None else build_canonical_initials(spec)
-        )
-        invariant_results, _ = verify_invariants(
-            spec,
-            canonical,
-            build_error=canonical_error,
-            max_states=spec.max_states,
+    try:
+        verification = _validate_prepared(
+            prepared,
+            checks=[f"{source_kind}:{query_id}"],
+            max_states=max_states,
+            sliced=sliced,
             cache=cache,
-            analysis=analysis,
-            explorations=decided,
+            tlc=tlc,
+            tlc_timeout=tlc_timeout,
+            decided=decided,
         )
-    if query is not None:
-        result = run_query(query, spec, cache, analysis=analysis, explorations=decided)
-        source_kind, kind = "query", result.kind
-    else:
-        assert invariant is not None  # the id lookup above rejected an unknown property
-        result = next(r for r in invariant_results if r.invariant_id == invariant.id)
-        source_kind, kind = "invariant", "Invariant"
+    except SelectionError as exc:
+        raise ExplorationError("usage", str(exc)) from exc
+    result = (
+        verification.query_results[0]
+        if query is not None
+        else next(r for r in verification.invariant_results if r.invariant_id == query_id)
+    )
+    kind = type(query).__name__ if query is not None else "Invariant"
+    metadata = {
+        "selection": verification.selection,
+        "verification_verdict": verification.verdict.value,
+        "findings": [f.to_dict() for f in verification.exploration_findings],
+    }
+    if result.backend == "tlc":
+        # TLC supplies action ids, not Python state keys. Preserve its witness;
+        # never substitute a rerun at a different budget or invent snapshots.
+        return {
+            "schema": "analint.trace/v1",
+            source_kind: query_id,
+            "status": result.status,
+            "backend": "tlc",
+            "root": None,
+            "steps": [],
+            "final_state": {},
+            "action_trace": result.trace,
+            "state_trace_available": False,
+            "message": (
+                "TLC action trace; state snapshots are not available"
+                if result.trace is not None
+                else "TLC found no witness/counterexample to trace"
+            ),
+            **metadata,
+        }
     exp = decided.get(query_id)
     if result.witness_key is None or exp is None:
         return {
             "schema": "analint.trace/v1",
+            **metadata,
             source_kind: query_id,
             "status": result.status,
             "root": None,
@@ -197,6 +232,7 @@ def trace_query(
             ),
         }
     trace = _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
+    trace.update(metadata)
     if getattr(result, "slice", None):
         trace["slice"] = result.slice
     return trace

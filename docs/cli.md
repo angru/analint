@@ -21,6 +21,7 @@ The overall verdict includes all of these stages.
 | --- | --- |
 | `-f, --format terminal\|json` | Select human-readable or JSON output |
 | `--compact` | Group and sample findings in JSON output (requires `--format json`) |
+| `--check ID` | Unreleased: select a flow, query or invariant; repeat or use `KIND:ID` |
 | `-s, --scenario ID` | Filter scenarios by id; repeat for multiple ids |
 | `-t, --tag TAG` | Filter scenarios by tag; repeat for multiple tags |
 | `--strict` | Warnings fail the run |
@@ -33,6 +34,57 @@ The overall verdict includes all of these stages.
 
 Scenario/tag filters select scenario execution; they do not turn the command
 into a scenario-only validation that skips invariants, flows or queries.
+
+### Selecting checks over one model (Unreleased)
+
+`--check` changes the checks to run, not the system being checked. It retains
+all declared actions, constraints and roots. For example, from a source checkout:
+
+```bash
+analint check benchmarks/shared_checks.py --check checkout
+analint check benchmarks/shared_checks.py --check release_reservation
+analint check benchmarks/shared_checks.py --check query:shipment_keeps_reservation
+analint check benchmarks/shared_checks.py --check checkout --check can_ship --max-states 100
+```
+
+Without `--check`, the existing full-check behavior remains. With it, only the
+named flows/properties and their supporting checks run; add `--scenario`/`--tag`
+to include matching scenarios.
+Scenario ids and tags intersect as before. Unknown ids/tags, ambiguous check ids,
+and filters matching no scenarios fail as usage errors (exit 2). Bare check ids
+must be unique across flows, queries and invariants; `flow:ID`, `query:ID` and
+`invariant:ID` disambiguate. Repeated selectors are deduplicated.
+
+Structural validation always covers the whole model, including unselected
+behavior. Flows keep their own `given`; queries keep their declared roots or the
+canonical initial relation. No selection changes roots or mutates budgets.
+
+This first increment conservatively retains **all canonical invariant proofs**
+as supporting checks whenever any query or invariant is selected. The existing
+invariant-trust and per-action defect coverage are unchanged. Supporting failures
+or exhausted budgets affect the overall verdict; a green selected property cannot
+hide a model defect. Flow-only runs still check applicable invariants at each step,
+but do not explore global reachability. Selecting a flow verifies that journey,
+not all interleavings: select a cross-flow property to check interference.
+
+The overall verdict is therefore **not limited to the requested properties**.
+For example, if `q_a` only reads an independent counter A but invariant `inv_b`
+fails on counter B, `--check q_a` can report `q_a: PASS` and still exit 1 with
+an overall FAIL. Unrelated action defects can also fail the run. This policy
+can retain the full exploration work for a property selection.
+Dependency-based supporting checks and a separate treatment of model-wide
+findings remain open in [#21](https://github.com/angru/analint/issues/21).
+
+Filtered JSON reports add `selection` (also in compact mode): `requested`,
+`supporting`, `not_selected`, the full `model_actions`, `action_coverage`,
+`excluded_actions`, effective `options` and `budgets`. `not_selected` describes
+checks, never removed actions. `action_coverage` states the requested policy, not
+exhaustiveness; read per-property status, budget and excluded-action findings too.
+Queries requiring complete exploration return INCONCLUSIVE when their transition
+relation excludes unsupported actions. Found reachability witnesses and safety
+counterexamples remain conclusive. A selected PASS covers the reported work only.
+`--strict` still applies to all
+warnings, including structural warnings about unselected behavior.
 
 The cache directory defaults to `~/.cache/analint`; set `ANALINT_CACHE_DIR` to
 override it. Caching does not change findings or completeness. Timings measure
@@ -193,13 +245,28 @@ analint trace resolved_leaves_no_open_ticket -p .
 
 `trace PROPERTY_ID --path PATH` returns a query witness or invariant
 counterexample with state changes. Options are `--format terminal|json`,
-`--what-if FILE.py` and `--no-slice`.
+`--what-if FILE.py` and `--no-slice`. Unreleased: `--max-states`, `--cache`,
+`--tlc` and `--tlc-timeout` accept the same invocation settings as check.
 
 JSON uses `analint.trace/v1`, with `query` or `invariant` identifying the property,
 its `status`, the root, `steps` and `final_state`. A property without a witness
 returns `witness: null` and an explanation. The command follows `check`'s slice
-and budget decisions; use `--no-slice` for the whole model. Adjust the model's
-budget for a larger trace exploration; trace has no `--max-states` option.
+and budget decisions; use `--no-slice` for the whole model. Unreleased: pass the
+same budget/cache/TLC options used for the selected check. A trace call selects
+that one property plus the same supporting invariant proofs; it does not inherit
+settings from a previous process. `query:ID` and `invariant:ID` disambiguate.
+`trace` accepts only queries and invariants: a `flow:ID` selector copied from
+`--check` is not a valid trace target and returns an unknown-property error.
+Run that flow with `check --check flow:ID` instead.
+
+Unreleased trace metadata includes `selection`, `verification_verdict` and
+exploration `findings`. A property's status does not override failures in its
+supporting verification. When TLC decides the property, `backend: "tlc"` and
+`action_trace` retain its parsed witness (null means no witness; [] can mean the
+initial state). TLC state snapshots are not available: `state_trace_available`
+is false, `root` is null, `steps` is empty and `final_state` is empty. The tool
+does not substitute a native rerun or invent state changes. Native traces retain
+the existing state-diff representation.
 
 Successful trace retrieval is an inspection operation. Its process exit code
 does not replace the property's `status` or a `check` verdict.

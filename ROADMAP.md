@@ -156,8 +156,12 @@ Review follow-ups are tracked separately:
   attempts can add work. Regression gates cover roots, constrained retries,
   defects, budgets, exclusions, cache, reports and check/trace/TLC parity.
 - [#29 Duplicate root diagnostics](https://github.com/angru/analint/issues/29)
-  (P3): avoid showing the same illegal root as both blocking and unrelated without
-  hiding distinct later violations or findings from other roots.
+  (P3) — implemented, unreleased: selected reports suppress only non-blocking
+  diagnostics whose recorded states are illegal roots already represented by
+  blocking root findings. Provenance is portable through the exploration cache;
+  no message parsing or location-only grouping is used. Later violations,
+  other roots and unknown provenance remain visible. Full reports can retain
+  multiple paths to an invariant; compact reports group them for readability.
 
 With the correctness repairs merged, return to the one-change real-spec trial
 using the selection API from #21. Its results should guide remaining architecture work rather

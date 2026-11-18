@@ -88,6 +88,7 @@ class VerificationScope:
         }
         self.routes: dict[tuple, set[str]] = {}
         self.root_findings: list[Finding] = []
+        self.root_defects: set[tuple] = set()
         self.checked_roots: set[tuple] = set()
 
     def _metadata(self) -> None:
@@ -158,7 +159,11 @@ class VerificationScope:
             # Every invariant participates in root legality, even outside a
             # slice. A bad root is a dependency, not an unrelated diagnostic.
             for index, ctx in enumerate(initials, 1):
-                self.root_findings.extend(check_invariants(self.spec, ctx, f"initial #{index}"))
+                findings = check_invariants(self.spec, ctx, f"initial #{index}")
+                self.root_findings.extend(findings)
+                self.root_defects.update(
+                    (f.code, f.severity, f.location, state_key(ctx)) for f in findings
+                )
 
     def collect(
         self, result: ValidationResult, cache: dict, analysis: SliceAnalysis | None
@@ -179,7 +184,7 @@ class VerificationScope:
         for key, exp in runs:
             seen[id(exp)] = exp
             allowed = self.routes.get(key[0])
-            for finding in exp.findings:
+            for index, finding in enumerate(exp.findings):
                 identity = (finding.code, finding.severity, finding.location, finding.message)
                 # Unknown ownership stays blocking; never parse diagnostic prose.
                 target = (
@@ -189,6 +194,20 @@ class VerificationScope:
                     and finding.location not in allowed
                     else scoped
                 )
+                states = exp.finding_states.get(index)
+                if (
+                    target is model
+                    and states
+                    and all(
+                        exp.parent[state] < 0
+                        and (finding.code, finding.severity, finding.location, exp.keys[state])
+                        in self.root_defects
+                        for state in states
+                    )
+                ):
+                    # Root legality already owns this exact failure. A later
+                    # state or missing provenance must retain the diagnostic.
+                    continue
                 target[identity] = finding
             excluded.update(exp.excluded)
             selected_excluded.update(

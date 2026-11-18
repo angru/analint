@@ -95,10 +95,13 @@ class Exploration:
         self.roots: dict = {}  # root key → 1-based initial index
         self.fired: set = set()  # action ids ever enabled
         self.findings: list = []  # violations met en route
+        # Internal provenance for invariant diagnostics, including every state
+        # represented by a deduplicated evaluation error. Not part of Finding JSON.
+        self.finding_states: dict[int, set[int]] = {}  # finding index → state indices
         self.excluded: dict = {}  # action id → why it is not explorable
         self.capped = False
         self.growing: list[str] = []  # on a cap: numeric fields with no bound
-        self._seen: set = set()
+        self._seen: dict[tuple, int] = {}
 
     # ── building ─────────────────────────────────────────────────────────────
 
@@ -135,12 +138,17 @@ class Exploration:
     def edges(self) -> _Edges:
         return _Edges(self)
 
-    def report_once(self, severity: Severity, loc: str, message: str, code: Code) -> None:
+    def report_once(
+        self, severity: Severity, loc: str, message: str, code: Code, *, state: int | None = None
+    ) -> None:
         """Deduplicated finding — a model error would otherwise repeat per state."""
-        if (loc, message) in self._seen:
-            return
-        self._seen.add((loc, message))
-        self.findings.append(Finding(severity, loc, message, code))
+        identity = (loc, message)
+        index = self._seen.get(identity)
+        if index is None:
+            index = self._seen[identity] = len(self.findings)
+            self.findings.append(Finding(severity, loc, message, code))
+        if state is not None:
+            self.finding_states.setdefault(index, set()).add(state)
 
     def trace_to(self, key: StateKey) -> list[str]:
         return self._trace(self.index[key])
@@ -895,10 +903,12 @@ def _report_invariant_violations(
                 f"invariant:{inv.id}",
                 f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]",
                 Code.INVARIANT_EVALUATION_ERROR,
+                state=exp.index[key],
             )
             continue
         if not ok:
             violated = True
+            exp.finding_states[len(exp.findings)] = {exp.index[key]}
             exp.findings.append(
                 Finding(
                     Severity.ERROR,

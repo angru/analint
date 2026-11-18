@@ -28,6 +28,7 @@ ARCHIVE_TESTS = [
     "tests/test_release_verification.py",
     "tests/test_mcp_fresh_models.py",
     "tests/test_documentation.py",
+    "tests/test_fulfillment_trial.py",
     "tests/test_diagnostic_codes.py",
     "tests/test_check_selection.py",
     "tests/test_verification_scope.py",

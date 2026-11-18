@@ -53,6 +53,10 @@ It is not limited to business analytics: the same primitives describe game rules
 
 ## Installation
 
+The checkout targets **0.1.0**. See the [migration notes](https://angru.github.io/analint/dsl/#migrating-to-010)
+for the stricter literal domain, symbolic boolean conversion and selected verdicts.
+Use `analint --version` to check your installed package.
+
 ```bash
 pip install analint
 # or with uv:
@@ -800,8 +804,8 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 ## Status
 
-This is an **early public release (`0.0.4`)**. The engine and CLI are mature and
-covered by 500+ tests, but the API is not yet frozen and may change before `1.0` —
+This checkout targets **0.1.0**. The engine and CLI have regression and backend
+conformance tests, but the API is not yet frozen and may change before `1.0` —
 pin a version if you depend on it.
 
 analint performs **bounded reachability** over a finite state graph. It checks

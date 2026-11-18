@@ -34,9 +34,11 @@ when it exposes the documented defect.
 | [Kubernetes ReplicaSet](https://github.com/angru/analint/blob/main/examples/k8s_replicaset/README.md) | Bounded Pods, quota, presence, aggregates and ownership provenance | PASS |
 | [Broker](https://github.com/angru/analint/blob/main/examples/broker/README.md) | Verification, accounts and payments composed from contracts; property slicing | PASS |
 
-## Fulfillment requirement-change trial (unreleased)
+## Fulfillment requirement-change trial
 
-This repository-example trial exercises [check selection](cli.md#selecting-checks-over-one-model-unreleased)
+This trial uses the 0.1.0 check-selection API.
+
+This repository-example trial exercises [check selection](cli.md#selecting-checks-over-one-model)
 with one shared model. The baseline customer cancellation window closes at payment
 capture. The additive hypothesis permits cancellation while the shipment is
 in transit, with cancellation and refund in one atomic model action. Cancellation
@@ -55,6 +57,11 @@ uv run analint check examples/fulfillment \
 The runner leaves the baseline example unchanged. It saves the baseline inspection,
 exact before/after/control hypotheses, full and compact reports, CLI exit codes,
 witnesses with state changes, and a source-hashed summary under `--output`.
+CI compares fresh verdicts, per-query state counts, flow outcomes and action counts
+with the committed measurement record. Timings, byte sizes and historical source
+metadata are excluded. If behavior intentionally changes, review and update both
+the record and this guide; do not regenerate the baseline merely to make CI pass.
+The same guard runs from the source archive against the built wheel.
 The extended model is an additive what-if revision, not a new root for each flow.
 Within each revision, all selections reuse the same prepared `Spec`; the runner
 checks membership identity and unchanged declarations. Every original action is

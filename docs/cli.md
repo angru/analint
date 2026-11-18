@@ -21,7 +21,7 @@ The overall verdict includes all of these stages.
 | --- | --- |
 | `-f, --format terminal\|json` | Select human-readable or JSON output |
 | `--compact` | Group and sample findings in JSON output (requires `--format json`) |
-| `--check ID` | Unreleased: select a flow, query or invariant; repeat or use `KIND:ID` |
+| `--check ID` | 0.1.0: select a flow, query or invariant; repeat or use `KIND:ID` |
 | `-s, --scenario ID` | Filter scenarios by id; repeat for multiple ids |
 | `-t, --tag TAG` | Filter scenarios by tag; repeat for multiple tags |
 | `--strict` | Warnings fail the run |
@@ -35,7 +35,9 @@ The overall verdict includes all of these stages.
 Scenario/tag filters select scenario execution; they do not turn the command
 into a scenario-only validation that skips invariants, flows or queries.
 
-### Selecting checks over one model (Unreleased)
+### Selecting checks over one model
+
+Available in 0.1.0.
 
 `--check` changes the checks to run, not the system being checked. It retains
 all declared actions, constraints and roots. For example, from a source checkout:
@@ -98,7 +100,7 @@ Speculative safety graphs are not part of diagnostic coverage.
 Structural errors, load failures and invalid declared initial relations remain
 blocking. Every invariant still participates in initial-state legality: an illegal
 root affects the requested verification even when the invariant reads other fields.
-**Unreleased:** when exploration reports that same illegal root, its duplicate
+**0.1.0:** when exploration reports that same illegal root, its duplicate
 non-blocking model diagnostic is suppressed using recorded state provenance.
 The blocking root failure remains. Later violations and diagnostics without
 matching provenance are retained; sharing a code or invariant location is not
@@ -155,7 +157,7 @@ includes safety attempts (even discarded attempts) and action coverage requested
 by that query. Model preparation and invariant-phase shared action coverage are
 excluded. Summing these timings does not give total command time.
 
-**Unreleased:** a `tlc.transition_defect` finding is retained in the affected
+**0.1.0:** a `tlc.transition_defect` finding is retained in the affected
 query or invariant's `findings` and repeated in `exploration`. The first occurrence
 attributes the defect to that check; the second makes the aggregate run FAIL
 (exit 1), even if the target itself stays INCONCLUSIVE because TLC stopped at the
@@ -290,7 +292,7 @@ values. `Key(ref)` alone reads neither fields nor presence; quantification over
 keys still reads domain membership. Expression-based event bindings and their
 scenarios are included. These are additive fields in the existing v1 schemas.
 
-**Unreleased:** if a `--what-if` file cannot be loaded, both `explore` and
+**0.1.0:** if a `--what-if` file cannot be loaded, both `explore` and
 `trace` return a load error (exit 3), just as `check` rejects that preparation.
 They do not return an artifact for the unchanged base model.
 
@@ -304,13 +306,13 @@ analint trace resolved_leaves_no_open_ticket -p .
 
 `trace PROPERTY_ID --path PATH` returns a query witness or invariant
 counterexample with state changes. Options are `--format terminal|json`,
-`--what-if FILE.py` and `--no-slice`. Unreleased: `--max-states`, `--cache`,
+`--what-if FILE.py` and `--no-slice`. 0.1.0: `--max-states`, `--cache`,
 `--tlc` and `--tlc-timeout` accept the same invocation settings as check.
 
 JSON uses `analint.trace/v1`, with `query` or `invariant` identifying the property,
 its `status`, the root, `steps` and `final_state`. A property without a witness
 returns `witness: null` and an explanation. The command follows `check`'s slice
-and budget decisions; use `--no-slice` for the whole model. Unreleased: pass the
+and budget decisions; use `--no-slice` for the whole model. 0.1.0: pass the
 same budget/cache/TLC options used for the selected check. A trace call selects
 that one property plus the same supporting invariant proofs; it does not inherit
 settings from a previous process. `query:ID` and `invariant:ID` disambiguate.
@@ -318,7 +320,7 @@ settings from a previous process. `query:ID` and `invariant:ID` disambiguate.
 `--check` is not a valid trace target and returns an unknown-property error.
 Run that flow with `check --check flow:ID` instead.
 
-Unreleased trace metadata includes `selection`, `verification_verdict` and
+0.1.0 trace metadata includes `selection`, `verification_verdict` and
 exploration `findings`. Unrelated findings and their bounded coverage appear in
 `model_findings` and `model_coverage`, with the same verdict separation as check.
 A property's status does not override failures in its supporting verification. TLC checks defect assertions only for the selected

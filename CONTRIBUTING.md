@@ -1,6 +1,6 @@
 # Contributing to analint
 
-Thanks for your interest in analint. This is an early public release (`0.0.3`):
+Thanks for your interest in analint. This checkout targets `0.1.0`:
 issues, reproductions, and example specs are especially welcome.
 
 All new repository content — code, comments, docs, commit messages — is written in
@@ -163,6 +163,9 @@ after those checks does it add test tools, run strict Twine validation, collect
 the extracted archive's tests and execute the focused documentation, impact,
 diagnostic code, inspection, initial-state/key and release-acceptance cases
 against the installed wheel.
+The fulfillment trial also compares semantic results with its committed JSON
+record, included in the source archive. Intentional verdict/state-count changes
+require reviewing and updating that record and the examples guide together.
 The final JSON records the verified version and distribution SHA-256 values.
 
 Publishing builds artifacts once and verifies those same files on Python

@@ -1,7 +1,10 @@
 # analint — Roadmap
 
-Current status (2026-11-10): **0.0.7 released and verified on PyPI.**
-The release adds compact diagnostic reports for the CLI and MCP.
+Current status (2026-11-18): **0.1.0 prepared for release; review and publication pending.**
+0.0.7 remains the latest published version. The prepared release adds shared-model
+check selection, scoped diagnostics, stricter operand validation and the boundary
+repairs below. Its wheel/source artifacts must pass release acceptance before
+publication; this roadmap does not record a tag or upload as completed.
 Semantic core and P5 are complete.
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -26,7 +29,7 @@ Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validati
 Release acceptance is shared by Quality and Publish; both registry jobs require
 verification of the exact build artifacts on that Python matrix.
 
-1. **Verification boundary repairs — merged, unreleased.** PRs #15–#18 and
+1. **Verification boundary repairs — included in 0.1.0 preparation.** PRs #15–#18 and
    #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
    stale action plans and invalid emitted payloads. The audit below links their
    implementation and review records. Concurrent TLC isolation (#23) is merged
@@ -73,8 +76,9 @@ Implementation and review evidence remain in the linked pull requests.
 
 The constrained-template regression in #15 was fixed and re-reviewed at
 `fee3e46`; #22 separately repaired materialized payload failures. The consolidated
-`CHANGELOG.md` records these repairs. Documentation's Unreleased notices must be
-updated when the next version is released.
+`CHANGELOG.md` records these repairs under 0.1.0. Documentation names their target
+version without claiming a registry upload. After publication, record its evidence
+here and add the actual release date to the changelog.
 
 ### Shared model, selective verification
 
@@ -94,7 +98,7 @@ cache, strict/compact reports and native/TLC/check/trace agreement.
 
 Validate authoring usefulness in the one-change real-spec trial. This implementation
 does not establish that coupled state spaces shrink: all-action diagnostic coverage
-still costs work. See the [selection contract](docs/cli.md#selecting-checks-over-one-model-unreleased)
+still costs work. See the [selection contract](docs/cli.md#selecting-checks-over-one-model)
 and the static shared-flow and independent-component benchmarks.
 
 Architecture follow-ups are scoped separately. Implement them incrementally
@@ -474,7 +478,7 @@ one allowed and one rejected case.
 The repository-example one-change trial is complete on the post-#36 engine
 `589ea4f`; it does not close the external real-spec trial. Run
 `uv run python scripts/trial_fulfillment.py --output /tmp/fulfillment-trial`.
-The [walkthrough and bounds](docs/examples.md#fulfillment-requirement-change-trial-unreleased)
+The [walkthrough and bounds](docs/examples.md#fulfillment-requirement-change-trial)
 and `benchmarks/fulfillment-trial-results.json` record the evidence.
 
 - Old rule: customer cancellation stops at capture. New bounded rule: an in-transit
@@ -497,8 +501,14 @@ and `benchmarks/fulfillment-trial-results.json` record the evidence.
   was corrected during setup for loader-assigned IDs, CLI invocation and cache
   option metadata; the model extension required no semantic rewrite or engine fix.
 
-Next: retain this executable rehearsal in CI, prepare the accumulated fixes for
-release, and use an independently chosen real requirement for the external trial.
+The 0.1.0 preparation adds a CI guard against the committed record: verdicts,
+per-query states, flow outcomes and action counts must agree, ignoring timings,
+byte sizes and historical source metadata. The sdist includes the record and
+release acceptance runs the guard against the built wheel. Intentional semantic
+changes require reviewing the record and guide together.
+
+Next: review and publish the prepared 0.1.0 artifacts, and use an independently
+chosen real requirement for the external trial.
 Issues #11/#12 remain conditional on consumer evidence; this exercise supplies no
 reason for a broad snapshot or state-store rewrite.
 

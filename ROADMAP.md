@@ -36,7 +36,9 @@ verification of the exact build artifacts on that Python matrix.
    Published 0.0.5 passes its reproduction; the issue is closed. The next
    step is the [one-change trial](#one-change-trial) on an accessible real spec.
    Include the shared-model check-selection use case below; do not reconstruct
-   a smaller `Spec` for each flow.
+   a smaller `Spec` for each flow. The fulfillment rehearsal below now passes
+   with shared-model selections and a retained off-flow defect; the external
+   real-spec verdict remains pending.
 3. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
    Three existing examples pass requirement-change loops with defect controls
    (see the queue below). Query details and action-family navigation are
@@ -466,6 +468,39 @@ one allowed and one rejected case.
    Treat `INCONCLUSIVE` as an open result and record the budget or modeling
    blocker. Close the trial with either a verified change or a reproducible
    blocker and its next action.
+
+#### Fulfillment rehearsal (2026-11-18)
+
+The repository-example one-change trial is complete on the post-#36 engine
+`589ea4f`; it does not close the external real-spec trial. Run
+`uv run python scripts/trial_fulfillment.py --output /tmp/fulfillment-trial`.
+The [walkthrough and bounds](docs/examples.md#fulfillment-requirement-change-trial-unreleased)
+and `benchmarks/fulfillment-trial-results.json` record the evidence.
+
+- Old rule: customer cancellation stops at capture. New bounded rule: an in-transit
+  cancellation atomically refunds the payment; cancellation after delivery remains
+  rejected. The additive what-if retains the original 16 actions and baseline.
+- Baseline PASS (34 states); new probes on the old model FAIL as expected;
+  extended model PASS (36 states). An additional off-flow cancellation without
+  refund fails both payment safety and recoverability (38 states), while both
+  explicit flows still pass. This is a planted defect, not a new engine bug.
+- All 44 full/selected and sliced/whole cases match the intended verdicts. Reusing
+  one prepared Spec per revision preserves object membership and declarations.
+  Native CLI/library, check/trace and cold/warm cache parity are checked; no
+  INCONCLUSIVE verdict is accepted. The small finite trial needs no TLC fallback.
+- The passing selected safety proof requires zero supporting invariants; failed
+  unconstrained proof falls back to support as designed. All actions remain in
+  the system. Selection does not reduce this coupled graph, and one local timing
+  sample is not a performance conclusion. Compact reports are slightly larger.
+- Source reads: overview, Order.status impact, query details, fulfillment's domain,
+  actions, invariants, scenarios, queries and the selection contract. The harness
+  was corrected during setup for loader-assigned IDs, CLI invocation and cache
+  option metadata; the model extension required no semantic rewrite or engine fix.
+
+Next: retain this executable rehearsal in CI, prepare the accumulated fixes for
+release, and use an independently chosen real requirement for the external trial.
+Issues #11/#12 remain conditional on consumer evidence; this exercise supplies no
+reason for a broad snapshot or state-store rewrite.
 
 ### 2. Fixed-only Initial — complete (2026-10-30), available in 0.0.4
 

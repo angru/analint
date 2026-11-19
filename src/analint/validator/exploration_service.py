@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from analint.models.query import query_budget
 from analint.reporter.base import Code, Severity
 from analint.reporter.exploration_artifact import ExplorationArtifact, canonical_digest
 from analint.validator.artifact_builder import (
@@ -82,7 +83,7 @@ def explore_path(
                 sorted(q.id for q in spec.queries if q.id),
             )
         initials, error = resolve_query_initials(query, spec)
-        source_kind, budget = "query", query.max_states
+        source_kind, budget = "query", query_budget(query, spec.max_states)
 
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")

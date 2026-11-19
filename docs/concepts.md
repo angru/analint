@@ -122,8 +122,9 @@ the state it reads, the actions that can affect it, and the dependencies of thos
 actions. Independent processes need not pay for their full Cartesian product.
 JSON records the slice. `check --no-slice` uses the whole model instead.
 
-`Spec.max_states` bounds canonical invariant exploration; queries have their own
-`max_states`. `check --max-states N` overrides all budgets for that invocation.
+`Spec.max_states` bounds canonical invariant exploration and supplies the default
+budget for queries, including queries with their own roots. An explicit query
+`max_states` overrides that default. `check --max-states N` overrides all budgets for that invocation.
 An exhausted budget preserves INCONCLUSIVE. Raising the budget can help a large
 finite model, but cannot close an unbounded domain.
 

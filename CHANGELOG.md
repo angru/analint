@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Queries with an omitted or `None` budget inherit `Spec.max_states`, including
+  queries with their own roots. Explicit query budgets and invocation overrides
+  retain priority. `show`, `check`, `explore` and `trace` use the same effective
+  budget without mutating declarations. Set `max_states=10_000` on a query to
+  preserve the old independent default. (#48)
+
 ### Fixed
 
 - `DeadActions` preserves disable-only flag writers when the assessed action's

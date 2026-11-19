@@ -15,7 +15,7 @@ from analint.models.entity import _MISSING, all_fields
 from analint.models.event import Event
 from analint.models.flow import Assert, Emitted
 from analint.models.initial import Initial
-from analint.models.query import AlwaysHolds, NoDeadEnd, Reachable, Unreachable
+from analint.models.query import AlwaysHolds, NoDeadEnd, Reachable, Unreachable, query_budget
 from analint.models.root import Query, Spec
 from analint.models.scope import (
     FieldRef,
@@ -458,7 +458,7 @@ def _describe_query(spec: Spec, name: str) -> dict:
             else None
         ),
         "goal": _describe(query.goal) if isinstance(query, NoDeadEnd) else None,
-        "max_states": query.max_states,
+        "max_states": query_budget(query, spec.max_states),
         "roots": _query_roots(spec, query),
     }
 

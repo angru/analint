@@ -97,9 +97,11 @@ property's slice (`--no-slice` for the whole model), so a witness or
 counterexample found on a slice is traceable even when the whole model exceeds
 the budget. `explore` stays whole-model. A failed invariant's result has
 an `invariant` key, the originating root, state changes and the final state.
-`trace` has no `--max-states` override: a budget supplied only to an earlier
-`check` does not carry over. Set the query's `max_states` (or `Spec.max_states`
-for canonical invariants) to reproduce a capped decision with `trace`.
+A budget supplied only to an earlier `check` does not carry over: repeat
+`--max-states N` on `trace` to reproduce that invocation. Without an override,
+canonical invariants use `Spec.max_states`; queries use an explicit query budget
+or inherit `Spec.max_states` when omitted. The inherited default is a main-branch
+change after 0.1.0; released 0.1.0 queries still default independently to 10,000.
 
 Use terminal output for humans and JSON for decisions or automation.
 

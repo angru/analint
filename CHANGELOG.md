@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
+  Stable ids, selection and existing positional arguments are unchanged. (#47)
+
 ### Fixed
 
 - Numeric `Param` operands support multiplication and ordered comparisons directly,

@@ -33,6 +33,7 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
         findings.append(Finding(Severity.ERROR, loc, message, code))
         return FlowResult(
             flow_id=flow.id,
+            flow_name=flow.name,
             passed=False,
             findings=findings,
             actions_run=len(trace),
@@ -101,7 +102,12 @@ def run_flow(flow: Flow, spec: Spec) -> FlowResult:
             )
 
     return FlowResult(
-        flow_id=flow.id, passed=True, findings=findings, actions_run=len(trace), trace=list(trace)
+        flow_id=flow.id,
+        flow_name=flow.name,
+        passed=True,
+        findings=findings,
+        actions_run=len(trace),
+        trace=list(trace),
     )
 
 

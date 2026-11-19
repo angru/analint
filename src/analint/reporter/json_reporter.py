@@ -97,6 +97,7 @@ def result_to_dict(
         "flows": [
             {
                 "id": fr.flow_id,
+                **({"name": fr.flow_name} if fr.flow_name else {}),
                 "passed": fr.passed,
                 "actions_run": fr.actions_run,
                 "trace": fr.trace,

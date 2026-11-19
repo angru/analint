@@ -281,7 +281,7 @@ alice_pays_bob = transfer.bind(src=alice, dst=bob)
 
 The declaration expands into ordinary bound actions when the Spec is built.
 `where` filters static parameter combinations; state-dependent conditions,
-including `Present`, belong in `pre`. List the family on `Spec.actions`, and use
+including `Present`, belong in `pre`. List the family on `Spec.actions`.
 `Param` and parameter fields support `+`, `-`, `*` (including reflected forms)
 and all six comparisons directly; `p + 0` wrappers are unnecessary. Use
 `.bind(...)` to select the concrete action for a scenario or flow. Do not generate
@@ -469,8 +469,9 @@ pre-execution rejection, not a runtime defect.
 `Assert(predicate)` and `Emitted(EventClass)` checkpoints. `given` is required;
 `given=[]` starts with an empty world. Only present instances are available, and
 each accepted step's state feeds the next step. A rejection or defect fails the
-flow. Both declarations accept ids and descriptive metadata; the tutorial shows
-complete examples.
+flow. Both declarations accept `id`, `name` and `description`. A flow name is
+a display label in terminal, JSON and `show flow`; selection still uses its id.
+Unnamed flows retain their previous report shape. The tutorial shows complete examples.
 
 ## Queries
 

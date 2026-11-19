@@ -212,3 +212,41 @@ def test_create_makes_an_invariant_applicable_and_a_bad_create_fails():
         flows=[bad_flow],
     )
     assert not run_flow(bad_flow, spec_bad).passed
+
+
+@pytest.mark.parametrize("initial,passed", [(0, True), (5, False)])
+def test_named_flow_preserves_id_and_reports_label(initial, passed, monkeypatch):
+    from io import StringIO
+
+    from rich.console import Console
+
+    from analint.query import _describe_flow
+    from analint.reporter import terminal
+    from analint.reporter.base import ValidationResult
+    from analint.reporter.json_reporter import result_to_dict
+
+    flow = Flow([Counter(n=initial)], [bump], "journey", "description", name="Pay [card]")
+    result = run_flow(flow, _spec(flow))
+    assert result.passed is passed
+    assert result.flow_id == "journey"
+    assert result.flow_name == "Pay [card]"
+    report = ValidationResult(spec_id="s", spec_name="S", flow_results=[result])
+    assert result_to_dict(report)["flows"][0]["name"] == flow.name
+    assert _describe_flow(_spec(flow), "journey")["name"] == flow.name
+    output = StringIO()
+    monkeypatch.setattr(terminal, "console", Console(file=output, width=180))
+    terminal.report_terminal(report)
+    assert "journey — Pay [card]" in output.getvalue()
+
+
+def test_unnamed_flow_keeps_existing_report_shape():
+    from analint.reporter.base import ValidationResult
+    from analint.reporter.json_reporter import result_to_dict
+
+    flow = Flow([Counter()], [bump], "f", "description")
+    assert flow.description == "description"
+    assert flow.name == ""
+    report = ValidationResult(
+        spec_id="s", spec_name="S", flow_results=[run_flow(flow, _spec(flow))]
+    )
+    assert "name" not in result_to_dict(report)["flows"][0]

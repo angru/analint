@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rich.console import Console
+from rich.markup import escape
 
 from analint.reporter.base import (
     FlowResult,
@@ -130,7 +131,8 @@ def _print_query(qr: QueryResult) -> None:
 def _print_flow(fr: FlowResult) -> None:
     status = "[green]PASS[/green]" if fr.passed else "[red]FAIL[/red]"
     meta = f"({fr.actions_run} actions run)"
-    console.print(f"  {status}  {fr.flow_id:<40} {meta}")
+    label = f"{fr.flow_id} — {fr.flow_name}" if fr.flow_name else fr.flow_id
+    console.print(f"  {status}  {escape(label):<40} {meta}")
     if fr.trace:
         console.print(f"         [dim]↳ {' → '.join(fr.trace)}[/dim]")
     for f in fr.findings:

@@ -53,6 +53,7 @@ class Flow:
     steps: list[FlowEntry] = dc_field(default_factory=list)
     id: str = ""  # filled from the variable name by the loader when empty
     description: str = ""
+    name: str = ""  # display label; id remains the stable check selector
 
     def __post_init__(self) -> None:
         if self.given is None:

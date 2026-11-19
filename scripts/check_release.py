@@ -38,6 +38,8 @@ ARCHIVE_TESTS = [
     "tests/test_reachable_roots.py",
     "tests/test_dead_action_flags.py",
     "tests/test_parameter_refresh.py",
+    "tests/test_params.py",
+    "tests/test_flow.py",
     "tests/test_event_payload_constraints.py",
     "tests/test_ast_coverage.py",
     "tests/test_generated_conformance.py",

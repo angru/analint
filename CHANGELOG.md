@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Numeric `Param` operands support multiplication and ordered comparisons directly,
+  including literal/parameter and reflected forms. Parameter fields also support
+  multiplication; binding uses the existing expression semantics. (#46)
+
 - `DeadActions` preserves disable-only flag writers when the assessed action's
   guard needs the off state. Previously slicing could omit its enabling path
   and falsely report the action dead, depending on action order and budget.

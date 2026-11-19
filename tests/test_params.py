@@ -183,3 +183,63 @@ def test_bind_memo_does_not_serve_another_parents_instance():
 
     assert bound is not stale
     assert bound.id == "fresh(v=1)"
+
+
+def test_numeric_param_operators_bind_without_identity_wrappers():
+    import operator
+
+    from analint.models.param import _resolve, _subst_pred
+    from analint.validator.rule_checker import compile_predicate, evaluate, resolve
+
+    p, q = Param("p", 2, 3), Param("q", 1, 4)
+    for left, right in [(p, q), (p, 2), (2, p)]:
+        for op in [operator.add, operator.sub, operator.mul]:
+            expression = op(left, right)
+            for pv in p.domain:
+                for qv in q.domain:
+                    binding = {"p": pv, "q": qv}
+                    expected = op(_resolve(left, binding), _resolve(right, binding))
+                    assert resolve(_resolve(expression, binding), {}) == expected
+        for op in [operator.eq, operator.ne, operator.lt, operator.le, operator.gt, operator.ge]:
+            predicate = op(left, right)
+            for pv in p.domain:
+                for qv in q.domain:
+                    binding = {"p": pv, "q": qv}
+                    expected = op(_resolve(left, binding), _resolve(right, binding))
+                    bound = _subst_pred(predicate, binding)
+                    assert evaluate(bound, {}) == expected
+                    assert compile_predicate(bound)({}) == expected
+    assert hash(p) == id(p)
+
+
+def test_margin_family_filters_and_guards_use_direct_param_math():
+    m, lev, notional = Param("m", 1, 2), Param("lev", 2, 3), Param("notional", 4, 5)
+    family = Action(
+        id="margin",
+        params=[m, lev, notional],
+        where=[m * lev <= notional, notional < (m + 1) * lev],
+        pre=[lev <= Red.coins],
+        effect=[Set(Blue.coins, 2 * m)],
+    )
+    spec = Spec(id="s", name="S", actions=[family])
+    expected = {
+        (mv, lv, nv)
+        for mv in (1, 2)
+        for lv in (2, 3)
+        for nv in (4, 5)
+        if mv * lv <= nv < (mv + 1) * lv
+    }
+    assert len(spec.actions) == len(expected)
+    for mv, lv, nv in expected:
+        bound = family.bind(m=mv, lev=lv, notional=nv)
+        scenario = Scenario(id="s", action=bound, given=[Red(coins=3), Blue()])
+        assert run_scenario(scenario, spec).passed
+
+
+def test_param_field_multiplication_binds_to_state_reads():
+    from analint.models.param import _resolve
+    from analint.validator.rule_checker import resolve
+
+    holder = Param("holder", Red)
+    for expr in (holder.coins * 2, 2 * holder.coins):
+        assert resolve(_resolve(expr, {"holder": Red}), {Red: Red(coins=3)}) == 6

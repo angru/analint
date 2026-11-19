@@ -282,6 +282,8 @@ alice_pays_bob = transfer.bind(src=alice, dst=bob)
 The declaration expands into ordinary bound actions when the Spec is built.
 `where` filters static parameter combinations; state-dependent conditions,
 including `Present`, belong in `pre`. List the family on `Spec.actions`, and use
+`Param` and parameter fields support `+`, `-`, `*` (including reflected forms)
+and all six comparisons directly; `p + 0` wrappers are unnecessary. Use
 `.bind(...)` to select the concrete action for a scenario or flow. Do not generate
 model elements with Python factory loops; finite families belong in `Param`.
 

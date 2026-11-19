@@ -1,10 +1,11 @@
 # analint — Roadmap
 
-Current status (2026-11-19): **0.1.0 released and verified on PyPI.**
-The release adds shared-model check selection, scoped diagnostics, stricter operand
-validation and the boundary repairs below. Publish verified the exact wheel/source
-pair on Python 3.12–3.15; public registry hashes and a clean installed-package
-check match those artifacts. See the publication checkpoint below.
+Current source version (2026-11-19): **0.2.0**. The reviewed authoring queue,
+multi-root reachability, action slicing and invariant-plan repairs are included.
+See [the changelog](CHANGELOG.md) and [migration notes](docs/dsl.md#migrating-to-020).
+Publication status and final artifact verification are recorded in the
+[v0.2.0 release](https://github.com/angru/analint/releases/tag/v0.2.0);
+merging release preparation alone does not publish a package.
 Semantic core and P5 are complete.
 analint declares finite system behaviour in Python and checks it through one
 transition kernel, canonical initial states, executable scenarios/flows and
@@ -20,14 +21,13 @@ maintaining a second test count here.
 
 ## Current priorities (2026-11-19)
 
-Release **0.1.0 remains the latest published version**. The #42/#41 correctness
-repairs, #40 invariant-plan repair, and reviewed #43–#50/#54 authoring and diagnostic
-changes are integrated in main but **unreleased**. The integration record below
-identifies the reviewed heads and validation boundary.
+The #42/#41 correctness repairs, #40 invariant-plan repair, and reviewed
+#43–#50/#54 authoring and diagnostic changes form **0.2.0**. The integration record
+below identifies the reviewed heads and validation boundary.
 
-1. **Prepare the next release.** The reviewed authoring queue is integrated.
-   Choose the next version, validate its exact artifacts and publish separately;
-   integration into main does not update the PyPI dependency in `exness-spec`.
+1. **Adopt 0.2.0 after publication verification.** Update the pinned dependency in
+   `exness-spec` and rerun its full specification against the published package.
+   Integration into main does not update that consumer's dependency.
 2. **Complete the external real-spec change trial.** `exness-spec` now includes
    margin and payments contracts. Record a before/after requirement change with
    full/selected checks, allowed/rejected cases and a trace on the published
@@ -68,7 +68,7 @@ and a Rust core remain outside current work.
 
 ## Authoring integration (2026-11-19)
 
-These changes are **integrated in main, not released**. Each implementation branch
+These changes form **0.2.0**. Each implementation branch
 passed the mandatory local pre-push suite, Ruff and ty. Existing characterization
 snapshots are unchanged. Independent reviews approved the following exact heads:
 #56 `59b227e` (after its two fixes), #57 `584d6bb`, #60 `1ce1ed7`, #61 `aa610d1`,
@@ -201,7 +201,7 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    Specs are not automatically re-expanded after declaration edits.
    The follow-up reuse audit reproduced a separate false PASS: an invariant's
    compiled predicate and applicability keys survived nested edits and deep
-   copies. The unreleased repair scopes those plans to one exploration or
+   copies. The 0.2.0 repair scopes those plans to one exploration or
    verification scan. Repeated check/trace probes cover nested comparisons,
    arithmetic, conjunction/membership lists, quantifiers, model copies and
    cold/warm cache; scenario/flow probes cover changed presence dependencies.

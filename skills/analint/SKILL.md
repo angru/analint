@@ -100,8 +100,8 @@ an `invariant` key, the originating root, state changes and the final state.
 A budget supplied only to an earlier `check` does not carry over: repeat
 `--max-states N` on `trace` to reproduce that invocation. Without an override,
 canonical invariants use `Spec.max_states`; queries use an explicit query budget
-or inherit `Spec.max_states` when omitted. The inherited default is a main-branch
-change after 0.1.0; released 0.1.0 queries still default independently to 10,000.
+or inherit `Spec.max_states` when omitted. The inherited default changed
+in 0.2.0; 0.1.0 queries still default independently to 10,000.
 
 Use terminal output for humans and JSON for decisions or automation.
 

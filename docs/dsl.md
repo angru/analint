@@ -5,6 +5,30 @@ Import public declarations from `analint`. The
 below illustrate individual declarations and may refer to names defined there
 or in the linked examples.
 
+## Migrating to 0.2.0
+
+When upgrading from 0.1.0, review these changes before comparing old results.
+
+- Queries whose `max_states` is omitted or `None` now inherit `Spec.max_states`.
+  An explicit query budget still takes precedence over the spec, and an invocation
+  override takes precedence over both. Set `max_states=10_000` on a query to keep
+  the previous independent default. A changed budget can change whether a check
+  completes; INCONCLUSIVE is still not a proof.
+- `saturate=True` now enforces `values` and exclusive `gt`/`lt` constraints after
+  clamping. Models that previously relied on those constraints being skipped can
+  report transition defects. The new `saturate="low"` and `saturate="high"` modes
+  clamp only the selected inclusive bound and keep other constraints hard.
+- Multi-root `Reachable` requires a path from every admissible root. A witness
+  from only one root no longer proves the query. Invalid roots remain blocking
+  failures; their diagnostics now explain why exploration did not expand them.
+- Native checks support composing `Lookup` and `//`. TLC supports a narrower,
+  provable integer domain: it refuses `Lookup(...) // n`, division of a field
+  written by `Lookup`, and dynamic divisors. Unsupported exports remain
+  INCONCLUSIVE instead of approximating the expression.
+
+The older [0.1.0 migration notes](#migrating-to-010) still apply when upgrading
+from 0.0.x. Stable check ids and CLI exit codes are unchanged.
+
 ## Migrating to 0.1.0
 
 When upgrading from 0.0.x, review these changes to the verification contract.
@@ -532,7 +556,7 @@ exploration budget and the default query budget (default 10,000). A query with
 `max_states=None` (the default) inherits this value, including with its own roots.
 An explicit query budget wins; `check --max-states N` overrides both for one run.
 
-**After 0.1.0:** omitted query budgets inherit `Spec.max_states` rather than
+**0.2.0:** omitted query budgets inherit `Spec.max_states` rather than
 always using 10,000. Use an explicit `max_states=10_000` on a query to retain
 the old budget. Inheritance is resolved per check, so a shared query can be used
 with different Specs without being mutated.
@@ -581,7 +605,7 @@ An unfiltered run still aggregates all checks and defects. See the
 supporting checks, scenario/tag compatibility and trace settings. A static shared
 model for two flows and cross-flow properties is in `benchmarks/shared_checks.py`.
 
-**Unreleased repair:** repeated checks and traces observe edits to nested
+**0.2.0:** repeated checks and traces observe edits to nested
 invariant expressions and lists as well as replacement of the whole expression.
 Compiled invariant checks and applicability plans live only for one synchronous
 exploration or verification scan; they are not stored on declarations or carried

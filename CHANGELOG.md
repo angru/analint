@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-11-19
+
+Author finite models with enum lookup, floor division and one-sided saturation;
+use the correctness and diagnostic repairs below. Review the
+[migration notes](docs/dsl.md#migrating-to-020) for inherited query budgets,
+stricter saturation and multi-root reachability.
+
 ### Added
 
 - `Lookup(selector, mapping)` provides an exhaustive enum-to-integer expression

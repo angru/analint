@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from analint.reporter.base import Severity
+from analint.reporter.base import Code, Severity
 from analint.reporter.exploration_artifact import ExplorationArtifact, canonical_digest
 from analint.validator.artifact_builder import (
     _changes,
@@ -198,6 +198,7 @@ def trace_query(
     if result.backend == "tlc":
         # TLC supplies action ids, not Python state keys. Preserve its witness;
         # never substitute a rerun at a different budget or invent snapshots.
+        root_notes = "\n".join(f.message for f in result.findings if f.code == Code.INITIAL_STATE)
         return {
             "schema": "analint.trace/v1",
             source_kind: query_id,
@@ -212,7 +213,8 @@ def trace_query(
                 "TLC action trace; state snapshots are not available"
                 if result.trace is not None
                 else "TLC found no witness/counterexample to trace"
-            ),
+            )
+            + (f"\n{root_notes}" if root_notes else ""),
             **metadata,
         }
     exp = decided.get(query_id)

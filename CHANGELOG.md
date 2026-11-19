@@ -9,6 +9,19 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- `DeadActions` preserves disable-only flag writers when the assessed action's
+  guard needs the off state. Previously slicing could omit its enabling path
+  and falsely report the action dead, depending on action order and budget.
+  Ordinary antitone action/property slices retain the optimization. (#41)
+
+- Multi-root `Reachable` now requires a path from every admissible initial
+  state, matching the documented contract. Previously one root's witness could
+  produce a false PASS. Converging paths are checked on the graph, not assigned
+  to their BFS discovery root. Failures identify a root without a path; partial
+  exploration stays INCONCLUSIVE unless all roots have witnesses. TLC checks
+  roots separately and retains one representative action trace. Existing models
+  relying on existential choice among roots can now fail. (#42)
+
 - Repeated checks and traces now observe nested invariant edits and copies of
   previously checked models. Compiled predicates and presence-dependent
   applicability plans belong to one exploration or verification scan, rather

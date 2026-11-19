@@ -25,7 +25,7 @@ from analint.reporter.base import (
     Severity,
     ValidationResult,
 )
-from analint.validator.explorer import resolve_query_initials
+from analint.validator.explorer import render_state, resolve_query_initials, state_key
 from analint.validator.slicing import Slice, SliceAnalysis
 
 
@@ -255,6 +255,11 @@ def _decide_query(
     timeout: float | None,
     defect_actions: set[str] | None = None,
 ) -> None:
+    if isinstance(query, Reachable) and len(initials) > 1:
+        _decide_reachable_roots(
+            spec, res, query, piece, analysis, initials, timeout, defect_actions
+        )
+        return
     loc = f"query:{res.query_id}"
     kind = "always" if isinstance(query, AlwaysHolds) else "never"
     outcome = _run(
@@ -297,3 +302,77 @@ def _decide_query(
     else:
         code = Code.PROPERTY_VIOLATED if isinstance(query, AlwaysHolds) else Code.REACHED_FORBIDDEN
     res.findings = [Finding(severity, loc, message, code), _note(outcome)]
+
+
+def _decide_reachable_roots(
+    spec: Spec,
+    res: QueryResult,
+    query: Reachable,
+    piece: Slice | None,
+    analysis: SliceAnalysis | None,
+    initials: list[dict],
+    timeout: float | None,
+    defect_actions: set[str] | None,
+) -> None:
+    """An existential TLC witness must be obtained for each projected root.
+
+    One union-of-roots invariant run only establishes existence from *some*
+    root. Retain the existing representative action trace without claiming it
+    proves the other roots. Any undecided run leaves the query inconclusive.
+    """
+    roots, numbers = initials, list(range(1, len(initials) + 1))
+    if analysis is not None and piece is not None:
+        roots, numbers, _ = analysis.project_roots(piece, initials)
+    seen = set()
+    outcomes = []
+    loc = f"query:{res.query_id}"
+    text = query.label or res.query_id
+    for root, number in zip(roots, numbers, strict=True):
+        key = state_key(root)
+        if key in seen:
+            continue
+        seen.add(key)
+        outcome = _run(
+            spec,
+            piece,
+            analysis,
+            [root],
+            Target("never", query.predicate),
+            timeout,
+            loc,
+            res.findings,
+            defect_actions,
+        )
+        if outcome is None:
+            return
+        outcomes.append((number, root, outcome))
+        if outcome.status == "ok":
+            break  # one complete root without a witness refutes the requirement
+
+    number, root, last = outcomes[-1]
+    found = last.status == "violation"
+    representative_number, representative_root, representative = outcomes[0]
+    if found:
+        number, root = representative_number, representative_root
+    res.backend = "tlc"
+    res.status = QueryStatus.PASS if found else QueryStatus.FAIL
+    res.states_explored = sum(outcome.distinct_states or 0 for _, _, outcome in outcomes)
+    res.trace = representative.trace if found else None
+    message = (
+        f"'{text}' reachable from all {len(outcomes)} initial states (TLC); "
+        f"representative witness from init #{number}: "
+        f"{' → '.join(representative.trace) or '(initial state)'}"
+        if found
+        else f"'{text}' is not reachable from init #{number} (TLC)"
+    )
+    rendered = ", ".join(f"{k}={v}" for k, v in render_state(root).items())
+    res.findings = [
+        Finding(
+            Severity.INFO if found else Severity.ERROR,
+            loc,
+            message,
+            Code.WITNESS if found else Code.NOT_REACHABLE,
+        ),
+        Finding(Severity.INFO, loc, f"init #{number}: {rendered}", Code.INITIAL_STATE),
+        *[_note(outcome) for _, _, outcome in outcomes],
+    ]

@@ -1,6 +1,6 @@
 # analint — Roadmap
 
-Current status (2026-11-18): **0.1.0 released and verified on PyPI.**
+Current status (2026-11-19): **0.1.0 released and verified on PyPI.**
 The release adds shared-model check selection, scoped diagnostics, stricter operand
 validation and the boundary repairs below. Publish verified the exact wheel/source
 pair on Python 3.12–3.15; public registry hashes and a clean installed-package
@@ -18,42 +18,93 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-18)
+## Current priorities (2026-11-19)
 
-The documentation baseline is complete: a runnable first-spec tutorial,
-verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
-and main pushes now have a strict documentation build and executable tutorial
-checks before the existing main-only deployment.
-CI now also runs pinned TLC conformance and tests/package installations on
-Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validation.
-Release acceptance is shared by Quality and Publish; both registry jobs require
-verification of the exact build artifacts on that Python matrix.
+Release **0.1.0 remains the latest published version**. The #42/#41 correctness
+repairs are now merged in main through PRs #51 and #52, but are **unreleased**.
+Their integration and accepted performance cost are recorded below. Real-spec
+`exness-spec` authoring produced ten reports (#41–#50); the independent
+one-requirement-change trial is still open.
 
-1. **Verification boundary repairs — released in 0.1.0.** PRs #15–#18 and
-   #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
-   stale action plans and invalid emitted payloads. The audit below links their
-   implementation and review records. Concurrent TLC isolation (#23) is merged
-   in #25; preserve the semantic and backend gates.
-2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
-   introspection defect; do not infer checker unsoundness or trial success.
-   Published 0.0.5 passes its reproduction; the issue is closed. The next
-   step is the [one-change trial](#one-change-trial) on an accessible real spec.
-   Include the shared-model check-selection use case below; do not reconstruct
-   a smaller `Spec` for each flow. The fulfillment rehearsal below now passes
-   with shared-model selections and a retained off-flow defect; the external
-   real-spec verdict remains pending.
-3. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
-   Three existing examples pass requirement-change loops with defect controls
-   (see the queue below). Query details and action-family navigation are
-   included in 0.0.6. Compact diagnostics in 0.0.7 reduce the Kubernetes
-   regression report by 98.69% (see below). Real-spec follow-up remains priority 2.
-4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
-   performance history conditional on a controlled runner or a reproduced
-   regression; further engine optimization requires a measured bottleneck.
+1. **Resume the external real-spec change trial.** The two reported checker
+   blockers are repaired and the existing `exness-spec` passes with both fixes.
+   Next, record one independently requested rule change with full/selected checks,
+   allowed/rejected cases and a trace. Initial authoring and the bounded
+   fulfillment rehearsal do not close the before/after maintenance trial.
+2. **PR #40 — invariant plan lifetime: reviewed, still open.** Its concrete
+   stale-invariant repair has a [separate review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
+   with no blocking findings; the focused review rerun passed 54 tests and
+   Quality/Docs passed on `a863a76`. It was not included in the #51/#52 merges
+   and does not close the broader #11 snapshot issue.
+3. **Bounded review follow-ups, both P3.**
+   [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
+   action-slice cost. Investigate narrow-first fireability or equivalent reuse
+   without dropping transition-defect coverage, including later executions of
+   an action already enabled at a root. The cost is accepted for the correctness
+   release, not a merge blocker.
+   [#54](https://github.com/angru/analint/issues/54) tracks the extra missing-path
+   diagnostic for an illegal initial root. Clarify or suppress only that
+   duplicate using explicit provenance; preserve blocking root legality and
+   FAIL in full/selected checks, and retain real failures for legal roots.
+4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
+   improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
+   consistency task. #48 is an API decision: separate query budgets are already
+   documented; inheritance would change that contract. Split #49 into division
+   and lookup proposals. #50 has a concrete one-sided-saturation use case and
+   needs backend-conformant semantics.
 
-New semantic primitives remain evidence-gated. Liveness/fairness, automatic event
-dispatch, unbounded structures, a general implementation bridge, a separate
-semantic-diff command and a Rust core remain outside the current work.
+Links: [#43](https://github.com/angru/analint/issues/43),
+[#44](https://github.com/angru/analint/issues/44),
+[#45](https://github.com/angru/analint/issues/45),
+[#46](https://github.com/angru/analint/issues/46),
+[#47](https://github.com/angru/analint/issues/47),
+[#48](https://github.com/angru/analint/issues/48),
+[#49](https://github.com/angru/analint/issues/49),
+[#50](https://github.com/angru/analint/issues/50).
+
+Broader #11 snapshot work and #12 state-store ownership remain conditional on
+concrete consumer evidence. #53 supplies a bounded performance task; it does not
+reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
+dispatch, unbounded structures, a general implementation bridge, semantic diff
+and a Rust core remain outside current work.
+
+## Reachability correctness integration (2026-11-19)
+
+| Issue | Merged implementation | Reviewed guarantee |
+| --- | --- | --- |
+| [#42](https://github.com/angru/analint/issues/42) | [PR #51](https://github.com/angru/analint/pull/51), `502397b` | Reachable requires a path from every admissible root, including converging paths. Native reverse reachability and per-root TLC agree; incomplete proofs stay INCONCLUSIVE. |
+| [#41](https://github.com/angru/analint/issues/41) | [PR #52](https://github.com/angru/analint/pull/52), `d7c14b6` | An action slice retains flag disablers needed by its own non-antitone guard. True dead actions and transition defects remain failures; ordinary consumers retain the optimization. |
+
+#51 was merged first. #52 was then retargeted to main and rebased from reviewed
+`78dcb0f` to `20ee1dc`; its tree stayed identical
+(`44c518e1833097c0720423e116405f582782b1f4`). Quality and Docs passed on the
+retargeted head before merge. These are source integrations, not publication.
+
+[Independent #51 review](https://github.com/angru/analint/pull/51#issuecomment-7003430980)
+reproduced the old false PASS and verified native/TLC root handling, duplicates,
+convergence and budgets; its full suite passed 1092 tests with 19 skips.
+[Independent #52 review](https://github.com/angru/analint/pull/52#issuecomment-7003459660)
+covered all six action orders, reversed polarity, budget changes and real
+failure controls; its full suite passed 1144 tests with 19 skips. Implementation
+checks also passed CLI/MCP, cold/warm cache and mandatory pre-push gates.
+Characterization snapshots are unchanged. Five historical existential-root
+expectations were deliberately corrected to the documented all-roots contract.
+
+The existing `exness-spec` passed with both fixes: 8 scenarios, 1 flow,
+2 invariants and all 4 queries, with no INCONCLUSIVE results. Seven existing
+warnings about action-scenario coverage remain. This verifies the reported
+blockers, not the still-pending independent requirement-change trial.
+
+**Accepted cost and follow-up:** the review measured broker's `scripts/bench.py`
+state metric rising from 27,228 to 38,518 (+41%). That metric is the maximum
+reported `states_explored` among checks, not total exploration work. The widened
+`request_code` slice contains all 33 actions / 19 variables because retaining
+`code_confirmed` disablers pulls in withdrawal dependencies. Approximate
+2.5-to-3.1-second timings were taken under concurrent test load and are not a
+performance gate. #53 must measure actual exploration calls/state totals and
+controlled timings while preserving both fireability and defect coverage.
+The root diagnostic noted in #51 is separately tracked by #54; it does not
+change the accepted FAIL semantics for illegal initial states.
 
 ## Verification boundary audit (2026-11-17)
 
@@ -213,7 +264,7 @@ remaining product question is whether users can maintain useful abstractions
 through real changes (research/31 §2.4). Another synthetic model or language
 primitive would not resolve that question.
 
-## Post-release work queue (reviewed 2026-11-07)
+## Post-release evidence and historical work queue
 
 ### 0.1.0 publication — verified (2026-11-18)
 
@@ -646,9 +697,10 @@ example is exercised through check/explore/trace and cold/warm cache in docs CI.
 
 ### 5. Performance history — conditional backlog
 
-The existing ASV/history proposal below remains deferred until a controlled runner
-is available or the live trial reproduces a regression. Reuse the current generated
-workloads and broker models; record commit, environment, completeness, state counts,
+The existing ASV/history infrastructure proposal below remains deferred. The
+concrete broker regression from #52 is now tracked in [#53](https://github.com/angru/analint/issues/53);
+it authorizes a bounded comparison and optimization, not a general history
+service. Reuse the current generated workloads and broker models; record commit, environment, completeness, state counts,
 cold/warm mode and memory. Keep normal tests free of timing gates. New backends,
 POR and native rewrites still require the measured triggers documented in P5.
 

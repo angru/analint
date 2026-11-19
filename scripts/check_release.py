@@ -42,6 +42,7 @@ ARCHIVE_TESTS = [
     "tests/test_flow.py",
     "tests/test_event_payload_constraints.py",
     "tests/test_ast_coverage.py",
+    "tests/test_floor_division.py",
     "tests/test_generated_conformance.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",

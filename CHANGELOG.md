@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Integer `//` expressions, including reflected forms and parameter/quantifier
+  binding, floor toward negative infinity. Zero divisors and non-integer
+  operands fail explicitly. TLC supports nonzero constant integer divisors
+  and refuses dynamic divisors without approximating them. (#49, #58)
+
 - `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
   Stable ids, selection and existing positional arguments are unchanged. (#47)
 

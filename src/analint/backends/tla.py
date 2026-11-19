@@ -35,7 +35,7 @@ from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import _MISSING, FieldDescriptor, all_fields
 from analint.models.event import Event
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
 from analint.models.predicate import (
     _And,
@@ -215,6 +215,16 @@ class _Renderer:
             return self.read(op.entity_cls, op.field_name)
         if isinstance(op, InstanceField):
             return self.read(op.instance, op.field_name)
+        if isinstance(op, _FloorDivExpr):
+            if type(op.right) is not int or op.right == 0:
+                raise ExportError(
+                    "floor division requires a nonzero constant integer divisor for TLC"
+                )
+            left = self.operand(op.left)
+            divisor = op.right
+            if divisor < 0:
+                left, divisor = f"(-({left}))", -divisor
+            return f"({left} \\div {divisor})"
         if isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
             sign = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}[type(op)]
             return f"({self.operand(op.left)} {sign} {self.operand(op.right)})"
@@ -315,7 +325,7 @@ def _outside_refs(pred: Any) -> list[Any]:
     def operand(op: Any) -> None:
         if isinstance(op, (FieldDescriptor, InstanceField)):
             out.append(op)
-        elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
+        elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
             operand(op.left)
             operand(op.right)
 

@@ -196,6 +196,16 @@ class FieldDescriptor(Symbolic):
 
         return _MulExpr(other, self)
 
+    def __floordiv__(self, other: Any) -> Any:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Any:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(other, self)
+
     def __hash__(self) -> int:
         return hash((id(self.entity_cls), self.field_name))
 

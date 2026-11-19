@@ -28,7 +28,7 @@ from typing import Any
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.predicate import Predicate
@@ -1815,7 +1815,7 @@ def _eval_dead_actions_sliced(
     )
 
 
-_ARITHMETIC = (_AddExpr, _SubExpr, _MulExpr, _Sum)
+_ARITHMETIC = (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr, _Sum)
 
 
 def _growing_fields(spec: Spec) -> list[str]:

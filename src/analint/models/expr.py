@@ -43,6 +43,12 @@ class Expr(Symbolic):
     def __rmul__(self, other: Any) -> Expr:
         return _MulExpr(other, self)
 
+    def __floordiv__(self, other: Any) -> Expr:
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Expr:
+        return _FloorDivExpr(other, self)
+
     # comparisons produce predicates ───────────────────────────────────────────
 
     def __eq__(self, other: Any) -> Predicate:  # type: ignore
@@ -103,7 +109,26 @@ class _MulExpr(_BinaryExpr):
     pass
 
 
-_OPS: dict[type, str] = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}
+@dataclass(eq=False)
+class _FloorDivExpr(_BinaryExpr):
+    pass
+
+
+def floor_divide(left: Any, right: Any) -> int:
+    """Integer division floors toward negative infinity, never truncates."""
+    if (
+        not isinstance(left, int)
+        or isinstance(left, bool)
+        or not isinstance(right, int)
+        or isinstance(right, bool)
+    ):
+        raise TypeError("floor division requires integer operands (excluding bool)")
+    if right == 0:
+        raise ZeroDivisionError("integer floor division by zero")
+    return left // right
+
+
+_OPS: dict[type, str] = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*", _FloorDivExpr: "//"}
 
 
 def expr_op(expr: Expr) -> str:

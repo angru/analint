@@ -112,6 +112,7 @@ CASES = [
     (Counter.n + 2, 3, F, F, "+"),
     (Counter.n - 2, -1, F, F, "-"),
     (Counter.n * 2, 2, F, F, "*"),
+    (Counter.n // 2, 0, F, F, "\\div"),
     (Count(x, x.n > 2), 1, S, S | P, "THEN 1 ELSE 0"),
     (Sum(x, x.n), 5, S, S | P, "ELSE 0"),
     (Min(x, x.n), 2, S, S | P, None),

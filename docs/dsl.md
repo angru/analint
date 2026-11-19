@@ -459,6 +459,18 @@ attempted action. Custom event constructors, unsupported scalar bounds such as
 floats, and literal strings equal to the reserved `__null__` sentinel are refused
 with `tlc.not_exported` rather than approximated.
 
+### Integer floor division
+
+Integer expressions support `//` and reflected forms (`100 // Account.leverage`),
+including Params, scoped fields and aggregates. The result rounds toward negative
+infinity: `-5 // 2 == -3`, `5 // -2 == -3`. Operands must be integers;
+bools and floats are rejected. A literal zero divisor is a structural error;
+a state-dependent zero divisor becomes an evaluation finding and fails the check.
+
+TLC supports nonzero constant integer divisors (including bound Params). Dynamic
+divisors are explicitly refused, leaving a capped check INCONCLUSIVE; no
+approximate division or ignored zero case is exported. `/` and `%` are not added.
+
 ## Scenario and Flow
 
 `Scenario(action=..., given=[...], then=[...], expected=Expect.PASS)` checks one

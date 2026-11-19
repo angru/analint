@@ -64,6 +64,14 @@ trace has that root and zero steps). Missing paths under a capped or excluded
 transition relation remain INCONCLUSIVE. TLC checks projected roots separately;
 its state count sums those runs, and its timeout applies to each export.
 
+An initial state that violates an invariant, or whose invariant cannot be
+assessed, is retained but not expanded. Root legality keeps the overall verdict
+FAIL, including selected checks. If a complete `Reachable` failure refers only
+to such roots, `query.invalid_root` explains that reachability was not assessed
+from the invalid root. If a legal root also has no path, its ordinary missing-path
+diagnostic takes precedence. Native traces retain the invalid root with zero
+steps; TLC traces carry the explanation without inventing state snapshots.
+
 Numeric annotations alone do not bound a domain. An increasing `int` counter
 without an upper bound may generate infinitely many distinct states. Use finite
 abstractions and explicit bounds that reflect the requirement. Ordinary hard
@@ -122,8 +130,9 @@ the state it reads, the actions that can affect it, and the dependencies of thos
 actions. Independent processes need not pay for their full Cartesian product.
 JSON records the slice. `check --no-slice` uses the whole model instead.
 
-`Spec.max_states` bounds canonical invariant exploration; queries have their own
-`max_states`. `check --max-states N` overrides all budgets for that invocation.
+`Spec.max_states` bounds canonical invariant exploration and supplies the default
+budget for queries, including queries with their own roots. An explicit query
+`max_states` overrides that default. `check --max-states N` overrides all budgets for that invocation.
 An exhausted budget preserves INCONCLUSIVE. Raising the budget can help a large
 finite model, but cannot close an unbounded domain.
 

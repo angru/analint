@@ -21,37 +21,35 @@ maintaining a second test count here.
 ## Current priorities (2026-11-19)
 
 Release **0.1.0 remains the latest published version**. The #42/#41 correctness
-repairs are now merged in main through PRs #51 and #52, but are **unreleased**.
-Their integration and accepted performance cost are recorded below. Real-spec
-`exness-spec` authoring produced ten reports (#41–#50); the independent
-one-requirement-change trial is still open.
+repairs, #40 invariant-plan repair, and reviewed #43–#50/#54 authoring and diagnostic
+changes are integrated in main but **unreleased**. The integration record below
+identifies the reviewed heads and validation boundary.
 
-1. **Resume the external real-spec change trial.** The two reported checker
-   blockers are repaired and the existing `exness-spec` passes with both fixes.
-   Next, record one independently requested rule change with full/selected checks,
-   allowed/rejected cases and a trace. Initial authoring and the bounded
-   fulfillment rehearsal do not close the before/after maintenance trial.
-2. **PR #40 — invariant plan lifetime: reviewed, still open.** Its concrete
-   stale-invariant repair has a [separate review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
-   with no blocking findings; the focused review rerun passed 54 tests and
-   Quality/Docs passed on `a863a76`. It was not included in the #51/#52 merges
-   and does not close the broader #11 snapshot issue.
-3. **Bounded review follow-ups, both P3.**
+1. **Prepare the next release.** The reviewed authoring queue is integrated.
+   Choose the next version, validate its exact artifacts and publish separately;
+   integration into main does not update the PyPI dependency in `exness-spec`.
+2. **Complete the external real-spec change trial.** `exness-spec` now includes
+   margin and payments contracts. Record a before/after requirement change with
+   full/selected checks, allowed/rejected cases and a trace on the published
+   version. Initial authoring and the bounded fulfillment rehearsal do not
+   replace that maintenance trial.
+3. **Bounded follow-ups (P3), outside the integrated queue.**
    [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
-   action-slice cost. Investigate narrow-first fireability or equivalent reuse
-   without dropping transition-defect coverage, including later executions of
-   an action already enabled at a root. The cost is accepted for the correctness
-   release, not a merge blocker.
-   [#54](https://github.com/angru/analint/issues/54) tracks the extra missing-path
-   diagnostic for an illegal initial root. Clarify or suppress only that
-   duplicate using explicit provenance; preserve blocking root legality and
-   FAIL in full/selected checks, and retain real failures for legal roots.
-4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
-   improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
-   consistency task. #48 is an API decision: separate query budgets are already
-   documented; inheritance would change that contract. Split #49 into division
-   and lookup proposals. #50 has a concrete one-sided-saturation use case and
-   needs backend-conformant semantics.
+   action-slice cost, preserving defect coverage including later executions of
+   an action already enabled at a root.
+   [#65](https://github.com/angru/analint/issues/65) tracks a positive query witness
+   from an invalid matching root; the overall verdict already remains FAIL.
+   [#66](https://github.com/angru/analint/issues/66) tracks root-legality reuse and
+   unnecessary TLC runs for inert roots.
+   [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
+   in effect operands, rather than arbitrary conditional effect lists.
+   [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
+   state-space diagnostics, not automatic symmetry reduction.
+
+#49's two agreed halves are implemented: #58 adds floor division and #59 adds
+exhaustive enum lookup. Modulo and real division remain outside this scope.
+#54 now explains invalid, unexpanded roots; legal missing paths retain their
+ordinary diagnostic and root legality still blocks full/selected checks.
 
 Links: [#43](https://github.com/angru/analint/issues/43),
 [#44](https://github.com/angru/analint/issues/44),
@@ -67,6 +65,47 @@ concrete consumer evidence. #53 supplies a bounded performance task; it does not
 reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
 dispatch, unbounded structures, a general implementation bridge, semantic diff
 and a Rust core remain outside current work.
+
+## Authoring integration (2026-11-19)
+
+These changes are **integrated in main, not released**. Each implementation branch
+passed the mandatory local pre-push suite, Ruff and ty. Existing characterization
+snapshots are unchanged. Independent reviews approved the following exact heads:
+#56 `59b227e` (after its two fixes), #57 `584d6bb`, #60 `1ce1ed7`, #61 `aa610d1`,
+#62 `1d761cf`, #63 `7183f56`, and #64 `47e5511`.
+
+| Issues | Review | Behavior |
+| --- | --- | --- |
+| #43–#45 | [PR #56](https://github.com/angru/analint/pull/56) | Count structural errors, preserve literal diagnostic subjects, and show load locations without reporting checks that never ran. |
+| #46–#47 | [PR #57](https://github.com/angru/analint/pull/57) | Complete Param operators and add optional Flow display names while keeping stable check ids. |
+| #48 | [PR #61](https://github.com/angru/analint/pull/61) | Resolve inherited query budgets per invocation across check/show/explore/trace, without mutating declarations. |
+| #50 | [PR #60](https://github.com/angru/analint/pull/60) | Clamp one selected field bound; keep other constraints hard, including Create and TLC. |
+| #49 / #58 | [PR #63](https://github.com/angru/analint/pull/63) | Floor division, with explicit zero errors and a conservative TLC export boundary. |
+| #49 / #59 | [PR #62](https://github.com/angru/analint/pull/62) | Exhaustive, copied enum-to-integer tables with no default arm. |
+| #54 | [PR #64](https://github.com/angru/analint/pull/64) | Explain invalid, unexpanded roots while preserving overall FAIL and legal missing-path diagnostics. |
+
+#57 was merged first; #62 and #63 were then retargeted to main. The remaining
+reviewed heads are included through `codex/reviewed-authoring-integration`, which
+preserves their commits and the tested conflict resolutions. Its dedicated
+cross-feature tests exercise Param arithmetic, floor division, Lookup, one-sided
+saturation, inherited budgets, named Flow rendering, cache and native/TLC checks.
+The merge resolutions retain both AST walkers and the escaped Flow display name.
+
+The local integration at `5e65a1f` passed 1367 tests with 19 existing skips;
+installed-wheel/source verification passed 609 tests, including CLI and MCP
+smoke checks. Strict documentation build, Ruff and ty passed. Subsequent merge
+preparation retained the same source, tests, dependencies and workflow contents;
+only the roadmap records the final integration status. This is source integration
+and artifact verification, not a package publication.
+
+Native arithmetic and scalar-enum lookup preserve Python equality, including
+numerically equal interned states. TLC floor division requires a nonzero constant
+integer divisor and a numerator proven integer from roots/writes. Lookup export
+requires a proven enum selector domain. Unsupported cases explicitly refuse export
+and leave capped checks INCONCLUSIVE; no approximate result is substituted.
+In particular, TLC currently refuses `Lookup(...) // n` and division of a field
+written using Lookup: its integer-domain proof does not recognize that expression.
+Native supports both; integration tests pin this conservative export boundary.
 
 ## Reachability correctness integration (2026-11-19)
 

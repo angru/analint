@@ -56,7 +56,8 @@ constraint-violating values are rejected at construction.
 | --- | --- |
 | `Field(default, ge=..., gt=..., le=..., lt=...)` | Numeric constraints, checked on snapshots and transitions |
 | `Field(default, values=[...])` | Explicit finite scalar domain |
-| `Field(default, ge=..., le=..., saturate=True)` | Clamp numeric effects at thresholds instead of rejecting an overflow |
+| `Field(default, ge=..., le=..., saturate=True)` | Clamp numeric effects at both bounds |
+| `Field(default, ge=..., le=..., saturate="low" / "high")` | Clamp only the selected bound; other constraints remain hard |
 | `Lifecycle(...)` as a field default | Initial value, allowed edges and terminal states for a state field |
 
 Booleans, enums, lifecycle states, bounded integers and explicit value domains
@@ -459,6 +460,39 @@ attempted action. Custom event constructors, unsupported scalar bounds such as
 floats, and literal strings equal to the reserved `__null__` sentinel are refused
 with `tlc.not_exported` rather than approximated.
 
+One-sided saturation applies to effect results and `Create`, before postconditions.
+`"low"` requires `ge`; `"high"` requires `le`; `True` still requires both.
+The opposite bound, exclusive bounds and `values` remain checked after clamping.
+Initial snapshots and event payloads are validated without clamping.
+
+### Enum constant lookup
+
+`Lookup(Account.kind, {Kind.STANDARD: 60, Kind.PRO: 30})` is an integer-valued
+expression that composes with arithmetic, predicates and effects. The table must
+cover every member of one enum; values must be integer constants, excluding bool.
+The constructor copies the table. Params and quantified/scoped fields work as
+selectors. An unmatched selector raises an evaluation error, with no default arm.
+Scalar enums retain Python equality (`IntEnum`/`StrEnum` match their underlying
+values), consistent with ordinary DSL comparisons and state identity.
+
+TLC exports literal enum selectors and fields whose roots and writes are known
+to contain members of that enum. It explicitly refuses other selector domains;
+this prevents scalar-enum encoding from hiding an invalid native selector.
+
+### Integer floor division
+
+Integer expressions support `//` and reflected forms (`100 // Account.leverage`),
+including Params, scoped fields and aggregates. The result rounds toward negative
+infinity: `-5 // 2 == -3`, `5 // -2 == -3`. Integer operands produce integer results. Native evaluation follows Python numeric
+semantics, including bool/int and equal integer/float values; other operand types
+are rejected. TLC retains its existing integer-only numeric domain. A literal zero divisor is a structural error;
+a state-dependent zero divisor becomes an evaluation finding and fails the check.
+
+TLC supports provably integer numerators and nonzero constant integer divisors
+(including bound Params). It checks root values and writes rather than trusting
+annotations; bool/float numerator domains and dynamic divisors are explicitly refused, leaving a capped check INCONCLUSIVE; no
+approximate division or ignored zero case is exported. `/` and `%` are not added.
+
 ## Scenario and Flow
 
 `Scenario(action=..., given=[...], then=[...], expected=Expect.PASS)` checks one
@@ -494,7 +528,14 @@ Excluded event-input actions are unassessed, not dead.
 flows=[...], queries=[...])` is the root. It can additionally list entities, events,
 scopes and lifecycles, which are otherwise derived from referenced behaviour.
 `Spec.initial` supplies canonical roots; `Spec.max_states` sets the canonical
-exploration budget (default 10,000).
+exploration budget and the default query budget (default 10,000). A query with
+`max_states=None` (the default) inherits this value, including with its own roots.
+An explicit query budget wins; `check --max-states N` overrides both for one run.
+
+**After 0.1.0:** omitted query budgets inherit `Spec.max_states` rather than
+always using 10,000. Use an explicit `max_states=10_000` on a query to retain
+the old budget. Inheritance is resolved per check, so a shared query can be used
+with different Specs without being mutated.
 
 `Contract(id=..., actions=[...], ...)` is an explicit reusable fragment with the
 same content lists. `Spec(imports=[contract, ...], ...)` combines those lists

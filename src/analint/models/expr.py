@@ -43,6 +43,12 @@ class Expr(Symbolic):
     def __rmul__(self, other: Any) -> Expr:
         return _MulExpr(other, self)
 
+    def __floordiv__(self, other: Any) -> Expr:
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Expr:
+        return _FloorDivExpr(other, self)
+
     # comparisons produce predicates ───────────────────────────────────────────
 
     def __eq__(self, other: Any) -> Predicate:  # type: ignore
@@ -103,7 +109,21 @@ class _MulExpr(_BinaryExpr):
     pass
 
 
-_OPS: dict[type, str] = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}
+@dataclass(eq=False)
+class _FloorDivExpr(_BinaryExpr):
+    pass
+
+
+def floor_divide(left: Any, right: Any) -> int | float:
+    """Use Python numeric floor division, consistent with the other arithmetic."""
+    if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
+        raise TypeError("floor division requires numeric operands")
+    if right == 0:
+        raise ZeroDivisionError("floor division by zero")
+    return left // right
+
+
+_OPS: dict[type, str] = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*", _FloorDivExpr: "//"}
 
 
 def expr_op(expr: Expr) -> str:

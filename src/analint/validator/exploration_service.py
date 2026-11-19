@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from analint.models.query import query_budget
 from analint.reporter.base import Code, Severity
 from analint.reporter.exploration_artifact import ExplorationArtifact, canonical_digest
 from analint.validator.artifact_builder import (
@@ -82,7 +83,7 @@ def explore_path(
                 sorted(q.id for q in spec.queries if q.id),
             )
         initials, error = resolve_query_initials(query, spec)
-        source_kind, budget = "query", query.max_states
+        source_kind, budget = "query", query_budget(query, spec.max_states)
 
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")
@@ -198,7 +199,11 @@ def trace_query(
     if result.backend == "tlc":
         # TLC supplies action ids, not Python state keys. Preserve its witness;
         # never substitute a rerun at a different budget or invent snapshots.
-        root_notes = "\n".join(f.message for f in result.findings if f.code == Code.INITIAL_STATE)
+        root_notes = "\n".join(
+            f.message
+            for f in result.findings
+            if f.code in (Code.INITIAL_STATE, Code.QUERY_INVALID_ROOT)
+        )
         return {
             "schema": "analint.trace/v1",
             source_kind: query_id,
@@ -237,6 +242,9 @@ def trace_query(
         }
     trace = _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
     trace.update(metadata)
+    invalid_root = next((f for f in result.findings if f.code == Code.QUERY_INVALID_ROOT), None)
+    if invalid_root is not None:
+        trace["message"] = invalid_root.message
     if getattr(result, "slice", None):
         trace["slice"] = result.slice
     return trace

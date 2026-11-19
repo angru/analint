@@ -33,8 +33,9 @@ from weakref import ref
 
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
-from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import Expr, _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -162,6 +163,16 @@ class Param(Symbolic):
     def __rmul__(self, other: Any) -> Expr:
         return _MulExpr(other, self)
 
+    def __floordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(other, self)
+
     def __repr__(self) -> str:
         return f"Param({self.name})"
 
@@ -209,6 +220,16 @@ class ParamField(Symbolic):
     def __rmul__(self, other: Any) -> Expr:
         return _MulExpr(other, self)
 
+    def __floordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(other, self)
+
     def __hash__(self) -> int:
         return hash((id(self.param), self.field_name))
 
@@ -218,6 +239,8 @@ class ParamField(Symbolic):
 
 def _resolve(operand: Any, binding: Binding) -> Any:
     """Substitute a binding into an operand; non-param operands pass through."""
+    if isinstance(operand, _Lookup):
+        return _Lookup(_resolve(operand.selector, binding), operand.entries)
     if isinstance(operand, Key):
         return Key(_resolve(operand.target, binding))
     if isinstance(operand, ParamField):
@@ -249,7 +272,7 @@ def _resolve(operand: Any, binding: Binding) -> Any:
             variable=operand.variable,
             operand=_resolve(operand.operand, binding),
         )
-    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         # substitute param leaves; the expression itself is resolved against
         # the state at evaluation time (rule_checker.resolve)
         return type(operand)(_resolve(operand.left, binding), _resolve(operand.right, binding))
@@ -364,11 +387,13 @@ def _contains_present(pred: Predicate) -> bool:
 
 
 def _operand_contains_present(operand: Any) -> bool:
+    if isinstance(operand, _Lookup):
+        return _operand_contains_present(operand.selector)
     if isinstance(operand, _Count):
         return _contains_present(operand.predicate)
     if isinstance(operand, (_Sum, _Min, _Max)):
         return _operand_contains_present(operand.operand)
-    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         return _operand_contains_present(operand.left) or _operand_contains_present(operand.right)
     return False
 

@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from analint.models.entity import all_fields
-from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import Expr, _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -103,6 +104,16 @@ class BoundField(Symbolic):
 
     def __rmul__(self, other: Any) -> Expr:
         return _MulExpr(other, self)
+
+    def __floordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(self, other)
+
+    def __rfloordiv__(self, other: Any) -> Expr:
+        from analint.models.expr import _FloorDivExpr
+
+        return _FloorDivExpr(other, self)
 
     def __hash__(self) -> int:
         return hash((id(self.variable), self.field_name))
@@ -257,6 +268,8 @@ def bind_predicate(pred: Predicate, variable: Bound, instance: InstanceRef) -> P
 
 
 def bind_operand(operand: Any, variable: Bound, instance: InstanceRef) -> Any:
+    if isinstance(operand, _Lookup):
+        return _Lookup(bind_operand(operand.selector, variable, instance), operand.entries)
     if isinstance(operand, Key) and operand.target is variable:
         return Key(instance)
     if isinstance(operand, BoundField) and operand.variable is variable:
@@ -276,7 +289,7 @@ def bind_operand(operand: Any, variable: Bound, instance: InstanceRef) -> Any:
             variable=operand.variable,
             operand=bind_operand(operand.operand, variable, instance),
         )
-    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         return type(operand)(
             bind_operand(operand.left, variable, instance),
             bind_operand(operand.right, variable, instance),

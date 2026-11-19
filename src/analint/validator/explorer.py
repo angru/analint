@@ -28,7 +28,7 @@ from typing import Any
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.predicate import Predicate
@@ -39,6 +39,7 @@ from analint.models.query import (
     NoDeadEnd,
     Reachable,
     Unreachable,
+    query_budget,
 )
 from analint.models.root import Spec
 from analint.models.scope import (
@@ -93,6 +94,7 @@ class Exploration:
         self.action_ids: list[str] = []  # action code → id
         self._action_codes: dict[str, int] = {}
         self.roots: dict = {}  # root key → 1-based initial index
+        self.invalid_roots: set[int] = set()  # state indices retained but not expanded
         self.fired: set = set()  # action ids ever enabled
         self.findings: list = []  # violations met en route
         # Internal provenance for invariant diagnostics, including every state
@@ -719,10 +721,10 @@ def _explore(
         exp.roots[key0] = index
         # An initial state that already violates an invariant is illegal: keep it
         # as a witness but do not explore from it, exactly as for any successor.
-        if (
-            not _report_invariant_violations(spec, ctx, key0, exp, plans=invariant_plans)
-            and pos not in inert_roots
-        ):
+        invalid = _report_invariant_violations(spec, ctx, key0, exp, plans=invariant_plans)
+        if invalid or pos in inert_roots:
+            exp.invalid_roots.add(idx0)
+        else:
             queue.append((idx0, ctx, 0))
     codes = [exp.action_code(action.id) for action in spec.actions]
     invalidated = _guard_invalidation(spec)
@@ -1013,7 +1015,7 @@ def _run_query(
             ],
         )
 
-    budget = max_states or query.max_states
+    budget = query_budget(query, spec.max_states, max_states)
     if not isinstance(query, (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)):
         return QueryResult(
             query_id=qid,
@@ -1493,6 +1495,16 @@ def _never_applicable_result(qid: str, kind: str, exp: Exploration, text: str) -
     )
 
 
+def _invalid_root_finding(qid: str, number: int) -> Finding:
+    return Finding(
+        Severity.ERROR,
+        f"query:{qid}",
+        f"init #{number} is invalid under model invariants; "
+        "reachability was not assessed from this root (not expanded)",
+        Code.QUERY_INVALID_ROOT,
+    )
+
+
 def _eval_reachable(
     query: Reachable | Unreachable,
     qid: str,
@@ -1511,7 +1523,12 @@ def _eval_reachable(
 
     if multi_root:
         reached = _co_reachable(exp, scan.matches)
-        missing = next((root for root in exp.roots if exp.index[root] not in reached), None)
+        missing_roots = [root for root in exp.roots if exp.index[root] not in reached]
+        # Prefer real missing-path evidence over a root already known invalid.
+        missing = next(
+            (root for root in missing_roots if exp.index[root] not in exp.invalid_roots),
+            missing_roots[0] if missing_roots else None,
+        )
         if missing is not None:
             if exp.capped:
                 return _inconclusive(qid, kind, exp)
@@ -1531,7 +1548,9 @@ def _eval_reachable(
                         f"'{text}' is not reachable from init #{exp.roots[missing]} "
                         f"(explored all {len(exp.states)} states)",
                         Code.NOT_REACHABLE,
-                    ),
+                    )
+                    if exp.index[missing] not in exp.invalid_roots
+                    else _invalid_root_finding(qid, exp.roots[missing]),
                     *_origin_findings(exp, missing, qid),
                 ],
             )
@@ -1580,6 +1599,20 @@ def _eval_reachable(
     if exp.excluded:
         return _excluded_actions_result(qid, kind, exp)
     if expect_reachable:
+        invalid = next((root for root in exp.roots if exp.index[root] in exp.invalid_roots), None)
+        if invalid is not None:
+            return QueryResult(
+                query_id=qid,
+                kind=kind,
+                status="FAIL",
+                states_explored=len(exp.states),
+                trace=[],
+                witness_key=invalid,
+                findings=[
+                    _invalid_root_finding(qid, exp.roots[invalid]),
+                    *_origin_findings(exp, invalid, qid),
+                ],
+            )
         return QueryResult(
             query_id=qid,
             kind=kind,
@@ -1815,7 +1848,7 @@ def _eval_dead_actions_sliced(
     )
 
 
-_ARITHMETIC = (_AddExpr, _SubExpr, _MulExpr, _Sum)
+_ARITHMETIC = (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr, _Sum)
 
 
 def _growing_fields(spec: Spec) -> list[str]:

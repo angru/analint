@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr, floor_divide
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -56,6 +57,8 @@ def resolve(
     bindings: dict[Bound, Any] | None = None,
 ) -> Any:
     bindings = bindings or {}
+    if isinstance(operand, _Lookup):
+        return operand.value(resolve(operand.selector, context, bindings))
     if isinstance(operand, Key):
         target = operand.target
         if isinstance(target, Bound):
@@ -89,6 +92,10 @@ def resolve(
         return resolve(operand.left, context, bindings) - resolve(operand.right, context, bindings)
     if isinstance(operand, _MulExpr):
         return resolve(operand.left, context, bindings) * resolve(operand.right, context, bindings)
+    if isinstance(operand, _FloorDivExpr):
+        return floor_divide(
+            resolve(operand.left, context, bindings), resolve(operand.right, context, bindings)
+        )
     if isinstance(operand, _Count):
         results = [
             evaluate(operand.predicate, context, {**bindings, operand.variable: instance})
@@ -252,6 +259,9 @@ def _compile_pred(pred: Any) -> Any:
 
 
 def _compile_operand(operand: Any) -> Any:
+    if isinstance(operand, _Lookup):
+        selector = _compile_operand(operand.selector)
+        return lambda ctx, b: operand.value(selector(ctx, b))
     if isinstance(operand, Key):
         if isinstance(operand.target, InstanceRef):
             value = operand.target.key
@@ -287,12 +297,14 @@ def _compile_operand(operand: Any) -> Any:
             return getattr(entity, name)
 
         return bound_field
-    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         left, right = _compile_operand(operand.left), _compile_operand(operand.right)
         if isinstance(operand, _AddExpr):
             return lambda ctx, b: left(ctx, b) + right(ctx, b)
         if isinstance(operand, _SubExpr):
             return lambda ctx, b: left(ctx, b) - right(ctx, b)
+        if isinstance(operand, _FloorDivExpr):
+            return lambda ctx, b: floor_divide(left(ctx, b), right(ctx, b))
         return lambda ctx, b: left(ctx, b) * right(ctx, b)
     if isinstance(operand, _Count):
         variable, scope = operand.variable, operand.variable.scope

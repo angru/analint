@@ -41,9 +41,10 @@ from typing import Any
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.invariant import Invariant
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     _And,
     _BinaryComparison,
@@ -123,7 +124,9 @@ def _pred_vars(pred: Any, out: set[Var]) -> None:
 
 
 def _operand_vars(op: Any, out: set[Var]) -> None:
-    if isinstance(op, Key):
+    if isinstance(op, _Lookup):
+        _operand_vars(op.selector, out)
+    elif isinstance(op, Key):
         if not isinstance(op.target, InstanceRef):
             raise _Unsliceable(op)
         # A declared identity reads neither fields nor presence.
@@ -133,7 +136,7 @@ def _operand_vars(op: Any, out: set[Var]) -> None:
         # reading an absent slot is an error, so presence is read too
         out.add((op.instance, op.field_name))
         out.add((op.instance, PRESENT))
-    elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
+    elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         _operand_vars(op.left, out)
         _operand_vars(op.right, out)
     elif isinstance(op, _Count):

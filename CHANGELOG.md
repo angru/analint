@@ -9,14 +9,51 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- `Lookup(selector, mapping)` provides an exhaustive enum-to-integer expression
+  with copied tables, parameter/quantifier binding, slicing and cache support.
+  Unmatched selectors fail; scalar enums retain Python equality. TLC exports
+  proven enum domains and explicitly refuses unsupported selectors. (#49, #59)
+
+- Integer `//` expressions, including reflected forms and parameter/quantifier
+  binding, floor toward negative infinity. Zero divisors and non-numeric
+  operands fail explicitly; native numeric equality follows Python. TLC supports nonzero constant integer divisors
+  and refuses dynamic divisors without approximating them. (#49, #58)
+
 - `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
   Stable ids, selection and existing positional arguments are unchanged. (#47)
+
+- `Field(saturate="low" / "high")` clamps only the selected inclusive bound.
+  The opposite bound and other constraints remain hard, including for `Create`.
+  Native transitions and TLC apply constraints after clamping; initial values
+  and event payloads are never clamped. (#50)
+
+### Changed
+
+- `saturate=True` now checks `values` and exclusive `gt`/`lt` constraints after
+  clamping, just like one-sided saturation. Existing models that relied on those
+  constraints being skipped can now report transition defects. (#50)
+
+- Queries with an omitted or `None` budget inherit `Spec.max_states`, including
+  queries with their own roots. Explicit query budgets and invocation overrides
+  retain priority. `show`, `check`, `explore` and `trace` use the same effective
+  budget without mutating declarations. Set `max_states=10_000` on a query to
+  preserve the old independent default. (#48)
 
 ### Fixed
 
 - Numeric `Param` operands support multiplication and ordered comparisons directly,
   including literal/parameter and reflected forms. Parameter fields also support
   multiplication; binding uses the existing expression semantics. (#46)
+
+- `Reachable` explains when an initial state is invalid under model invariants
+  and was not expanded, instead of presenting it as an ordinary missing path.
+  Root legality remains a blocking failure; mixed-root failures still identify
+  a legal root without a path. Native/TLC traces and cached checks retain the
+  explanation. (#54)
+
+- Terminal reports count structural errors and preserve literal finding locations
+  and messages. Load failures show the source file/line when available and stop
+  before sections for checks that never ran. Exit codes are unchanged. (#43–#45)
 
 - `DeadActions` preserves disable-only flag writers when the assessed action's
   guard needs the off state. Previously slicing could omit its enabling path

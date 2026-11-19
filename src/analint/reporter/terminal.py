@@ -23,7 +23,7 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
     except Exception:
         ver = "dev"
 
-    console.print(f"\n[bold]analint v{ver}[/bold]  spec: [cyan]{result.spec_name}[/cyan]\n")
+    console.print(f"\n[bold]analint v{ver}[/bold]  spec: [cyan]{escape(result.spec_name)}[/cyan]\n")
 
     if result.selection is not None:
         console.print("[bold]SELECTED CHECKS[/bold] (verdict applies only to this scope)")
@@ -36,8 +36,9 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
 
     if result.load_errors:
         for err in result.load_errors:
-            console.print(f"  [red]LOAD ERROR[/red]  {err}")
+            console.print(f"  [red]LOAD ERROR[/red]  {escape(err)}")
         console.print()
+        return
 
     console.print("[bold]STRUCTURAL[/bold]")
     if not result.structural_findings:
@@ -46,9 +47,11 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         errors = [f for f in result.structural_findings if f.severity == Severity.ERROR]
         warnings = [f for f in result.structural_findings if f.severity == Severity.WARNING]
         for f in errors:
-            console.print(f"  [red]ERROR[/red]  [{f.location}] {f.message}")
+            console.print(f"  [red]ERROR[/red]  {escape(f'[{f.location}]')} {escape(f.message)}")
         for f in warnings:
-            console.print(f"  [yellow]WARN[/yellow]   [{f.location}] {f.message}")
+            console.print(
+                f"  [yellow]WARN[/yellow]   {escape(f'[{f.location}]')} {escape(f.message)}"
+            )
         if errors:
             console.print("\n  [red]Structural errors found — scenario validation skipped[/red]")
             _print_summary(result, strict)
@@ -69,7 +72,9 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         console.print("[bold]EXPLORATION[/bold]")
         for f in result.exploration_findings:
             color = "red" if f.severity == Severity.ERROR else "yellow"
-            console.print(f"  [{color}]{f.severity.value:<5}[/{color}]  [{f.location}] {f.message}")
+            console.print(
+                f"  [{color}]{f.severity.value:<5}[/{color}]  {escape(f'[{f.location}]')} {escape(f.message)}"
+            )
 
     if result.model_coverage is not None:
         console.print()
@@ -118,14 +123,14 @@ def _print_query(qr: QueryResult) -> None:
         f"({qr.kind}, {qr.states_explored} states"
         f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)})"
     )
-    console.print(f"  [{color}]{qr.status:<4}[/{color}]  {qr.query_id:<40} {meta}")
+    console.print(f"  [{color}]{qr.status:<4}[/{color}]  {escape(qr.query_id):<40} {meta}")
     for f in qr.findings:
         if f.severity == Severity.ERROR:
-            console.print(f"         [red]↳[/red] {f.message}")
+            console.print(f"         [red]↳[/red] {escape(f.message)}")
         elif f.severity == Severity.WARNING:
-            console.print(f"         [yellow]↳[/yellow] {f.message}")
+            console.print(f"         [yellow]↳[/yellow] {escape(f.message)}")
         else:
-            console.print(f"         [dim]↳[/dim] {f.message}")
+            console.print(f"         [dim]↳[/dim] {escape(f.message)}")
 
 
 def _print_flow(fr: FlowResult) -> None:
@@ -134,10 +139,10 @@ def _print_flow(fr: FlowResult) -> None:
     label = f"{fr.flow_id} — {fr.flow_name}" if fr.flow_name else fr.flow_id
     console.print(f"  {status}  {escape(label):<40} {meta}")
     if fr.trace:
-        console.print(f"         [dim]↳ {' → '.join(fr.trace)}[/dim]")
+        console.print(f"         [dim]↳ {escape(' → '.join(fr.trace))}[/dim]")
     for f in fr.findings:
         fcolor = "red" if f.severity == Severity.ERROR else "yellow"
-        console.print(f"         [{fcolor}]↳[/{fcolor}] {f.message}")
+        console.print(f"         [{fcolor}]↳[/{fcolor}] {escape(f.message)}")
 
 
 def _print_invariant(ir: InvariantResult) -> None:
@@ -147,23 +152,25 @@ def _print_invariant(ir: InvariantResult) -> None:
         f"({ir.states_explored} states{_slice_note(ir.slice)}"
         f"{_time_note(ir.elapsed_ms)}{_backend_note(ir.backend)})"
     )
-    console.print(f"  [{color}]{ir.status:<11}[/{color}] {ir.label:<40} {meta}")
+    console.print(f"  [{color}]{ir.status:<11}[/{color}] {escape(ir.label):<40} {meta}")
     for f in ir.findings:
         fcolor = "red" if f.severity == Severity.ERROR else "yellow"
-        console.print(f"         [{fcolor}]↳[/{fcolor}] {f.message}")
+        console.print(f"         [{fcolor}]↳[/{fcolor}] {escape(f.message)}")
 
 
 def _print_scenario(sr: ScenarioResult) -> None:
     status = "[green]PASS[/green]" if sr.passed else "[red]FAIL[/red]"
     meta = f"({sr.rules_count} rules)"
-    console.print(f"  {status}  {sr.scenario_id:<40} {meta}")
+    console.print(f"  {status}  {escape(sr.scenario_id):<40} {meta}")
     for f in sr.findings:
         if f.severity == Severity.ERROR:
-            console.print(f"         [red]↳[/red] [{f.location}] {f.message}")
+            console.print(f"         [red]↳[/red] {escape(f'[{f.location}]')} {escape(f.message)}")
         elif f.severity == Severity.WARNING:
-            console.print(f"         [yellow]↳[/yellow] [{f.location}] {f.message}")
+            console.print(
+                f"         [yellow]↳[/yellow] {escape(f'[{f.location}]')} {escape(f.message)}"
+            )
         elif f.severity == Severity.INFO:
-            console.print(f"         [dim]↳[/dim] [{f.location}] {f.message}")
+            console.print(f"         [dim]↳[/dim] {escape(f'[{f.location}]')} {escape(f.message)}")
 
 
 def _time_note(elapsed_ms: float | None) -> str:
@@ -227,8 +234,11 @@ def _print_summary(result: ValidationResult, strict: bool = False) -> None:
         if f_failed:
             f_parts.append(f"[red]{f_failed} failed[/red]")
         parts.append(f"flows: {', '.join(f_parts)}")
+    errors = sum(f.severity == Severity.ERROR for f in result.structural_findings)
+    if errors:
+        parts.append(f"[red]{errors} structural error{'s' if errors != 1 else ''}[/red]")
     if warnings:
-        parts.append(f"[yellow]{warnings} warnings[/yellow]")
+        parts.append(f"[yellow]{warnings} warning{'s' if warnings != 1 else ''}[/yellow]")
     if not parts:
         parts.append("[dim]0 scenarios[/dim]")
 

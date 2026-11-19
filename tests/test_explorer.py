@@ -395,8 +395,8 @@ def test_given_any_quantifies_over_all_roots():
     one = run_query(Reachable(Door.open, id="q1"), spec, cache={})
     assert one.status == "FAIL"
 
-    # …but over the set of admissible initials it does — and the verdict
-    # names the originating configuration
+    # …the unlocked root cannot discharge the locked root: every root needs
+    # a path, and the failure names the blocked initial configuration
     many = run_query(
         Reachable(
             Door.open,
@@ -406,8 +406,8 @@ def test_given_any_quantifies_over_all_roots():
         spec,
         cache={},
     )
-    assert many.status == "PASS"
-    assert any("init #2" in f.message for f in many.findings)
+    assert many.status == "FAIL"
+    assert any("init #1" in f.message for f in many.findings)
 
 
 def test_always_holds_must_survive_every_root():
@@ -474,9 +474,9 @@ def test_declarative_initial_relation_varies_finite_fields():
         spec,
         cache={},
     )
-    assert result.status == "PASS"
+    assert result.status == "FAIL"  # the locked root has no path
     assert result.states_explored == 3
-    assert any("init #1" in finding.message for finding in result.findings)
+    assert any("init #2" in finding.message for finding in result.findings)
 
 
 def test_initial_relation_filters_scoped_domains_with_aggregates():
@@ -516,7 +516,7 @@ def test_initial_relation_uses_explicit_field_values():
         spec,
         cache={},
     )
-    assert result.status == "PASS"
+    assert result.status == "FAIL"  # the draft root has no publish action
     assert result.states_explored == 2
 
 
@@ -537,7 +537,7 @@ def test_initial_relation_infers_domain_from_required_given_value():
         spec,
         cache={},
     )
-    assert result.status == "PASS"
+    assert result.status == "FAIL"  # the enabled root has no disabling action
     assert result.states_explored == 2
 
 
@@ -645,8 +645,9 @@ def test_query_without_a_source_starts_from_spec_initial():
 
     spec = Spec(id="s", name="S", entities=[Box], initial=Initial(vary=[Box.n]))
 
-    # spec.initial varies n over 0..3, so n == 3 is one of the roots
-    assert _run(Reachable(Box.n == 3), spec).status == "PASS"
+    # n == 3 is one root, but the other roots cannot reach it without actions
+    assert _run(Reachable(Box.n == 3), spec).status == "FAIL"
+    assert _run(Reachable(Box.n == 3, given=[Box(n=3)]), spec).status == "PASS"
     # opting out with an explicit given falls back to the defaults-only root
     assert _run(Reachable(Box.n == 3, given=[Box(n=0)]), spec).status == "FAIL"
 

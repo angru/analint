@@ -26,12 +26,19 @@ reports (#41–#50); it is no longer waiting for first feedback. The independent
 one-requirement-change trial remains open: finding bugs during initial authoring
 is not evidence that a complete before/after maintenance loop succeeded.
 
-1. **#42 — Reachable from every root: in progress.** Restore the documented
+1. **#42 — Reachable from every root: implemented, review pending.** Restores the documented
    requirement that every admissible initial state has a path to the predicate.
    The 0.1.0 engine and an existing test instead accept one matching root.
    Cover converging paths, duplicate/projected roots, budgets, excluded actions,
    cache, traces and native/TLC parity; a root's BFS discovery owner is not the
    set of roots that can reach it. Record this as a correctness change.
+   The unreleased repair checks reverse graph reachability natively and each
+   projected root with TLC. Complete failures identify an unreachable root;
+   partial results remain INCONCLUSIVE unless every root has a witness.
+   Validation: 35 focused cases, CLI/MCP and real TLC, unchanged example
+   snapshots; full suite 1090 passed / 21 skipped, lint/format/typing and strict
+   docs build passed. Five old tests were corrected to match the documented
+   all-roots contract. This is not yet merged or released.
 2. **#41 — DeadActions slicing: next, after #42.** Preserve transitions needed
    to enable the action being assessed. The minimal report fails with slicing
    and passes with `--no-slice`. Gate the fix against action ordering, budgets,

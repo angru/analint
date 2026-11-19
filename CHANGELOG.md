@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Multi-root `Reachable` now requires a path from every admissible initial
+  state, matching the documented contract. Previously one root's witness could
+  produce a false PASS. Converging paths are checked on the graph, not assigned
+  to their BFS discovery root. Failures identify a root without a path; partial
+  exploration stays INCONCLUSIVE unless all roots have witnesses. TLC checks
+  roots separately and retains one representative action trace. Existing models
+  relying on existential choice among roots can now fail. (#42)
+
 ## [0.1.0] — 2026-11-18
 
 Select checks over a shared model, inspect scoped diagnostics, and use the

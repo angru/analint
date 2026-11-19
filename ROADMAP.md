@@ -39,10 +39,17 @@ is not evidence that a complete before/after maintenance loop succeeded.
    snapshots; full suite 1090 passed / 21 skipped, lint/format/typing and strict
    docs build passed. Five old tests were corrected to match the documented
    all-roots contract. This is not yet merged or released.
-2. **#41 — DeadActions slicing: next, after #42.** Preserve transitions needed
+2. **#41 — DeadActions slicing: implemented, review pending.** Preserves transitions needed
    to enable the action being assessed. The minimal report fails with slicing
    and passes with `--no-slice`. Gate the fix against action ordering, budgets,
-   superset reuse and existing slicing optimizations.
+   superset reuse and existing slicing optimizations. The bounded repair keeps
+   disablers only for the assessed action's non-antitone guard reads; unrelated
+   properties and ordinary flag consumers retain their reduced slices.
+   The focused flag/slicing suite passes (83 cases), and the example snapshots
+   are unchanged. The external `exness-spec` now passes with both repairs:
+   8 scenarios, 1 flow, 2 invariants and 4 queries; no INCONCLUSIVE results.
+   The 7 existing action-scenario coverage warnings remain. Full pre-push and
+   hosted gates must pass before merge; the repair is not released.
 3. **PR #40 — invariant plan lifetime: separate review.** The proposed repair
    addresses false PASS after nested invariant edits and model copies. Quality
    and Docs passed at `a863a76`; the PR is open, not merged or released. Review

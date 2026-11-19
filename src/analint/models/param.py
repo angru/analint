@@ -35,6 +35,7 @@ from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -218,6 +219,8 @@ class ParamField(Symbolic):
 
 def _resolve(operand: Any, binding: Binding) -> Any:
     """Substitute a binding into an operand; non-param operands pass through."""
+    if isinstance(operand, _Lookup):
+        return _Lookup(_resolve(operand.selector, binding), operand.entries)
     if isinstance(operand, Key):
         return Key(_resolve(operand.target, binding))
     if isinstance(operand, ParamField):
@@ -364,6 +367,8 @@ def _contains_present(pred: Predicate) -> bool:
 
 
 def _operand_contains_present(operand: Any) -> bool:
+    if isinstance(operand, _Lookup):
+        return _operand_contains_present(operand.selector)
     if isinstance(operand, _Count):
         return _contains_present(operand.predicate)
     if isinstance(operand, (_Sum, _Min, _Max)):

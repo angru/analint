@@ -465,6 +465,20 @@ One-sided saturation applies to effect results and `Create`, before postconditio
 The opposite bound, exclusive bounds and `values` remain checked after clamping.
 Initial snapshots and event payloads are validated without clamping.
 
+### Enum constant lookup
+
+`Lookup(Account.kind, {Kind.STANDARD: 60, Kind.PRO: 30})` is an integer-valued
+expression that composes with arithmetic, predicates and effects. The table must
+cover every member of one enum; values must be integer constants, excluding bool.
+The constructor copies the table. Params and quantified/scoped fields work as
+selectors. An unmatched selector raises an evaluation error, with no default arm.
+Scalar enums retain Python equality (`IntEnum`/`StrEnum` match their underlying
+values), consistent with ordinary DSL comparisons and state identity.
+
+TLC exports literal enum selectors and fields whose roots and writes are known
+to contain members of that enum. It explicitly refuses other selector domains;
+this prevents scalar-enum encoding from hiding an invalid native selector.
+
 ## Scenario and Flow
 
 `Scenario(action=..., given=[...], then=[...], expected=Expect.PASS)` checks one

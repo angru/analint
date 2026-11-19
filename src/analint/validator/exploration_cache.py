@@ -36,6 +36,7 @@ from analint.models.entity import _MISSING, FieldDescriptor, FieldSpec, all_fiel
 from analint.models.invariant import Invariant
 from analint.models.key import Key
 from analint.models.lifecycle import Lifecycle
+from analint.models.lookup import _Lookup
 from analint.models.quantifier import Bound, BoundField
 from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, Scope, context_key_label
@@ -54,6 +55,7 @@ _CANON_DATACLASSES = {
     expr._SubExpr,
     expr._MulExpr,
     Key,
+    _Lookup,
     predicate._Eq,
     predicate._Ne,
     predicate._Gt,

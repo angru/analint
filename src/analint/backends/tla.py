@@ -37,6 +37,7 @@ from analint.models.entity import _MISSING, FieldDescriptor, all_fields
 from analint.models.event import Event
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     _And,
     _BinaryComparison,
@@ -139,6 +140,7 @@ class _Model:
 
     def __init__(self, spec: Spec, roots: list[dict]) -> None:
         self.spec = spec
+        self.roots = roots
         self.keys = sorted(roots[0], key=context_key_label)
         if any(sorted(ctx, key=context_key_label) != self.keys for ctx in roots):
             raise ExportError("roots with different context keys")
@@ -180,6 +182,34 @@ class _Model:
         return "[" + ", ".join(parts) + "]"
 
 
+def _require_enum_field(model: _Model, key: Any, name: str, enum: type) -> None:
+    """TLC erases scalar-Enum identity: refuse fields that might hold lookalikes."""
+
+    def require(value: Any) -> None:
+        if type(value) is not enum:
+            raise ExportError(
+                "Lookup selector needs enum-valued roots and literal enum writes for TLC"
+            )
+
+    for root in model.roots:
+        inst = root[key]
+        if inst.__dict__.get("_analint_present", True):
+            require(inst.__dict__.get(name))
+    cls = key.entity_cls if isinstance(key, InstanceRef) else key
+    for action in model.spec.actions:
+        for effect in action.effect:
+            if (
+                isinstance(effect, (Set, Add, Subtract))
+                and _target_key(effect) == key
+                and effect.field.field_name == name
+            ):
+                if not isinstance(effect, Set):
+                    raise ExportError("Lookup selector cannot have arithmetic writes in TLC")
+                require(effect.value)
+            elif isinstance(effect, Create) and effect.target == key:
+                require(effect.fields.get(name, all_fields(cls)[name].default))
+
+
 # ── expressions ──────────────────────────────────────────────────────────────
 
 
@@ -207,6 +237,19 @@ class _Renderer:
         return f"{self.rec[key]}.{_field(name)}"
 
     def operand(self, op: Any) -> str:
+        if isinstance(op, _Lookup):
+            enum = type(op.entries[0][0])
+            if isinstance(op.selector, (FieldDescriptor, InstanceField)):
+                field = op.selector
+                key = field.instance if isinstance(field, InstanceField) else field.entity_cls
+                _require_enum_field(self.model, key, field.field_name, enum)
+            elif type(op.selector) is not enum:
+                raise ExportError("Lookup selector is not provably in its enum domain")
+            selector = self.operand(op.selector)
+            arms = " [] ".join(
+                f"{selector} = {_literal(key)} -> {_literal(value)}" for key, value in op.entries
+            )
+            return f"(CASE {arms})"
         if isinstance(op, Key):
             if not isinstance(op.target, InstanceRef):
                 raise ExportError(f"unbound Key target {op.target!r}")
@@ -315,6 +358,8 @@ def _outside_refs(pred: Any) -> list[Any]:
     def operand(op: Any) -> None:
         if isinstance(op, (FieldDescriptor, InstanceField)):
             out.append(op)
+        elif isinstance(op, _Lookup):
+            operand(op.selector)
         elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
             operand(op.left)
             operand(op.right)

@@ -10,7 +10,7 @@ from analint.reporter.base import Code
 from analint.validator.engine import validate_spec
 
 
-def model(source, legal_missing=False, single=False):
+def model(source, legal_missing=False, single=False, matching=False):
     class Box(Entity):
         allowed: bool = True
         enabled: bool = True
@@ -20,7 +20,7 @@ def model(source, legal_missing=False, single=False):
     legal = Invariant(Box.allowed, id="legal")
     query = Reachable(Box.done, id="done")
     spec = Spec(id="roots", name="Roots", actions=[finish], invariants=[legal], queries=[query])
-    roots = [[Box(allowed=False)]]
+    roots = [[Box(allowed=False, done=matching)]]
     if not single:
         roots.append([Box()])
     if legal_missing:
@@ -29,7 +29,10 @@ def model(source, legal_missing=False, single=False):
         relation = (
             Initial(given=roots[0])
             if single
-            else Initial(vary=[Box.allowed, Box.enabled] if legal_missing else [Box.allowed])
+            else Initial(
+                vary=[Box.allowed, Box.enabled] if legal_missing else [Box.allowed],
+                given=[Box(done=matching)],
+            )
         )
         if source == "canonical":
             spec.initial = relation
@@ -40,13 +43,14 @@ def model(source, legal_missing=False, single=False):
     return spec, query, Box
 
 
+@pytest.mark.parametrize("matching", [False, True])
 @pytest.mark.parametrize("source", ["canonical", "initial", "given_any"])
 @pytest.mark.parametrize("sliced", [False, True])
 @pytest.mark.parametrize("selected", [False, True])
 def test_invalid_root_is_explained_without_missing_path_claim(
-    source, sliced, selected, tmp_path, monkeypatch
+    source, sliced, selected, tmp_path, monkeypatch, matching
 ):
-    spec, _, _ = model(source)
+    spec, _, _ = model(source, matching=matching)
     monkeypatch.setenv("ANALINT_CACHE_DIR", str(tmp_path / "cache"))
     findings = []
     for cache in [False, True, True]:
@@ -83,14 +87,17 @@ def test_single_invalid_root_remains_fail(sliced):
 @pytest.mark.parametrize("sliced", [False, True])
 @pytest.mark.parametrize("selected", [False, True])
 @pytest.mark.parametrize("legal_missing", [False, True])
-def test_tlc_clarifies_invalid_roots_and_keeps_legal_failure(sliced, selected, legal_missing):
+@pytest.mark.parametrize("matching", [False, True])
+def test_tlc_clarifies_invalid_roots_and_keeps_legal_failure(
+    sliced, selected, legal_missing, matching
+):
     from analint.backends.tlc import TlcUnavailable, find_tlc
 
     try:
         find_tlc()
     except TlcUnavailable as exc:
         pytest.skip(str(exc))
-    spec, _, _ = model("given_any", legal_missing=legal_missing)
+    spec, _, _ = model("given_any", legal_missing=legal_missing, matching=matching)
     result = validate_spec(
         spec, sliced=sliced, checks=["done"] if selected else None, max_states=1, tlc=True
     )
@@ -159,8 +166,13 @@ def test_tlc_keeps_known_invalid_failure_and_later_backend_diagnostic(monkeypatc
     assert any(f.code == expected for f in result.findings)
 
 
+@pytest.fixture(params=[False, True])
+def matching(request):
+    return request.param
+
+
 @pytest.fixture
-def entry(tmp_path):
+def entry(tmp_path, matching):
     path = tmp_path / "spec.py"
     path.write_text("""from analint import Action, Entity, Initial, Invariant, Reachable, Set, Spec
 class Box(Entity):
@@ -172,6 +184,8 @@ done = Reachable(Box.done)
 spec = Spec(id="roots", name="Roots", actions=[finish], invariants=[legal],
             queries=[done], initial=Initial(vary=[Box.allowed]))
 """)
+    if matching:
+        path.write_text(path.read_text().replace("done: bool = False", "done: bool = True"))
     return path
 
 
@@ -265,10 +279,45 @@ def test_invariant_evaluation_error_is_also_an_unexpanded_root():
     assert any(f.code == Code.INVARIANT_EVALUATION_ERROR for f in result.exploration_findings)
 
 
-def test_invalid_root_already_matching_goal_keeps_query_status_and_overall_fail():
-    spec, query, box = model("given_any", single=True)
-    query.given_any = [[box(allowed=False, done=True)]]
-    result = validate_spec(spec, checks=["done"])
+@pytest.mark.parametrize("source", ["given", "given_any", "initial", "canonical"])
+@pytest.mark.parametrize("sliced", [False, True])
+@pytest.mark.parametrize("selected", [False, True])
+def test_invalid_matching_root_never_supplies_positive_witness(source, sliced, selected):
+    spec, query, box = model(source, single=True, matching=True)
+    if source == "given":
+        query.given_any = []
+        query.given = [box(allowed=False, done=True)]
+    result = validate_spec(spec, sliced=sliced, checks=["done"] if selected else None)
     assert result.verdict == "FAIL"
-    assert result.query_results[0].status == "PASS"  # preserve existing query semantics
-    assert not any(f.code == Code.QUERY_INVALID_ROOT for f in result.query_results[0].findings)
+    [qr] = result.query_results
+    assert qr.status == "FAIL"
+    assert any(f.code == Code.QUERY_INVALID_ROOT for f in qr.findings)
+    assert not any(f.code == Code.WITNESS for f in qr.findings)
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+def test_matching_invalid_root_does_not_hide_a_legal_missing_path(sliced):
+    spec, query, box = model("given_any", legal_missing=True, matching=True)
+    query.given_any.insert(1, [box(allowed=False, done=True)])  # preserve original numbering
+    result = validate_spec(spec, sliced=sliced)
+    [qr] = result.query_results
+    assert qr.status == "FAIL"
+    assert any(f.code == Code.NOT_REACHABLE and "init #4" in f.message for f in qr.findings)
+    assert not any(f.code == Code.WITNESS for f in qr.findings)
+
+
+def test_invalid_matching_root_does_not_hide_predicate_errors():
+    spec, query, box = model("given_any", single=True, matching=True)
+    query.predicate = box.done < "wrong type"
+    result = validate_spec(spec)
+    assert result.verdict == "FAIL"
+    assert any(f.code == Code.QUERY_EVALUATION_ERROR for f in result.query_results[0].findings)
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+def test_invalid_matching_roots_under_budget_are_not_positive_witnesses(sliced):
+    spec, _, _ = model("given_any", matching=True)
+    result = validate_spec(spec, sliced=sliced, max_states=1)
+    assert result.verdict == "FAIL"
+    assert result.query_results[0].status == "INCONCLUSIVE"
+    assert not any(f.code == Code.WITNESS for f in result.query_results[0].findings)

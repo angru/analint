@@ -284,6 +284,11 @@ def _decide_query(
     res.backend = "tlc"
     res.states_explored = outcome.distinct_states or 0
     found = outcome.status == "violation"
+    invalid_root = isinstance(query, Reachable) and bool(
+        check_invariants(spec, initials[0], "initial")
+    )
+    if invalid_root:
+        found = False
     text = query.label or res.query_id
     if isinstance(query, Reachable):
         res.status = QueryStatus.PASS if found else QueryStatus.FAIL
@@ -308,11 +313,7 @@ def _decide_query(
     else:
         code = Code.PROPERTY_VIOLATED if isinstance(query, AlwaysHolds) else Code.REACHED_FORBIDDEN
     finding = Finding(severity, loc, message, code)
-    if (
-        isinstance(query, Reachable)
-        and not found
-        and check_invariants(spec, initials[0], "initial")
-    ):
+    if invalid_root:
         finding = _invalid_root_finding(res.query_id, 1)
     res.findings = [finding, _note(outcome)]
 
@@ -366,18 +367,18 @@ def _decide_reachable_roots(
                 break  # keep the known FAIL and the new backend/defect diagnostic
             return
         outcomes.append((number, root, outcome))
+        if check_invariants(spec, root, "initial"):
+            invalid_numbers.add(number)
+            if invalid_failure is None:
+                invalid_failure = outcomes[-1]
+            continue  # a matching invalid root is not a positive witness either
         if outcome.status == "ok":
-            if check_invariants(spec, root, "initial"):
-                invalid_numbers.add(number)
-                if invalid_failure is None:
-                    invalid_failure = outcomes[-1]
-                continue  # retain ordinary missing-path evidence for legal roots
             legal_failure = outcomes[-1]
             break
 
     decisive = legal_failure or invalid_failure or outcomes[-1]
     number, root, last = decisive
-    found = last.status == "violation"
+    found = last.status == "violation" and number not in invalid_numbers
     representative_number, representative_root, representative = outcomes[0]
     if found:
         number, root = representative_number, representative_root

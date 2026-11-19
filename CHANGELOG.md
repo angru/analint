@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- `Reachable` no longer reports a positive witness from a retained invariant-invalid
+  initial state that already matches its goal. Complete checks fail with the
+  invalid-root explanation; legal missing paths retain priority. Overall root
+  legality, partial-proof handling, projection and `Unreachable` are unchanged. (#65)
+
 ## [0.2.0] — 2026-11-19
 
 Author finite models with enum lookup, floor division and one-sided saturation;

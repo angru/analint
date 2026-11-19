@@ -39,6 +39,9 @@ below identifies the reviewed heads and validation boundary.
    an action already enabled at a root.
    [#65](https://github.com/angru/analint/issues/65) tracks a positive query witness
    from an invalid matching root; the overall verdict already remains FAIL.
+   Implementation is in `codex/reachable-invalid-witness`, awaiting independent
+   review: complete Reachable checks reject retained invalid matching roots,
+   with native/TLC, selection, trace and cache regression coverage.
    [#66](https://github.com/angru/analint/issues/66) tracks root-legality reuse and
    unnecessary TLC runs for inert roots.
    [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values

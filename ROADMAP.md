@@ -34,16 +34,13 @@ below identifies the reviewed heads and validation boundary.
    version. Initial authoring and the bounded fulfillment rehearsal do not
    replace that maintenance trial.
 3. **Remaining bounded follow-ups (P3).**
-   [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
-   in effect operands. `BoolValue(predicate)` is implemented on
-   `codex/boolean-effect-values`, pending independent review; it preserves
-   simultaneous effects and explicitly bounds TLC export. Conditional effect
-   lists remain outside this scope.
    [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
    state-space diagnostics, not automatic symmetry reduction.
-   [#71](https://github.com/angru/analint/issues/71) tracks explicit `NoDeadEnd`
-   diagnostics for invariant-invalid successor states, preserving FAIL and the
-   existing explanation for legal dead ends.
+   [#71](https://github.com/angru/analint/issues/71) is implemented in
+   [PR #76](https://github.com/angru/analint/pull/76), pending independent review:
+   `NoDeadEnd` attributes an invariant-invalid witness using finding-to-state
+   provenance and reports `query.invalid_state`. Verdicts, graphs and ordinary
+   dead-end diagnostics are unchanged.
 
 #49's two agreed halves are implemented: #58 adds floor division and #59 adds
 exhaustive enum lookup. Modulo and real division remain outside this scope.
@@ -66,8 +63,15 @@ and a Rust core remain outside current work.
 
 ## Completed follow-ups (2026-11-19)
 
-#53, #65 and #66 are closed and integrated in main through merge commits.
+#53, #65, #66 and #67 are closed and integrated in main through merge commits.
 These changes are **unreleased**; they are not part of the published 0.2.0 package.
+
+[#67](https://github.com/angru/analint/issues/67) — completed in
+[PR #75](https://github.com/angru/analint/pull/75), merged as `0059fd1`.
+`BoolValue(predicate)` supplies parameter-dependent boolean effect operands,
+with simultaneous pre-state evaluation, binding, slicing and cache traversal.
+TLC exports proven boolean domains and explicitly refuses numeric coercions.
+Conditional effect lists remain outside this scope.
 
 [#53](https://github.com/angru/analint/issues/53) — completed in
 [PR #74](https://github.com/angru/analint/pull/74), merged as `f790282`.

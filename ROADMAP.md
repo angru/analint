@@ -31,11 +31,10 @@ one-requirement-change trial is still open.
    Next, record one independently requested rule change with full/selected checks,
    allowed/rejected cases and a trace. Initial authoring and the bounded
    fulfillment rehearsal do not close the before/after maintenance trial.
-2. **PR #40 — invariant plan lifetime: reviewed, still open.** Its concrete
-   stale-invariant repair has a [separate review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
-   with no blocking findings; the focused review rerun passed 54 tests and
-   Quality/Docs passed on `a863a76`. It was not included in the #51/#52 merges
-   and does not close the broader #11 snapshot issue.
+2. **PR #40 — invariant plan lifetime: merged, unreleased.** Main `38da424`
+   contains the separately reviewed stale-invariant repair. The
+   [review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
+   found no blockers; this does not close the broader #11 snapshot issue.
 3. **Bounded review follow-ups, both P3.**
    [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
    action-slice cost. Investigate narrow-first fireability or equivalent reuse
@@ -47,12 +46,12 @@ one-requirement-change trial is still open.
    an explanation that the root was not expanded. Blocking root legality and
    FAIL remain in full/selected checks; legal missing paths retain priority.
    Native/TLC traces and cold/warm cache reports are covered.
-4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
-   improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
-   consistency task. #48 is an API decision: separate query budgets are already
-   documented; inheritance would change that contract. Split #49 into division
-   and lookup proposals. #50 has a concrete one-sided-saturation use case and
-   needs backend-conformant semantics.
+4. **Authoring and diagnostics: implementations awaiting review.**
+   The review queue below covers #43–#50. #48 deliberately changes omitted query
+   budgets to inherit `Spec.max_states`, while explicit query/invocation limits
+   retain priority. #49 is split into #58 (floor division) and #59 (enum lookup);
+   modulo and real division are outside this scope. Do not close #49 until both
+   halves have completed review and merged. #53/#54 remain separate follow-ups.
 
 Links: [#43](https://github.com/angru/analint/issues/43),
 [#44](https://github.com/angru/analint/issues/44),
@@ -68,6 +67,34 @@ concrete consumer evidence. #53 supplies a bounded performance task; it does not
 reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
 dispatch, unbounded structures, a general implementation bridge, semantic diff
 and a Rust core remain outside current work.
+
+## Authoring review queue (2026-11-19)
+
+These changes are **open PRs, not merged or released**. Each implementation branch
+passed the mandatory local pre-push suite, Ruff and ty. Existing characterization
+snapshots are unchanged. Review the independently scoped changes before integration.
+
+| Issues | Review | Behavior |
+| --- | --- | --- |
+| #43–#45 | [PR #56](https://github.com/angru/analint/pull/56) | Count structural errors, preserve literal diagnostic subjects, and show load locations without reporting checks that never ran. |
+| #46–#47 | [PR #57](https://github.com/angru/analint/pull/57) | Complete Param operators and add optional Flow display names while keeping stable check ids. |
+| #48 | [PR #61](https://github.com/angru/analint/pull/61) | Resolve inherited query budgets per invocation across check/show/explore/trace, without mutating declarations. |
+| #50 | [PR #60](https://github.com/angru/analint/pull/60) | Clamp one selected field bound; keep other constraints hard, including Create and TLC. |
+| #49 / #58 | [PR #63](https://github.com/angru/analint/pull/63) | Floor division, with explicit zero errors and a conservative TLC export boundary. |
+| #49 / #59 | [PR #62](https://github.com/angru/analint/pull/62) | Exhaustive, copied enum-to-integer tables with no default arm. |
+
+The expression branches are based on #57; retarget them after its merge. Their
+AST dispatch additions and shared documentation need explicit conflict resolution
+when combined. A separate local integration checkout combines all six branches;
+a model using every new authoring feature passes both native and TLC checks
+(including a one-state fallback budget). This is integration evidence, not an
+independent review or the pending external requirement-change trial.
+
+Native arithmetic and scalar-enum lookup preserve Python equality, including
+numerically equal interned states. TLC floor division requires a nonzero constant
+integer divisor and a numerator proven integer from roots/writes. Lookup export
+requires a proven enum selector domain. Unsupported cases explicitly refuse export
+and leave capped checks INCONCLUSIVE; no approximate result is substituted.
 
 ## Reachability correctness integration (2026-11-19)
 

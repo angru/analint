@@ -39,6 +39,7 @@ from enum import Enum
 from typing import Any
 
 from analint.models.action import Action
+from analint.models.boolean import BoolValue
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
@@ -123,7 +124,9 @@ def _pred_vars(pred: Any, out: set[Var]) -> None:
 
 
 def _operand_vars(op: Any, out: set[Var]) -> None:
-    if isinstance(op, _Lookup):
+    if isinstance(op, BoolValue):
+        _pred_vars(op.predicate, out)
+    elif isinstance(op, _Lookup):
         _operand_vars(op.selector, out)
     elif isinstance(op, Key):
         if not isinstance(op.target, InstanceRef):

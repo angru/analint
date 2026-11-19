@@ -489,6 +489,52 @@ One-sided saturation applies to effect results and `Create`, before postconditio
 The opposite bound, exclusive bounds and `values` remain checked after clamping.
 Initial snapshots and event payloads are validated without clamping.
 
+### Boolean predicate values (unreleased)
+
+`BoolValue(predicate)` turns a DSL predicate into an ordinary boolean operand.
+It also accepts a bare boolean field. This lets a parameterized action update
+flags without duplicating an action for each enum value:
+
+```python
+from enum import Enum
+from analint import Action, BoolValue, Entity, Or, Param, Set
+
+class Method(Enum):
+    CARD = "card"
+    WALLET = "wallet"
+
+class Client(Entity):
+    card_deposited: bool = False
+
+method = Param("method", Method)
+deposit = Action(
+    id="deposit",
+    params=[method],
+    effect=[Set(Client.card_deposited,
+                BoolValue(Or(Client.card_deposited, method == Method.CARD)))],
+)
+```
+
+CARD sets the flag; WALLET preserves its previous value. Every effect RHS reads
+the pre-state, including predicates inside `BoolValue`. `Create` fields use the
+same rule; emitted payload templates still read the post-state. Scope Params,
+quantifiers and presence guards bind normally. Reading an absent instance without
+a guard remains an evaluation defect. References inside the predicate participate
+in model closure, impact reports, slicing and cache identity.
+
+Use `True`/`False` directly for constants. `BoolValue` does not accept Python
+callbacks or coerce Python truthiness. A raw predicate in `Set` remains invalid:
+wrap it explicitly. Duplicate writes to one target remain invalid; this API adds
+values, not conditional effect lists.
+
+Native operands retain Python boolean/numeric semantics. TLC exports boolean
+values and equality/membership within proven boolean domains; it checks roots
+and writes instead of trusting annotations. It explicitly refuses numeric uses
+of `BoolValue`, mixed boolean/integer domains, ordered or null comparisons, and
+numeric field constraints on these values. Existing unsupported predicates (for
+example a `Min`/`Max` expression) still refuse export. A refused fallback remains
+INCONCLUSIVE with `tlc.not_exported`, never an approximated proof.
+
 ### Enum constant lookup
 
 `Lookup(Account.kind, {Kind.STANDARD: 60, Kind.PRO: 30})` is an integer-valued

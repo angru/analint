@@ -31,6 +31,7 @@ from typing import Any
 import analint
 from analint.models import effect, expr, predicate, quantifier
 from analint.models.action import Action
+from analint.models.boolean import BoolValue
 from analint.models.effect import Create, Delete
 from analint.models.entity import _MISSING, FieldDescriptor, FieldSpec, all_fields
 from analint.models.invariant import Invariant
@@ -48,6 +49,7 @@ FORMAT = 4
 # Only these dataclass schemas have been audited for semantic cache inputs.
 # A future node (including a dataclass) must opt in, never inherit acceptance.
 _CANON_DATACLASSES = {
+    BoolValue,
     effect.Set,
     effect.Add,
     effect.Subtract,

@@ -32,6 +32,7 @@ src/analint/
     contract.py            ← Contract: explicit reusable public spec fragment
     entity.py               ← Entity, Field constraints, EntityMeta, FieldDescriptor
     event.py                ← Event base class (same metaclass as Entity)
+    boolean.py              ← BoolValue: explicit predicate-as-value operand
     predicate.py            ← _Eq, _Gte, _Implies … dataclasses + And/Or/Not/Implies factories
     invariant.py            ← Invariant dataclass (world-level constraint)
     initial.py              ← Initial relation over finite field domains
@@ -96,6 +97,12 @@ fields.
 `FieldDescriptor` overloads comparison operators to return `@dataclass` predicate objects. Combinators: `And/Or/Not/Implies/In/IsNull/IsNotNull`. Predicates are plain values — specs name and reuse them (`board_is_active = Board.status == BoardStatus.ACTIVE`).
 
 Imports inside operator methods are deferred to avoid a circular import between `entity.py` and `predicate.py`.
+
+`BoolValue(predicate)` explicitly embeds a predicate as an operand. Effect RHS
+values read the pre-state; event payloads read the post-state. Keep predicate
+binding, compilation, reference/presence walkers, slicing and cache traversal
+inside the wrapper. TLC exports proven boolean domains and refuses numeric
+coercions; never erase a nested evaluation error by constant-folding its result.
 
 ### Evaluation model
 

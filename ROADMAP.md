@@ -35,9 +35,15 @@ below identifies the reviewed heads and validation boundary.
    replace that maintenance trial.
 3. **Remaining bounded follow-ups (P3).**
    [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
-   in effect operands, rather than arbitrary conditional effect lists.
+   in effect operands. `BoolValue(predicate)` is implemented on
+   `codex/boolean-effect-values`, pending independent review; it preserves
+   simultaneous effects and explicitly bounds TLC export. Conditional effect
+   lists remain outside this scope.
    [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
    state-space diagnostics, not automatic symmetry reduction.
+   [#71](https://github.com/angru/analint/issues/71) tracks explicit `NoDeadEnd`
+   diagnostics for invariant-invalid successor states, preserving FAIL and the
+   existing explanation for legal dead ends.
 
 #49's two agreed halves are implemented: #58 adds floor division and #59 adds
 exhaustive enum lookup. Modulo and real division remain outside this scope.

@@ -31,6 +31,7 @@ from itertools import product
 from typing import TYPE_CHECKING, Any
 from weakref import ref
 
+from analint.models.boolean import BoolValue
 from analint.models.effect import Add, Create, Delete, Effect, Set, Subtract
 from analint.models.entity import FieldDescriptor
 from analint.models.expr import Expr, _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
@@ -239,6 +240,8 @@ class ParamField(Symbolic):
 
 def _resolve(operand: Any, binding: Binding) -> Any:
     """Substitute a binding into an operand; non-param operands pass through."""
+    if isinstance(operand, BoolValue):
+        return BoolValue(_subst_pred(operand.predicate, binding))
     if isinstance(operand, _Lookup):
         return _Lookup(_resolve(operand.selector, binding), operand.entries)
     if isinstance(operand, Key):
@@ -387,6 +390,8 @@ def _contains_present(pred: Predicate) -> bool:
 
 
 def _operand_contains_present(operand: Any) -> bool:
+    if isinstance(operand, BoolValue):
+        return _contains_present(operand.predicate)
     if isinstance(operand, _Lookup):
         return _operand_contains_present(operand.selector)
     if isinstance(operand, _Count):

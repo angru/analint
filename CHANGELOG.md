@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- `DeadActions` preserves disable-only flag writers when the assessed action's
+  guard needs the off state. Previously slicing could omit its enabling path
+  and falsely report the action dead, depending on action order and budget.
+  Ordinary antitone action/property slices retain the optimization. (#41)
+
 - Multi-root `Reachable` now requires a path from every admissible initial
   state, matching the documented contract. Previously one root's witness could
   produce a false PASS. Converging paths are checked on the graph, not assigned

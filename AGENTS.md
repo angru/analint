@@ -231,8 +231,8 @@ own slice for defect parity and DeadActions. Do not regress:
   to its `off` value does not join a slice through it. A flag is constant-written,
   read only antitonically in `pre` (or by a boolean enabler) and never in
   post/RHS/payloads; a lifecycle flag only ever written `off`. NoDeadEnd slices,
-  properties reading the flag and constrained slices whose invariants read it
-  keep those writers. Slice identity (cache key, superset reuse) includes the
+  properties reading the flag, action slices with non-antitone guard reads
+  of it, and constrained slices whose invariants read it keep those writers. Slice identity (cache key, superset reuse) includes the
   action set;
 - the one documented divergence: the whole model counts a state that breaks an
   invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does

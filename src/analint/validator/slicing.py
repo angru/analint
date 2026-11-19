@@ -362,7 +362,7 @@ class Slice:
         """Identity of what an exploration of this slice sees (by object id —
         DSL objects must never be compared with ==). The actions are part of
         it: one variable set can carry different actions (a disable-only
-        writer joins its own slice but not its enabler's)."""
+        writer joins its own slice but not an unrelated property's)."""
         return (
             self.vars,
             tuple(id(a) for a in self.actions),
@@ -491,7 +491,16 @@ class SliceAnalysis:
         piece = self._action_slices.get(key)
         if piece is None:
             seed = set(self.action_vars[id(action)])
-            piece = self._resolve(seed, (action,), (), canonical=canonical)
+            # A flag's enabler can need the off state before it can fire.
+            # Omitting its disablers is safe for an antitone property, not for
+            # this action's fireability. Keep only non-antitone guard reads so
+            # ordinary consumers retain the disable-only optimization.
+            keep = frozenset(
+                var
+                for var, off in self.flags.items()
+                if var in seed and any(not _antitone(pred, var, off) for pred in action.pre)
+            )
+            piece = self._resolve(seed, (action,), (), canonical=canonical, keep=keep)
             self._action_slices[key] = piece
         return piece
 

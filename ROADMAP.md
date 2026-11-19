@@ -1,6 +1,6 @@
 # analint — Roadmap
 
-Current status (2026-11-18): **0.1.0 released and verified on PyPI.**
+Current status (2026-11-19): **0.1.0 released and verified on PyPI.**
 The release adds shared-model check selection, scoped diagnostics, stricter operand
 validation and the boundary repairs below. Publish verified the exact wheel/source
 pair on Python 3.12–3.15; public registry hashes and a clean installed-package
@@ -18,42 +18,61 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-18)
+## Current priorities (2026-11-19)
 
-The documentation baseline is complete: a runnable first-spec tutorial,
-verification concepts, DSL/CLI/MCP references and examples gallery. Pull requests
-and main pushes now have a strict documentation build and executable tutorial
-checks before the existing main-only deployment.
-CI now also runs pinned TLC conformance and tests/package installations on
-Python 3.12–3.15; the post-0.0.5 engineering checkpoint below records validation.
-Release acceptance is shared by Quality and Publish; both registry jobs require
-verification of the exact build artifacts on that Python matrix.
+Release 0.1.0, its publication checks, the documentation baseline and P5 are
+complete. Real-spec dogfooding in `exness-spec` has now produced ten actionable
+reports (#41–#50); it is no longer waiting for first feedback. The independent
+one-requirement-change trial remains open: finding bugs during initial authoring
+is not evidence that a complete before/after maintenance loop succeeded.
 
-1. **Verification boundary repairs — released in 0.1.0.** PRs #15–#18 and
-   #22 fix stale MCP imports, symbolic truthiness, failed hypothesis inspection,
-   stale action plans and invalid emitted payloads. The audit below links their
-   implementation and review records. Concurrent TLC isolation (#23) is merged
-   in #25; preserve the semantic and backend gates.
-2. **Real-spec trial — partial feedback, overall verdict pending.** #4 is an
-   introspection defect; do not infer checker unsoundness or trial success.
-   Published 0.0.5 passes its reproduction; the issue is closed. The next
-   step is the [one-change trial](#one-change-trial) on an accessible real spec.
-   Include the shared-model check-selection use case below; do not reconstruct
-   a smaller `Spec` for each flow. The fulfillment rehearsal below now passes
-   with shared-model selections and a retained off-flow defect; the external
-   real-spec verdict remains pending.
-3. **Agent workflow — guided pass, inspection and compact diagnostics complete.**
-   Three existing examples pass requirement-change loops with defect controls
-   (see the queue below). Query details and action-family navigation are
-   included in 0.0.6. Compact diagnostics in 0.0.7 reduce the Kubernetes
-   regression report by 98.69% (see below). Real-spec follow-up remains priority 2.
-4. **Performance — acceptance complete.** P5 and issue #3 are closed. Keep
-   performance history conditional on a controlled runner or a reproduced
-   regression; further engine optimization requires a measured bottleneck.
+1. **#42 — Reachable from every root: in progress.** Restore the documented
+   requirement that every admissible initial state has a path to the predicate.
+   The 0.1.0 engine and an existing test instead accept one matching root.
+   Cover converging paths, duplicate/projected roots, budgets, excluded actions,
+   cache, traces and native/TLC parity; a root's BFS discovery owner is not the
+   set of roots that can reach it. Record this as a correctness change.
+2. **#41 — DeadActions slicing: next, after #42.** Preserve transitions needed
+   to enable the action being assessed. The minimal report fails with slicing
+   and passes with `--no-slice`. Gate the fix against action ordering, budgets,
+   superset reuse and existing slicing optimizations.
+3. **PR #40 — invariant plan lifetime: separate review.** The proposed repair
+   addresses false PASS after nested invariant edits and model copies. Quality
+   and Docs passed at `a863a76`; the PR is open, not merged or released. Review
+   its concrete repair independently; it does not close the broader #11.
+4. **Authoring and diagnostics, after correctness.** Take #43–#45 as bounded
+   terminal/load-diagnostic improvements, then #46 (Param operators). #47
+   (Flow name) is a smaller API consistency task. #48 is an API decision:
+   separate query budgets are already documented; inheritance would change
+   that contract. Split #49 into division and lookup proposals. #50 has a
+   concrete one-sided-saturation use case, but needs backend-conformant semantics.
+5. **Resume the real-spec change trial after blocker repairs.** Replay the
+   dogfood cases against the fixes, then record one independently requested rule
+   change with full/selected checks, allowed/rejected cases and a trace. Keep
+   the bounded fulfillment rehearsal as existing evidence, not trial closure.
 
-New semantic primitives remain evidence-gated. Liveness/fairness, automatic event
-dispatch, unbounded structures, a general implementation bridge, a separate
-semantic-diff command and a Rust core remain outside the current work.
+Links: [#42](https://github.com/angru/analint/issues/42),
+[#41](https://github.com/angru/analint/issues/41),
+[PR #40](https://github.com/angru/analint/pull/40),
+[#43](https://github.com/angru/analint/issues/43),
+[#44](https://github.com/angru/analint/issues/44),
+[#45](https://github.com/angru/analint/issues/45),
+[#46](https://github.com/angru/analint/issues/46),
+[#47](https://github.com/angru/analint/issues/47),
+[#48](https://github.com/angru/analint/issues/48),
+[#49](https://github.com/angru/analint/issues/49),
+[#50](https://github.com/angru/analint/issues/50).
+
+The baseline audit reproduced #41 and #42 on `651b2c6`; the existing explorer
+and slicing suites still passed (95 passed, 2 skipped). Those gates therefore
+need adversarial additions, not just a green rerun. #42 also reproduces without
+slicing. The previous verification-boundary repairs remain released in 0.1.0;
+the history below records their acceptance.
+
+Broader #11 snapshot work and #12 state-store ownership remain conditional on
+concrete consumer evidence. Further optimization requires a measured bottleneck.
+Liveness/fairness, automatic event dispatch, unbounded structures, a general
+implementation bridge, semantic diff and a Rust core remain outside current work.
 
 ## Verification boundary audit (2026-11-17)
 
@@ -206,7 +225,7 @@ remaining product question is whether users can maintain useful abstractions
 through real changes (research/31 §2.4). Another synthetic model or language
 primitive would not resolve that question.
 
-## Post-release work queue (reviewed 2026-11-07)
+## Post-release evidence and historical work queue
 
 ### 0.1.0 publication — verified (2026-11-18)
 

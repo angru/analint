@@ -243,6 +243,8 @@ def _print_trace(t: dict) -> None:
     if t.get("root") is None:
         print(f"  {t.get('message', 'no witness/counterexample to trace')}")
         return
+    if t.get("message"):
+        print(f"  {t['message']}")
     print(f"  root: init #{t['root']['index']}  {t['root']['node']}")
     for i, step in enumerate(t["steps"], 1):
         changes = (

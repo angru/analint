@@ -42,10 +42,11 @@ one-requirement-change trial is still open.
    without dropping transition-defect coverage, including later executions of
    an action already enabled at a root. The cost is accepted for the correctness
    release, not a merge blocker.
-   [#54](https://github.com/angru/analint/issues/54) tracks the extra missing-path
-   diagnostic for an illegal initial root. Clarify or suppress only that
-   duplicate using explicit provenance; preserve blocking root legality and
-   FAIL in full/selected checks, and retain real failures for legal roots.
+   [#54](https://github.com/angru/analint/issues/54) is in progress: explicit
+   invalid-root provenance replaces the misleading missing-path diagnostic with
+   an explanation that the root was not expanded. Blocking root legality and
+   FAIL remain in full/selected checks; legal missing paths retain priority.
+   Native/TLC traces and cold/warm cache reports are covered.
 4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
    improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
    consistency task. #48 is an API decision: separate query budgets are already

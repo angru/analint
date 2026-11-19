@@ -199,7 +199,11 @@ def trace_query(
     if result.backend == "tlc":
         # TLC supplies action ids, not Python state keys. Preserve its witness;
         # never substitute a rerun at a different budget or invent snapshots.
-        root_notes = "\n".join(f.message for f in result.findings if f.code == Code.INITIAL_STATE)
+        root_notes = "\n".join(
+            f.message
+            for f in result.findings
+            if f.code in (Code.INITIAL_STATE, Code.QUERY_INVALID_ROOT)
+        )
         return {
             "schema": "analint.trace/v1",
             source_kind: query_id,
@@ -238,6 +242,9 @@ def trace_query(
         }
     trace = _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
     trace.update(metadata)
+    invalid_root = next((f for f in result.findings if f.code == Code.QUERY_INVALID_ROOT), None)
+    if invalid_root is not None:
+        trace["message"] = invalid_root.message
     if getattr(result, "slice", None):
         trace["slice"] = result.slice
     return trace

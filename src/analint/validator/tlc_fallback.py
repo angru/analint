@@ -26,6 +26,8 @@ from analint.reporter.base import (
     ValidationResult,
 )
 from analint.validator.explorer import (
+    Exploration,
+    _eval_reachable,
     _invalid_root_finding,
     render_state,
     resolve_query_initials,
@@ -266,6 +268,17 @@ def _decide_query(
             spec, res, query, piece, analysis, initials, timeout, defect_actions
         )
         return
+    if isinstance(query, Reachable):
+        roots, numbers, inert = _reachable_roots(spec, piece, analysis, initials)
+        if inert:
+            local = _inert_reachable(query, res.query_id, roots[0], numbers[0])
+            res.status = local.status
+            res.states_explored = local.states_explored
+            res.trace = local.trace
+            res.witness_key = local.witness_key
+            res.findings = local.findings
+            res.backend = None
+            return
     loc = f"query:{res.query_id}"
     kind = "always" if isinstance(query, AlwaysHolds) else "never"
     outcome = _run(
@@ -284,11 +297,6 @@ def _decide_query(
     res.backend = "tlc"
     res.states_explored = outcome.distinct_states or 0
     found = outcome.status == "violation"
-    invalid_root = isinstance(query, Reachable) and bool(
-        check_invariants(spec, initials[0], "initial")
-    )
-    if invalid_root:
-        found = False
     text = query.label or res.query_id
     if isinstance(query, Reachable):
         res.status = QueryStatus.PASS if found else QueryStatus.FAIL
@@ -313,9 +321,28 @@ def _decide_query(
     else:
         code = Code.PROPERTY_VIOLATED if isinstance(query, AlwaysHolds) else Code.REACHED_FORBIDDEN
     finding = Finding(severity, loc, message, code)
-    if invalid_root:
-        finding = _invalid_root_finding(res.query_id, 1)
     res.findings = [finding, _note(outcome)]
+
+
+def _reachable_roots(
+    spec: Spec,
+    piece: Slice | None,
+    analysis: SliceAnalysis | None,
+    initials: list[dict],
+) -> tuple[list[dict], list[int], frozenset[int]]:
+    if analysis is not None:
+        return analysis.project_roots(piece or analysis.whole, initials)
+    inert = frozenset(i for i, ctx in enumerate(initials) if check_invariants(spec, ctx, "initial"))
+    return initials, list(range(1, len(initials) + 1)), inert
+
+
+def _inert_reachable(query: Reachable, qid: str, root: dict, number: int) -> QueryResult:
+    """An inert root has no successors; apply the native query/error contract."""
+    exp = Exploration()
+    key = state_key(root)
+    exp.invalid_roots.add(exp.add_state(key, -1, -1))
+    exp.roots[key] = number
+    return _eval_reachable(query, qid, exp, True)
 
 
 def _decide_reachable_roots(
@@ -335,9 +362,7 @@ def _decide_reachable_roots(
     proves the other roots. An undecided run leaves the query inconclusive unless
     an earlier root already refuted it.
     """
-    roots, numbers = initials, list(range(1, len(initials) + 1))
-    if analysis is not None and piece is not None:
-        roots, numbers, _ = analysis.project_roots(piece, initials)
+    roots, numbers, inert = _reachable_roots(spec, piece, analysis, initials)
     seen = set()
     outcomes = []
     invalid_failure = None
@@ -346,11 +371,23 @@ def _decide_reachable_roots(
     added_findings_start = len(res.findings)
     loc = f"query:{res.query_id}"
     text = query.label or res.query_id
-    for root, number in zip(roots, numbers, strict=True):
+    for pos, (root, number) in enumerate(zip(roots, numbers, strict=True)):
         key = state_key(root)
         if key in seen:
             continue
         seen.add(key)
+        if pos in inert:
+            local = _inert_reachable(query, res.query_id, root, number)
+            res.findings.extend(
+                finding
+                for finding in local.findings
+                if finding.code not in {Code.QUERY_INVALID_ROOT, Code.INITIAL_STATE}
+            )
+            outcomes.append((number, root, None))  # assessed locally, never a TLC run
+            invalid_numbers.add(number)
+            if invalid_failure is None:
+                invalid_failure = outcomes[-1]
+            continue  # still check legal roots for missing paths and backend defects
         outcome = _run(
             spec,
             piece,
@@ -367,30 +404,29 @@ def _decide_reachable_roots(
                 break  # keep the known FAIL and the new backend/defect diagnostic
             return
         outcomes.append((number, root, outcome))
-        if check_invariants(spec, root, "initial"):
-            invalid_numbers.add(number)
-            if invalid_failure is None:
-                invalid_failure = outcomes[-1]
-            continue  # a matching invalid root is not a positive witness either
         if outcome.status == "ok":
             legal_failure = outcomes[-1]
             break
 
     decisive = legal_failure or invalid_failure or outcomes[-1]
     number, root, last = decisive
-    found = last.status == "violation" and number not in invalid_numbers
+    found = last is not None and last.status == "violation"
     representative_number, representative_root, representative = outcomes[0]
     if found:
         number, root = representative_number, representative_root
-    res.backend = "tlc"
+    res.backend = "tlc" if any(outcome is not None for _, _, outcome in outcomes) else None
     res.status = QueryStatus.PASS if found else QueryStatus.FAIL
-    res.states_explored = sum(outcome.distinct_states or 0 for _, _, outcome in outcomes)
-    res.trace = representative.trace if found else None
+    res.states_explored = sum(
+        (outcome.distinct_states or 0) if outcome is not None else 1 for _, _, outcome in outcomes
+    )
+    res.trace = representative.trace if found and representative is not None else None
+    if res.backend is None:
+        res.witness_key = state_key(root)
     message = (
         f"'{text}' reachable from all {len(outcomes)} initial states (TLC); "
         f"representative witness from init #{number}: "
         f"{' → '.join(representative.trace) or '(initial state)'}"
-        if found
+        if found and representative is not None
         else f"'{text}' is not reachable from init #{number} (TLC)"
     )
     rendered = ", ".join(f"{k}={v}" for k, v in render_state(root).items())
@@ -405,5 +441,5 @@ def _decide_reachable_roots(
         else _invalid_root_finding(res.query_id, number),
         Finding(Severity.INFO, loc, f"init #{number}: {rendered}", Code.INITIAL_STATE),
         *res.findings[added_findings_start:],
-        *[_note(outcome) for _, _, outcome in outcomes],
+        *[_note(outcome) for _, _, outcome in outcomes if outcome is not None],
     ]

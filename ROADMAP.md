@@ -33,39 +33,7 @@ below identifies the reviewed heads and validation boundary.
    full/selected checks, allowed/rejected cases and a trace on the published
    version. Initial authoring and the bounded fulfillment rehearsal do not
    replace that maintenance trial.
-3. **Bounded follow-ups (P3), outside the integrated queue.**
-   [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
-   action-slice cost, preserving defect coverage including later executions of
-   an action already enabled at a root. Implementation in
-   `codex/local-enabler-coverage` awaits independent review. It only narrows local
-   boolean enablers whose complete off/on exploration covers every defect input;
-   unsuccessful or capped probes widen, and state-dependent postconditions retain
-   ordinary coverage. The later-execution defect control remains FAIL.
-
-   Broker on Python 3.14.5, the same model and five sequential runs without tests:
-
-   | Metric | main `70d2eaf` | #53 branch |
-   | --- | ---: | ---: |
-   | Maximum reported states per check | 38,518 | 27,228 |
-   | Actual exploration calls | 5 | 5 |
-   | Actual explored states (sum) | 54,430 | 43,140 |
-   | Slice requests / reused requests | 49 / 44 | 49 / 44 |
-   | Median wall time, seconds (indicative) | 3.0224 | 2.4709 |
-
-   Reproduce with `python scripts/bench_action_coverage.py examples/broker`;
-   the script reports every check's count, actual materialized work and repeated
-   slice returns separately. With `--cache` and fresh cache directories, both
-   revisions retain PASS and warm runs perform zero actual explorations.
-
-   [#65](https://github.com/angru/analint/issues/65) tracks a positive query witness
-   from an invalid matching root; the overall verdict already remains FAIL.
-   Implementation is in `codex/reachable-invalid-witness`, awaiting independent
-   review: complete Reachable checks reject retained invalid matching roots,
-   with native/TLC, selection, trace and cache regression coverage.
-   [#66](https://github.com/angru/analint/issues/66) tracks root-legality reuse and
-   unnecessary TLC runs for inert roots. Implementation is in
-   `codex/reuse-root-legality`, stacked on #65 and awaiting independent review;
-   call-count tests cover projection reuse and zero JVM launches for inert roots.
+3. **Remaining bounded follow-ups (P3).**
    [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
    in effect operands, rather than arbitrary conditional effect lists.
    [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
@@ -86,10 +54,50 @@ Links: [#43](https://github.com/angru/analint/issues/43),
 [#50](https://github.com/angru/analint/issues/50).
 
 Broader #11 snapshot work and #12 state-store ownership remain conditional on
-concrete consumer evidence. #53 supplies a bounded performance task; it does not
-reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
-dispatch, unbounded structures, a general implementation bridge, semantic diff
+concrete consumer evidence. The completed #53 optimization does not reopen P5
+or justify a general rewrite. Liveness/fairness, automatic event dispatch, unbounded structures, a general implementation bridge, semantic diff
 and a Rust core remain outside current work.
+
+## Completed follow-ups (2026-11-19)
+
+#53, #65 and #66 are closed and integrated in main through merge commits.
+These changes are **unreleased**; they are not part of the published 0.2.0 package.
+
+[#53](https://github.com/angru/analint/issues/53) — completed in
+[PR #74](https://github.com/angru/analint/pull/74), merged as `f790282`.
+The optimization reduces broker action-slice cost while preserving defect
+coverage, including later executions of an action already enabled at a root.
+It only narrows local boolean enablers whose complete off/on exploration covers
+every defect input;
+unsuccessful or capped probes widen, and state-dependent postconditions retain
+ordinary coverage. The later-execution defect control remains FAIL.
+
+Broker on Python 3.14.5, the same model and five sequential runs without tests:
+
+| Metric | Before `70d2eaf` | #74 implementation `3eb48e8` |
+| --- | ---: | ---: |
+| Maximum reported states per check | 38,518 | 27,228 |
+| Actual exploration calls | 5 | 5 |
+| Actual explored states (sum) | 54,430 | 43,140 |
+| Slice requests / reused requests | 49 / 44 | 49 / 44 |
+| Median wall time, seconds (indicative) | 3.0224 | 2.4709 |
+
+Reproduce with `python scripts/bench_action_coverage.py examples/broker`;
+the script reports every check's count, actual materialized work and repeated
+slice returns separately. With `--cache` and fresh cache directories, both
+revisions retain PASS and warm runs perform zero actual explorations.
+
+[#65](https://github.com/angru/analint/issues/65) — completed in
+[PR #72](https://github.com/angru/analint/pull/72), merged as `07303a9`.
+Complete Reachable checks reject retained invalid matching roots as positive
+witnesses; overall root legality remains FAIL. Native/TLC, selection, trace
+and cache regressions cover the changed query-level contract.
+
+[#66](https://github.com/angru/analint/issues/66) — completed in
+[PR #73](https://github.com/angru/analint/pull/73), retargeted to main after #72
+and merged as `c2aa18d`. Reachability fallback reuses root-legality provenance
+and avoids TLC launches for inert roots. Call-count tests cover projection
+reuse; predicate errors and later backend/transition defects remain visible.
 
 ## Authoring integration (2026-11-19)
 
@@ -165,8 +173,10 @@ reported `states_explored` among checks, not total exploration work. The widened
 `request_code` slice contains all 33 actions / 19 variables because retaining
 `code_confirmed` disablers pulls in withdrawal dependencies. Approximate
 2.5-to-3.1-second timings were taken under concurrent test load and are not a
-performance gate. #53 must measure actual exploration calls/state totals and
-controlled timings while preserving both fireability and defect coverage.
+performance gate. #53 subsequently completed that bounded optimization in
+[PR #74](https://github.com/angru/analint/pull/74), with actual exploration
+calls/state totals and controlled timings recorded under completed follow-ups
+above; fireability and defect coverage remain intact.
 The root diagnostic noted in #51 is separately tracked by #54; it does not
 change the accepted FAIL semantics for illegal initial states.
 
@@ -762,9 +772,10 @@ example is exercised through check/explore/trace and cold/warm cache in docs CI.
 ### 5. Performance history — conditional backlog
 
 The existing ASV/history infrastructure proposal below remains deferred. The
-concrete broker regression from #52 is now tracked in [#53](https://github.com/angru/analint/issues/53);
-it authorizes a bounded comparison and optimization, not a general history
-service. Reuse the current generated workloads and broker models; record commit, environment, completeness, state counts,
+concrete broker regression from #52 was addressed by
+[#53](https://github.com/angru/analint/issues/53) / [PR #74](https://github.com/angru/analint/pull/74).
+That bounded comparison and optimization is complete; a general history service
+remains deferred. Reuse the current generated workloads and broker models; record commit, environment, completeness, state counts,
 cold/warm mode and memory. Keep normal tests free of timing gates. New backends,
 POR and native rewrites still require the measured triggers documented in P5.
 

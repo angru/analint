@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import inspect
 import sys
+import traceback
 from pathlib import Path
 from types import ModuleType
 
@@ -13,7 +14,19 @@ from analint.models.root import Spec
 
 class LoadError(Exception):
     def __init__(self, path: Path, cause: Exception) -> None:
-        super().__init__(f"{path}: {cause}")
+        location = str(path)
+        if isinstance(cause, SyntaxError) and cause.filename and cause.lineno:
+            location = f"{cause.filename}:{cause.lineno}"
+        else:
+            # Prefer the innermost specification frame, not analint/importlib
+            # internals. Include sibling modules in the entry's package.
+            root, _ = _package_context(path.resolve())
+            for frame in traceback.extract_tb(cause.__traceback__):
+                if not frame.filename.startswith("<") and Path(
+                    frame.filename
+                ).resolve().is_relative_to(root):
+                    location = f"{frame.filename}:{frame.lineno}"
+        super().__init__(f"{location}: {cause}")
         self.path = path
         self.cause = cause
 

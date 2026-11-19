@@ -31,11 +31,10 @@ one-requirement-change trial is still open.
    Next, record one independently requested rule change with full/selected checks,
    allowed/rejected cases and a trace. Initial authoring and the bounded
    fulfillment rehearsal do not close the before/after maintenance trial.
-2. **PR #40 — invariant plan lifetime: reviewed, still open.** Its concrete
-   stale-invariant repair has a [separate review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
-   with no blocking findings; the focused review rerun passed 54 tests and
-   Quality/Docs passed on `a863a76`. It was not included in the #51/#52 merges
-   and does not close the broader #11 snapshot issue.
+2. **PR #40 — invariant plan lifetime: merged, unreleased.** Main `38da424`
+   contains the separately reviewed stale-invariant repair. The
+   [review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
+   found no blockers; this does not close the broader #11 snapshot issue.
 3. **Bounded review follow-ups, both P3.**
    [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
    action-slice cost. Investigate narrow-first fireability or equivalent reuse
@@ -46,12 +45,14 @@ one-requirement-change trial is still open.
    diagnostic for an illegal initial root. Clarify or suppress only that
    duplicate using explicit provenance; preserve blocking root legality and
    FAIL in full/selected checks, and retain real failures for legal roots.
-4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
-   improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
-   consistency task. #48 is an API decision: separate query budgets are already
-   documented; inheritance would change that contract. Split #49 into division
-   and lookup proposals. #50 has a concrete one-sided-saturation use case and
-   needs backend-conformant semantics.
+4. **Authoring and diagnostics: in progress.** #43–#45 have a bounded
+   terminal/load-report repair on `codex/authoring-diagnostics`, pending review.
+   Next are #46 (Param operators) and #47 (Flow name). For #48, omitted query
+   budgets will inherit `Spec.max_states`; explicit query budgets keep priority,
+   and CLI overrides still apply to all checks. This deliberately changes the
+   documented separate-default contract. #49 is two independent changes: integer
+   floor division and exhaustive enum lookup; modulo is outside this scope.
+   #50 adds one-sided saturation with native/TLC parity and a hard opposite bound.
 
 Links: [#43](https://github.com/angru/analint/issues/43),
 [#44](https://github.com/angru/analint/issues/44),

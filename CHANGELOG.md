@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Terminal reports count structural errors and preserve literal finding locations
+  and messages. Load failures show the source file/line when available and stop
+  before sections for checks that never ran. Exit codes are unchanged. (#43–#45)
+
 - `DeadActions` preserves disable-only flag writers when the assessed action's
   guard needs the off state. Previously slicing could omit its enabling path
   and falsely report the action dead, depending on action order and budget.

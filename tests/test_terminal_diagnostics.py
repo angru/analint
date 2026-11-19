@@ -1,0 +1,78 @@
+"""Human reports preserve diagnostic subjects and distinguish preparation failure."""
+
+import json
+
+import pytest
+from rich.console import Console
+from typer.testing import CliRunner
+
+from analint.cli import app
+from analint.loader.python_loader import load_path
+from analint.reporter import terminal
+
+
+@pytest.fixture(autouse=True)
+def wide_console(monkeypatch):
+    monkeypatch.setattr(terminal, "console", Console(width=240))
+
+
+def test_structural_counts_and_literal_subjects(tmp_path):
+    entry = tmp_path / "spec.py"
+    entry.write_text("""from analint import Action, DeadActions, Entity, Not, Set, Spec
+class Flag(Entity):
+    on: bool = False
+turn_on = Action(id="turn_on[small]", pre=[Not(Flag.on)], effect=[Set(Flag.on, True)])
+spec = Spec(id="s", name="s", actions=[turn_on], queries=[DeadActions()])
+""")
+    result = CliRunner().invoke(app, ["check", str(entry)])
+    assert result.exit_code == 1
+    assert "[action:turn_on[small]] has no scenarios" in result.stdout
+    summary = result.stdout.split("Results:")[1]
+    assert "1 structural error" in summary
+    assert "1 warning" in summary
+    assert "FAIL" in summary
+
+
+@pytest.mark.parametrize(
+    "source,line",
+    [
+        ('raise TypeError("bad [red] value")\n', 1),
+        ('from analint import Param\np = Param("p", 1, 2)\nx = p / 2\n', 3),
+        ("x = (\n", 1),
+    ],
+)
+def test_load_failure_has_location_and_no_fake_checks(tmp_path, source, line):
+    entry = tmp_path / "spec.py"
+    entry.write_text(source)
+    runner = CliRunner()
+    result = runner.invoke(app, ["check", str(entry)])
+    assert result.exit_code == 3
+    assert f"{entry}:{line}" in result.stdout.replace("\n", "")
+    assert "LOAD ERROR" in result.stdout
+    for section in ("STRUCTURAL", "SCENARIOS", "Results:"):
+        assert section not in result.stdout
+    payload = runner.invoke(app, ["check", str(entry), "-f", "json"])
+    assert payload.exit_code == 3
+    assert f"{entry}:{line}" in json.loads(payload.stdout)["load_errors"][0]
+    if "[red]" in source:
+        assert "bad [red] value" in result.stdout
+
+
+def test_imported_file_location(tmp_path):
+    package = tmp_path / "diagnostic_package"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    entry = package / "spec.py"
+    entry.write_text("from . import rules\n")
+    rules = package / "rules.py"
+    rules.write_text('\nraise ValueError("broken rule")\n')
+    _, _, errors = load_path(entry)
+    assert f"{rules}:2" in str(errors[0])
+    assert errors[0].path == entry  # preserve the load entry for callers
+
+
+def test_missing_entry_has_no_invented_line(tmp_path):
+    result = CliRunner().invoke(app, ["check", str(tmp_path)])
+    assert result.exit_code == 3
+    assert "no spec.py entry point" in result.stdout
+    assert "STRUCTURAL" not in result.stdout

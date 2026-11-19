@@ -1410,26 +1410,45 @@ class _Scan:
     """
 
     first_match: StateKey | None = None
+    matches: set[int] = dc_field(default_factory=set)
     applicable: int = 0
     errors: list = dc_field(default_factory=list)
 
 
-def _scan_states(exp: Exploration, predicate: Predicate) -> _Scan:
+def _scan_states(exp: Exploration, predicate: Predicate, *, collect_matches: bool = False) -> _Scan:
     scan = _Scan()
     refs = _collect_field_refs(predicate)
-    for key in exp.order:
+    for idx, key in enumerate(exp.order):
         ctx = decode_state(key)  # keys of exp.order are all explored
         if any(field_context_key(r) not in ctx for r in refs):
             continue
         scan.applicable += 1
         try:
-            if evaluate(predicate, ctx) and scan.first_match is None:
-                scan.first_match = key
+            if evaluate(predicate, ctx):
+                if collect_matches:
+                    scan.matches.add(idx)
+                if scan.first_match is None:
+                    scan.first_match = key
         except Exception as exc:
             message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
             if message not in scan.errors:
                 scan.errors.append(message)
     return scan
+
+
+def _co_reachable(exp: Exploration, goals: set[int]) -> set[int]:
+    """States with a path to a goal, including paths across BFS discovery trees."""
+    reverse: dict[int, list[int]] = {}
+    for src, dst in zip(exp.edge_src, exp.edge_dst, strict=True):
+        reverse.setdefault(dst, []).append(src)
+    reached = set(goals)
+    stack = list(reached)
+    while stack:
+        for prev in reverse.get(stack.pop(), ()):
+            if prev not in reached:
+                reached.add(prev)
+                stack.append(prev)
+    return reached
 
 
 def _model_error_result(qid: str, kind: str, exp: Exploration, problems: list[str]) -> QueryResult:
@@ -1472,12 +1491,40 @@ def _eval_reachable(
 ) -> QueryResult:
     kind = type(query).__name__
     text = query.label or _describe(query.predicate)
-    scan = _scan_states(exp, query.predicate)
+    multi_root = expect_reachable and len(exp.roots) > 1
+    scan = _scan_states(exp, query.predicate, collect_matches=multi_root)
     if scan.errors:
         return _model_error_result(qid, kind, exp, scan.errors)
     if scan.applicable == 0:
         return _never_applicable_result(qid, kind, exp, text)
     found = scan.first_match
+
+    if multi_root:
+        reached = _co_reachable(exp, scan.matches)
+        missing = next((root for root in exp.roots if exp.index[root] not in reached), None)
+        if missing is not None:
+            if exp.capped:
+                return _inconclusive(qid, kind, exp)
+            if exp.excluded:
+                return _excluded_actions_result(qid, kind, exp)
+            return QueryResult(
+                query_id=qid,
+                kind=kind,
+                status="FAIL",
+                states_explored=len(exp.states),
+                trace=[],
+                witness_key=missing,
+                findings=[
+                    Finding(
+                        Severity.ERROR,
+                        f"query:{qid}",
+                        f"'{text}' is not reachable from init #{exp.roots[missing]} "
+                        f"(explored all {len(exp.states)} states)",
+                        Code.NOT_REACHABLE,
+                    ),
+                    *_origin_findings(exp, missing, qid),
+                ],
+            )
 
     if found is not None:
         trace = exp.trace_to(found)
@@ -1635,18 +1682,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
             ],
         )
 
-    # backward reachability over integer state indices (no key tuples per edge)
-    reverse: dict[int, list[int]] = {}
-    for src, dst in zip(exp.edge_src, exp.edge_dst, strict=True):
-        reverse.setdefault(dst, []).append(src)
-    co_reachable = {exp.index[key] for key in goal_states}
-    stack = list(co_reachable)
-    while stack:
-        node = stack.pop()
-        for prev in reverse.get(node, ()):
-            if prev not in co_reachable:
-                co_reachable.add(prev)
-                stack.append(prev)
+    co_reachable = _co_reachable(exp, {exp.index[key] for key in goal_states})
 
     for idx, key in enumerate(exp.order):  # BFS order → shortest trace to the first dead end
         if idx not in co_reachable:

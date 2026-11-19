@@ -57,7 +57,12 @@ A query can specify **one** of `given`, `given_any` or `initial`:
 Without its own initial source, a query uses the canonical roots. Multi-root
 queries must satisfy their requirement for **every** admissible root; for
 `Reachable`, each root must have a path to a matching state. A trace records which
-root it starts from.
+root it starts from. For a passing multi-root `Reachable`, the trace is one
+representative witness; the verdict checks every root, including paths that
+merge. A complete failure identifies an initial state with no path (a native
+trace has that root and zero steps). Missing paths under a capped or excluded
+transition relation remain INCONCLUSIVE. TLC checks projected roots separately;
+its state count sums those runs, and its timeout applies to each export.
 
 Numeric annotations alone do not bound a domain. An increasing `int` counter
 without an upper bound may generate infinitely many distinct states. Use finite

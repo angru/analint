@@ -36,8 +36,15 @@ below identifies the reviewed heads and validation boundary.
 3. **Remaining bounded follow-ups (P3).**
    [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
    in effect operands, rather than arbitrary conditional effect lists.
+   [PR #75](https://github.com/angru/analint/pull/75) implements `BoolValue` and
+   awaits independent review.
    [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
    state-space diagnostics, not automatic symmetry reduction.
+   [#71](https://github.com/angru/analint/issues/71) is implemented on
+   `codex/no-dead-end-invalid-state`, pending independent review: `NoDeadEnd`
+   attributes an invariant-invalid witness using finding-to-state provenance
+   and reports `query.invalid_state`. Verdicts, graphs and ordinary dead-end
+   diagnostics are unchanged.
 
 #49's two agreed halves are implemented: #58 adds floor division and #59 adds
 exhaustive enum lookup. Modulo and real division remain outside this scope.

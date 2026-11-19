@@ -100,6 +100,7 @@ class Code(StrEnum):
     # queries
     QUERY_INVALID = "query.invalid"
     QUERY_INVALID_ROOT = "query.invalid_root"
+    QUERY_INVALID_STATE = "query.invalid_state"
     QUERY_EVALUATION_ERROR = "query.evaluation_error"
     QUERY_VACUOUS = "query.vacuous"
     WITNESS = "query.witness"

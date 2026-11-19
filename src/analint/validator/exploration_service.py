@@ -242,9 +242,16 @@ def trace_query(
         }
     trace = _build_trace(query_id, result.status, result.witness_key, exp, source_kind=source_kind)
     trace.update(metadata)
-    invalid_root = next((f for f in result.findings if f.code == Code.QUERY_INVALID_ROOT), None)
-    if invalid_root is not None:
-        trace["message"] = invalid_root.message
+    invalid_state = next(
+        (
+            f
+            for f in result.findings
+            if f.code in (Code.QUERY_INVALID_ROOT, Code.QUERY_INVALID_STATE)
+        ),
+        None,
+    )
+    if invalid_state is not None:
+        trace["message"] = invalid_state.message
     if getattr(result, "slice", None):
         trace["slice"] = result.slice
     return trace

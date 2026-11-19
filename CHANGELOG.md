@@ -22,6 +22,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- `NoDeadEnd` explains when its chosen witness is invariant-invalid and was
+  not expanded (`query.invalid_state`), using exact finding-to-state provenance.
+  Violations and invariant evaluation errors stay separate; ordinary dead ends,
+  verdicts, witnesses and exploration graphs are unchanged. The explanation is
+  retained by native traces and warm-cache reports. (#71)
+
 - `Reachable` no longer reports a positive witness from a retained invariant-invalid
   initial state that already matches its goal. Complete checks fail with the
   invalid-root explanation; legal missing paths retain priority. Overall root

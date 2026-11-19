@@ -1699,6 +1699,50 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     )
 
 
+def _dead_end_finding(qid: str, goal: str, exp: Exploration, key: StateKey) -> Finding:
+    """Explain the chosen witness only from its invariant-to-state provenance."""
+    idx = exp.index[key]
+    reasons: dict[Code, list[str]] = {}
+    for finding_idx, states in exp.finding_states.items():
+        finding = exp.findings[finding_idx]
+        if (
+            idx in states
+            and finding.severity is Severity.ERROR
+            and finding.code
+            in (
+                Code.INVARIANT_VIOLATED,
+                Code.INVARIANT_EVALUATION_ERROR,
+            )
+        ):
+            names = reasons.setdefault(finding.code, [])
+            name = finding.location.removeprefix("invariant:")
+            if name not in names:
+                names.append(name)
+    prefix = f"dead end: after {exp.origin(key)}{_trace_str(exp.trace_to(key))}"
+    if reasons:
+        details = "; ".join(
+            f"{label}: {', '.join(repr(name) for name in reasons[code])}"
+            for code, label in (
+                (Code.INVARIANT_VIOLATED, "violated"),
+                (Code.INVARIANT_EVALUATION_ERROR, "evaluation failed"),
+            )
+            if code in reasons
+        )
+        return Finding(
+            Severity.ERROR,
+            f"query:{qid}",
+            f"{prefix} reaches a state invalid under model invariants ({details}); "
+            f"the state was not expanded, so recovery to goal '{goal}' was not assessed",
+            Code.QUERY_INVALID_STATE,
+        )
+    return Finding(
+        Severity.ERROR,
+        f"query:{qid}",
+        f"{prefix} the goal '{goal}' can no longer be reached",
+        Code.DEAD_END,
+    )
+
+
 def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResult:
     text = query.label or _describe(query.goal)
     if exp.capped:
@@ -1757,13 +1801,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                 trace=trace,
                 witness_key=key,
                 findings=[
-                    Finding(
-                        Severity.ERROR,
-                        f"query:{qid}",
-                        f"dead end: after {exp.origin(key)}{_trace_str(trace)} the goal "
-                        f"'{text}' can no longer be reached",
-                        Code.DEAD_END,
-                    ),
+                    _dead_end_finding(qid, text, exp, key),
                     *_origin_findings(exp, key, qid),
                 ],
             )

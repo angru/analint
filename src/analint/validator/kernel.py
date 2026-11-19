@@ -383,8 +383,11 @@ def _check_field_constraints(
                 if problem is None:
                     continue
                 if desc.spec.saturate:
-                    inst.__dict__[fname] = desc.spec.clamp(value)
-                    continue
+                    value = desc.spec.clamp(value)
+                    inst.__dict__[fname] = value
+                    problem = desc.spec.violation(value)
+                    if problem is None:
+                        continue
                 return _defect(
                     action,
                     Code.FIELD_CONSTRAINT,
@@ -407,8 +410,11 @@ def _check_field_constraints(
         if problem is None:
             continue
         if desc.spec.saturate:
-            inst.__dict__[effect.field.field_name] = desc.spec.clamp(value)
-            continue
+            value = desc.spec.clamp(value)
+            inst.__dict__[effect.field.field_name] = value
+            problem = desc.spec.violation(value)
+            if problem is None:
+                continue
         return _defect(
             action,
             Code.FIELD_CONSTRAINT,

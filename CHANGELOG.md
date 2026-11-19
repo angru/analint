@@ -12,6 +12,11 @@ All notable changes to this project are documented here. The format is based on
 - `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
   Stable ids, selection and existing positional arguments are unchanged. (#47)
 
+- `Field(saturate="low" / "high")` clamps only the selected inclusive bound.
+  The opposite bound and other constraints remain hard, including for `Create`.
+  Native transitions and TLC apply constraints after clamping; initial values
+  and event payloads are never clamped. (#50)
+
 ### Fixed
 
 - Numeric `Param` operands support multiplication and ordered comparisons directly,

@@ -56,7 +56,8 @@ constraint-violating values are rejected at construction.
 | --- | --- |
 | `Field(default, ge=..., gt=..., le=..., lt=...)` | Numeric constraints, checked on snapshots and transitions |
 | `Field(default, values=[...])` | Explicit finite scalar domain |
-| `Field(default, ge=..., le=..., saturate=True)` | Clamp numeric effects at thresholds instead of rejecting an overflow |
+| `Field(default, ge=..., le=..., saturate=True)` | Clamp numeric effects at both bounds |
+| `Field(default, ge=..., le=..., saturate="low" / "high")` | Clamp only the selected bound; other constraints remain hard |
 | `Lifecycle(...)` as a field default | Initial value, allowed edges and terminal states for a state field |
 
 Booleans, enums, lifecycle states, bounded integers and explicit value domains
@@ -458,6 +459,11 @@ INCONCLUSIVE because TLC stopped at that defect; its diagnostic includes the
 attempted action. Custom event constructors, unsupported scalar bounds such as
 floats, and literal strings equal to the reserved `__null__` sentinel are refused
 with `tlc.not_exported` rather than approximated.
+
+One-sided saturation applies to effect results and `Create`, before postconditions.
+`"low"` requires `ge`; `"high"` requires `le`; `True` still requires both.
+The opposite bound, exclusive bounds and `values` remain checked after clamping.
+Initial snapshots and event payloads are validated without clamping.
 
 ## Scenario and Flow
 

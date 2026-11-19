@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- `Lookup(selector, mapping)` provides an exhaustive enum-to-integer expression
+  with copied tables, parameter/quantifier binding, slicing and cache support.
+  Unmatched selectors fail; scalar enums retain Python equality. TLC exports
+  proven enum domains and explicitly refuses unsupported selectors. (#49, #59)
+
 - `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
   Stable ids, selection and existing positional arguments are unchanged. (#47)
 

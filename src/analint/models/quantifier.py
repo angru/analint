@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from analint.models.entity import all_fields
 from analint.models.expr import Expr, _AddExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -257,6 +258,8 @@ def bind_predicate(pred: Predicate, variable: Bound, instance: InstanceRef) -> P
 
 
 def bind_operand(operand: Any, variable: Bound, instance: InstanceRef) -> Any:
+    if isinstance(operand, _Lookup):
+        return _Lookup(bind_operand(operand.selector, variable, instance), operand.entries)
     if isinstance(operand, Key) and operand.target is variable:
         return Key(instance)
     if isinstance(operand, BoundField) and operand.variable is variable:

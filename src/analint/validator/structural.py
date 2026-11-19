@@ -10,6 +10,7 @@ from analint.models.event import Event
 from analint.models.expr import _AddExpr, _BinaryExpr, _MulExpr, _SubExpr, expr_op
 from analint.models.flow import Assert, Emitted
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.param import Param
 from analint.models.predicate import (
     Predicate,
@@ -645,6 +646,8 @@ def _required_operand_refs(
         return _required_field_refs(operand.predicate, bound | {operand.variable})
     if isinstance(operand, (_Sum, _Min, _Max)):
         return _required_operand_refs(operand.operand, bound | {operand.variable})
+    if isinstance(operand, _Lookup):
+        return _required_operand_refs(operand.selector, bound)
     if isinstance(operand, _BinaryExpr):
         return _required_operand_refs(operand.left, bound) + _required_operand_refs(
             operand.right,
@@ -1047,6 +1050,8 @@ def _check_operand_nodes(
             )
         else:
             findings.extend(_check_operand_nodes(operand.operand, bound | {operand.variable}, loc))
+    elif isinstance(operand, _Lookup):
+        findings.extend(_check_operand_nodes(operand.selector, bound, loc))
     elif isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
         findings.extend(_check_operand_nodes(operand.left, bound, loc))
         findings.extend(_check_operand_nodes(operand.right, bound, loc))
@@ -1139,6 +1144,8 @@ def _check_operand_scopes(
         if operand.variable.scope not in spec_scopes:
             findings.append(_unregistered_bound_scope(operand.variable, loc))
         findings.extend(_check_operand_scopes(operand.operand, spec_scopes, loc))
+    elif isinstance(operand, _Lookup):
+        findings.extend(_check_operand_scopes(operand.selector, spec_scopes, loc))
     elif isinstance(operand, _BinaryExpr):
         findings.extend(_check_operand_scopes(operand.left, spec_scopes, loc))
         findings.extend(_check_operand_scopes(operand.right, spec_scopes, loc))
@@ -1194,6 +1201,8 @@ def _operand_refs(
                 _operand_refs(bind_operand(operand.operand, operand.variable, instance), context)
             )
         return refs
+    if isinstance(operand, _Lookup):
+        return _operand_refs(operand.selector, context)
     if isinstance(operand, _BinaryExpr):
         return _operand_refs(operand.left, context) + _operand_refs(operand.right, context)
     return []
@@ -1255,6 +1264,9 @@ def _describe_operand(op: Any) -> str:
         scope = op.variable.scope.id or op.variable.scope.entity_cls.__name__
         name = type(op).__name__[1:].upper()
         return f"{name} {op.variable.name} IN {scope}: {_describe_operand(op.operand)}"
+    if isinstance(op, _Lookup):
+        table = ", ".join(f"{type(key).__name__}.{key.name}: {value}" for key, value in op.entries)
+        return f"Lookup({_describe_operand(op.selector)}, {{{table}}})"
     if isinstance(op, _BinaryExpr):
         return f"({_describe_operand(op.left)} {expr_op(op)} {_describe_operand(op.right)})"
     if hasattr(op, "name") and hasattr(op, "value"):

@@ -11,6 +11,7 @@ from analint.models.initial import Initial
 from analint.models.invariant import Invariant
 from analint.models.key import Key
 from analint.models.lifecycle import Lifecycle
+from analint.models.lookup import Lookup
 from analint.models.param import Param
 from analint.models.predicate import (
     And,
@@ -46,6 +47,7 @@ __all__ = [
     "Scope",
     "InstanceRef",
     "Key",
+    "Lookup",
     "Absent",
     "Event",
     # constraints

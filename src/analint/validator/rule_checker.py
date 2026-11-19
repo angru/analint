@@ -4,6 +4,7 @@ from typing import Any
 
 from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
+from analint.models.lookup import _Lookup
 from analint.models.predicate import (
     Predicate,
     _And,
@@ -56,6 +57,8 @@ def resolve(
     bindings: dict[Bound, Any] | None = None,
 ) -> Any:
     bindings = bindings or {}
+    if isinstance(operand, _Lookup):
+        return operand.value(resolve(operand.selector, context, bindings))
     if isinstance(operand, Key):
         target = operand.target
         if isinstance(target, Bound):
@@ -252,6 +255,9 @@ def _compile_pred(pred: Any) -> Any:
 
 
 def _compile_operand(operand: Any) -> Any:
+    if isinstance(operand, _Lookup):
+        selector = _compile_operand(operand.selector)
+        return lambda ctx, b: operand.value(selector(ctx, b))
     if isinstance(operand, Key):
         if isinstance(operand.target, InstanceRef):
             value = operand.target.key

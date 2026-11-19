@@ -211,7 +211,7 @@ def test_selected_trace_preserves_budget_without_mutating_query(entry):
     )
     assert cli.exit_code == 0, cli.output
     assert json.loads(cli.stdout) == trace
-    assert prepare_model(entry).spec.queries[1].max_states == 10_000
+    assert prepare_model(entry).spec.queries[1].max_states is None
 
 
 def test_persistent_mcp_transport_forwards_selection(entry):

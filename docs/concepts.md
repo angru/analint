@@ -72,6 +72,20 @@ from the invalid root. If a legal root also has no path, its ordinary missing-pa
 diagnostic takes precedence. Native traces retain the invalid root with zero
 steps; TLC traces carry the explanation without inventing state snapshots.
 
+**Unreleased (#65):** even if a retained invalid root already matches the goal,
+`Reachable` does not use it as a positive witness. A complete check reports FAIL
+with the same invalid-root explanation. Capped/excluded proofs still remain
+INCONCLUSIVE and predicate evaluation errors remain errors. Projection may choose
+a legal representative of an equivalent root projection; its witness is legal,
+while the original root-legality failure still blocks the overall result.
+`Unreachable` retains its existing forbidden-state contract.
+
+**Unreleased (#66):** TLC fallback reuses projected full-model root legality.
+Inert roots are assessed locally with the native predicate/error rules; only
+legal roots launch TLC. Mixed-query state counts include locally assessed roots,
+but only actual TLC runs produce backend notes. A later legal missing path still
+takes precedence, and backend errors or transition defects remain visible.
+
 Numeric annotations alone do not bound a domain. An increasing `int` counter
 without an upper bound may generate infinitely many distinct states. Use finite
 abstractions and explicit bounds that reflect the requirement. Ordinary hard

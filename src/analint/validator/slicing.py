@@ -72,8 +72,7 @@ from analint.models.quantifier import (
 from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, context_key_label, is_present
 from analint.models.value import is_literal_operand
-from analint.validator.rule_checker import evaluate
-from analint.validator.state_checks import invariant_is_applicable
+from analint.validator.state_checks import check_invariants
 
 PRESENT = "@present"
 Var = tuple[Any, str]
@@ -691,15 +690,13 @@ class SliceAnalysis:
         any (it is expanded); otherwise an illegal one, kept but not expanded.
         Returns (roots, their 1-based numbers in ``initials``, inert positions)."""
         if piece.vars is None:
-            return initials, list(range(1, len(initials) + 1)), frozenset()
+            inert = frozenset(i for i, ctx in enumerate(initials) if not self.root_is_legal(ctx))
+            return initials, list(range(1, len(initials) + 1)), inert
         order = sorted(piece.vars, key=lambda v: (context_key_label(v[0]), v[1]))
         chosen: dict[tuple, tuple[int, bool]] = {}
         for pos, ctx in enumerate(initials):
             projection = tuple(_value(ctx, var) for var in order)
-            cached = self._legal.get(id(ctx))
-            if cached is None:
-                cached = self._legal[id(ctx)] = (ctx, _is_legal(self.spec, ctx))
-            legal = cached[1]
+            legal = self.root_is_legal(ctx)
             if projection not in chosen or (legal and not chosen[projection][1]):
                 chosen[projection] = (pos, legal)
         picks = sorted(chosen.values())
@@ -708,6 +705,16 @@ class SliceAnalysis:
         inert = frozenset(i for i, (_, legal) in enumerate(picks) if not legal)
         return roots, numbers, inert
 
+    def root_is_legal(self, ctx: dict) -> bool:
+        """Cache the full-model decision, including for whole-model fallback."""
+        cached = self._legal.get(id(ctx))
+        if cached is None:
+            cached = self._legal[id(ctx)] = (
+                ctx,
+                not check_invariants(self.spec, ctx, "initial"),
+            )
+        return cached[1]
+
 
 def _value(ctx: dict, var: Var) -> Any:
     key, name = var
@@ -715,17 +722,3 @@ def _value(ctx: dict, var: Var) -> Any:
         return is_present(ctx, key)
     inst = ctx.get(key)
     return None if inst is None else inst.__dict__.get(name)
-
-
-def _is_legal(spec: Spec, ctx: dict) -> bool:
-    """A root the full exploration would expand: every applicable invariant
-    evaluates, and holds."""
-    for inv in spec.invariants:
-        if not invariant_is_applicable(inv, ctx):
-            continue
-        try:
-            if not evaluate(inv.expression, ctx):
-                return False
-        except Exception:
-            return False
-    return True

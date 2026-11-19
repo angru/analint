@@ -14,6 +14,18 @@ All notable changes to this project are documented here. The format is based on
   no postcondition, emitted event or invariant can introduce a later defect.
   Incomplete or unsuccessful probes widen; other actions retain full coverage.
   Broker's maximum reported states fall from 38,518 to 27,228. (#53)
+- TLC reachability fallback reuses full-model root-legality provenance and
+  assesses inert roots locally instead of launching a JVM. Only actual TLC runs
+  produce backend state-count notes; mixed checks include locally assessed roots
+  in their total. Predicate errors and later backend/transition defects remain
+  visible. (#66)
+
+### Fixed
+
+- `Reachable` no longer reports a positive witness from a retained invariant-invalid
+  initial state that already matches its goal. Complete checks fail with the
+  invalid-root explanation; legal missing paths retain priority. Overall root
+  legality, partial-proof handling, projection and `Unreachable` are unchanged. (#65)
 
 ## [0.2.0] — 2026-11-19
 

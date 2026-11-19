@@ -1533,10 +1533,16 @@ def _eval_reachable(
     if scan.applicable == 0:
         return _never_applicable_result(qid, kind, exp, text)
     found = scan.first_match
+    if expect_reachable and found is not None and exp.index[found] in exp.invalid_roots:
+        found = None  # an inert root cannot certify a positive reachability witness
 
     if multi_root:
         reached = _co_reachable(exp, scan.matches)
-        missing_roots = [root for root in exp.roots if exp.index[root] not in reached]
+        missing_roots = [
+            root
+            for root in exp.roots
+            if exp.index[root] not in reached or exp.index[root] in exp.invalid_roots
+        ]
         # Prefer real missing-path evidence over a root already known invalid.
         missing = next(
             (root for root in missing_roots if exp.index[root] not in exp.invalid_roots),

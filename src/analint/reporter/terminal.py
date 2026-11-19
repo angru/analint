@@ -47,9 +47,11 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         errors = [f for f in result.structural_findings if f.severity == Severity.ERROR]
         warnings = [f for f in result.structural_findings if f.severity == Severity.WARNING]
         for f in errors:
-            console.print(f"  [red]ERROR[/red]  [{escape(f.location)}] {escape(f.message)}")
+            console.print(f"  [red]ERROR[/red]  {escape(f'[{f.location}]')} {escape(f.message)}")
         for f in warnings:
-            console.print(f"  [yellow]WARN[/yellow]   [{escape(f.location)}] {escape(f.message)}")
+            console.print(
+                f"  [yellow]WARN[/yellow]   {escape(f'[{f.location}]')} {escape(f.message)}"
+            )
         if errors:
             console.print("\n  [red]Structural errors found — scenario validation skipped[/red]")
             _print_summary(result, strict)
@@ -71,7 +73,7 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         for f in result.exploration_findings:
             color = "red" if f.severity == Severity.ERROR else "yellow"
             console.print(
-                f"  [{color}]{f.severity.value:<5}[/{color}]  [{escape(f.location)}] {escape(f.message)}"
+                f"  [{color}]{f.severity.value:<5}[/{color}]  {escape(f'[{f.location}]')} {escape(f.message)}"
             )
 
     if result.model_coverage is not None:
@@ -161,11 +163,13 @@ def _print_scenario(sr: ScenarioResult) -> None:
     console.print(f"  {status}  {escape(sr.scenario_id):<40} {meta}")
     for f in sr.findings:
         if f.severity == Severity.ERROR:
-            console.print(f"         [red]↳[/red] [{escape(f.location)}] {escape(f.message)}")
+            console.print(f"         [red]↳[/red] {escape(f'[{f.location}]')} {escape(f.message)}")
         elif f.severity == Severity.WARNING:
-            console.print(f"         [yellow]↳[/yellow] [{escape(f.location)}] {escape(f.message)}")
+            console.print(
+                f"         [yellow]↳[/yellow] {escape(f'[{f.location}]')} {escape(f.message)}"
+            )
         elif f.severity == Severity.INFO:
-            console.print(f"         [dim]↳[/dim] [{escape(f.location)}] {escape(f.message)}")
+            console.print(f"         [dim]↳[/dim] {escape(f'[{f.location}]')} {escape(f.message)}")
 
 
 def _time_note(elapsed_ms: float | None) -> str:

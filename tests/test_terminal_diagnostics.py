@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 from analint.cli import app
 from analint.loader.python_loader import load_path
 from analint.reporter import terminal
+from analint.reporter.base import Finding, ScenarioResult, Severity, ValidationResult
 
 
 @pytest.fixture(autouse=True)
@@ -16,17 +17,18 @@ def wide_console(monkeypatch):
     monkeypatch.setattr(terminal, "console", Console(width=240))
 
 
-def test_structural_counts_and_literal_subjects(tmp_path):
+@pytest.mark.parametrize("action_id", ["turn_on", "turn_on[small]"])
+def test_structural_counts_and_literal_subjects(tmp_path, action_id):
     entry = tmp_path / "spec.py"
-    entry.write_text("""from analint import Action, DeadActions, Entity, Not, Set, Spec
+    entry.write_text(f"""from analint import Action, DeadActions, Entity, Not, Set, Spec
 class Flag(Entity):
     on: bool = False
-turn_on = Action(id="turn_on[small]", pre=[Not(Flag.on)], effect=[Set(Flag.on, True)])
+turn_on = Action(id={action_id!r}, pre=[Not(Flag.on)], effect=[Set(Flag.on, True)])
 spec = Spec(id="s", name="s", actions=[turn_on], queries=[DeadActions()])
 """)
     result = CliRunner().invoke(app, ["check", str(entry)])
     assert result.exit_code == 1
-    assert "[action:turn_on[small]] has no scenarios" in result.stdout
+    assert f"[action:{action_id}] has no scenarios" in result.stdout
     summary = result.stdout.split("Results:")[1]
     assert "1 structural error" in summary
     assert "1 warning" in summary
@@ -76,3 +78,28 @@ def test_missing_entry_has_no_invented_line(tmp_path):
     assert result.exit_code == 3
     assert "no spec.py entry point" in result.stdout
     assert "STRUCTURAL" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "section,severity",
+    [
+        ("exploration", Severity.ERROR),
+        ("exploration", Severity.WARNING),
+        ("scenario", Severity.ERROR),
+        ("scenario", Severity.WARNING),
+        ("scenario", Severity.INFO),
+    ],
+)
+def test_plain_subjects_survive_in_other_finding_sections(section, severity, capsys):
+    result = ValidationResult(spec_id="s", spec_name="S")
+    finding = Finding(severity, "action:deposit", "amount [red] is literal")
+    if section == "exploration":
+        result.exploration_findings = [finding]
+    else:
+        result.scenario_results = [
+            ScenarioResult(
+                scenario_id="deposit", scenario_name="Deposit", passed=False, findings=[finding]
+            )
+        ]
+    terminal.report_terminal(result)
+    assert "[action:deposit] amount [red] is literal" in capsys.readouterr().out

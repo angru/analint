@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import inspect
 import sys
+import sysconfig
 import traceback
 from pathlib import Path
 from types import ModuleType
@@ -21,10 +22,22 @@ class LoadError(Exception):
             # Prefer the innermost specification frame, not analint/importlib
             # internals. Include sibling modules in the entry's package.
             root, _ = _package_context(path.resolve())
+            paths = sysconfig.get_paths()
+            libraries = {
+                Path(paths[name]).resolve()
+                for name in ("stdlib", "platstdlib", "purelib", "platlib")
+            }
+            libraries.add(Path(__file__).resolve().parents[1])  # analint itself
             for frame in traceback.extract_tb(cause.__traceback__):
-                if not frame.filename.startswith("<") and Path(
-                    frame.filename
-                ).resolve().is_relative_to(root):
+                if frame.filename.startswith("<"):
+                    continue
+                source = Path(frame.filename).resolve()
+                # A venv or editable analint checkout may be inside the project.
+                if (
+                    source.is_relative_to(root)
+                    and not {"site-packages", "dist-packages"}.intersection(source.parts)
+                    and not any(source.is_relative_to(library) for library in libraries)
+                ):
                     location = f"{frame.filename}:{frame.lineno}"
         super().__init__(f"{location}: {cause}")
         self.path = path

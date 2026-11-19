@@ -1,13 +1,19 @@
 """Human reports preserve diagnostic subjects and distinguish preparation failure."""
 
 import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 from rich.console import Console
 from typer.testing import CliRunner
 
+import analint
 from analint.cli import app
-from analint.loader.python_loader import load_path
+from analint.loader.python_loader import LoadError, load_path
 from analint.reporter import terminal
 from analint.reporter.base import Finding, ScenarioResult, Severity, ValidationResult
 
@@ -103,3 +109,67 @@ def test_plain_subjects_survive_in_other_finding_sections(section, severity, cap
         ]
     terminal.report_terminal(result)
     assert "[action:deposit] amount [red] is literal" in capsys.readouterr().out
+
+
+def test_load_error_ignores_analint_installed_inside_project(tmp_path):
+    # A normal package directory nested under the spec root reproduces a local
+    # venv install; reuse this interpreter's dependencies without network setup.
+    packages = tmp_path / ".venv" / "lib" / "python" / "site-packages"
+    shutil.copytree(
+        Path(analint.__file__).parent,
+        packages / "analint",
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        "from analint import Entity, Field\n"
+        "class Wallet(Entity):\n"
+        "    balance: int = Field(0, ge=0)\n"
+        "broke = Wallet(balance=-1)\n"
+    )
+    script = (
+        "import analint\n"
+        "from pathlib import Path\n"
+        "from analint.loader.python_loader import load_path\n"
+        "print(analint.__file__)\n"
+        "print(load_path(Path('spec.py'))[2][0])\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(packages)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    package_path, diagnostic = result.stdout.strip().splitlines()
+    assert Path(package_path).is_relative_to(packages)
+    assert diagnostic.startswith(f"{entry}:4:")
+    assert "Wallet.balance must be >= 0" in diagnostic
+
+
+@pytest.mark.parametrize(
+    "library", ["site-packages/vendor.py", "dist-packages/vendor.py", "stdlib/vendor.py"]
+)
+def test_load_error_skips_library_frames_under_project(tmp_path, monkeypatch, library):
+    import sysconfig
+
+    entry = tmp_path / "spec.py"
+    original = sysconfig.get_paths()
+    monkeypatch.setattr(
+        sysconfig, "get_paths", lambda: {**original, "stdlib": str(tmp_path / "stdlib")}
+    )
+    namespace = {}
+    exec(
+        compile(
+            'def explode():\n    raise ValueError("library error")\n',
+            str(tmp_path / library),
+            "exec",
+        ),
+        namespace,
+    )
+    try:
+        exec(compile("explode()\n", str(entry), "exec"), namespace)
+    except ValueError as exc:
+        diagnostic = LoadError(entry, exc)
+    assert str(diagnostic).startswith(f"{entry}:1: library error")

@@ -15,6 +15,7 @@ from analint import (
     Action,
     Add,
     And,
+    BoolValue,
     Bound,
     Count,
     Create,
@@ -94,6 +95,7 @@ SPEC = Spec(id="inventory", name="Inventory", entities=[Counter], scopes=[items]
 
 # (node, interpreted value, field references, slice reads, TLA spelling or refusal)
 CASES = [
+    (BoolValue(Counter.n == 1), True, F, F, "="),
     (Counter.n == 1, True, F, F, "="),
     (Counter.n != 1, False, F, F, "#"),
     (Counter.n > 1, False, F, F, ">"),

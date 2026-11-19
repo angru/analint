@@ -32,6 +32,7 @@ from enum import Enum
 from typing import Any
 
 from analint.models.action import Action
+from analint.models.boolean import BoolValue
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import _MISSING, FieldDescriptor, all_fields
 from analint.models.event import Event
@@ -260,6 +261,76 @@ def _require_integer_operand(model: _Model, operand: Any, seen: set) -> None:
     raise ExportError("floor division needs provably integer operands for TLC")
 
 
+def _require_boolean_constraints(spec: Any) -> None:
+    if spec is not None and (
+        any(getattr(spec, bound) is not None for bound in ("ge", "gt", "le", "lt"))
+        or (spec.values is not None and any(type(v) is not bool for v in spec.values))
+    ):
+        raise ExportError("BoolValue requires boolean field constraints for TLC")
+
+
+def _require_boolean_operand(model: _Model, operand: Any, seen: set) -> None:
+    """Prove a boolean domain, including roots and all writes, not annotations."""
+    if isinstance(operand, (bool, BoolValue)):
+        return
+    if isinstance(operand, (FieldDescriptor, InstanceField)):
+        key = operand.instance if isinstance(operand, InstanceField) else operand.entity_cls
+        name = operand.field_name
+        if (key, name) in seen:
+            return
+        seen.add((key, name))
+        cls = key.entity_cls if isinstance(key, InstanceRef) else key
+        field = all_fields(cls)[name]
+        _require_boolean_constraints(field.spec)
+        for root in model.roots:
+            if key not in root:
+                raise ExportError("BoolValue reads a field outside the TLC state")
+            inst = root[key]
+            if inst.__dict__.get("_analint_present", True):
+                _require_boolean_operand(model, inst.__dict__.get(name), seen)
+        for action in model.spec.actions:
+            for effect in action.effect:
+                if (
+                    isinstance(effect, (Set, Add, Subtract))
+                    and _target_key(effect) == key
+                    and effect.field.field_name == name
+                ):
+                    if not isinstance(effect, Set):
+                        raise ExportError("BoolValue cannot mix with numeric writes for TLC")
+                    _require_boolean_operand(model, effect.value, seen)
+                elif isinstance(effect, Create) and effect.target == key:
+                    _require_boolean_operand(model, effect.fields.get(name, field.default), seen)
+        return
+    raise ExportError("BoolValue needs provably boolean operands for TLC")
+
+
+def _has_boolean_value(model: _Model, operand: Any, seen: set | None = None) -> bool:
+    """Track new boolean values through copies when choosing numeric export."""
+    if isinstance(operand, BoolValue):
+        return True
+    if isinstance(operand, (FieldDescriptor, InstanceField)):
+        key = operand.instance if isinstance(operand, InstanceField) else operand.entity_cls
+        name = operand.field_name
+        seen = set() if seen is None else seen
+        if (key, name) in seen:
+            return False
+        seen.add((key, name))
+        for action in model.spec.actions:
+            for effect in action.effect:
+                if (
+                    isinstance(effect, (Set, Add, Subtract))
+                    and _target_key(effect) == key
+                    and effect.field.field_name == name
+                ):
+                    value = effect.value if isinstance(effect, Set) else effect.amount
+                    if _has_boolean_value(model, value, seen):
+                        return True
+                elif isinstance(effect, Create) and effect.target == key and name in effect.fields:
+                    if _has_boolean_value(model, effect.fields[name], seen):
+                        return True
+    return False
+
+
 # ── expressions ──────────────────────────────────────────────────────────────
 
 
@@ -287,6 +358,8 @@ class _Renderer:
         return f"{self.rec[key]}.{_field(name)}"
 
     def operand(self, op: Any) -> str:
+        if isinstance(op, BoolValue):
+            return self.pred(op.predicate)
         if isinstance(op, _Lookup):
             enum = type(op.entries[0][0])
             if isinstance(op.selector, (FieldDescriptor, InstanceField)):
@@ -320,6 +393,8 @@ class _Renderer:
                 left, divisor = f"(-({left}))", -divisor
             return f"({left} \\div {divisor})"
         if isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
+            if any(_has_boolean_value(self.model, child) for child in (op.left, op.right)):
+                raise ExportError("BoolValue arithmetic is not exported to TLC")
             sign = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}[type(op)]
             return f"({self.operand(op.left)} {sign} {self.operand(op.right)})"
         if isinstance(op, _Count):
@@ -329,6 +404,11 @@ class _Renderer:
             ]
             return "(" + " + ".join(terms or ["0"]) + ")"
         if isinstance(op, _Sum):
+            if any(
+                _has_boolean_value(self.model, bind_operand(op.operand, op.variable, ref))
+                for ref in op.variable.scope
+            ):
+                raise ExportError("BoolValue arithmetic is not exported to TLC")
             terms = [
                 f"(IF {self.present(ref)} THEN {self.bound(ref).operand(bind_operand(op.operand, op.variable, ref))} ELSE 0)"
                 for ref in op.variable.scope
@@ -386,13 +466,24 @@ class _Renderer:
                 raise ExportError(f"Present over {pred.target!r}")
             return self.present(pred.target)
         if isinstance(pred, _BinaryComparison):
+            if any(_has_boolean_value(self.model, child) for child in (pred.left, pred.right)):
+                if not isinstance(pred, (_Eq, _Ne)):
+                    raise ExportError("BoolValue ordered comparisons are not exported to TLC")
+                _require_boolean_operand(self.model, pred.left, set())
+                _require_boolean_operand(self.model, pred.right, set())
             op = {_Eq: "=", _Ne: "#", _Gt: ">", _Gte: ">=", _Lt: "<", _Lte: "<="}.get(type(pred))
             if op is None:
                 raise ExportError(f"comparison {type(pred).__name__}")
             return f"({self.operand(pred.left)} {op} {self.operand(pred.right)})"
         if isinstance(pred, _In):
+            operands = [pred.operand, *pred.values]
+            if any(_has_boolean_value(self.model, child) for child in operands):
+                for child in operands:
+                    _require_boolean_operand(self.model, child, set())
             values = ", ".join(self.operand(v) for v in pred.values)
             return f"({self.operand(pred.operand)} \\in {{{values}}})"
+        if isinstance(pred, (_IsNull, _IsNotNull)) and _has_boolean_value(self.model, pred.operand):
+            raise ExportError("BoolValue null comparisons are not exported to TLC")
         if isinstance(pred, _IsNull):
             return f"({self.operand(pred.operand)} = {NULL})"
         if isinstance(pred, _IsNotNull):
@@ -417,7 +508,9 @@ def _outside_refs(pred: Any) -> list[Any]:
     out: list[Any] = []
 
     def operand(op: Any) -> None:
-        if isinstance(op, (FieldDescriptor, InstanceField)):
+        if isinstance(op, BoolValue):
+            walk(op.predicate)
+        elif isinstance(op, (FieldDescriptor, InstanceField)):
             out.append(op)
         elif isinstance(op, _Lookup):
             operand(op.selector)
@@ -546,8 +639,12 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
     render = _Renderer(model, pre_rec, rhs_safe)
     for effect in action.effect:
         if isinstance(effect, Set):
+            if _has_boolean_value(model, effect.value):
+                _require_boolean_operand(model, effect.field, set())
             touched[_target_key(effect)][effect.field.field_name] = render.operand(effect.value)
         elif isinstance(effect, (Add, Subtract)):
+            if any(_has_boolean_value(model, child) for child in (effect.field, effect.amount)):
+                raise ExportError("BoolValue arithmetic is not exported to TLC")
             current = render.operand(effect.field)
             sign = "+" if isinstance(effect, Add) else "-"
             touched[_target_key(effect)][effect.field.field_name] = (
@@ -578,6 +675,8 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
         parts = [f"{PRESENT} |-> TRUE"]
         for fname in model.fields[key]:
             if fname in effect.fields:
+                if _has_boolean_value(model, effect.fields[fname]):
+                    _require_boolean_operand(model, getattr(key, fname), set())
                 expr = render.operand(effect.fields[fname])
             elif descs[fname].default is not _MISSING:
                 expr = _literal(descs[fname].default)
@@ -625,6 +724,8 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
             for fname, value in emitted.__dict__.items():
                 expr = _Renderer(model, post_rec, post_safe).operand(value)
                 desc = fields.get(fname)
+                if desc is not None and _has_boolean_value(model, value):
+                    _require_boolean_constraints(desc.spec)
                 bounds = _bounds(expr, desc.spec, nullable=True) if desc is not None else []
                 if bounds:
                     # Event construction accepts None before checking bounds,

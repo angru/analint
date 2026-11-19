@@ -15,6 +15,7 @@ from analint import (
     Add,
     AlwaysHolds,
     And,
+    BoolValue,
     Bound,
     Count,
     Create,
@@ -163,6 +164,7 @@ def test_generated_models_agree_across_native_paths(seed, tmp_path, monkeypatch)
     predicates = [p for a in spec.actions for p in [*a.pre, *a.post]]
     predicates += [i.expression for i in spec.invariants] + [q.predicate for q in spec.queries]
     predicates += [_tree(rng, predicates, 2) for _ in range(8)]
+    predicates += [BoolValue(p) == True for p in predicates[:]]  # noqa: E712
     # Partial context deliberately exercises exception equivalence too.
     for predicate in predicates:
         compiled = compile_predicate(predicate)
@@ -225,6 +227,7 @@ def test_generated_scoped_trees_preserve_values_and_errors(seed):
         {},
     ]
     predicates = leaves + [_tree(rng, leaves, 3) for _ in range(12)]
+    predicates += [BoolValue(p) == True for p in predicates[:]]  # noqa: E712
     seen_error = False
     for predicate in predicates:
         compiled = compile_predicate(predicate)

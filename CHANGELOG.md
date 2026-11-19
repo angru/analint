@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `BoolValue(predicate)` supplies boolean operands for effects, including
+  parameter-dependent flags, scoped/quantified predicates and presence checks.
+  Effect values read the pre-state; binding, compiler, impact/slicing and cache
+  traversal preserve the predicate. TLC exports supported boolean domains and
+  refuses numeric coercions instead of approximating them. (#67)
+
 ### Changed
 
 - Reduce action-coverage work for local boolean enablers starting off: reuse a

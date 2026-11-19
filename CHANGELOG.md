@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `Field(saturate="low" / "high")` clamps only the selected inclusive bound.
+  The opposite bound and other constraints remain hard, including for `Create`.
+  Native transitions and TLC apply constraints after clamping; initial values
+  and event payloads are never clamped. (#50)
+
 ### Fixed
 
 - `DeadActions` preserves disable-only flag writers when the assessed action's

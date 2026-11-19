@@ -74,7 +74,7 @@ jobs:
       - name: Check Python and TLC conformance
         run: >-
           uv run --frozen pytest -q -rs
-          tests/test_tlc_backend.py
+          tests/test_tlc_backend.py tests/test_one_sided_saturation.py
           tests/test_fixed_initial.py
           tests/test_initial_presence.py
           tests/test_keys.py

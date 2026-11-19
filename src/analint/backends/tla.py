@@ -364,9 +364,9 @@ def _applicable(model: _Model, rec: dict[Any, str], pred: Any) -> str:
 
 
 def _clamp(expr: str, spec: Any) -> str:
-    if spec.ge is not None:
+    if (spec.saturate is True or spec.saturate == "low") and spec.ge is not None:
         expr = f"(IF {expr} < {_literal(spec.ge)} THEN {_literal(spec.ge)} ELSE {expr})"
-    if spec.le is not None:
+    if (spec.saturate is True or spec.saturate == "high") and spec.le is not None:
         expr = f"(IF {expr} > {_literal(spec.le)} THEN {_literal(spec.le)} ELSE {expr})"
     return expr
 
@@ -460,8 +460,7 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
             fspec = descs[fname].spec
             if fspec is not None and fspec.saturate:
                 expr = _clamp(expr, fspec)
-            else:
-                ok += _bounds(expr, fspec)
+            ok += _bounds(expr, fspec)
             fields_new[fname] = expr
         new_values[key] = fields_new
         rec_name = f"{name}_post_{model.var[key]}"
@@ -481,8 +480,7 @@ def _action_defs(model: _Model, action: Action, name: str) -> tuple[list[str], s
             fspec = descs[fname].spec
             if fspec is not None and fspec.saturate:
                 expr = _clamp(expr, fspec)
-            else:
-                ok += _bounds(expr, fspec)
+            ok += _bounds(expr, fspec)
             parts.append(f"{_field(fname)} |-> {expr}")
         rec_name = f"{name}_post_{model.var[key]}"
         defs.append(f"{rec_name} == [{', '.join(parts)}]")

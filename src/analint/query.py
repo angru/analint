@@ -81,7 +81,7 @@ def _fields_of(cls: type) -> list[dict]:
                 constraints["values"] = [_value_str(value) for value in desc.spec.values]
             entry["constraints"] = constraints
             if desc.spec.saturate:
-                entry["saturate"] = True
+                entry["saturate"] = desc.spec.saturate
         if desc.lifecycle is not None:
             entry["lifecycle"] = desc.lifecycle.id
         out.append(entry)

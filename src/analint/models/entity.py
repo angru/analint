@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from analint.models.lifecycle import Lifecycle
 from analint.models.symbolic import Symbolic
@@ -23,7 +23,9 @@ class FieldSpec:
     le: Any = None
     lt: Any = None
     values: tuple[Any, ...] | None = None
-    saturate: bool = False  # engine: clamp into [ge, le] instead of failing
+    saturate: bool | Literal["low", "high"] = (
+        False  # engine: clamp into [ge, le] instead of failing
+    )
     description: str = ""
 
     def has_constraints(self) -> bool:
@@ -48,9 +50,17 @@ class FieldSpec:
         return None
 
     def clamp(self, value: Any) -> Any:
-        if self.ge is not None and value < self.ge:
+        if (
+            (self.saturate is True or self.saturate == "low")
+            and self.ge is not None
+            and value < self.ge
+        ):
             return self.ge
-        if self.le is not None and value > self.le:
+        if (
+            (self.saturate is True or self.saturate == "high")
+            and self.le is not None
+            and value > self.le
+        ):
             return self.le
         return value
 
@@ -63,7 +73,7 @@ def Field(
     le: Any = None,
     lt: Any = None,
     values: list[Any] | tuple[Any, ...] | None = None,
-    saturate: bool = False,
+    saturate: bool | Literal["low", "high"] = False,
     description: str = "",
 ) -> Any:
     """Declare a field with constraints, pydantic-style:
@@ -85,7 +95,15 @@ def Field(
                 raise TypeError(f"Field value {value!r} is not hashable") from exc
         if len(set(values)) != len(values):
             raise TypeError("Field values= must be unique")
-    if saturate and (ge is None or le is None):
+    if not (
+        isinstance(saturate, bool) or (isinstance(saturate, str) and saturate in ("low", "high"))
+    ):
+        raise TypeError('saturate must be False, True, "low", or "high"')
+    if saturate == "low" and ge is None:
+        raise TypeError('saturate="low" requires ge=')
+    if saturate == "high" and le is None:
+        raise TypeError('saturate="high" requires le=')
+    if saturate is True and (ge is None or le is None):
         raise TypeError("saturate=True requires both ge= and le=")
     if ge is not None and le is not None and ge > le:
         raise TypeError(f"Field ge={ge!r} is greater than le={le!r}")

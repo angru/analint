@@ -159,10 +159,17 @@ after the repairs, preserving the public Python DSL and wire compatibility:
    Each bind/expansion refreshes the existing derived action from its template;
    identity remains stable for scenario/flow references. Memos belong to the
    family, and copied families cannot reuse another owner's bindings. Existing
-   Specs are not automatically re-expanded after declaration edits. The broader
-   issue remains open: evaluate immutable predicate/expression nodes
-   with identity equality; frozen dataclasses alone do not freeze nested lists.
-   Introduce a broader preparation boundary only where concrete consumers need it.
+   Specs are not automatically re-expanded after declaration edits.
+   The follow-up reuse audit reproduced a separate false PASS: an invariant's
+   compiled predicate and applicability keys survived nested edits and deep
+   copies. The unreleased repair scopes those plans to one exploration or
+   verification scan. Repeated check/trace probes cover nested comparisons,
+   arithmetic, conjunction/membership lists, quantifiers, model copies and
+   cold/warm cache; scenario/flow probes cover changed presence dependencies.
+   Existing action/query edits remain covered. Declarations remain editable
+   between runs; a frozen outer dataclass would not protect nested containers
+   or remove closures already captured by a copy. Broader AST immutability and
+   a preparation boundary remain conditional on additional consumer evidence.
 2. [#12 State-store lifetime](https://github.com/angru/analint/issues/12) (P3):
    after #16, MCP workers release their process storage per request. Prioritize
    further ownership changes only with measured retention in a long-lived

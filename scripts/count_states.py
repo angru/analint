@@ -21,7 +21,7 @@ from pathlib import Path
 from analint.validator.engine import build_spec
 from analint.validator.explorer import build_canonical_initials, state_key
 from analint.validator.kernel import Outcome, step
-from analint.validator.state_checks import invariant_holds, invariant_is_applicable
+from analint.validator.state_checks import InvariantPlan
 
 
 def count_states(path: Path) -> dict:
@@ -32,11 +32,10 @@ def count_states(path: Path) -> dict:
     if not initials:
         raise SystemExit(f"no canonical initial state: {error}")
 
+    plans = [InvariantPlan(inv) for inv in spec.invariants]
+
     def legal(ctx: dict) -> bool:
-        return not any(
-            invariant_is_applicable(inv, ctx) and not invariant_holds(inv, ctx)
-            for inv in spec.invariants
-        )
+        return not any(plan.is_applicable(ctx) and not plan.holds(ctx) for plan in plans)
 
     seen: set = set()
     queue: deque = deque()

@@ -15,6 +15,8 @@ again — so callers must re-evaluate against each state, not a precomputed list
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from analint.models.invariant import Invariant
 from analint.models.root import Spec
 from analint.models.scope import (
@@ -43,14 +45,61 @@ def build_snapshot_context(spec: Spec, given: list) -> dict:
     return context
 
 
-def invariant_holds(inv: Invariant, context: dict) -> bool:
-    """``evaluate(inv.expression, context)`` through a compiled predicate cached
-    on the invariant (re-compiled when the expression is reassigned)."""
-    cached = inv.__dict__.get("_analint_compiled")
-    if cached is None or cached[0] is not inv.expression:
-        cached = (inv.expression, compile_predicate(inv.expression))
-        inv.__dict__["_analint_compiled"] = cached
-    return cached[1](context)
+class InvariantPlan:
+    """Derived checks owned by one synchronous exploration or invariant scan.
+
+    Declarations, including nested expressions and lists, remain editable
+    between runs. Never attach compiled closures or reference sets to them:
+    expression identity cannot detect nested edits, and deepcopy retains the
+    original closure's captured objects. Callers reuse a plan only while the
+    model is unchanged within their scan.
+    """
+
+    def __init__(self, inv: Invariant) -> None:
+        self.expression = inv.expression
+        self._compiled: Callable[[dict], bool] | None = None
+        self._keys = frozenset(
+            field_context_key(ref) for ref in _collect_field_refs(self.expression)
+        )
+        none_present = {key: Absent(key) for key in self._keys if isinstance(key, InstanceRef)}
+        free = frozenset(
+            field_context_key(ref) for ref in _collect_field_refs(self.expression, none_present)
+        )
+        self._presence_dependent = self._keys != free
+        self._present_keys: tuple[tuple[frozenset, frozenset], frozenset] | None = None
+
+    def holds(self, context: dict) -> bool:
+        # Compile lazily inside the caller's evaluation-error boundary, and
+        # only if the invariant applies to at least one state.
+        if self._compiled is None:
+            self._compiled = compile_predicate(self.expression)
+        return self._compiled(context)
+
+    def is_applicable(self, context: dict) -> bool:
+        keys = self._required_keys(context)
+        if any(key not in context for key in keys):
+            return False
+        return not any(
+            isinstance(key, InstanceRef) and not is_present(context, key) for key in keys
+        )
+
+    def _required_keys(self, context: dict) -> frozenset:
+        if not self._presence_dependent:
+            return self._keys
+        # Quantified/aggregate members depend on presence. Reuse only the last
+        # layout, without retaining an unbounded cache of all slot subsets.
+        signature = (
+            frozenset(
+                key for key in context if isinstance(key, InstanceRef) and is_present(context, key)
+            ),
+            self._keys - context.keys(),
+        )
+        if self._present_keys is None or self._present_keys[0] != signature:
+            keys = frozenset(
+                field_context_key(ref) for ref in _collect_field_refs(self.expression, context)
+            )
+            self._present_keys = (signature, keys)
+        return self._present_keys[1]
 
 
 def invariant_is_applicable(inv: Invariant, context: dict) -> bool:
@@ -60,44 +109,7 @@ def invariant_is_applicable(inv: Invariant, context: dict) -> bool:
     The single source of truth for presence-aware applicability, shared by the
     scenario/flow state checks, the explorer's per-state check and the canonical
     invariant scanner, so they can never diverge (review 8cca900)."""
-    keys = _invariant_keys(inv, context)
-    if any(key not in context for key in keys):
-        return False
-    return not any(isinstance(key, InstanceRef) and not is_present(context, key) for key in keys)
-
-
-def _invariant_keys(inv: Invariant, context: dict) -> frozenset:
-    # Keep the static fast path. Quantified/aggregate members depend on presence;
-    # their required keys must be re-derived in each state. Compare the whole
-    # universe with an empty one once to detect that dependency, and invalidate
-    # both plans when the expression is reassigned.
-    cached = inv.__dict__.get("_analint_keys")
-    if cached is None or cached[0] is not inv.expression:
-        keys = frozenset(field_context_key(ref) for ref in _collect_field_refs(inv.expression))
-        none_present = {key: Absent(key) for key in keys if isinstance(key, InstanceRef)}
-        free = frozenset(
-            field_context_key(ref) for ref in _collect_field_refs(inv.expression, none_present)
-        )
-        cached = (inv.expression, keys, keys != free)
-        inv.__dict__["_analint_keys"] = cached
-    if cached[2]:
-        # Field values do not change applicability. Reuse the last presence
-        # layout, without retaining an unbounded cache of all slot subsets.
-        signature = (
-            frozenset(
-                key for key in context if isinstance(key, InstanceRef) and is_present(context, key)
-            ),
-            cached[1] - context.keys(),
-        )
-        dynamic = inv.__dict__.get("_analint_present_keys")
-        if dynamic is None or dynamic[0] is not inv.expression or dynamic[1] != signature:
-            keys = frozenset(
-                field_context_key(ref) for ref in _collect_field_refs(inv.expression, context)
-            )
-            dynamic = (inv.expression, signature, keys)
-            inv.__dict__["_analint_present_keys"] = dynamic
-        return dynamic[2]
-    return cached[1]
+    return InvariantPlan(inv).is_applicable(context)
 
 
 def applicable_invariants(spec: Spec, context: dict) -> list:

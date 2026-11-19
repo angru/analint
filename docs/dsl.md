@@ -537,6 +537,16 @@ An unfiltered run still aggregates all checks and defects. See the
 supporting checks, scenario/tag compatibility and trace settings. A static shared
 model for two flows and cross-flow properties is in `benchmarks/shared_checks.py`.
 
+**Unreleased repair:** repeated checks and traces observe edits to nested
+invariant expressions and lists as well as replacement of the whole expression.
+Compiled invariant checks and applicability plans live only for one synchronous
+exploration or verification scan; they are not stored on declarations or carried
+into model copies. Do not edit a model during a running check. A shallow Python
+or `model_copy()` copy still shares its nested declarations; changing them also
+changes the original. This repair does not re-expand parameter families or add
+newly referenced entities to an existing Spec automatically; see
+[parameterized actions](#param-finite-action-families).
+
 A second example, `benchmarks/independent_checks.py`, has an independent failed
 invariant: selecting `safe_a` succeeds while the full check fails. The report
 preserves the B findings without treating them as a failure of A's selected check.

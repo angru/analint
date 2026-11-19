@@ -29,6 +29,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- `saturate=True` now checks `values` and exclusive `gt`/`lt` constraints after
+  clamping, just like one-sided saturation. Existing models that relied on those
+  constraints being skipped can now report transition defects. (#50)
+
 - Queries with an omitted or `None` budget inherit `Spec.max_states`, including
   queries with their own roots. Explicit query budgets and invocation overrides
   retain priority. `show`, `check`, `explore` and `trace` use the same effective

@@ -21,42 +21,35 @@ maintaining a second test count here.
 ## Current priorities (2026-11-19)
 
 Release **0.1.0 remains the latest published version**. The #42/#41 correctness
-repairs are now merged in main through PRs #51 and #52, but are **unreleased**.
-Their integration and accepted performance cost are recorded below. Real-spec
-`exness-spec` authoring produced ten reports (#41–#50); the independent
-one-requirement-change trial is still open.
+repairs, #40 invariant-plan repair, and reviewed #43–#50/#54 authoring and diagnostic
+changes are integrated in main but **unreleased**. The integration record below
+identifies the reviewed heads and validation boundary.
 
-1. **Resume the external real-spec change trial.** The two reported checker
-   blockers are repaired and the existing `exness-spec` passes with both fixes.
-   Next, record one independently requested rule change with full/selected checks,
-   allowed/rejected cases and a trace. Initial authoring and the bounded
-   fulfillment rehearsal do not close the before/after maintenance trial.
-2. **PR #40 — invariant plan lifetime: merged, unreleased.** Main `38da424`
-   contains the separately reviewed stale-invariant repair. The
-   [review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
-   found no blockers; this does not close the broader #11 snapshot issue.
-3. **Bounded review follow-ups (P3).**
+1. **Prepare the next release.** The reviewed authoring queue is integrated.
+   Choose the next version, validate its exact artifacts and publish separately;
+   integration into main does not update the PyPI dependency in `exness-spec`.
+2. **Complete the external real-spec change trial.** `exness-spec` now includes
+   margin and payments contracts. Record a before/after requirement change with
+   full/selected checks, allowed/rejected cases and a trace on the published
+   version. Initial authoring and the bounded fulfillment rehearsal do not
+   replace that maintenance trial.
+3. **Bounded follow-ups (P3), outside the integrated queue.**
    [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
-   action-slice cost. Investigate narrow-first fireability or equivalent reuse
-   without dropping transition-defect coverage, including later executions of
-   an action already enabled at a root. The cost is accepted for the correctness
-   release, not a merge blocker.
-   [#54](https://github.com/angru/analint/issues/54) is implemented and independently
-   approved in [PR #64](https://github.com/angru/analint/pull/64): explicit
-   invalid-root provenance replaces the misleading missing-path diagnostic with
-   an explanation that the root was not expanded. Blocking root legality and
-   FAIL remain in full/selected checks; legal missing paths retain priority.
-   Native/TLC traces and cold/warm cache reports are covered.
-   [#65](https://github.com/angru/analint/issues/65) separately tracks a positive
-   query witness from an invalid matching root (the overall verdict remains FAIL).
+   action-slice cost, preserving defect coverage including later executions of
+   an action already enabled at a root.
+   [#65](https://github.com/angru/analint/issues/65) tracks a positive query witness
+   from an invalid matching root; the overall verdict already remains FAIL.
    [#66](https://github.com/angru/analint/issues/66) tracks root-legality reuse and
-   avoiding unnecessary TLC runs for inert roots.
-4. **Authoring and diagnostics: reviewed, integration prepared.**
-   The review queue below covers #43–#50. #48 deliberately changes omitted query
-   budgets to inherit `Spec.max_states`, while explicit query/invocation limits
-   retain priority. #49 is split into #58 (floor division) and #59 (enum lookup);
-   modulo and real division are outside this scope. Do not close #49 until both
-   halves have merged. #53/#65/#66 remain separate follow-ups.
+   unnecessary TLC runs for inert roots.
+   [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
+   in effect operands, rather than arbitrary conditional effect lists.
+   [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
+   state-space diagnostics, not automatic symmetry reduction.
+
+#49's two agreed halves are implemented: #58 adds floor division and #59 adds
+exhaustive enum lookup. Modulo and real division remain outside this scope.
+#54 now explains invalid, unexpanded roots; legal missing paths retain their
+ordinary diagnostic and root legality still blocks full/selected checks.
 
 Links: [#43](https://github.com/angru/analint/issues/43),
 [#44](https://github.com/angru/analint/issues/44),
@@ -73,11 +66,11 @@ reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
 dispatch, unbounded structures, a general implementation bridge, semantic diff
 and a Rust core remain outside current work.
 
-## Authoring review queue (2026-11-19)
+## Authoring integration (2026-11-19)
 
-These changes are **open PRs, not merged or released**. Each implementation branch
+These changes are **integrated in main, not released**. Each implementation branch
 passed the mandatory local pre-push suite, Ruff and ty. Existing characterization
-snapshots are unchanged. Independent reviews approve the following exact heads:
+snapshots are unchanged. Independent reviews approved the following exact heads:
 #56 `59b227e` (after its two fixes), #57 `584d6bb`, #60 `1ce1ed7`, #61 `aa610d1`,
 #62 `1d761cf`, #63 `7183f56`, and #64 `47e5511`.
 
@@ -91,14 +84,19 @@ snapshots are unchanged. Independent reviews approve the following exact heads:
 | #49 / #59 | [PR #62](https://github.com/angru/analint/pull/62) | Exhaustive, copied enum-to-integer tables with no default arm. |
 | #54 | [PR #64](https://github.com/angru/analint/pull/64) | Explain invalid, unexpanded roots while preserving overall FAIL and legal missing-path diagnostics. |
 
-The expression branches are based on #57; retarget them after its merge. Their
-AST dispatch additions and shared documentation need explicit conflict resolution
-when combined. The local `codex/reviewed-authoring-integration` branch combines
-all seven reviewed heads in order #57, #60, #61, #62, #63, #64, #56. Its dedicated
+#57 was merged first; #62 and #63 were then retargeted to main. The remaining
+reviewed heads are included through `codex/reviewed-authoring-integration`, which
+preserves their commits and the tested conflict resolutions. Its dedicated
 cross-feature tests exercise Param arithmetic, floor division, Lookup, one-sided
 saturation, inherited budgets, named Flow rendering, cache and native/TLC checks.
 The merge resolutions retain both AST walkers and the escaped Flow display name.
-This is a preparation branch; it does not merge the PRs into main or publish a release.
+
+The local integration at `5e65a1f` passed 1367 tests with 19 existing skips;
+installed-wheel/source verification passed 609 tests, including CLI and MCP
+smoke checks. Strict documentation build, Ruff and ty passed. Subsequent merge
+preparation retained the same source, tests, dependencies and workflow contents;
+only the roadmap records the final integration status. This is source integration
+and artifact verification, not a package publication.
 
 Native arithmetic and scalar-enum lookup preserve Python equality, including
 numerically equal interned states. TLC floor division requires a nonzero constant

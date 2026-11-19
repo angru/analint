@@ -503,6 +503,7 @@ def _describe_flow(spec: Spec, name: str) -> dict:
     return {
         "kind": "flow",
         "id": flow.id,
+        **({"name": flow.name} if flow.name else {}),
         "description": flow.description,
         "steps": [_flow_step_str(s) for s in flow.steps],
     }

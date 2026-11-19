@@ -127,6 +127,18 @@ class Param(Symbolic):
     def __ne__(self, other: Any) -> Predicate:  # type: ignore
         return _Ne(left=self, right=other)
 
+    def __gt__(self, other: Any) -> Predicate:
+        return _Gt(left=self, right=other)
+
+    def __ge__(self, other: Any) -> Predicate:
+        return _Gte(left=self, right=other)
+
+    def __lt__(self, other: Any) -> Predicate:
+        return _Lt(left=self, right=other)
+
+    def __le__(self, other: Any) -> Predicate:
+        return _Lte(left=self, right=other)
+
     def __hash__(self) -> int:
         return id(self)
 
@@ -143,6 +155,12 @@ class Param(Symbolic):
 
     def __rsub__(self, other: Any) -> Expr:
         return _SubExpr(other, self)
+
+    def __mul__(self, other: Any) -> Expr:
+        return _MulExpr(self, other)
+
+    def __rmul__(self, other: Any) -> Expr:
+        return _MulExpr(other, self)
 
     def __repr__(self) -> str:
         return f"Param({self.name})"
@@ -184,6 +202,12 @@ class ParamField(Symbolic):
 
     def __rsub__(self, other: Any) -> Expr:
         return _SubExpr(other, self)
+
+    def __mul__(self, other: Any) -> Expr:
+        return _MulExpr(self, other)
+
+    def __rmul__(self, other: Any) -> Expr:
+        return _MulExpr(other, self)
 
     def __hash__(self) -> int:
         return hash((id(self.param), self.field_name))

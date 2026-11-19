@@ -7,7 +7,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `Flow(name=...)` supplies a display label in terminal/JSON reports and `show flow`.
+  Stable ids, selection and existing positional arguments are unchanged. (#47)
+
 ### Fixed
+
+- Numeric `Param` operands support multiplication and ordered comparisons directly,
+  including literal/parameter and reflected forms. Parameter fields also support
+  multiplication; binding uses the existing expression semantics. (#46)
 
 - `DeadActions` preserves disable-only flag writers when the assessed action's
   guard needs the off state. Previously slicing could omit its enabling path

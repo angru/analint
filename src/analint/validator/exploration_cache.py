@@ -43,7 +43,7 @@ from analint.reporter.base import Code, Finding, Severity
 from analint.validator import explorer
 from analint.validator.explorer import Exploration
 
-FORMAT = 3
+FORMAT = 4
 # Only these dataclass schemas have been audited for semantic cache inputs.
 # A future node (including a dataclass) must opt in, never inherit acceptance.
 _CANON_DATACLASSES = {
@@ -311,6 +311,7 @@ def encode(exp: Exploration) -> dict:
         "edges": [_b64(exp.edge_src), _b64(exp.edge_action), _b64(exp.edge_dst)],
         "actions": exp.action_ids,
         "roots": [[exp.index[key], number] for key, number in exp.roots.items()],
+        "invalid_roots": sorted(exp.invalid_roots),
         "fired": sorted(exp.fired),
         "findings": [[f.severity.value, f.location, f.message, f.code.value] for f in exp.findings],
         "finding_states": [[index, sorted(states)] for index, states in exp.finding_states.items()],
@@ -381,6 +382,9 @@ def decode(data: dict, spec: Spec, initials: list[dict], classes: dict[str, type
     for action_id in data["actions"]:
         exp.action_code(action_id)
     exp.roots = {exp.keys[index]: number for index, number in data["roots"]}
+    exp.invalid_roots = set(data["invalid_roots"])
+    if not exp.invalid_roots <= {exp.index[key] for key in exp.roots}:
+        raise ValueError("inconsistent stored invalid-root provenance")
     exp.fired = set(data["fired"])
     exp.findings = [
         Finding(Severity(s), loc, msg, Code(code)) for s, loc, msg, code in data["findings"]

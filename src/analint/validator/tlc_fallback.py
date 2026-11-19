@@ -25,8 +25,14 @@ from analint.reporter.base import (
     Severity,
     ValidationResult,
 )
-from analint.validator.explorer import render_state, resolve_query_initials, state_key
+from analint.validator.explorer import (
+    _invalid_root_finding,
+    render_state,
+    resolve_query_initials,
+    state_key,
+)
 from analint.validator.slicing import Slice, SliceAnalysis
+from analint.validator.state_checks import check_invariants
 
 
 def decide_with_tlc(
@@ -301,7 +307,14 @@ def _decide_query(
         code = Code.HOLDS
     else:
         code = Code.PROPERTY_VIOLATED if isinstance(query, AlwaysHolds) else Code.REACHED_FORBIDDEN
-    res.findings = [Finding(severity, loc, message, code), _note(outcome)]
+    finding = Finding(severity, loc, message, code)
+    if (
+        isinstance(query, Reachable)
+        and not found
+        and check_invariants(spec, initials[0], "initial")
+    ):
+        finding = _invalid_root_finding(res.query_id, 1)
+    res.findings = [finding, _note(outcome)]
 
 
 def _decide_reachable_roots(
@@ -318,13 +331,18 @@ def _decide_reachable_roots(
 
     One union-of-roots invariant run only establishes existence from *some*
     root. Retain the existing representative action trace without claiming it
-    proves the other roots. Any undecided run leaves the query inconclusive.
+    proves the other roots. An undecided run leaves the query inconclusive unless
+    an earlier root already refuted it.
     """
     roots, numbers = initials, list(range(1, len(initials) + 1))
     if analysis is not None and piece is not None:
         roots, numbers, _ = analysis.project_roots(piece, initials)
     seen = set()
     outcomes = []
+    invalid_failure = None
+    legal_failure = None
+    invalid_numbers: set[int] = set()
+    added_findings_start = len(res.findings)
     loc = f"query:{res.query_id}"
     text = query.label or res.query_id
     for root, number in zip(roots, numbers, strict=True):
@@ -344,12 +362,21 @@ def _decide_reachable_roots(
             defect_actions,
         )
         if outcome is None:
+            if invalid_failure is not None:
+                break  # keep the known FAIL and the new backend/defect diagnostic
             return
         outcomes.append((number, root, outcome))
         if outcome.status == "ok":
-            break  # one complete root without a witness refutes the requirement
+            if check_invariants(spec, root, "initial"):
+                invalid_numbers.add(number)
+                if invalid_failure is None:
+                    invalid_failure = outcomes[-1]
+                continue  # retain ordinary missing-path evidence for legal roots
+            legal_failure = outcomes[-1]
+            break
 
-    number, root, last = outcomes[-1]
+    decisive = legal_failure or invalid_failure or outcomes[-1]
+    number, root, last = decisive
     found = last.status == "violation"
     representative_number, representative_root, representative = outcomes[0]
     if found:
@@ -372,7 +399,10 @@ def _decide_reachable_roots(
             loc,
             message,
             Code.WITNESS if found else Code.NOT_REACHABLE,
-        ),
+        )
+        if number not in invalid_numbers
+        else _invalid_root_finding(res.query_id, number),
         Finding(Severity.INFO, loc, f"init #{number}: {rendered}", Code.INITIAL_STATE),
+        *res.findings[added_findings_start:],
         *[_note(outcome) for _, _, outcome in outcomes],
     ]

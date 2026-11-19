@@ -209,7 +209,7 @@ and it never appears in a failed scenario. Verdicts and statuses are unchanged.
 | `invariant.` | `invariant.violated`, `invariant.evaluation_error`, `invariant.not_checked` |
 | `scenario.` | `scenario.expected_rejection`, `scenario.not_rejected`, `scenario.then_failed`, `scenario.then_evaluation_error`, `scenario.event_not_emitted` |
 | `flow.` | `flow.step_not_run`, `flow.invariant_violated`, `flow.checkpoint_failed`, `flow.checkpoint_evaluation_error`, `flow.event_not_emitted` |
-| `query.` | `query.invalid`, `query.evaluation_error`, `query.vacuous`, `query.witness`, `query.holds`, `query.reached_forbidden`, `query.not_reachable`, `query.property_violated`, `query.dead_end`, `query.goal_unreachable`, `query.dead_actions`, `query.not_assessed`, `query.undecided`, `query.initial_state` |
+| `query.` | `query.invalid`, `query.invalid_root`, `query.evaluation_error`, `query.vacuous`, `query.witness`, `query.holds`, `query.reached_forbidden`, `query.not_reachable`, `query.property_violated`, `query.dead_end`, `query.goal_unreachable`, `query.dead_actions`, `query.not_assessed`, `query.undecided`, `query.initial_state` |
 | `check.` | `check.budget_exhausted`, `check.excluded_actions` |
 | `tlc.` | `tlc.unavailable`, `tlc.no_invariant_form`, `tlc.not_exported`, `tlc.failed`, `tlc.transition_defect`, `tlc.decided` |
 
@@ -330,7 +330,10 @@ in the transition system. When TLC decides the property, `backend: "tlc"` and
 initial state). TLC state snapshots are not available: `state_trace_available`
 is false, `root` is null, `steps` is empty and `final_state` is empty. The tool
 does not substitute a native rerun or invent state changes. Native traces retain
-the existing state-diff representation.
+the existing state-diff representation. A `query.invalid_root` failure includes
+an explanation in `message`: the root is invalid under model invariants and was
+not expanded. Native traces retain that root with zero steps; TLC includes its
+number and explanation without state snapshots.
 
 Successful trace retrieval is an inspection operation. Its process exit code
 does not replace the property's `status` or a `check` verdict.

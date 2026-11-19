@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- `Reachable` explains when an initial state is invalid under model invariants
+  and was not expanded, instead of presenting it as an ordinary missing path.
+  Root legality remains a blocking failure; mixed-root failures still identify
+  a legal root without a path. Native/TLC traces and cached checks retain the
+  explanation. (#54)
+
 - `DeadActions` preserves disable-only flag writers when the assessed action's
   guard needs the off state. Previously slicing could omit its enabling path
   and falsely report the action dead, depending on action order and budget.

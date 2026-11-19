@@ -99,6 +99,7 @@ class Code(StrEnum):
     CHECKPOINT_EVENT_NOT_EMITTED = "flow.event_not_emitted"
     # queries
     QUERY_INVALID = "query.invalid"
+    QUERY_INVALID_ROOT = "query.invalid_root"
     QUERY_EVALUATION_ERROR = "query.evaluation_error"
     QUERY_VACUOUS = "query.vacuous"
     WITNESS = "query.witness"

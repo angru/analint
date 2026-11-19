@@ -20,55 +20,40 @@ maintaining a second test count here.
 
 ## Current priorities (2026-11-19)
 
-Release 0.1.0, its publication checks, the documentation baseline and P5 are
-complete. Real-spec dogfooding in `exness-spec` has now produced ten actionable
-reports (#41–#50); it is no longer waiting for first feedback. The independent
-one-requirement-change trial remains open: finding bugs during initial authoring
-is not evidence that a complete before/after maintenance loop succeeded.
+Release **0.1.0 remains the latest published version**. The #42/#41 correctness
+repairs are now merged in main through PRs #51 and #52, but are **unreleased**.
+Their integration and accepted performance cost are recorded below. Real-spec
+`exness-spec` authoring produced ten reports (#41–#50); the independent
+one-requirement-change trial is still open.
 
-1. **#42 — Reachable from every root: implemented, review pending.** Restores the documented
-   requirement that every admissible initial state has a path to the predicate.
-   The 0.1.0 engine and an existing test instead accept one matching root.
-   Cover converging paths, duplicate/projected roots, budgets, excluded actions,
-   cache, traces and native/TLC parity; a root's BFS discovery owner is not the
-   set of roots that can reach it. Record this as a correctness change.
-   The unreleased repair checks reverse graph reachability natively and each
-   projected root with TLC. Complete failures identify an unreachable root;
-   partial results remain INCONCLUSIVE unless every root has a witness.
-   Validation: 35 focused cases, CLI/MCP and real TLC, unchanged example
-   snapshots; full suite 1090 passed / 21 skipped, lint/format/typing and strict
-   docs build passed. Five old tests were corrected to match the documented
-   all-roots contract. This is not yet merged or released.
-2. **#41 — DeadActions slicing: implemented, review pending.** Preserves transitions needed
-   to enable the action being assessed. The minimal report fails with slicing
-   and passes with `--no-slice`. Gate the fix against action ordering, budgets,
-   superset reuse and existing slicing optimizations. The bounded repair keeps
-   disablers only for the assessed action's non-antitone guard reads; unrelated
-   properties and ordinary flag consumers retain their reduced slices.
-   The focused flag/slicing suite passes (83 cases), and the example snapshots
-   are unchanged. The external `exness-spec` now passes with both repairs:
-   8 scenarios, 1 flow, 2 invariants and 4 queries; no INCONCLUSIVE results.
-   The 7 existing action-scenario coverage warnings remain. Full pre-push and
-   hosted gates must pass before merge; the repair is not released.
-3. **PR #40 — invariant plan lifetime: separate review.** The proposed repair
-   addresses false PASS after nested invariant edits and model copies. Quality
-   and Docs passed at `a863a76`; the PR is open, not merged or released. Review
-   its concrete repair independently; it does not close the broader #11.
-4. **Authoring and diagnostics, after correctness.** Take #43–#45 as bounded
-   terminal/load-diagnostic improvements, then #46 (Param operators). #47
-   (Flow name) is a smaller API consistency task. #48 is an API decision:
-   separate query budgets are already documented; inheritance would change
-   that contract. Split #49 into division and lookup proposals. #50 has a
-   concrete one-sided-saturation use case, but needs backend-conformant semantics.
-5. **Resume the real-spec change trial after blocker repairs.** Replay the
-   dogfood cases against the fixes, then record one independently requested rule
-   change with full/selected checks, allowed/rejected cases and a trace. Keep
-   the bounded fulfillment rehearsal as existing evidence, not trial closure.
+1. **Resume the external real-spec change trial.** The two reported checker
+   blockers are repaired and the existing `exness-spec` passes with both fixes.
+   Next, record one independently requested rule change with full/selected checks,
+   allowed/rejected cases and a trace. Initial authoring and the bounded
+   fulfillment rehearsal do not close the before/after maintenance trial.
+2. **PR #40 — invariant plan lifetime: reviewed, still open.** Its concrete
+   stale-invariant repair has a [separate review](https://github.com/angru/analint/pull/40#pullrequestreview-5970866696)
+   with no blocking findings; the focused review rerun passed 54 tests and
+   Quality/Docs passed on `a863a76`. It was not included in the #51/#52 merges
+   and does not close the broader #11 snapshot issue.
+3. **Bounded review follow-ups, both P3.**
+   [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
+   action-slice cost. Investigate narrow-first fireability or equivalent reuse
+   without dropping transition-defect coverage, including later executions of
+   an action already enabled at a root. The cost is accepted for the correctness
+   release, not a merge blocker.
+   [#54](https://github.com/angru/analint/issues/54) tracks the extra missing-path
+   diagnostic for an illegal initial root. Clarify or suppress only that
+   duplicate using explicit provenance; preserve blocking root legality and
+   FAIL in full/selected checks, and retain real failures for legal roots.
+4. **Authoring and diagnostics.** Take #43–#45 as bounded terminal/load-report
+   improvements, then #46 (Param operators). #47 (Flow name) is a smaller API
+   consistency task. #48 is an API decision: separate query budgets are already
+   documented; inheritance would change that contract. Split #49 into division
+   and lookup proposals. #50 has a concrete one-sided-saturation use case and
+   needs backend-conformant semantics.
 
-Links: [#42](https://github.com/angru/analint/issues/42),
-[#41](https://github.com/angru/analint/issues/41),
-[PR #40](https://github.com/angru/analint/pull/40),
-[#43](https://github.com/angru/analint/issues/43),
+Links: [#43](https://github.com/angru/analint/issues/43),
 [#44](https://github.com/angru/analint/issues/44),
 [#45](https://github.com/angru/analint/issues/45),
 [#46](https://github.com/angru/analint/issues/46),
@@ -77,16 +62,49 @@ Links: [#42](https://github.com/angru/analint/issues/42),
 [#49](https://github.com/angru/analint/issues/49),
 [#50](https://github.com/angru/analint/issues/50).
 
-The baseline audit reproduced #41 and #42 on `651b2c6`; the existing explorer
-and slicing suites still passed (95 passed, 2 skipped). Those gates therefore
-need adversarial additions, not just a green rerun. #42 also reproduces without
-slicing. The previous verification-boundary repairs remain released in 0.1.0;
-the history below records their acceptance.
-
 Broader #11 snapshot work and #12 state-store ownership remain conditional on
-concrete consumer evidence. Further optimization requires a measured bottleneck.
-Liveness/fairness, automatic event dispatch, unbounded structures, a general
-implementation bridge, semantic diff and a Rust core remain outside current work.
+concrete consumer evidence. #53 supplies a bounded performance task; it does not
+reopen P5 or justify a general rewrite. Liveness/fairness, automatic event
+dispatch, unbounded structures, a general implementation bridge, semantic diff
+and a Rust core remain outside current work.
+
+## Reachability correctness integration (2026-11-19)
+
+| Issue | Merged implementation | Reviewed guarantee |
+| --- | --- | --- |
+| [#42](https://github.com/angru/analint/issues/42) | [PR #51](https://github.com/angru/analint/pull/51), `502397b` | Reachable requires a path from every admissible root, including converging paths. Native reverse reachability and per-root TLC agree; incomplete proofs stay INCONCLUSIVE. |
+| [#41](https://github.com/angru/analint/issues/41) | [PR #52](https://github.com/angru/analint/pull/52), `d7c14b6` | An action slice retains flag disablers needed by its own non-antitone guard. True dead actions and transition defects remain failures; ordinary consumers retain the optimization. |
+
+#51 was merged first. #52 was then retargeted to main and rebased from reviewed
+`78dcb0f` to `20ee1dc`; its tree stayed identical
+(`44c518e1833097c0720423e116405f582782b1f4`). Quality and Docs passed on the
+retargeted head before merge. These are source integrations, not publication.
+
+[Independent #51 review](https://github.com/angru/analint/pull/51#issuecomment-7003430980)
+reproduced the old false PASS and verified native/TLC root handling, duplicates,
+convergence and budgets; its full suite passed 1092 tests with 19 skips.
+[Independent #52 review](https://github.com/angru/analint/pull/52#issuecomment-7003459660)
+covered all six action orders, reversed polarity, budget changes and real
+failure controls; its full suite passed 1144 tests with 19 skips. Implementation
+checks also passed CLI/MCP, cold/warm cache and mandatory pre-push gates.
+Characterization snapshots are unchanged. Five historical existential-root
+expectations were deliberately corrected to the documented all-roots contract.
+
+The existing `exness-spec` passed with both fixes: 8 scenarios, 1 flow,
+2 invariants and all 4 queries, with no INCONCLUSIVE results. Seven existing
+warnings about action-scenario coverage remain. This verifies the reported
+blockers, not the still-pending independent requirement-change trial.
+
+**Accepted cost and follow-up:** the review measured broker's `scripts/bench.py`
+state metric rising from 27,228 to 38,518 (+41%). That metric is the maximum
+reported `states_explored` among checks, not total exploration work. The widened
+`request_code` slice contains all 33 actions / 19 variables because retaining
+`code_confirmed` disablers pulls in withdrawal dependencies. Approximate
+2.5-to-3.1-second timings were taken under concurrent test load and are not a
+performance gate. #53 must measure actual exploration calls/state totals and
+controlled timings while preserving both fireability and defect coverage.
+The root diagnostic noted in #51 is separately tracked by #54; it does not
+change the accepted FAIL semantics for illegal initial states.
 
 ## Verification boundary audit (2026-11-17)
 
@@ -672,9 +690,10 @@ example is exercised through check/explore/trace and cold/warm cache in docs CI.
 
 ### 5. Performance history — conditional backlog
 
-The existing ASV/history proposal below remains deferred until a controlled runner
-is available or the live trial reproduces a regression. Reuse the current generated
-workloads and broker models; record commit, environment, completeness, state counts,
+The existing ASV/history infrastructure proposal below remains deferred. The
+concrete broker regression from #52 is now tracked in [#53](https://github.com/angru/analint/issues/53);
+it authorizes a bounded comparison and optimization, not a general history
+service. Reuse the current generated workloads and broker models; record commit, environment, completeness, state counts,
 cold/warm mode and memory. Keep normal tests free of timing gates. New backends,
 POR and native rewrites still require the measured triggers documented in P5.
 

@@ -114,17 +114,12 @@ class _FloorDivExpr(_BinaryExpr):
     pass
 
 
-def floor_divide(left: Any, right: Any) -> int:
-    """Integer division floors toward negative infinity, never truncates."""
-    if (
-        not isinstance(left, int)
-        or isinstance(left, bool)
-        or not isinstance(right, int)
-        or isinstance(right, bool)
-    ):
-        raise TypeError("floor division requires integer operands (excluding bool)")
+def floor_divide(left: Any, right: Any) -> int | float:
+    """Use Python numeric floor division, consistent with the other arithmetic."""
+    if not isinstance(left, (int, float)) or not isinstance(right, (int, float)):
+        raise TypeError("floor division requires numeric operands")
     if right == 0:
-        raise ZeroDivisionError("integer floor division by zero")
+        raise ZeroDivisionError("floor division by zero")
     return left // right
 
 

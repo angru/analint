@@ -463,12 +463,14 @@ with `tlc.not_exported` rather than approximated.
 
 Integer expressions support `//` and reflected forms (`100 // Account.leverage`),
 including Params, scoped fields and aggregates. The result rounds toward negative
-infinity: `-5 // 2 == -3`, `5 // -2 == -3`. Operands must be integers;
-bools and floats are rejected. A literal zero divisor is a structural error;
+infinity: `-5 // 2 == -3`, `5 // -2 == -3`. Integer operands produce integer results. Native evaluation follows Python numeric
+semantics, including bool/int and equal integer/float values; other operand types
+are rejected. TLC retains its existing integer-only numeric domain. A literal zero divisor is a structural error;
 a state-dependent zero divisor becomes an evaluation finding and fails the check.
 
-TLC supports nonzero constant integer divisors (including bound Params). Dynamic
-divisors are explicitly refused, leaving a capped check INCONCLUSIVE; no
+TLC supports provably integer numerators and nonzero constant integer divisors
+(including bound Params). It checks root values and writes rather than trusting
+annotations; bool/float numerator domains and dynamic divisors are explicitly refused, leaving a capped check INCONCLUSIVE; no
 approximate division or ignored zero case is exported. `/` and `%` are not added.
 
 ## Scenario and Flow

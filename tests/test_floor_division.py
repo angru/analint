@@ -42,7 +42,12 @@ def test_floor_matches_python_for_all_signs(left, right):
 
 @pytest.mark.parametrize(
     "left,right,error",
-    [(1, 0, ZeroDivisionError), (1.0, 2, TypeError), (True, 2, TypeError), (2, False, TypeError)],
+    [
+        (1, 0, ZeroDivisionError),
+        ("1", 2, TypeError),
+        (None, 2, TypeError),
+        (2, False, ZeroDivisionError),
+    ],
 )
 def test_interpreter_and_compiler_report_identical_errors(left, right, error):
     pred = _FloorDivExpr(left, right) == 0
@@ -75,7 +80,7 @@ def test_binding_where_scopes_and_quantifiers():
 
 
 @pytest.mark.parametrize("divisor", [-2, 2])
-@pytest.mark.parametrize("numerator", [-5, 5])
+@pytest.mark.parametrize("numerator", [-5, 5, True, False])
 def test_tlc_agrees_with_negative_floor(numerator, divisor):
     try:
         find_tlc()
@@ -94,8 +99,12 @@ def test_tlc_agrees_with_negative_floor(numerator, divisor):
     spec = Spec(id="s", name="S", actions=[action], queries=[query])
     assert validate_spec(spec).verdict == "PASS"
     result = validate_spec(spec, max_states=1, tlc=True)
-    assert result.verdict == "PASS"
-    assert result.query_results[0].backend == "tlc"
+    if isinstance(numerator, bool):
+        assert result.verdict == "INCONCLUSIVE"
+        assert any("integer operands" in f.message for f in result.query_results[0].findings)
+    else:
+        assert result.verdict == "PASS"
+        assert result.query_results[0].backend == "tlc"
 
 
 def test_dynamic_zero_is_a_finding_and_tlc_refuses_unknown_divisor():
@@ -117,3 +126,15 @@ def test_dynamic_zero_is_a_finding_and_tlc_refuses_unknown_divisor():
         f.severity == "ERROR" and "division by zero" in f.message
         for f in validate_spec(spec).structural_findings
     )
+
+
+@pytest.mark.parametrize("value", [1, 1.0, True])
+def test_equal_numeric_states_have_equal_division_semantics(value):
+    class Box(Entity):
+        n: int = 1
+
+    query = AlwaysHolds(Box.n // 2 == 0, id="safe")
+    action = Action(id="equal", effect=[Set(Box.n, value)])
+    spec = Spec(id="s", name="S", actions=[action], queries=[query])
+    assert resolve(Box.n // 2, {Box: Box(n=value)}) == 0
+    assert validate_spec(spec).verdict == "PASS"

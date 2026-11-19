@@ -139,6 +139,7 @@ class _Model:
 
     def __init__(self, spec: Spec, roots: list[dict]) -> None:
         self.spec = spec
+        self.roots = roots
         self.keys = sorted(roots[0], key=context_key_label)
         if any(sorted(ctx, key=context_key_label) != self.keys for ctx in roots):
             raise ExportError("roots with different context keys")
@@ -178,6 +179,56 @@ class _Model:
     def absent(self, key: Any) -> str:
         parts = [f"{PRESENT} |-> FALSE"] + [f"{_field(f)} |-> {NULL}" for f in self.fields[key]]
         return "[" + ", ".join(parts) + "]"
+
+
+def _require_integer_operand(model: _Model, operand: Any, seen: set) -> None:
+    """Only export division where TLC's integer arithmetic matches Python.
+
+    Native bool/float arithmetic is valid, but TLC cannot mix those domains.
+    Annotations alone do not constrain state values, so inspect roots and writes.
+    """
+    if isinstance(operand, int) and not isinstance(operand, bool):
+        return
+    if isinstance(operand, Key) and isinstance(operand.target, InstanceRef):
+        return _require_integer_operand(model, operand.target.key, seen)
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
+        _require_integer_operand(model, operand.left, seen)
+        _require_integer_operand(model, operand.right, seen)
+        return
+    if isinstance(operand, (FieldDescriptor, InstanceField)):
+        key = operand.instance if isinstance(operand, InstanceField) else operand.entity_cls
+        name = operand.field_name
+        if (key, name) in seen:
+            return
+        seen.add((key, name))
+        for root in model.roots:
+            inst = root[key]
+            if inst.__dict__.get("_analint_present", True):
+                _require_integer_operand(model, inst.__dict__.get(name), seen)
+        cls = key.entity_cls if isinstance(key, InstanceRef) else key
+        for action in model.spec.actions:
+            for effect in action.effect:
+                if (
+                    isinstance(effect, (Set, Add, Subtract))
+                    and _target_key(effect) == key
+                    and effect.field.field_name == name
+                ):
+                    value = effect.value if isinstance(effect, Set) else effect.amount
+                    _require_integer_operand(model, value, seen)
+                elif isinstance(effect, Create) and effect.target == key:
+                    _require_integer_operand(
+                        model, effect.fields.get(name, all_fields(cls)[name].default), seen
+                    )
+        return
+    if isinstance(operand, _Count):
+        return
+    if isinstance(operand, _Sum):
+        for ref in operand.variable.scope:
+            _require_integer_operand(
+                model, bind_operand(operand.operand, operand.variable, ref), seen
+            )
+        return
+    raise ExportError("floor division needs provably integer operands for TLC")
 
 
 # ── expressions ──────────────────────────────────────────────────────────────
@@ -220,6 +271,7 @@ class _Renderer:
                 raise ExportError(
                     "floor division requires a nonzero constant integer divisor for TLC"
                 )
+            _require_integer_operand(self.model, op.left, set())
             left = self.operand(op.left)
             divisor = op.right
             if divisor < 0:

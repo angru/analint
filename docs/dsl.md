@@ -479,6 +479,20 @@ TLC exports literal enum selectors and fields whose roots and writes are known
 to contain members of that enum. It explicitly refuses other selector domains;
 this prevents scalar-enum encoding from hiding an invalid native selector.
 
+### Integer floor division
+
+Integer expressions support `//` and reflected forms (`100 // Account.leverage`),
+including Params, scoped fields and aggregates. The result rounds toward negative
+infinity: `-5 // 2 == -3`, `5 // -2 == -3`. Integer operands produce integer results. Native evaluation follows Python numeric
+semantics, including bool/int and equal integer/float values; other operand types
+are rejected. TLC retains its existing integer-only numeric domain. A literal zero divisor is a structural error;
+a state-dependent zero divisor becomes an evaluation finding and fails the check.
+
+TLC supports provably integer numerators and nonzero constant integer divisors
+(including bound Params). It checks root values and writes rather than trusting
+annotations; bool/float numerator domains and dynamic divisors are explicitly refused, leaving a capped check INCONCLUSIVE; no
+approximate division or ignored zero case is exported. `/` and `%` are not added.
+
 ## Scenario and Flow
 
 `Scenario(action=..., given=[...], then=[...], expected=Expect.PASS)` checks one

@@ -77,6 +77,7 @@ jobs:
           tests/test_tlc_backend.py
           tests/test_one_sided_saturation.py
           tests/test_enum_lookup.py
+          tests/test_floor_division.py
           tests/test_fixed_initial.py
           tests/test_initial_presence.py
           tests/test_keys.py

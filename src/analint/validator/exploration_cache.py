@@ -54,6 +54,7 @@ _CANON_DATACLASSES = {
     expr._AddExpr,
     expr._SubExpr,
     expr._MulExpr,
+    expr._FloorDivExpr,
     Key,
     _Lookup,
     predicate._Eq,

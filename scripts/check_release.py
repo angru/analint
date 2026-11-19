@@ -44,6 +44,7 @@ ARCHIVE_TESTS = [
     "tests/test_ast_coverage.py",
     "tests/test_one_sided_saturation.py",
     "tests/test_enum_lookup.py",
+    "tests/test_floor_division.py",
     "tests/test_generated_conformance.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",

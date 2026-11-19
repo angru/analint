@@ -7,7 +7,7 @@ from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
-from analint.models.expr import _AddExpr, _BinaryExpr, _MulExpr, _SubExpr, expr_op
+from analint.models.expr import _AddExpr, _BinaryExpr, _FloorDivExpr, _MulExpr, _SubExpr, expr_op
 from analint.models.flow import Assert, Emitted
 from analint.models.key import Key
 from analint.models.lookup import _Lookup
@@ -1052,9 +1052,13 @@ def _check_operand_nodes(
             findings.extend(_check_operand_nodes(operand.operand, bound | {operand.variable}, loc))
     elif isinstance(operand, _Lookup):
         findings.extend(_check_operand_nodes(operand.selector, bound, loc))
-    elif isinstance(operand, (_AddExpr, _SubExpr, _MulExpr)):
+    elif isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
         findings.extend(_check_operand_nodes(operand.left, bound, loc))
         findings.extend(_check_operand_nodes(operand.right, bound, loc))
+        if isinstance(operand, _FloorDivExpr) and type(operand.right) is int and operand.right == 0:
+            findings.append(
+                Finding(Severity.ERROR, loc, "integer floor division by zero", Code.INVALID_ENTRY)
+            )
     elif not is_field_ref(operand) and not is_literal_operand(operand):
         findings.append(
             Finding(

@@ -35,7 +35,7 @@ from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import _MISSING, FieldDescriptor, all_fields
 from analint.models.event import Event
-from analint.models.expr import _AddExpr, _MulExpr, _SubExpr
+from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr
 from analint.models.key import Key
 from analint.models.lookup import _Lookup
 from analint.models.predicate import (
@@ -210,6 +210,56 @@ def _require_enum_field(model: _Model, key: Any, name: str, enum: type) -> None:
                 require(effect.fields.get(name, all_fields(cls)[name].default))
 
 
+def _require_integer_operand(model: _Model, operand: Any, seen: set) -> None:
+    """Only export division where TLC's integer arithmetic matches Python.
+
+    Native bool/float arithmetic is valid, but TLC cannot mix those domains.
+    Annotations alone do not constrain state values, so inspect roots and writes.
+    """
+    if isinstance(operand, int) and not isinstance(operand, bool):
+        return
+    if isinstance(operand, Key) and isinstance(operand.target, InstanceRef):
+        return _require_integer_operand(model, operand.target.key, seen)
+    if isinstance(operand, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
+        _require_integer_operand(model, operand.left, seen)
+        _require_integer_operand(model, operand.right, seen)
+        return
+    if isinstance(operand, (FieldDescriptor, InstanceField)):
+        key = operand.instance if isinstance(operand, InstanceField) else operand.entity_cls
+        name = operand.field_name
+        if (key, name) in seen:
+            return
+        seen.add((key, name))
+        for root in model.roots:
+            inst = root[key]
+            if inst.__dict__.get("_analint_present", True):
+                _require_integer_operand(model, inst.__dict__.get(name), seen)
+        cls = key.entity_cls if isinstance(key, InstanceRef) else key
+        for action in model.spec.actions:
+            for effect in action.effect:
+                if (
+                    isinstance(effect, (Set, Add, Subtract))
+                    and _target_key(effect) == key
+                    and effect.field.field_name == name
+                ):
+                    value = effect.value if isinstance(effect, Set) else effect.amount
+                    _require_integer_operand(model, value, seen)
+                elif isinstance(effect, Create) and effect.target == key:
+                    _require_integer_operand(
+                        model, effect.fields.get(name, all_fields(cls)[name].default), seen
+                    )
+        return
+    if isinstance(operand, _Count):
+        return
+    if isinstance(operand, _Sum):
+        for ref in operand.variable.scope:
+            _require_integer_operand(
+                model, bind_operand(operand.operand, operand.variable, ref), seen
+            )
+        return
+    raise ExportError("floor division needs provably integer operands for TLC")
+
+
 # ── expressions ──────────────────────────────────────────────────────────────
 
 
@@ -258,6 +308,17 @@ class _Renderer:
             return self.read(op.entity_cls, op.field_name)
         if isinstance(op, InstanceField):
             return self.read(op.instance, op.field_name)
+        if isinstance(op, _FloorDivExpr):
+            if type(op.right) is not int or op.right == 0:
+                raise ExportError(
+                    "floor division requires a nonzero constant integer divisor for TLC"
+                )
+            _require_integer_operand(self.model, op.left, set())
+            left = self.operand(op.left)
+            divisor = op.right
+            if divisor < 0:
+                left, divisor = f"(-({left}))", -divisor
+            return f"({left} \\div {divisor})"
         if isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
             sign = {_AddExpr: "+", _SubExpr: "-", _MulExpr: "*"}[type(op)]
             return f"({self.operand(op.left)} {sign} {self.operand(op.right)})"
@@ -360,7 +421,7 @@ def _outside_refs(pred: Any) -> list[Any]:
             out.append(op)
         elif isinstance(op, _Lookup):
             operand(op.selector)
-        elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr)):
+        elif isinstance(op, (_AddExpr, _SubExpr, _MulExpr, _FloorDivExpr)):
             operand(op.left)
             operand(op.right)
 

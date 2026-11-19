@@ -507,6 +507,44 @@ class SliceAnalysis:
             self._action_slices[key] = piece
         return piece
 
+    def local_enabler_slice(
+        self, action: Action, initials: list[dict], *, canonical: bool
+    ) -> Slice | None:
+        """A narrow candidate with a bounded defect-coverage argument.
+
+        A local singleton enabler reads/writes only its boolean flag, has no
+        postcondition, payload or flag-reading invariant, and
+        starts off in every supplied root. A complete exploration that fires it
+        has checked the off state and its constant on successor. An omitted
+        disabler only restores that already checked off state; terminal locks
+        can only reject an execution, never introduce a defect. Repeating the
+        action cannot expose a new guard/effect defect. Other actions still
+        receive their own ordinary coverage. Never use this argument for an
+        enabler with state-dependent postconditions or other inputs/outputs.
+        """
+        if (
+            not self.sliceable
+            or len(action.effect) != 1
+            or not isinstance(action.effect[0], Set)
+            or action.post
+            or action.emits
+        ):
+            return None
+        effect = action.effect[0]
+        var = (_target_key(effect), effect.field.field_name)
+        off = self.flags.get(var)
+        if (
+            not isinstance(off, bool)
+            or effect.value is not (not off)
+            or self.action_vars[id(action)] != {var}
+            or self.readers.get(var)
+            or not all(_value(ctx, var) is off for ctx in initials)
+        ):
+            return None
+        narrow = self._resolve({var}, (action,), (), canonical=canonical)
+        wide = self.action_slice(action, canonical=canonical)
+        return narrow if narrow.key != wide.key else None
+
     def supporting_invariants(self, piece: Slice) -> list[Invariant]:
         """Proofs/constraints this slice uses; identity-based and in model order."""
         if piece.vars is None:

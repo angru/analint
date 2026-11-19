@@ -234,6 +234,12 @@ own slice for defect parity and DeadActions. Do not regress:
   properties reading the flag, action slices with non-antitone guard reads
   of it, and constrained slices whose invariants read it keep those writers. Slice identity (cache key, superset reuse) includes the
   action set;
+- local boolean enablers whose roots all start off may use a complete narrow
+  firing proof only when their guard/effect inputs are the flag alone and no
+  postcondition, emitted event or invariant reads can add a later defect. Both
+  off/on states have been checked; terminal locks only reject. Unsuccessful or
+  capped probes widen. Never use an initial firing alone to skip an action's
+  later state-dependent defects;
 - the one documented divergence: the whole model counts a state that breaks an
   invariant *outside* the slice as a `NoDeadEnd` dead end, and the slice does
   not. That violation still fails the run in its own invariant's slice;

@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Reduce action-coverage work for local boolean enablers starting off: reuse a
+  complete narrow firing proof only when all guard/effect inputs are local and
+  no postcondition, emitted event or invariant can introduce a later defect.
+  Incomplete or unsuccessful probes widen; other actions retain full coverage.
+  Broker's maximum reported states fall from 38,518 to 27,228. (#53)
+
 ## [0.2.0] — 2026-11-19
 
 Author finite models with enum lookup, floor division and one-sided saturation;

@@ -76,6 +76,7 @@ jobs:
           uv run --frozen pytest -q -rs
           tests/test_tlc_backend.py
           tests/test_one_sided_saturation.py
+          tests/test_boolean_values.py
           tests/test_enum_lookup.py
           tests/test_authoring_integration.py
           tests/test_floor_division.py

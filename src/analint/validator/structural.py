@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from analint.models.action import Action
+from analint.models.boolean import BoolValue
 from analint.models.effect import Add, Create, Delete, Set, Subtract
 from analint.models.entity import FieldDescriptor, all_fields
 from analint.models.event import Event
@@ -638,6 +639,8 @@ def _required_operand_refs(
     operand: Any,
     bound: frozenset[Bound] = frozenset(),
 ) -> list[FieldDescriptor | InstanceField]:
+    if isinstance(operand, BoolValue):
+        return _required_field_refs(operand.predicate, bound)
     if is_field_ref(operand):
         return [operand]
     if isinstance(operand, BoundField):
@@ -994,6 +997,8 @@ def _check_operand_nodes(
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    if isinstance(operand, BoolValue):
+        return _check_pred_nodes(operand.predicate, loc, bound)
     if isinstance(operand, Key):
         if isinstance(operand.target, Bound):
             if operand.target not in bound:
@@ -1130,6 +1135,8 @@ def _check_operand_scopes(
     loc: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    if isinstance(operand, BoolValue):
+        return _check_quantifier_scopes(operand.predicate, spec_scopes, loc)
     if isinstance(operand, Key):
         if operand.target.scope not in spec_scopes:
             findings.append(
@@ -1183,6 +1190,8 @@ def _operand_refs(
     operand: Any, context: dict | None = None
 ) -> list[FieldDescriptor | InstanceField]:
     """Field references inside an operand: a descriptor or an expression tree."""
+    if isinstance(operand, BoolValue):
+        return _collect_field_refs(operand.predicate, context)
     if is_field_ref(operand):
         return [operand]
     if isinstance(operand, _Count):
@@ -1253,6 +1262,8 @@ def _collect_field_refs(
 
 
 def _describe_operand(op: Any) -> str:
+    if isinstance(op, BoolValue):
+        return f"BoolValue({_describe(op.predicate)})"
     if isinstance(op, Param):
         return op.name
     if isinstance(op, Key):

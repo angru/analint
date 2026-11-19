@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from analint.models.boolean import BoolValue
 from analint.models.expr import _AddExpr, _FloorDivExpr, _MulExpr, _SubExpr, floor_divide
 from analint.models.key import Key
 from analint.models.lookup import _Lookup
@@ -57,6 +58,8 @@ def resolve(
     bindings: dict[Bound, Any] | None = None,
 ) -> Any:
     bindings = bindings or {}
+    if isinstance(operand, BoolValue):
+        return evaluate(operand.predicate, context, bindings)
     if isinstance(operand, _Lookup):
         return operand.value(resolve(operand.selector, context, bindings))
     if isinstance(operand, Key):
@@ -259,6 +262,8 @@ def _compile_pred(pred: Any) -> Any:
 
 
 def _compile_operand(operand: Any) -> Any:
+    if isinstance(operand, BoolValue):
+        return _compile_pred(operand.predicate)
     if isinstance(operand, _Lookup):
         selector = _compile_operand(operand.selector)
         return lambda ctx, b: operand.value(selector(ctx, b))

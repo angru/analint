@@ -25,7 +25,7 @@ class Reachable:
     given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
-    max_states: int = 10_000
+    max_states: int | None = None  # inherit Spec.max_states when omitted
     initial: Initial | None = None
 
     def __post_init__(self) -> None:
@@ -45,7 +45,7 @@ class Unreachable:
     given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
-    max_states: int = 10_000
+    max_states: int | None = None  # inherit Spec.max_states when omitted
     initial: Initial | None = None
 
     def __post_init__(self) -> None:
@@ -62,7 +62,7 @@ class AlwaysHolds:
     given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
-    max_states: int = 10_000
+    max_states: int | None = None  # inherit Spec.max_states when omitted
     initial: Initial | None = None
 
     def __post_init__(self) -> None:
@@ -82,7 +82,7 @@ class NoDeadEnd:
     given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
-    max_states: int = 10_000
+    max_states: int | None = None  # inherit Spec.max_states when omitted
     initial: Initial | None = None
 
     def __post_init__(self) -> None:
@@ -97,8 +97,15 @@ class DeadActions:
     given_any: list[list[Any]] = field(default_factory=list)
     id: str = ""
     label: str = ""
-    max_states: int = 10_000
+    max_states: int | None = None  # inherit Spec.max_states when omitted
     initial: Initial | None = None
 
 
 QUERY_TYPES = (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)
+
+
+def query_budget(query: Any, spec_budget: int, override: int | None = None) -> int:
+    """Resolve a query budget without mutating a reusable declaration."""
+    if override is not None:
+        return override
+    return spec_budget if query.max_states is None else query.max_states

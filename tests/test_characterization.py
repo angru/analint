@@ -116,7 +116,9 @@ def _exploration_for(spec, query, cache: dict):
 
     initials, _ = resolve_query_initials(query, spec)
     roots = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
-    return cache[(roots, query.max_states)]
+    from analint.models.query import query_budget
+
+    return cache[(roots, query_budget(query, spec.max_states))]
 
 
 def _characterize(path: Path) -> dict:

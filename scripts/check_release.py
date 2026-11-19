@@ -46,6 +46,7 @@ ARCHIVE_TESTS = [
     "tests/test_generated_conformance.py",
     "tests/test_impact.py",
     "tests/test_show_details.py",
+    "tests/test_query_budgets.py",
     "tests/test_fixed_initial.py::test_fixed_roots_across_check_explore_and_trace",
     "tests/test_keys.py::test_key_verdicts_traces_artifacts_and_cache_agree",
 ]

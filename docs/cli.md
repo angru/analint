@@ -235,7 +235,7 @@ Detailed kinds are `entity`, `event`, `invariant`, `query`, `action`, `lifecycle
 including `show query` / `show queries` and `show entity` / `show entities`.
 
 Since 0.0.6, `show query ID` returns `kind: "query"`, the query
-`type`, `label`, declared `max_states`, `predicate` and `goal`. The predicate is
+`type`, `label`, effective `max_states` (query override or inherited Spec budget), `predicate` and `goal`. The predicate is
 null for NoDeadEnd/DeadActions; the goal is populated only for NoDeadEnd. This
 describes the check without running it; use `check` for a verdict and `trace`
 for a witness or counterexample.

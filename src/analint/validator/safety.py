@@ -8,7 +8,7 @@ constrained pipeline, including counterexamples found beyond an invariant cut.
 
 from dataclasses import dataclass
 
-from analint.models.query import AlwaysHolds, Unreachable
+from analint.models.query import AlwaysHolds, Unreachable, query_budget
 from analint.models.root import Query, Spec
 from analint.reporter.base import QueryResult, QueryStatus, Severity
 from analint.validator.explorer import Exploration, _evaluate, explore_slice, resolve_query_initials
@@ -41,7 +41,9 @@ def prove_query(
     initials, _ = resolve_query_initials(query, spec)
     if initials is None or any(check_invariants(spec, ctx, "initial") for ctx in initials):
         return None  # do not prove a property by projecting away an illegal root
-    exp, used = explore_slice(analysis, piece, initials, max_states or query.max_states, {})
+    exp, used = explore_slice(
+        analysis, piece, initials, query_budget(query, spec.max_states, max_states), {}
+    )
     if exp.excluded or any(f.severity == Severity.ERROR for f in exp.findings):
         return None
     result = _evaluate(query, query.id, exp, spec)

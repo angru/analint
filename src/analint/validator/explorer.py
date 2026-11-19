@@ -39,6 +39,7 @@ from analint.models.query import (
     NoDeadEnd,
     Reachable,
     Unreachable,
+    query_budget,
 )
 from analint.models.root import Spec
 from analint.models.scope import (
@@ -1013,7 +1014,7 @@ def _run_query(
             ],
         )
 
-    budget = max_states or query.max_states
+    budget = query_budget(query, spec.max_states, max_states)
     if not isinstance(query, (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)):
         return QueryResult(
             query_id=qid,

@@ -17,6 +17,14 @@ All notable changes to this project are documented here. The format is based on
   Native transitions and TLC apply constraints after clamping; initial values
   and event payloads are never clamped. (#50)
 
+### Changed
+
+- Queries with an omitted or `None` budget inherit `Spec.max_states`, including
+  queries with their own roots. Explicit query budgets and invocation overrides
+  retain priority. `show`, `check`, `explore` and `trace` use the same effective
+  budget without mutating declarations. Set `max_states=10_000` on a query to
+  preserve the old independent default. (#48)
+
 ### Fixed
 
 - Numeric `Param` operands support multiplication and ordered comparisons directly,

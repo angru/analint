@@ -500,7 +500,14 @@ Excluded event-input actions are unassessed, not dead.
 flows=[...], queries=[...])` is the root. It can additionally list entities, events,
 scopes and lifecycles, which are otherwise derived from referenced behaviour.
 `Spec.initial` supplies canonical roots; `Spec.max_states` sets the canonical
-exploration budget (default 10,000).
+exploration budget and the default query budget (default 10,000). A query with
+`max_states=None` (the default) inherits this value, including with its own roots.
+An explicit query budget wins; `check --max-states N` overrides both for one run.
+
+**After 0.1.0:** omitted query budgets inherit `Spec.max_states` rather than
+always using 10,000. Use an explicit `max_states=10_000` on a query to retain
+the old budget. Inheritance is resolved per check, so a shared query can be used
+with different Specs without being mutated.
 
 `Contract(id=..., actions=[...], ...)` is an explicit reusable fragment with the
 same content lists. `Spec(imports=[contract, ...], ...)` combines those lists

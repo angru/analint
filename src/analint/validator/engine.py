@@ -17,6 +17,7 @@ from analint.loader.python_loader import (
     load_path,
     resolve_entry,
 )
+from analint.models.query import query_budget
 from analint.models.root import Spec
 from analint.reporter.base import Code, Finding, Severity, ValidationResult
 from analint.validator.scenario_runner import run_scenario
@@ -325,7 +326,9 @@ def _run_checks(
         }
         result.selection["budgets"] = {
             "canonical": max_states or spec.max_states,
-            "queries": {q.id: max_states or q.max_states for q in selection.queries},
+            "queries": {
+                q.id: query_budget(q, spec.max_states, max_states) for q in selection.queries
+            },
         }
     for scenario in selection.scenarios:
         result.scenario_results.append(run_scenario(scenario, spec))
@@ -417,7 +420,7 @@ def _run_checks(
                 cover_actions(
                     analysis,
                     proof.initials,
-                    max_states or query.max_states,
+                    query_budget(query, spec.max_states, max_states),
                     explorations,
                     canonical=canonical,
                 )

@@ -1111,17 +1111,30 @@ def cover_actions(
     key = (analysis.roots_key(initials), max_states, canonical)
     if key not in analysis.covered:
         # largest slices first, so the nested ones reuse their explorations
-        pieces = [
-            (action, analysis.action_slice(action, canonical=canonical))
-            for action in analysis.spec.actions
-        ]
+        pieces = []
+        for action in analysis.spec.actions:
+            narrow = analysis.local_enabler_slice(action, initials, canonical=canonical)
+            piece = narrow or analysis.action_slice(action, canonical=canonical)
+            pieces.append((action, piece, narrow is not None))
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
-        analysis.covered[key] = {
-            id(action): explore_slice(
-                analysis, piece, initials, max_states, cache, reuse_superset=True
-            )[0]
-            for action, piece in pieces
-        }
+        covered = {}
+        for action, piece, narrow in pieces:
+            exp = explore_slice(analysis, piece, initials, max_states, cache, reuse_superset=True)[
+                0
+            ]
+            if narrow and (exp.capped or action.id not in exp.fired):
+                # A narrow graph can prove a real firing, never absence of one.
+                # Completeness also gates the local enabler's defect argument.
+                exp = explore_slice(
+                    analysis,
+                    analysis.action_slice(action, canonical=canonical),
+                    initials,
+                    max_states,
+                    cache,
+                    reuse_superset=True,
+                )[0]
+            covered[id(action)] = exp
+        analysis.covered[key] = covered
     return analysis.covered[key]
 
 

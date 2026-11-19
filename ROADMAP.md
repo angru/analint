@@ -36,7 +36,27 @@ below identifies the reviewed heads and validation boundary.
 3. **Bounded follow-ups (P3), outside the integrated queue.**
    [#53](https://github.com/angru/analint/issues/53) tracks the measured broker
    action-slice cost, preserving defect coverage including later executions of
-   an action already enabled at a root.
+   an action already enabled at a root. Implementation in
+   `codex/local-enabler-coverage` awaits independent review. It only narrows local
+   boolean enablers whose complete off/on exploration covers every defect input;
+   unsuccessful or capped probes widen, and state-dependent postconditions retain
+   ordinary coverage. The later-execution defect control remains FAIL.
+
+   Broker on Python 3.14.5, the same model and five sequential runs without tests:
+
+   | Metric | main `70d2eaf` | #53 branch |
+   | --- | ---: | ---: |
+   | Maximum reported states per check | 38,518 | 27,228 |
+   | Actual exploration calls | 5 | 5 |
+   | Actual explored states (sum) | 54,430 | 43,140 |
+   | Slice requests / reused requests | 49 / 44 | 49 / 44 |
+   | Median wall time, seconds (indicative) | 3.0224 | 2.4709 |
+
+   Reproduce with `python scripts/bench_action_coverage.py examples/broker`;
+   the script reports every check's count, actual materialized work and repeated
+   slice returns separately. With `--cache` and fresh cache directories, both
+   revisions retain PASS and warm runs perform zero actual explorations.
+
    [#65](https://github.com/angru/analint/issues/65) tracks a positive query witness
    from an invalid matching root; the overall verdict already remains FAIL.
    Implementation is in `codex/reachable-invalid-witness`, awaiting independent

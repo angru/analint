@@ -145,8 +145,6 @@ def test_tlc_keeps_known_invalid_failure_and_later_backend_diagnostic(monkeypatc
 
     def run(export, **kwargs):
         calls.append(export)
-        if len(calls) == 1:
-            return TlcResult("ok", distinct_states=1)
         if later == "defect":
             action = next(iter(export.actions))
             return TlcResult("violation", violated=f"NoDefect_{action}", distinct_states=1)
@@ -160,6 +158,7 @@ def test_tlc_keeps_known_invalid_failure_and_later_backend_diagnostic(monkeypatc
     roots, _ = resolve_query_initials(query, spec)
     result = QueryResult(query_id=query.id, kind="Reachable", status="INCONCLUSIVE")
     tlc_fallback._decide_query(spec, result, query, None, None, roots, None)
+    assert len(calls) == 1  # the invalid root never launches TLC
     assert result.status == "FAIL"
     assert any(f.code == Code.QUERY_INVALID_ROOT for f in result.findings)
     expected = Code.TLC_FAILED if later == "error" else Code.TLC_TRANSITION_DEFECT
@@ -321,3 +320,90 @@ def test_invalid_matching_roots_under_budget_are_not_positive_witnesses(sliced):
     assert result.verdict == "FAIL"
     assert result.query_results[0].status == "INCONCLUSIVE"
     assert not any(f.code == Code.WITNESS for f in result.query_results[0].findings)
+
+
+@pytest.mark.parametrize("mode", ["sliced", "whole", "unsliced"])
+@pytest.mark.parametrize("matching", [False, True])
+@pytest.mark.parametrize("legal_missing", [False, True])
+def test_tlc_reuses_projected_legality_and_runs_only_legal_roots(
+    monkeypatch, mode, matching, legal_missing
+):
+    from analint.backends.tlc import TlcResult
+    from analint.reporter.base import QueryResult
+    from analint.validator import slicing, tlc_fallback
+    from analint.validator.explorer import resolve_query_initials
+
+    spec, query, _ = model("given_any", matching=matching, legal_missing=legal_missing)
+    query.given_any += query.given_any[:2]  # duplicate roots must not add launches
+    roots, _ = resolve_query_initials(query, spec)
+    analysis = None if mode == "unsliced" else slicing.SliceAnalysis(spec)
+    piece = None
+    if analysis is not None:
+        piece = (
+            analysis.whole
+            if mode == "whole"
+            else analysis.predicate_slice(query.predicate, canonical=False)
+        )
+        analysis.project_roots(piece, roots)  # the native pipeline already did this
+
+        def recomputed(*args):
+            pytest.fail("projected root legality was evaluated a second time")
+
+        monkeypatch.setattr(slicing, "check_invariants", recomputed)
+        monkeypatch.setattr(tlc_fallback, "check_invariants", recomputed)
+    calls = []
+
+    def run(export, **kwargs):
+        calls.append(export)
+        return TlcResult(
+            "ok" if legal_missing and len(calls) == 2 else "violation",
+            distinct_states=2,
+            trace=["finish"],
+        )
+
+    monkeypatch.setattr(tlc_fallback, "run_tlc", run)
+    result = QueryResult(query_id=query.id, kind="Reachable", status="INCONCLUSIVE")
+    tlc_fallback._decide_query(spec, result, query, piece, analysis, roots, None)
+    assert result.status == "FAIL" and result.backend == "tlc"
+    assert len(calls) == (2 if legal_missing else 1)
+    assert sum(f.code == Code.TLC_DECIDED for f in result.findings) == len(calls)
+    assert result.states_explored == 1 + 2 * len(calls)  # includes the locally assessed root
+    expected = Code.NOT_REACHABLE if legal_missing else Code.QUERY_INVALID_ROOT
+    number = 3 if legal_missing else 1
+    assert any(f.code == expected and f"init #{number}" in f.message for f in result.findings)
+    assert not any(f.code == Code.WITNESS for f in result.findings)
+
+
+@pytest.mark.parametrize("predicate", ["matches", "misses", "error", "missing", "unknown"])
+def test_inert_root_is_decided_locally_without_hiding_predicate_problems(monkeypatch, predicate):
+    from analint import Event
+    from analint.reporter.base import QueryResult
+    from analint.validator import tlc_fallback
+    from analint.validator.explorer import resolve_query_initials
+
+    spec, query, box = model("given_any", single=True, matching=predicate == "matches")
+    expected = Code.QUERY_INVALID_ROOT
+    if predicate == "error":
+        query.predicate = box.done < "wrong type"
+        expected = Code.QUERY_EVALUATION_ERROR
+    elif predicate == "missing":
+
+        class Payload(Event):
+            ready: bool = True
+
+        query.predicate = Payload.ready == True  # noqa: E712 - symbolic DSL comparison
+        expected = Code.QUERY_VACUOUS
+    elif predicate == "unknown":
+        query.predicate = object()
+        expected = Code.QUERY_EVALUATION_ERROR
+
+    def launched(*args, **kwargs):
+        pytest.fail("TLC launched for a root with no possible successors")
+
+    monkeypatch.setattr(tlc_fallback, "run_tlc", launched)
+    roots, _ = resolve_query_initials(query, spec)
+    result = QueryResult(query_id=query.id, kind="Reachable", status="INCONCLUSIVE")
+    tlc_fallback._decide_query(spec, result, query, None, None, roots, None)
+    assert result.status == "FAIL" and result.backend is None
+    assert any(f.code == expected for f in result.findings)
+    assert not any(f.code in {Code.TLC_DECIDED, Code.WITNESS} for f in result.findings)

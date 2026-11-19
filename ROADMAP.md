@@ -43,7 +43,9 @@ below identifies the reviewed heads and validation boundary.
    review: complete Reachable checks reject retained invalid matching roots,
    with native/TLC, selection, trace and cache regression coverage.
    [#66](https://github.com/angru/analint/issues/66) tracks root-legality reuse and
-   unnecessary TLC runs for inert roots.
+   unnecessary TLC runs for inert roots. Implementation is in
+   `codex/reuse-root-legality`, stacked on #65 and awaiting independent review;
+   call-count tests cover projection reuse and zero JVM launches for inert roots.
    [#67](https://github.com/angru/analint/issues/67) tracks boolean predicate values
    in effect operands, rather than arbitrary conditional effect lists.
    [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed

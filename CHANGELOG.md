@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- TLC reachability fallback reuses full-model root-legality provenance and
+  assesses inert roots locally instead of launching a JVM. Only actual TLC runs
+  produce backend state-count notes; mixed checks include locally assessed roots
+  in their total. Predicate errors and later backend/transition defects remain
+  visible. (#66)
+
 ### Fixed
 
 - `Reachable` no longer reports a positive witness from a retained invariant-invalid

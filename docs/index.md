@@ -11,10 +11,10 @@ pip install analint
 analint check path/to/spec/
 ```
 
-Requires Python 3.12 or newer. This guide targets **analint 0.1.0**, including
-shared-model check selection, scoped diagnostics and the verification-boundary
-repairs. The site tracks the main branch; check your installed version with
-`analint --version`. Read the [0.1.0 migration notes](dsl.md#migrating-to-010)
+Requires Python 3.12 or newer. This guide targets **analint 0.2.0**, including
+enum lookup, floor division, one-sided saturation and the reachability and
+diagnostic repairs. The site tracks the main branch; check your installed version with
+`analint --version`. Read the [0.2.0 migration notes](dsl.md#migrating-to-020)
 before upgrading. To run this checkout from source:
 
 ```bash

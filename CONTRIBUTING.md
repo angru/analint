@@ -1,6 +1,6 @@
 # Contributing to analint
 
-Thanks for your interest in analint. This checkout targets `0.1.0`:
+Thanks for your interest in analint. This checkout targets `0.2.0`:
 issues, reproductions, and example specs are especially welcome.
 
 All new repository content — code, comments, docs, commit messages — is written in

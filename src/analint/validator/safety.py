@@ -11,7 +11,13 @@ from dataclasses import dataclass
 from analint.models.query import AlwaysHolds, Unreachable, query_budget
 from analint.models.root import Query, Spec
 from analint.reporter.base import QueryResult, QueryStatus, Severity
-from analint.validator.explorer import Exploration, _evaluate, explore_slice, resolve_query_initials
+from analint.validator.explorer import (
+    Exploration,
+    ExplorationStorage,
+    _evaluate,
+    explore_slice,
+    resolve_query_initials,
+)
 from analint.validator.slicing import Slice, SliceAnalysis
 from analint.validator.state_checks import check_invariants
 
@@ -42,7 +48,11 @@ def prove_query(
     if initials is None or any(check_invariants(spec, ctx, "initial") for ctx in initials):
         return None  # do not prove a property by projecting away an illegal root
     exp, used = explore_slice(
-        analysis, piece, initials, query_budget(query, spec.max_states, max_states), {}
+        analysis,
+        piece,
+        initials,
+        query_budget(query, spec.max_states, max_states),
+        ExplorationStorage(),
     )
     if exp.excluded or any(f.severity == Severity.ERROR for f in exp.findings):
         return None

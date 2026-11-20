@@ -17,6 +17,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Validation uses less exploration memory by keeping edges for graph readers,
+  compacting the BFS frontier and reverse reachability index, and releasing
+  state storage after its last check. Reports, traces and graph artifacts
+  retain the same results. (#80)
+
 - Sliced `check --check` limits action exploration to selected checks and their
   dependencies. Each sliced check spends its budget on its own dependencies, so
   a sliced selection can pass where one check's larger budget used to expose a

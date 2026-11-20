@@ -202,15 +202,14 @@ class VerificationScope:
                     and finding.location not in allowed
                     else scoped
                 )
-                states = exp.finding_states.get(index)
+                roots = exp.root_origins(index)
                 if (
                     target is model
-                    and states
+                    and roots
                     and all(
-                        exp.parent[state] < 0
-                        and (finding.code, finding.severity, finding.location, exp.keys[state])
+                        (finding.code, finding.severity, finding.location, root)
                         in self.root_defects
-                        for state in states
+                        for root in roots
                     )
                 ):
                     # Root legality already owns this exact failure. A later
@@ -248,7 +247,7 @@ class VerificationScope:
             ),
             "root_sets": len(self.routes),
             "explorations": len(seen),
-            "states_explored": sum(len(exp.states) for exp in seen.values()),
+            "states_explored": sum(exp.state_count for exp in seen.values()),
             "capped_explorations": sum(exp.capped for exp in seen.values()),
             "excluded_actions": excluded,
             "invariant_proofs": "selected_and_supporting_only",

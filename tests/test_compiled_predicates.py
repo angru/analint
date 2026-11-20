@@ -2,6 +2,7 @@
 on every example's guards, posts, invariants and query predicates: the same
 value, or the same exception type and message."""
 
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -77,3 +78,46 @@ def test_quantifier_evaluates_every_member_like_the_interpreter():
         assert expected[0] is KeyError
         compiled = compile_predicate(pred)
         assert _outcome(lambda f=compiled: f(ctx)) == expected
+
+
+@pytest.mark.parametrize("name", SPECS)
+def test_compiled_effects_match_interpreter(name):
+    from analint import Add, Create, Delete, Set, Subtract
+    from analint.validator.kernel import _compile_effect_value
+    from analint.validator.rule_checker import compile_operand, resolve
+
+    spec, _, errors = build_spec(ROOT / "examples" / name)
+    assert spec is not None and not errors
+    initials, _ = build_canonical_initials(spec)
+    states = list(explore(spec, initials, 40).states.values()) if initials else []
+    states.extend({instance_context_key(e): e for e in sc.given} for sc in spec.scenarios)
+    assert states
+    for action in spec.actions:
+        for effect in action.effect:
+            if isinstance(effect, Delete):
+                continue  # no RHS
+            if isinstance(effect, Create):
+                for value in effect.fields.values():
+                    compiled = compile_operand(value)
+                    for ctx in states:
+                        assert _outcome(partial(compiled, ctx)) == _outcome(
+                            partial(resolve, value, ctx)
+                        )
+                continue
+            assert isinstance(effect, (Set, Add, Subtract))
+            compiled = _compile_effect_value(effect)
+            for ctx in states:
+                assert _outcome(partial(compiled, ctx)) == _outcome(
+                    partial(_interpret_effect_value, effect, ctx)
+                )
+
+
+def _interpret_effect_value(effect, ctx):
+    from analint import Add, Set
+    from analint.validator.rule_checker import resolve
+
+    if isinstance(effect, Set):
+        return resolve(effect.value, ctx)
+    current = resolve(effect.field, ctx)
+    amount = resolve(effect.amount, ctx)
+    return current + amount if isinstance(effect, Add) else current - amount

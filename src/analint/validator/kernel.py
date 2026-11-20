@@ -33,14 +33,19 @@ witness edge (review 535ecb8).
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
+from copyreg import dispatch_table
 from dataclasses import dataclass
 from dataclasses import field as dc_field
-from enum import Enum
+from enum import Enum, EnumType
+from itertools import chain
+from types import GetSetDescriptorType
 from typing import Any
 
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
-from analint.models.entity import all_fields
+from analint.models.entity import Entity, EntityMeta, FieldDescriptor, FieldSpec, all_fields
+from analint.models.expr import _AddExpr, _SubExpr
 from analint.models.lifecycle import Lifecycle
 from analint.models.root import Spec
 from analint.models.scope import (
@@ -53,7 +58,7 @@ from analint.models.scope import (
     present_snapshot,
 )
 from analint.reporter.base import Code, Finding, Severity
-from analint.validator.rule_checker import compile_predicate, evaluate, resolve
+from analint.validator.rule_checker import compile_operand, compile_predicate, evaluate, resolve
 from analint.validator.structural import _collect_field_refs, _describe
 
 
@@ -82,6 +87,7 @@ class TransitionResult:
     # (effect/field/lifecycle/post), false for REJECTED and pre-evaluation errors
     entered: bool = False
     pre_context: dict | None = dc_field(default=None, repr=False)
+    custom_copy: bool = dc_field(default=False, repr=False, compare=False)
 
     @property
     def changed_fields(self) -> dict:
@@ -115,21 +121,133 @@ class _Plan:
     creates: tuple
     deletes: tuple
     frozen: frozenset  # targets the terminal lock protects (touched + deleted)
+    writes: tuple[tuple[Any, str, Callable[[dict], Any]], ...]
+    field_checks: tuple[tuple[Any, str, FieldSpec, bool], ...]  # bool marks Create
+    lifecycle_checks: tuple[Lifecycle, ...]
+    unchanged_lifecycle: tuple | None  # (target, field, reflexive value ids)
+    presence_effects: tuple
+    copy_types: dict  # target -> (declared type, eligible for a dict-only copy)
+    changed: frozenset  # context slots any effect can write
+    single_target: Any  # one possible changed slot, or None
 
 
-def build_plan(action: Action) -> _Plan:
+_COPY_HOOKS = frozenset(
+    {
+        "__copy__",
+        "__reduce__",
+        "__reduce_ex__",
+        "__getstate__",
+        "__setstate__",
+        "__getnewargs__",
+        "__getnewargs_ex__",
+        "__new__",
+        "__getattribute__",
+        "__getattr__",
+        "__setattr__",
+        "__class__",
+        "__slots__",
+    }
+)
+
+
+def _has_plain_copy(cls: type) -> bool:
+    return (
+        type(cls) is EntityMeta
+        and issubclass(cls, Entity)
+        and all(
+            not _COPY_HOOKS.intersection(base.__dict__)
+            and isinstance(base.__dict__.get("__dict__"), (GetSetDescriptorType, type(None)))
+            for base in cls.__mro__
+            if base is not object
+        )
+    )
+
+
+def _compile_effect_value(effect: Set | Add | Subtract) -> Any:
+    if isinstance(effect, Set):
+        return compile_operand(effect.value)
+    expr = _AddExpr if isinstance(effect, Add) else _SubExpr
+    return compile_operand(expr(effect.field, effect.amount))
+
+
+def _unchanged_lifecycle_reads(
+    lifecycles: tuple[Lifecycle, ...], copy_types: dict, writes: list
+) -> tuple | None:
+    """Identify unwritten lifecycle fields whose comparison is usually a no-op."""
+    written = {(key, name) for key, name, _ in writes}
+    reads = []
+    for lc in lifecycles:
+        cls = lc._entity_cls
+        descriptor = getattr(cls, lc.field_name, None)
+        if type(descriptor) is not FieldDescriptor or descriptor.field_name != lc.field_name:
+            return None
+        for key, target_cls in copy_types.items():
+            if target_cls is not cls:
+                continue
+            if (key, lc.field_name) in written:
+                return None
+            # Skip the old == new test only for known reflexive states. A
+            # hand-built snapshot may carry NaN or a custom equality method.
+            reflexive = frozenset(
+                id(value)
+                for value in (
+                    lc.initial,
+                    *lc.transitions,
+                    *chain.from_iterable(lc.transitions.values()),
+                )
+                if type(type(value)) in (type, EnumType)
+                and type(value).__eq__ in (object.__eq__, int.__eq__, str.__eq__)
+            )
+            reads.append((key, lc.field_name, reflexive))
+    return tuple(reads)
+
+
+def build_plan(action: Action, lifecycles: list[Lifecycle]) -> _Plan:
     """Compile the current declaration for one synchronous exploration.
 
     Actions remain editable between runs. A plan belongs to its caller, never
     to the Action, so later runs and copied actions cannot inherit stale guards.
     """
-    touched = frozenset(
-        field_context_key(e.field)
-        for e in action.effect
-        if isinstance(e, (Set, Subtract, Add)) and is_field_ref(e.field)
+    writes = []
+    field_checks = []
+    creates = []
+    deletes = []
+    presence_effects = []
+    for effect in action.effect:
+        if isinstance(effect, (Set, Add, Subtract)):
+            if is_field_ref(effect.field):
+                key = field_context_key(effect.field)
+                field_name = effect.field.field_name
+                writes.append((key, field_name, _compile_effect_value(effect)))
+                desc = all_fields(effect.field.entity_cls).get(field_name)
+                if desc is not None and desc.spec is not None and desc.spec.has_constraints():
+                    field_checks.append((key, field_name, desc.spec, False))
+        elif isinstance(effect, Create):
+            creates.append(
+                (
+                    effect.target,
+                    tuple((name, compile_operand(v)) for name, v in effect.fields.items()),
+                )
+            )
+            presence_effects.append(creates[-1])
+            if isinstance(effect.target, InstanceRef):
+                field_checks.extend(
+                    (effect.target, name, desc.spec, True)
+                    for name, desc in all_fields(effect.target.entity_cls).items()
+                    if desc.spec is not None and desc.spec.has_constraints()
+                )
+        elif isinstance(effect, Delete):
+            deletes.append(effect.target)
+            presence_effects.append((effect.target, None))
+
+    touched = frozenset(key for key, _, _ in writes)
+    copy_types = {key: _key_entity_cls(key) for key in touched}
+    touched_types = set(copy_types.values())
+    changed = touched | {key for key, _ in presence_effects}
+    lifecycle_checks = tuple(
+        lc for lc in lifecycles if lc._entity_cls is None or lc._entity_cls in touched_types
     )
-    deletes = tuple(e for e in action.effect if isinstance(e, Delete))
-    plan = _Plan(
+    return _Plan(
         guards=tuple(
             (
                 pred,
@@ -139,11 +257,18 @@ def build_plan(action: Action) -> _Plan:
             for pred in action.pre
         ),
         touched=touched,
-        creates=tuple(e for e in action.effect if isinstance(e, Create)),
-        deletes=deletes,
-        frozen=touched | {e.target for e in deletes},
+        creates=tuple(creates),
+        deletes=tuple(deletes),
+        frozen=touched | set(deletes),
+        writes=tuple(writes),
+        field_checks=tuple(field_checks),
+        lifecycle_checks=lifecycle_checks,
+        unchanged_lifecycle=_unchanged_lifecycle_reads(lifecycle_checks, copy_types, writes),
+        presence_effects=tuple(presence_effects),
+        copy_types={key: (cls, _has_plain_copy(cls)) for key, cls in copy_types.items()},
+        changed=changed,
+        single_target=next(iter(changed)) if len(changed) == 1 else None,
     )
-    return plan
 
 
 def step(
@@ -166,7 +291,7 @@ def step(
     """
     lifecycles = spec.lifecycles
     if plan is None:
-        plan = build_plan(action)
+        plan = build_plan(action, lifecycles)
 
     # ── pre guards: a false/absent precondition rejects; an error is a defect ──
     context_keys = context.keys()
@@ -204,23 +329,21 @@ def step(
                 if explain
                 else _silently_rejected()
             )
-    for effect in plan.creates:
-        if is_present(context, effect.target):
+    for target, _ in plan.creates:
+        if is_present(context, target):
             return (
                 _rejected(
                     action,
                     Code.PRESENCE_REJECTED,
-                    f"cannot create already-present entity {effect.target!r}",
+                    f"cannot create already-present entity {target!r}",
                 )
                 if explain
                 else _silently_rejected()
             )
-    for effect in plan.deletes:
-        if not is_present(context, effect.target):
+    for target in plan.deletes:
+        if not is_present(context, target):
             return (
-                _rejected(
-                    action, Code.PRESENCE_REJECTED, f"cannot delete absent entity {effect.target!r}"
-                )
+                _rejected(action, Code.PRESENCE_REJECTED, f"cannot delete absent entity {target!r}")
                 if explain
                 else _silently_rejected()
             )
@@ -256,11 +379,12 @@ def step(
     # having entered, whether it accepts or turns out to be a defect.
 
     # ── effects: simultaneous facts about the next state (effectless: unchanged) ─
+    custom_copy = False
     if not action.effect:
         post = context
     else:
         try:
-            post = _apply_effects(action.effect, context)
+            post, custom_copy = _apply_effects(plan, context)
         except Exception as exc:
             return _entered(
                 _defect(
@@ -270,12 +394,24 @@ def step(
                 )
             )
         # ── Field clamp / hard constraints, then lifecycle ────────────────────
-        field_defect = _check_field_constraints(action, post, trace)
-        if field_defect is not None:
-            return _entered(field_defect)
-        lifecycle_defect = _check_lifecycle_transitions(action, context, post, lifecycles, trace)
-        if lifecycle_defect is not None:
-            return _entered(lifecycle_defect)
+        if plan.field_checks:
+            field_defect = _check_field_constraints(action, plan.field_checks, post, trace)
+            if field_defect is not None:
+                return _entered(field_defect)
+        checks = lifecycles if custom_copy else plan.lifecycle_checks
+        if checks and (
+            custom_copy
+            or plan.unchanged_lifecycle is None
+            or any(
+                key in context and id(context[key].__dict__.get(name)) not in known
+                for key, name, known in plan.unchanged_lifecycle
+            )
+        ):
+            lifecycle_defect = _check_lifecycle_transitions(
+                action, context, post, checks, trace, None if custom_copy else plan.single_target
+            )
+            if lifecycle_defect is not None:
+                return _entered(lifecycle_defect)
 
     # ── post (an effectless action still asserts it over the unchanged state) ──
     post_defect = _check_post(action, post, trace)
@@ -293,6 +429,7 @@ def step(
         emitted=emitted,
         pre_context=context,
         entered=True,
+        custom_copy=custom_copy,
     )
 
 
@@ -319,107 +456,62 @@ def _entered(result: TransitionResult) -> TransitionResult:
     return result
 
 
-def _apply_effects(effects: list, context: dict) -> dict:
-    """Return a new context with entity copies modified by the effects.
+def _apply_effects(plan: _Plan, context: dict) -> tuple[dict, bool]:
+    """Copy effect targets and evaluate every RHS against the pre-state."""
+    updates = [(key, name, value(context)) for key, name, value in plan.writes if key in context]
 
-    Effects are simultaneous facts about the next state: every right-hand side
-    is resolved against the pre-state, so the order of the list carries no
-    meaning and effects never observe each other.
-    """
-    updates: list[tuple[Any, str, Any]] = []
-    for effect in effects:
-        if not isinstance(effect, (Set, Subtract, Add)):
-            continue
-        target = field_context_key(effect.field) if is_field_ref(effect.field) else None
-        if target not in context:
-            continue  # target entity absent from given — structural validation warns
-        if isinstance(effect, Set):
-            updates.append((target, effect.field.field_name, resolve(effect.value, context)))
-        elif isinstance(effect, Subtract):
-            current = resolve(effect.field, context)
-            updates.append(
-                (target, effect.field.field_name, current - resolve(effect.amount, context))
-            )
-        elif isinstance(effect, Add):
-            current = resolve(effect.field, context)
-            updates.append(
-                (target, effect.field.field_name, current + resolve(effect.amount, context))
-            )
-
-    # Copy-on-write: only effect targets are copied (and later mutated, incl.
-    # saturating clamps); untouched entities are shared with the pre-state,
-    # which nothing mutates.
+    # Preserve copy-on-write and copy order. Clamps later mutate only copies.
     post = dict(context)
+    custom_copy = False
     for key in {key for key, _, _ in updates}:
-        post[key] = copy.copy(post[key])
+        before = post[key]
+        cls, plain = plan.copy_types[key]
+        if plain and type(before) is cls and cls not in dispatch_table:
+            after = object.__new__(cls)
+            after.__dict__.update(before.__dict__)
+        else:
+            after = copy.copy(before)
+            custom_copy = True
+        post[key] = after
     for key, field_name, value in updates:
         entity = post.get(key)
         if entity is not None:
             entity.__dict__[field_name] = value
-    for effect in effects:
-        if isinstance(effect, Create):
-            resolved = {name: resolve(value, context) for name, value in effect.fields.items()}
-            post[effect.target] = present_snapshot(effect.target, resolved)
-        elif isinstance(effect, Delete):
-            post[effect.target] = Absent(effect.target)
-    return post
+    for target, fields in plan.presence_effects:
+        if fields is None:
+            post[target] = Absent(target)
+        else:
+            resolved = {name: value(context) for name, value in fields}
+            post[target] = present_snapshot(target, resolved)
+    return post, custom_copy
 
 
 def _check_field_constraints(
-    action: Action, post: dict, trace: list[str] | None
+    action: Action,
+    checks: tuple[tuple[Any, str, FieldSpec, bool], ...],
+    post: dict,
+    trace: list[str] | None,
 ) -> TransitionResult | None:
-    """Effects must not drive a field outside its declared ``Field`` range;
-    saturating fields clamp in place instead of failing."""
-    for effect in action.effect:
-        if isinstance(effect, Create):
-            inst = post.get(effect.target)
-            if inst is None:
-                continue
-            for fname, desc in all_fields(effect.target.entity_cls).items():
-                if desc.spec is None or not desc.spec.has_constraints():
-                    continue
-                value = inst.__dict__.get(fname)
-                problem = desc.spec.violation(value)
-                if problem is None:
-                    continue
-                if desc.spec.saturate:
-                    value = desc.spec.clamp(value)
-                    inst.__dict__[fname] = value
-                    problem = desc.spec.violation(value)
-                    if problem is None:
-                        continue
-                return _defect(
-                    action,
-                    Code.FIELD_CONSTRAINT,
-                    f"field constraint violated: created {effect.target!r}.{fname} "
-                    f"{problem}{_after(action, trace)}",
-                )
-            continue
-        if not isinstance(effect, (Set, Subtract, Add)):
-            continue
-        cls = effect.field.entity_cls
-        key = field_context_key(effect.field)
+    """Clamp saturating fields and report the first hard constraint violation."""
+    for key, name, spec, created in checks:
         inst = post.get(key)
         if inst is None:
             continue
-        desc = all_fields(cls).get(effect.field.field_name)
-        if desc is None or desc.spec is None or not desc.spec.has_constraints():
-            continue
-        value = inst.__dict__.get(effect.field.field_name)
-        problem = desc.spec.violation(value)
+        value = inst.__dict__.get(name)
+        problem = spec.violation(value)
         if problem is None:
             continue
-        if desc.spec.saturate:
-            value = desc.spec.clamp(value)
-            inst.__dict__[effect.field.field_name] = value
-            problem = desc.spec.violation(value)
+        if spec.saturate:
+            value = spec.clamp(value)
+            inst.__dict__[name] = value
+            problem = spec.violation(value)
             if problem is None:
                 continue
+        label = f"created {key!r}" if created else context_key_label(key)
         return _defect(
             action,
             Code.FIELD_CONSTRAINT,
-            f"field constraint violated: {context_key_label(key)}."
-            f"{effect.field.field_name} {problem}{_after(action, trace)}",
+            f"field constraint violated: {label}.{name} {problem}{_after(action, trace)}",
         )
     return None
 
@@ -428,13 +520,18 @@ def _check_lifecycle_transitions(
     action: Action,
     ctx: dict,
     post: dict,
-    lifecycles: list[Lifecycle],
+    lifecycles: list[Lifecycle] | tuple[Lifecycle, ...],
     trace: list[str] | None,
+    single_target: Any,
 ) -> TransitionResult | None:
     """A change to a lifecycle field must follow a declared transition."""
     # untouched entities are shared by copy-on-write; scan only the changed
     # ones, in context order, so the first defect reported is unchanged
-    changed = [(key, inst) for key, inst in ctx.items() if post.get(key) is not inst]
+    if single_target is None:
+        changed = [(key, inst) for key, inst in ctx.items() if post.get(key) is not inst]
+    else:
+        inst = ctx.get(single_target)
+        changed = [(single_target, inst)] if inst is not post.get(single_target) else []
     if not changed:
         return None
     for lc in lifecycles:

@@ -201,6 +201,12 @@ def compile_predicate(pred: Predicate) -> Any:
     return lambda ctx: compiled(ctx, {})
 
 
+def compile_operand(operand: Any) -> Any:
+    """Compile a value expression, preserving resolve's fallback and errors."""
+    compiled = _compile_operand(operand)
+    return lambda ctx: compiled(ctx, {})
+
+
 def _compile_pred(pred: Any) -> Any:
     if isinstance(pred, (_Eq, _Ne, _Gt, _Gte, _Lt, _Lte)):
         left, right = _compile_operand(pred.left), _compile_operand(pred.right)

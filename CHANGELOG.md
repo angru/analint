@@ -17,6 +17,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Sliced `check --check` limits action exploration to selected checks and their
+  dependencies. Selected reports list actions outside reachability coverage.
+  `DeadActions` and `NoDeadEnd` retain all-action coverage. (#81)
+
 - Reuse smaller `NoDeadEnd` slices when every omitted disabler has an always
   available local boolean re-enabler. Reports identify the reduced graph used
   for a clean proof. Other outcomes use the full slice to preserve diagnostics

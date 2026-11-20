@@ -77,6 +77,7 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
             )
 
     if result.model_coverage is not None:
+        assert result.selection is not None
         console.print()
         console.print("[bold]MODEL DIAGNOSTICS[/bold] (do not affect selected verdict)")
         for finding in result.model_findings:
@@ -93,6 +94,17 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
             "unselected invariants are not proved",
             markup=False,
         )
+        covered = result.selection["covered_actions"]
+        unassessed = result.selection["unassessed_actions"]
+        console.print(
+            "  Included in reachability coverage: " + (", ".join(covered) or "none"),
+            markup=False,
+        )
+        if unassessed:
+            console.print(
+                "  Transition defects and fireability not assessed for: " + ", ".join(unassessed),
+                markup=False,
+            )
 
     if result.flow_results:
         console.print()

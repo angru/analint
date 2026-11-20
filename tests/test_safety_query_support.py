@@ -40,7 +40,9 @@ def test_safety_pass_discharges_bridge_support(spec, check, roots):
     }
     assert result.query_results[0].states_explored == (7 if roots == "given_any" else 4)
     assert result.selection["model_actions"] == ["bump_a", "bump_b"]
-    assert any(f.location == "invariant:bounded_b" for f in result.model_findings)
+    assert result.selection["covered_actions"] == ["bump_a"]
+    assert result.selection["unassessed_actions"] == ["bump_b"]
+    assert not result.model_findings
     assert not result.exploration_findings
     assert repr(spec) == before
     assert validate_spec(spec).verdict == "FAIL"
@@ -222,7 +224,7 @@ def test_bridge_measurement_counts_real_search_work(spec, monkeypatch):
     improved = validate_spec(spec, checks=["safe_a"])
     assert improved.invariant_results == []
     assert improved.query_results[0].states_explored == 4
-    assert sum(counts) == 85  # includes the 81-state all-action diagnostic coverage
+    assert sum(counts) == 4
 
 
 def _stable(value):
@@ -273,7 +275,7 @@ def test_cache_and_check_trace_surfaces_agree(entry, monkeypatch):
     assert _stable(json.loads(cli.output)) == cold
     assert _stable(check_spec(str(entry), checks=["safe_a"], cache=True)) == cold
     compact = check_spec(str(entry), checks=["safe_a"], cache=True, compact=True)
-    assert compact["verdict"] == "PASS" and compact["model_findings"]
+    assert compact["verdict"] == "PASS" and compact["selection"] == cold["selection"]
     trace = trace_query(entry, "safe_a", cache=True)
     assert trace["status"] == trace["verification_verdict"] == "PASS"
     assert trace["selection"] == cold["selection"]

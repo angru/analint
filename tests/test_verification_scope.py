@@ -66,7 +66,10 @@ def test_independent_failure_is_diagnostic_not_a_supporting_proof(
         )
         assert "invariant:bounded_b" in chosen.selection["not_selected"]
         assert chosen.selection["model_actions"] == ["bump_a", "bump_b"]
-        assert any(f.location == "invariant:bounded_b" for f in chosen.model_findings)
+        assert any(f.location == "invariant:bounded_b" for f in chosen.model_findings) is not sliced
+        assert chosen.selection["covered_actions"] == (
+            ["bump_a"] if sliced else ["bump_a", "bump_b"]
+        )
         assert not chosen.exploration_findings
         assert chosen.model_coverage["capped_explorations"] == 0
         selected_results = chosen.query_results or chosen.invariant_results
@@ -108,8 +111,11 @@ def test_unrelated_action_defects_are_separate_but_related_ones_block(entry, sli
     report = validate_spec(spec, checks=["safe_a"], sliced=sliced)
     assert report.verdict == "PASS"
     assert any(
-        f.location == "action:bump_b" and f.severity == "ERROR" for f in report.model_findings
+        f.location == "action:bump_b"
+        for f in validate_spec(spec, sliced=sliced).exploration_findings
     )
+    assert any(f.location == "action:bump_b" for f in report.model_findings) is not sliced
+    assert report.selection["unassessed_actions"] == (["bump_b"] if sliced else [])
     assert report.effective_verdict(strict=True) == "PASS"
     spec.actions[0].post = [a.n == 0]
     broken = validate_spec(spec, checks=["safe_a"], sliced=sliced)
@@ -181,7 +187,7 @@ def test_diagnostic_routing_keeps_different_query_roots_separate():
     for sliced in (False, True):
         result = validate_spec(spec, checks=["a", "b"], sliced=sliced)
         assert result.verdict == "PASS"
-        assert any(f.location == "action:bad_b" for f in result.model_findings)
+        assert any(f.location == "action:bad_b" for f in result.model_findings) is not sliced
         assert not result.exploration_findings
 
 
@@ -195,6 +201,8 @@ def test_global_queries_retain_global_support_and_findings(entry, kind):
     assert report.verdict == "FAIL"
     assert "invariant:bounded_b" in report.selection["supporting"]
     assert report.selection["dependencies"]["query:global"]["whole_model"] is True
+    assert report.selection["covered_actions"] == ["bump_a", "bump_b"]
+    assert report.selection["unassessed_actions"] == []
 
 
 def test_irrelevant_exclusions_and_budget_are_diagnostic():
@@ -219,10 +227,10 @@ def test_irrelevant_exclusions_and_budget_are_diagnostic():
     )
     result = validate_spec(spec, checks=["safe"], max_states=3)
     assert result.verdict == "PASS"
-    assert result.model_coverage["capped_explorations"] > 0
-    assert "event" in result.model_coverage["excluded_actions"]
+    assert result.model_coverage["capped_explorations"] == 0
+    assert result.selection["unassessed_actions"] == ["b", "event"]
     assert not result.selection["excluded_actions"]
-    assert result.model_findings
+    assert not result.model_findings
     assert validate_spec(spec, checks=["safe"], max_states=1).verdict == "INCONCLUSIVE"
     spec.actions[2].effect = [Set(A.n, 0)]  # now the exclusion affects the property
     assert validate_spec(spec, checks=["safe"], max_states=3).verdict == "INCONCLUSIVE"
@@ -230,7 +238,7 @@ def test_irrelevant_exclusions_and_budget_are_diagnostic():
 
 def test_cli_mcp_trace_compact_and_library_agree(entry):
     expected = result_to_dict(validate(entry, checks=["safe_a"]))
-    assert expected["verdict"] == "PASS" and expected["model_findings"]
+    assert expected["verdict"] == "PASS" and expected["model_findings"] == []
     cli = CliRunner().invoke(
         app, ["check", str(entry), "--check", "safe_a", "--strict", "-f", "json"]
     )
@@ -238,11 +246,12 @@ def test_cli_mcp_trace_compact_and_library_agree(entry):
     assert stable(json.loads(cli.stdout)) == stable(expected)
     assert stable(check_spec(str(entry), checks=["safe_a"])) == stable(expected)
     compact = check_spec(str(entry), checks=["safe_a"], compact=True)
-    assert compact["model_findings"][0]["count"] > 0
+    assert compact["selection"] == expected["selection"]
     assert compact["verdict"] == "PASS"
     terminal = CliRunner().invoke(app, ["check", str(entry), "--check", "safe_a"])
     assert terminal.exit_code == 0
-    assert "MODEL DIAGNOSTICS" in terminal.stdout and "bounded_b" in terminal.stdout
+    assert "Included in reachability coverage: bump_a" in terminal.stdout
+    assert "Transition defects and fireability not assessed for: bump_b" in terminal.stdout
     native = trace_query(entry, "safe_a")
     assert native["verification_verdict"] == native["status"] == "PASS"
     assert native["selection"] == expected["selection"]
@@ -299,7 +308,7 @@ def test_proved_bridge_does_not_pull_in_unneeded_transitive_proofs(entry, monkey
     assert result.verdict == "PASS"
     assert result.selection["supporting"] == []
     assert proved == []
-    assert any(f.location == "invariant:bounded_b" for f in result.model_findings)
+    assert result.selection["unassessed_actions"] == ["bump_b"]
     # A direct invariant proved without constraints needs no supporting proof,
     # including the bridge that mentions the same field.
     proved.clear()
@@ -309,9 +318,6 @@ def test_proved_bridge_does_not_pull_in_unneeded_transitive_proofs(entry, monkey
 
 
 def test_known_relevant_defect_is_not_hidden_by_another_check_budget():
-    class A(Entity):
-        n: int = 0
-
     class B(Entity):
         n: int = Field(0, ge=0, le=2)
 
@@ -322,13 +328,35 @@ def test_known_relevant_defect_is_not_hidden_by_another_check_budget():
             Action(id="b", effect=[Add(B.n, 1)]),
         ],
         queries=[
-            AlwaysHolds(A.n == 0, id="a", max_states=10),
+            AlwaysHolds(B.n >= 0, id="a", max_states=10),
             Reachable(B.n == 0, id="b", max_states=1),
         ],
     )
     a_only = validate_spec(spec, checks=["query:a"])
-    assert a_only.verdict == "PASS" and a_only.model_findings
+    assert a_only.verdict == "FAIL" and a_only.exploration_findings
     both = validate_spec(spec, checks=["query:a", "query:b"])
     assert all(q.status == "PASS" for q in both.query_results)
     assert both.verdict == "FAIL"
     assert any(f.location == "action:b" for f in both.exploration_findings)
+
+
+def test_selected_invariant_explores_fewer_states(entry, monkeypatch):
+    from analint.validator import explorer
+
+    calls = []
+    original = explorer._explore
+
+    def record(spec, *args, **kwargs):
+        graph = original(spec, *args, **kwargs)
+        calls.append(([action.id for action in spec.actions], len(graph.states)))
+        return graph
+
+    monkeypatch.setattr(explorer, "_explore", record)
+    full = validate(entry)
+    full_states = sum(states for _, states in calls)
+    calls.clear()
+    selected = validate(entry, checks=["bounded_a"])
+    assert full.verdict == "FAIL" and selected.verdict == "PASS"
+    assert selected.invariant_results[0].status == full.invariant_results[0].status
+    assert calls == [(["bump_a"], 4)]
+    assert sum(states for _, states in calls) < full_states

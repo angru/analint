@@ -528,7 +528,7 @@ def test_selected_tlc_defect_scope_matches_native_check_and_trace(tmp_path, slic
     options = {"sliced": sliced, "max_states": 2, "tlc": True, "tlc_timeout": 30}
     report = validate(entry, checks=["safe"], **options)
     assert report.verdict == native.verdict == ("FAIL" if related_defect else "PASS")
-    assert any(f.location == "action:b" for f in report.model_findings)
+    assert any(f.location == "action:b" for f in report.model_findings) is not sliced
     trace = trace_query(entry, "safe", **options)
     assert trace["verification_verdict"] == report.verdict
     assert trace["selection"] == report.selection

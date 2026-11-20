@@ -138,8 +138,10 @@ combined verdict when the checks share verification roots.
 A selected PASS establishes only its reported scope. `--strict` still applies to
 warnings in verdict-bearing sections, including structural warnings about the
 whole model. Scenario/tag filters without `--check` retain full-check behavior.
-Run an unfiltered check for full validation. Broad dependencies and whole-model
-fallback can still make a selection expensive. An unsuccessful safety attempt
+Run an unfiltered check for full validation. A selection is only as cheap as
+its slices: when a selected property's slice spans most of the model (for
+example, 32 of 33 actions because every action touches a shared balance), the
+selection explores about as much as a full check and is not faster. An unsuccessful safety attempt
 can add work before the constrained retry.
 `benchmarks/safety_bridge.py` demonstrates a passing local safety query whose
 bridge constraint would otherwise pull in broken, unrelated proofs. The selected

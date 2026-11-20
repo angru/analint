@@ -254,6 +254,8 @@ class VerificationScope:
             "invariant_proofs": "selected_and_supporting_only",
         }
         assert result.selection is not None
+        # Excluded event-payload actions were never explored.
+        covered.difference_update(excluded)
         result.selection["excluded_actions"] = selected_excluded
         result.selection["covered_actions"] = [a.id for a in self.spec.actions if a.id in covered]
         result.selection["unassessed_actions"] = [

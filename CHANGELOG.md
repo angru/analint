@@ -18,9 +18,15 @@ All notable changes to this project are documented here. The format is based on
 ### Changed
 
 - Sliced `check --check` limits action exploration to selected checks and their
-  dependencies. Selected reports list actions outside reachability coverage.
-  `DeadActions` and `NoDeadEnd` retain all-action coverage. (#81)
-
+  dependencies. Each sliced check spends its budget on its own dependencies, so
+  a sliced selection can pass where one check's larger budget used to expose a
+  defect in another check's action, and defects of unrelated actions no longer
+  appear in `model_findings`. Reports add `selection.covered_actions` and
+  `selection.unassessed_actions`, and `model_coverage.scope` becomes
+  `selected_slices_from_verification_roots` for sliced selections (previously
+  always `actions_from_verification_roots`). `DeadActions` and `NoDeadEnd`
+  retain all-action coverage. A selection whose slice spans most of the model
+  explores about as much as a full check. (#81)
 - Reuse smaller `NoDeadEnd` slices when every omitted disabler has an always
   available local boolean re-enabler. Reports identify the reduced graph used
   for a clean proof. Other outcomes use the full slice to preserve diagnostics

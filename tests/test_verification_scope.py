@@ -345,7 +345,10 @@ def test_same_root_defect_routing_respects_selected_coverage_and_budgets(sliced)
     assert both.selection["unassessed_actions"] == []
     assert both.verdict == ("PASS" if sliced else "FAIL")
     assert any(f.location == "action:b" for f in both.exploration_findings) is not sliced
-    assert both.model_coverage["capped_explorations"] >= 1
+    assert both.model_coverage["capped_explorations"] == 1
+    assert both.model_coverage["scope"] == (
+        "selected_slices_from_verification_roots" if sliced else "actions_from_verification_roots"
+    )
 
     if sliced:
         # Give the check that owns b enough budget to find the same defect.

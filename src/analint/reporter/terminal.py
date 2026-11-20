@@ -97,7 +97,7 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         covered = result.selection["covered_actions"]
         unassessed = result.selection["unassessed_actions"]
         console.print(
-            "  Included in reachability coverage: " + (", ".join(covered) or "none"),
+            "  Included in bounded exploration or safety proofs: " + (", ".join(covered) or "none"),
             markup=False,
         )
         if unassessed:

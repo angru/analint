@@ -173,8 +173,10 @@ def build_server() -> Any:
         every system action. A selected PASS covers only the reported scope.
         `scenario_ids` and `tags` add matching scenarios to an explicit selection.
         Only dependency-related canonical proofs support selected checks.
-        Unrelated defects are in `model_findings` with bounded `model_coverage`;
-        they do not change the selected verdict. Full checks retain all findings.
+        Sliced checks limit action coverage to selected dependencies.
+        `selection.unassessed_actions` lists actions outside that coverage.
+        Unrelated defects encountered during exploration appear in `model_findings`,
+        outside the selected verdict. `model_coverage` describes the bounded search.
         `what_if` — optional path to a standalone .py file whose objects
         (invariants, scenarios, actions) are added to the model for this run
         only: use it to test a hypothesis before editing the spec.

@@ -81,8 +81,11 @@ def test_later_violation_from_a_legal_root_survives(entry, roots):
     result = validate_spec(spec, checks=[q.id for q in spec.queries], sliced=False)
     assert result.verdict == "FAIL"
     violations = [f for f in result.model_findings if f.location == "invariant:limit"]
-    assert violations
-    assert all("advance_b → advance_b" in f.message for f in violations)
+    # Whole-model exploration reaches the B violation with A at both 0 and 1.
+    assert sorted(f.message for f in violations) == [
+        "invariant 'B.n <= 1' breaks [after: advance_a → advance_b → advance_b]",
+        "invariant 'B.n <= 1' breaks [after: advance_b → advance_b]",
+    ]
 
 
 def test_root_diagnostics_across_reports_cache_and_trace(entry, monkeypatch):

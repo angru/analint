@@ -102,13 +102,14 @@ def test_only_dependency_proofs_are_executed(entry, monkeypatch):
     assert verified == ["bounded_a"]
 
 
+@pytest.mark.parametrize("check", ["safe_a", "bounded_a"])
 @pytest.mark.parametrize("sliced", [False, True])
-def test_unrelated_action_defects_are_separate_but_related_ones_block(entry, sliced):
+def test_unrelated_action_defects_are_separate_but_related_ones_block(entry, sliced, check):
     spec = prepare_model(entry).spec
     a = next(cls for cls in spec.entities if cls.__name__ == "A")
     b = next(cls for cls in spec.entities if cls.__name__ == "B")
     spec.actions[1].post = [b.n == 0]
-    report = validate_spec(spec, checks=["safe_a"], sliced=sliced)
+    report = validate_spec(spec, checks=[check], sliced=sliced)
     assert report.verdict == "PASS"
     assert any(
         f.location == "action:bump_b"
@@ -118,7 +119,7 @@ def test_unrelated_action_defects_are_separate_but_related_ones_block(entry, sli
     assert report.selection["unassessed_actions"] == (["bump_b"] if sliced else [])
     assert report.effective_verdict(strict=True) == "PASS"
     spec.actions[0].post = [a.n == 0]
-    broken = validate_spec(spec, checks=["safe_a"], sliced=sliced)
+    broken = validate_spec(spec, checks=[check], sliced=sliced)
     assert broken.verdict == "FAIL"
     assert any(f.location == "action:bump_a" for f in broken.exploration_findings)
     assert all(f.location != "action:bump_a" for f in broken.model_findings)
@@ -250,7 +251,7 @@ def test_cli_mcp_trace_compact_and_library_agree(entry):
     assert compact["verdict"] == "PASS"
     terminal = CliRunner().invoke(app, ["check", str(entry), "--check", "safe_a"])
     assert terminal.exit_code == 0
-    assert "Included in reachability coverage: bump_a" in terminal.stdout
+    assert "Included in bounded exploration or safety proofs: bump_a" in terminal.stdout
     assert "Transition defects and fireability not assessed for: bump_b" in terminal.stdout
     native = trace_query(entry, "safe_a")
     assert native["verification_verdict"] == native["status"] == "PASS"
@@ -317,27 +318,41 @@ def test_proved_bridge_does_not_pull_in_unneeded_transitive_proofs(entry, monkey
     assert proved == ["bounded_a"]
 
 
-def test_known_relevant_defect_is_not_hidden_by_another_check_budget():
+@pytest.mark.parametrize("sliced", [False, True])
+def test_same_root_defect_routing_respects_selected_coverage_and_budgets(sliced):
+    class A(Entity):
+        n: int = 0
+
     class B(Entity):
         n: int = Field(0, ge=0, le=2)
 
     spec = Spec(
         id="budget",
         name="Budget",
-        actions=[
-            Action(id="b", effect=[Add(B.n, 1)]),
-        ],
+        actions=[Action(id="b", effect=[Add(B.n, 1)])],
         queries=[
-            AlwaysHolds(B.n >= 0, id="a", max_states=10),
+            AlwaysHolds(A.n == 0, id="a", max_states=10),
             Reachable(B.n == 0, id="b", max_states=1),
         ],
     )
-    a_only = validate_spec(spec, checks=["query:a"])
-    assert a_only.verdict == "FAIL" and a_only.exploration_findings
-    both = validate_spec(spec, checks=["query:a", "query:b"])
+    a_only = validate_spec(spec, checks=["query:a"], sliced=sliced)
+    assert a_only.verdict == "PASS"
+    assert bool(a_only.model_findings) is not sliced
+    assert a_only.selection["unassessed_actions"] == (["b"] if sliced else [])
+
+    both = validate_spec(spec, checks=["query:a", "query:b"], sliced=sliced)
     assert all(q.status == "PASS" for q in both.query_results)
-    assert both.verdict == "FAIL"
-    assert any(f.location == "action:b" for f in both.exploration_findings)
+    assert both.selection["unassessed_actions"] == []
+    assert both.verdict == ("PASS" if sliced else "FAIL")
+    assert any(f.location == "action:b" for f in both.exploration_findings) is not sliced
+    assert both.model_coverage["capped_explorations"] >= 1
+
+    if sliced:
+        # Give the check that owns b enough budget to find the same defect.
+        spec.queries[1].max_states = 10
+        enough = validate_spec(spec, checks=["query:a", "query:b"])
+        assert enough.verdict == "FAIL"
+        assert any(f.location == "action:b" for f in enough.exploration_findings)
 
 
 def test_selected_invariant_explores_fewer_states(entry, monkeypatch):

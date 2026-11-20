@@ -95,7 +95,9 @@ location and trace text and affect neither the selected verdict nor `--strict`.
 **`model_coverage`** reports bounded reachability coverage, including root sets,
 exploration/state counts, caps and excluded actions. The counts include reused
 graphs and successful safety proofs and exclude unsuccessful speculative
-attempts. They describe the graphs used in the report.
+attempts. `model_coverage.scope` is `selected_slices_from_verification_roots`
+for sliced selections (including whole-model fallbacks) and
+`actions_from_verification_roots` with `--no-slice`.
 
 Structural errors, load failures and invalid declared initial relations remain
 blocking. Every invariant still participates in initial-state legality: an illegal
@@ -121,7 +123,17 @@ actions are outside the report's reachability scope. Actions excluded within
 the covered slices are listed separately in `model_coverage.excluded_actions`.
 Dependencies identify actions and constraints used by each check, including
 whole-model fallback. Caps and exclusions can limit coverage within a slice.
+A successful unconstrained safety proof can establish absence of defects on
+its slice. Its graph may include paths that invariant pruning would block, so
+inclusion in `covered_actions` alone establishes no fireability verdict.
 Found witnesses and counterexamples remain conclusive.
+
+Each sliced check spends its budget on its own dependencies. For example, a
+safety check with a large budget and a witness check with a small budget can
+both pass even if extra exploration would find a defect in an action only
+the witness depends on. With `--no-slice`, the safety check's larger
+whole-model exploration can discover that defect, which then blocks the
+combined verdict when the checks share verification roots.
 
 A selected PASS establishes only its reported scope. `--strict` still applies to
 warnings in verdict-bearing sections, including structural warnings about the

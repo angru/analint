@@ -91,11 +91,12 @@ unknown/ambiguous ids return an `analint.error/v1` usage error. Qualified ids
 (`flow:ID`, `query:ID`, `invariant:ID`) resolve collisions. See the
 [selection contract](cli.md#selecting-checks-over-one-model), including
 dependency-related supporting proofs and the selected-scope JSON metadata.
-For explicit selections, read `model_findings` and `model_coverage` separately:
-unrelated diagnostic errors do not turn a selected PASS into FAIL. They are not
-silently discarded, and the unfiltered full check retains its original verdict.
-Trace exposes the same separation. All-action diagnostic coverage is bounded;
-an empty list does not certify the whole model.
+For explicit selections, `model_findings` contains unrelated diagnostics
+encountered during bounded exploration. These are outside the selected verdict.
+**Unreleased:** sliced selections limit action exploration to selected checks
+and dependencies. Check `selection.unassessed_actions` for actions whose
+transition defects and fireability were outside coverage. Trace returns the
+same selection metadata. An unfiltered check covers the full model.
 
 Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected

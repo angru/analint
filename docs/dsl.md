@@ -592,6 +592,14 @@ Each accepts `id`, `label`, `max_states` and one optional initial source:
 NoDeadEnd is recoverability, not a guarantee that every execution terminates.
 Excluded event-input actions are unassessed, not dead.
 
+**Unreleased.** With slicing, `NoDeadEnd` can omit local boolean disablers
+when every affected flag has an always-available action that restores it. The
+goal and invariants must be independent of those flags, and terminal-lock
+dependencies are preserved. A complete, clean proof within the budget reports
+the smaller graph, with `restorable_flags` in its JSON `slice` summary. When
+the smaller graph cannot certify a pass, the full slice determines the verdict
+and any shortest counterexample and its diagnostics.
+
 ## Spec, Contract and loading
 
 `Spec(id=..., name=..., actions=[...], invariants=[...], scenarios=[...],

@@ -34,6 +34,7 @@ model (research/14 §7 — an unsupported node is never silently ignored).
 
 from __future__ import annotations
 
+from copy import copy
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -73,6 +74,8 @@ from analint.models.quantifier import (
 from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, context_key_label, is_present
 from analint.models.value import is_literal_operand
+from analint.validator.kernel import Outcome, step
+from analint.validator.rule_checker import evaluate
 from analint.validator.state_checks import check_invariants
 
 PRESENT = "@present"
@@ -345,6 +348,25 @@ def _flag_reads_are_safe(spec: Spec, var: Var, off: Any) -> bool:
     return True
 
 
+def _flag_guard_is_safe(pred: Any, var: Var, contexts: list[dict]) -> bool:
+    # In a positive conjunction, restricting an antitone flag can only stop
+    # evaluation earlier. Check flag-dependent terms on both boolean inputs.
+    if isinstance(pred, _And):
+        return all(_flag_guard_is_safe(term, var, contexts) for term in pred.exprs)
+    reads: set[Var] = set()
+    _pred_vars(pred, reads)
+    if var not in reads:
+        return True
+    if reads != {var}:
+        return False
+    try:
+        for ctx in contexts:
+            evaluate(pred, ctx)
+    except Exception:
+        return False
+    return True
+
+
 # ── slices ───────────────────────────────────────────────────────────────────
 
 
@@ -524,6 +546,18 @@ class SliceAnalysis:
         receive their own ordinary coverage. Never use this argument for an
         enabler with state-dependent postconditions or other inputs/outputs.
         """
+        write = self._local_flag_write(action)
+        if write is None:
+            return None
+        var, value = write
+        off = self.flags[var]
+        if value is off or not all(_value(ctx, var) is off for ctx in initials):
+            return None
+        narrow = self._resolve({var}, (action,), (), canonical=canonical)
+        wide = self.action_slice(action, canonical=canonical)
+        return narrow if narrow.key != wide.key else None
+
+    def _local_flag_write(self, action: Action) -> tuple[Var, bool] | None:
         if (
             not self.sliceable
             or len(action.effect) != 1
@@ -534,18 +568,79 @@ class SliceAnalysis:
             return None
         effect = action.effect[0]
         var = (_target_key(effect), effect.field.field_name)
-        off = self.flags.get(var)
         if (
-            not isinstance(off, bool)
-            or effect.value is not (not off)
-            or self.action_vars[id(action)] != {var}
-            or self.readers.get(var)
-            or not all(_value(ctx, var) is off for ctx in initials)
+            isinstance(self.flags.get(var), bool)
+            and isinstance(effect.value, bool)
+            and self.action_vars[id(action)] == {var}
+            and not self.readers.get(var)
         ):
+            return var, effect.value
+        return None
+
+    def recoverability_slice(
+        self, goal: Any, full: Slice, initials: list[dict], *, canonical: bool
+    ) -> tuple[Slice, int] | None:
+        """Omit local disablers when every omitted flag can always be restored.
+
+        The two slices must keep the same variables and pruning constraints.
+        In particular, a terminal-lock dependency cannot disappear with a
+        disabler. With the flags restored, ordinary guards are at least as
+        permissive, and effects and the goal cannot observe the restoration.
+        """
+        free = self.predicate_slice(goal, canonical=canonical)
+        if free.vars is None or free.vars != full.vars or free.constrained != full.constrained:
             return None
-        narrow = self._resolve({var}, (action,), (), canonical=canonical)
-        wide = self.action_slice(action, canonical=canonical)
-        return narrow if narrow.key != wide.key else None
+        kept = {id(action) for action in free.actions}
+        omitted = [action for action in full.actions if id(action) not in kept]
+        flags: set[Var] = set()
+        for action in omitted:
+            write = self._local_flag_write(action)
+            if write is None:
+                return None
+            var, value = write
+            if value is not self.flags[var]:
+                return None
+            flags.add(var)
+        if not flags or not all(self._can_restore(var, free, initials) for var in flags):
+            return None
+        return free, len(flags)
+
+    def _can_restore(self, var: Var, free: Slice, initials: list[dict]) -> bool:
+        key, name = var
+        if (
+            not initials
+            or key not in self.spec.entities
+            or not all(isinstance(_value(ctx, var), bool) for ctx in initials)
+        ):
+            return False
+        off = self.flags[var]
+        contexts = []
+        for value in (off, not off):
+            entity = copy(initials[0][key])
+            entity.__dict__[name] = value
+            contexts.append({key: entity})
+
+        restored = False
+        for action in self.writers[var]:
+            write = self._local_flag_write(action)
+            if write is None or write[0] != var or self.lock_vars[id(action)]:
+                return False
+            _, value = write
+            for ctx in contexts:
+                transition = step(self.spec, action, ctx, explain=False)
+                if transition.outcome == Outcome.DEFECT:
+                    return False
+                if transition.outcome == Outcome.ACCEPTED:
+                    assert transition.post_context is not None
+                    if _value(transition.post_context, var) is not value:
+                        return False
+                    if _value(ctx, var) is off and value is not off:
+                        restored = True  # on-writers are always retained
+        return restored and all(
+            _flag_guard_is_safe(pred, var, contexts)
+            for action in free.actions
+            for pred in action.pre
+        )
 
     def supporting_invariants(self, piece: Slice) -> list[Invariant]:
         """Proofs/constraints this slice uses; identity-based and in model order."""

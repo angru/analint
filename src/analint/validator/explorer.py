@@ -1037,6 +1037,28 @@ def _run_query(
             return _eval_dead_actions_sliced(qid, spec, per_action)
         if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
             piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
+            candidate = analysis.recoverability_slice(
+                query.goal, piece, initials, canonical=canonical
+            )
+            if candidate is not None:
+                free, flag_count = candidate
+                exp, used = explore_slice(analysis, free, initials, budget, cache, clean_only=True)
+                # Restoring all flags maps every full state into this graph.
+                # Preserve the full slice's budget verdict even when the
+                # smaller graph completed within the budget.
+                if (
+                    not exp.capped
+                    and not exp.findings
+                    and not exp.excluded
+                    and (len(exp.states) << flag_count) < budget
+                ):
+                    result = _evaluate(query, qid, exp, spec)
+                    if result.status == QueryStatus.PASS:
+                        explorations[qid] = exp
+                        result.slice = {**used.summary(), "restorable_flags": flag_count}
+                        return result
+                # BFS order, invalid-state attribution and diagnostic traces
+                # belong to the full exploration whenever a proof fails.
         else:
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
@@ -1069,12 +1091,14 @@ def explore_slice(
     cache: dict,
     *,
     reuse_superset: bool = False,
+    clean_only: bool = False,
 ) -> tuple[Exploration, Slice]:
     """Explore one slice (research/34 §5); returns the exploration and the
     slice it actually covers. A complete exploration of a closed superset is
     exact for every slice inside it; ``reuse_superset`` answers from it instead
     of exploring (used by the per-action coverage — a property reports its own,
-    smallest slice)."""
+    smallest slice). A speculative proof records only complete, clean graphs
+    so its findings cannot leak into the report on fallback."""
     if piece.vars is None:
         return explore_cached(analysis.spec, initials, max_states, cache), piece
     explored = analysis.explored.setdefault((analysis.roots_key(initials), max_states), [])
@@ -1093,7 +1117,8 @@ def explore_slice(
     exp = explore(
         analysis.sliced_spec(piece), roots, max_states, root_numbers=numbers, inert_roots=inert
     )
-    explored.append((piece, exp))
+    if not clean_only or (not exp.capped and not exp.findings and not exp.excluded):
+        explored.append((piece, exp))
     return exp, piece
 
 

@@ -189,6 +189,8 @@ def _slice_note(piece: dict | None) -> str:
         return f", {piece['slices']} action slices"
     if piece.get("fields") == ["*"]:
         return ", whole model"
+    if piece.get("restorable_flags"):
+        return f", slice of {piece['actions']} actions with reversible disablers omitted"
     return f", slice of {piece['actions']} actions"
 
 

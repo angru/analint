@@ -5,6 +5,7 @@ slice that drops the rule turns a red check green."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from enum import StrEnum
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from analint import (
     Absent,
     Action,
     Add,
+    And,
     Bound,
     Count,
     Create,
@@ -33,7 +35,12 @@ from analint import (
 )
 from analint.reporter.base import ValidationResult
 from analint.validator.engine import validate
-from analint.validator.explorer import build_canonical_initials, run_query, verify_invariants
+from analint.validator.explorer import (
+    build_canonical_initials,
+    explore_slice,
+    run_query,
+    verify_invariants,
+)
 from analint.validator.slicing import SliceAnalysis
 
 EXAMPLES = Path(__file__).parent.parent / "examples"
@@ -479,3 +486,135 @@ def test_a_constrained_slice_keeps_disablers_of_a_flag_an_invariant_reads():
     assert len(analysis.flags) == 1  # an invariant may read it
     piece = analysis.predicate_slice(a.x == 1, canonical=False)  # constrained
     assert "b_spend" in {act.id for act in piece.actions}
+
+
+@pytest.mark.parametrize(
+    ("mode", "status", "finding", "trace"),
+    [
+        ("local", "PASS", None, None),
+        ("restricting_true", "PASS", None, None),
+        ("extra_guard", "PASS", None, None),
+        ("extra_effect", "PASS", None, None),
+        ("lock", "PASS", None, None),
+        ("postcondition", "PASS", None, None),
+        ("goal_reads_flag", "PASS", None, None),
+        ("two_local", "PASS", None, None),
+        ("mixed_flags", "PASS", None, None),
+        ("restricting_dead_end", "FAIL", "query.dead_end", ["restrict"]),
+        ("invalid_state", "FAIL", "query.invalid_state", ["restrict"]),
+        ("invalid_successor", "FAIL", "query.invalid_state", ["advance", "poison"]),
+        ("irreversible", "FAIL", "query.dead_end", ["advance", "poison"]),
+        ("budget", "INCONCLUSIVE", "check.budget_exhausted", None),
+    ],
+)
+def test_no_dead_end_reversible_disablers(monkeypatch, mode, status, finding, trace):
+    enabled = mode != "restricting_true"
+
+    class Gate(Entity):
+        allowed: bool = enabled
+        audit: bool = False
+        phase: _S = (
+            Lifecycle(_S.OPEN, transitions={_S.OPEN: [_S.CLOSED]}, terminal=[_S.CLOSED])
+            if mode == "lock"
+            else _S.OPEN
+        )
+
+    class Process(Entity):
+        progress: int = Field(0, ge=0, le=2)
+
+    class Backup(Entity):
+        allowed: bool = True
+
+    repair_guards = [Gate.allowed == (not enabled)]
+    if mode == "extra_guard":
+        repair_guards.append(Process.progress >= 0)
+    if mode == "restricting_dead_end":
+        repair_guards.append(Process.progress == 1)
+    repair_effects = [Set(Gate.allowed, enabled)]
+    if mode == "extra_effect":
+        repair_effects.append(Set(Gate.audit, True))
+    advance_guards = [Gate.allowed == enabled, Process.progress == 0]
+    actions = [
+        Action(id="restrict", effect=[Set(Gate.allowed, not enabled)]),
+        Action(
+            id="restore",
+            pre=repair_guards,
+            effect=repair_effects,
+            post=[Process.progress >= 0] if mode == "postcondition" else [],
+        ),
+    ]
+    if mode in {"mixed_flags", "two_local"}:
+        advance_guards.append(Backup.allowed)
+        backup_guards = [Not(Backup.allowed)]
+        if mode == "mixed_flags":
+            backup_guards.append(Process.progress >= 0)
+        actions.extend(
+            [
+                Action(id="restrict_backup", effect=[Set(Backup.allowed, False)]),
+                Action(
+                    id="restore_backup",
+                    pre=backup_guards,
+                    effect=[Set(Backup.allowed, True)],
+                ),
+            ]
+        )
+    actions.append(
+        Action(id="advance", pre=[And(*advance_guards)], effect=[Set(Process.progress, 1)])
+    )
+    if mode in {"irreversible", "invalid_successor"}:
+        actions.append(
+            Action(id="poison", pre=[Process.progress == 1], effect=[Set(Process.progress, 2)])
+        )
+    goal = Process.progress == 1
+    if mode == "lock":
+        goal = And(goal, Gate.phase == _S.OPEN)
+    if mode == "goal_reads_flag":
+        goal = And(goal, Gate.allowed)
+    query = NoDeadEnd(goal, id="recover")
+    invariants = []
+    if mode == "invalid_state":
+        invariants.append(Invariant(Gate.allowed, id="must_be_allowed"))
+    if mode == "invalid_successor":
+        invariants.append(Invariant(Process.progress < 2, id="valid_progress"))
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        entities=[Gate, Process, Backup],
+        actions=actions,
+        invariants=invariants,
+        queries=[query],
+        max_states=4 if mode == "budget" else 100,
+    )
+    spec.close_references()
+    analysis = SliceAnalysis(spec)
+    roots, error = build_canonical_initials(spec)
+    assert roots is not None, error
+    full = analysis.predicate_slice(query.goal, locks=True, canonical=True)
+    candidate = analysis.recoverability_slice(query.goal, full, roots, canonical=True)
+    reduced_pass = mode in {"local", "restricting_true", "two_local"}
+    assert (candidate is not None) == (
+        reduced_pass or mode in {"irreversible", "invalid_successor", "budget"}
+    )
+
+    decided = {}
+    if reduced_pass:
+        # Seed the same graph a property without lock dependencies would use.
+        free = analysis.predicate_slice(query.goal, canonical=True)
+        shared, _ = explore_slice(analysis, free, roots, spec.max_states, {})
+    actual = run_query(query, spec, {}, analysis=analysis, explorations=decided)
+    reference = SliceAnalysis(spec)
+    monkeypatch.setattr(reference, "recoverability_slice", lambda *args, **kwargs: None)
+    expected = run_query(query, spec, {}, analysis=reference)
+    assert actual.status == status
+    assert actual.trace == trace
+    assert (actual.findings[0].code if actual.findings else None) == finding
+    assert actual.slice is not None
+    if reduced_pass:
+        assert expected.status == actual.status and expected.findings == actual.findings
+        assert decided[query.id] is shared
+        flags = 2 if mode == "two_local" else 1
+        assert actual.slice == {**free.summary(), "restorable_flags": flags}
+        assert actual.states_explored == 2
+        assert expected.states_explored == 2 << flags
+    else:
+        assert replace(actual, elapsed_ms=None) == replace(expected, elapsed_ms=None)

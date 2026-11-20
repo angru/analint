@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import copy
 from array import array
-from collections import deque
-from collections.abc import Iterator, Mapping, Sequence
+from collections import Counter, deque
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from enum import Enum
@@ -104,6 +104,42 @@ class Exploration:
         self.capped = False
         self.growing: list[str] = []  # on a cap: numeric fields with no bound
         self._seen: dict[tuple, int] = {}
+        self._released_count: int | None = None
+        self._root_origins: dict[int, tuple[StateKey, ...]] = {}
+
+    @property
+    def state_count(self) -> int:
+        return len(self.keys) if self._released_count is None else self._released_count
+
+    def root_origins(self, finding: int) -> tuple[StateKey, ...]:
+        """Return the origins only when every instance of the finding is at a root."""
+        if self._released_count is not None:
+            return self._root_origins.get(finding, ())
+        states = self.finding_states.get(finding, ())
+        return (
+            tuple(self.keys[i] for i in states) if all(self.parent[i] < 0 for i in states) else ()
+        )
+
+    def release_graph(self) -> None:
+        """Keep the diagnostics and counts needed for report assembly."""
+        if self._released_count is not None:
+            return
+        self._root_origins = {i: self.root_origins(i) for i in self.finding_states}
+        self._released_count = len(self.keys)
+        self.keys.clear()
+        self.index.clear()
+        self.roots.clear()
+        self.parent = array("i")
+        self.via = array("i")
+        self.discard_edges()
+        self.finding_states.clear()
+        self.invalid_roots.clear()
+        self._seen.clear()
+
+    def discard_edges(self) -> None:
+        self.edge_src = array("i")
+        self.edge_action = array("i")
+        self.edge_dst = array("i")
 
     # ── building ─────────────────────────────────────────────────────────────
 
@@ -319,6 +355,23 @@ def state_key(ctx: dict) -> StateKey:
     return _pack(out)
 
 
+def _root_signature(ctx: dict) -> tuple:
+    """State equality without interning values ahead of BFS."""
+    return tuple(
+        (
+            key,
+            (
+                (True, *(inst.__dict__.get(f) for f in all_fields(key.entity_cls)))
+                if is_present(ctx, key)
+                else (False,)
+            )
+            if isinstance(key, InstanceRef)
+            else tuple(inst.__dict__.get(f) for f in all_fields(key)),
+        )
+        for key, inst in sorted(ctx.items(), key=lambda item: context_key_label(item[0]))
+    )
+
+
 def _intern(layout_id: int, slot: int, value: tuple) -> int:
     """The code of a slot's value tuple, interning it when new."""
     table = _SLOT_CODES[layout_id][slot]
@@ -506,6 +559,8 @@ def build_initial(spec: Spec, given: list) -> tuple[dict | None, str | None]:
 def build_initial_relation(
     spec: Spec,
     initial: Initial,
+    *,
+    intern: bool = True,
 ) -> tuple[list[dict] | None, str | None]:
     """Expand a declarative initial relation into finite BFS roots."""
     base, error = build_initial(spec, initial.given)
@@ -552,7 +607,8 @@ def build_initial_relation(
         )
 
     roots: list[dict] = []
-    root_keys: set[StateKey] = set()
+    root_keys = set()
+    key_of = state_key if intern else _root_signature
     for values in product(*domains):
         ctx = {key: copy.copy(instance) for key, instance in base.items()}
         for ref, value in zip(fields, values, strict=True):
@@ -585,7 +641,7 @@ def build_initial_relation(
                 )
         if not all(results):
             continue
-        key = state_key(ctx)
+        key = key_of(ctx)
         if key in root_keys:
             continue
         root_keys.add(key)
@@ -660,14 +716,34 @@ def explore(
     *,
     root_numbers: list[int] | None = None,
     inert_roots: frozenset[int] = frozenset(),
+    store_edges: bool = True,
 ) -> Exploration:
     """BFS from ``initial_ctxs``. ``root_numbers`` keeps the 1-based labels of a
     subset of a larger root set (slices); roots at ``inert_roots`` positions
     are kept as states but not expanded (illegal in the full model). A pure
     function of its arguments, so an exploration store may memoise it."""
     if _STORE is not None:
-        return _STORE.explore(_explore, spec, initial_ctxs, max_states, root_numbers, inert_roots)
-    return _explore(spec, initial_ctxs, max_states, root_numbers, inert_roots)
+        # The disk format always contains the complete edge stream.
+        exp = _STORE.explore(_explore, spec, initial_ctxs, max_states, root_numbers, inert_roots)
+        if not store_edges:
+            exp.discard_edges()
+        return exp
+    return _explore(spec, initial_ctxs, max_states, root_numbers, inert_roots, store_edges)
+
+
+class _Frontier(deque):
+    """Share the context's keys across descendants and keep its exact values.
+
+    State keys intern equal values, which can have different types (for
+    example, 1 and 1.0). The kernel must see the original state values.
+    """
+
+    def push(self, idx: int, ctx: dict, rejected: int, keys: tuple) -> None:
+        self.append((idx, tuple(ctx.values()), rejected, keys))
+
+    def pop_state(self) -> tuple[int, dict, int, tuple]:
+        idx, values, rejected, keys = self.popleft()
+        return idx, dict(zip(keys, values, strict=True)), rejected, keys
 
 
 def _explore(
@@ -676,6 +752,7 @@ def _explore(
     max_states: int,
     root_numbers: list[int] | None,
     inert_roots: frozenset[int],
+    store_edges: bool = True,
 ) -> Exploration:
     exp = Exploration()
 
@@ -705,13 +782,11 @@ def _explore(
 
     # Seed the BFS with every admissible initial state; identical roots merge
     # naturally through the state key (research/16: multi-root exploration).
-    # The frontier carries its contexts; a state's context is dropped once it
-    # is expanded and rebuilt from its key if a query needs it later.
     # Each frontier entry also carries the actions already known REJECTED in it:
     # those its parent rejected whose guard reads the parent's transition left
     # untouched (``_guard_invalidation``); they are skipped, not re-evaluated.
     invariant_plans = {id(inv): InvariantPlan(inv) for inv in spec.invariants}
-    queue: deque[tuple[int, dict, int]] = deque()
+    queue = _Frontier()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
         key0 = state_key(ctx)
@@ -725,7 +800,7 @@ def _explore(
         if invalid or pos in inert_roots:
             exp.invalid_roots.add(idx0)
         else:
-            queue.append((idx0, ctx, 0))
+            queue.push(idx0, ctx, 0, tuple(ctx))
     codes = [exp.action_code(action.id) for action in spec.actions]
     invalidated = _guard_invalidation(spec)
     rechecks = _invariant_rechecks(spec)
@@ -738,7 +813,7 @@ def _explore(
             exp.capped = True
             exp.growing = _growing_fields(spec)
             break
-        idx, ctx, rejected = queue.popleft()
+        idx, ctx, rejected, keys = queue.pop_state()
         successors: list[tuple[int, dict, int]] = []
 
         for i, (action, code, plan) in numbered:
@@ -762,9 +837,10 @@ def _explore(
             post = result.post_context
             if not action.effect:
                 # an accepted effectless action is a self-loop with its post held true
-                add_src(idx)
-                add_act(code)
-                add_dst(idx)
+                if store_edges:
+                    add_src(idx)
+                    add_act(code)
+                    add_dst(idx)
                 continue
             assert post is not None
             try:
@@ -780,9 +856,10 @@ def _explore(
                 continue
             known = index_get(k2)
             idx2 = exp.add_state(k2, idx, code) if known is None else known
-            add_src(idx)
-            add_act(code)
-            add_dst(idx2)
+            if store_edges:
+                add_src(idx)
+                add_act(code)
+                add_dst(idx2)
             if known is not None:
                 continue
             # the parent is legal: only invariants reading what changed can break
@@ -792,7 +869,14 @@ def _explore(
                 continue  # illegal state: reported, not expanded further
             successors.append((idx2, post, i))
         # pushed after the loop, when this state's rejections are all known
-        queue.extend((idx2, post, rejected & ~invalidated[i]) for idx2, post, i in successors)
+        for idx2, post, i in successors:
+            # Effects can add a slot to a hand-built context passed to explore().
+            queue.push(
+                idx2,
+                post,
+                rejected & ~invalidated[i],
+                keys if len(post) == len(keys) else tuple(post),
+            )
 
     return exp
 
@@ -935,7 +1019,9 @@ def _report_invariant_violations(
 # ── Query evaluation ───────────────────────────────────────────────────────────
 
 
-def resolve_query_initials(query: Query, spec: Spec) -> tuple[list[dict] | None, str | None]:
+def resolve_query_initials(
+    query: Query, spec: Spec, *, intern: bool = True
+) -> tuple[list[dict] | None, str | None]:
     """The initial contexts a query explores from — its own ``given``/``given_any``/
     ``initial``, or the spec's canonical initial when it declares none. Returns
     ``(initials, None)`` or ``(None, error)``. The single interpretation of a
@@ -952,7 +1038,7 @@ def resolve_query_initials(query: Query, spec: Spec) -> tuple[list[dict] | None,
         effective_initial = spec.initial
 
     if effective_initial is not None:
-        built, error = build_initial_relation(spec, effective_initial)
+        built, error = build_initial_relation(spec, effective_initial, intern=intern)
         if built is None:
             return None, error or "could not build the initial state"
         return built, None
@@ -975,6 +1061,7 @@ def run_query(
     analysis: SliceAnalysis | None = None,
     explorations: dict[str, Exploration] | None = None,
     coverage_actions: tuple[Action, ...] | None = None,
+    initial_state: tuple[list[dict] | None, str | None] | None = None,
 ) -> QueryResult:
     """``max_states`` overrides the query's own budget (``check --max-states``).
     With ``analysis`` the query is checked on its slice (research/34 §5).
@@ -991,6 +1078,7 @@ def run_query(
         analysis=analysis,
         explorations=explorations,
         coverage_actions=coverage_actions,
+        initial_state=initial_state,
     )
     result.elapsed_ms = (perf_counter() - started) * 1000
     return result
@@ -1005,12 +1093,15 @@ def _run_query(
     analysis: SliceAnalysis | None,
     explorations: dict[str, Exploration] | None = None,
     coverage_actions: tuple[Action, ...] | None = None,
+    initial_state: tuple[list[dict] | None, str | None] | None = None,
 ) -> QueryResult:
     qid = query.id or type(query).__name__
     explorations = {} if explorations is None else explorations
     kind = type(query).__name__
 
-    initials, error = resolve_query_initials(query, spec)
+    initials, error = (
+        initial_state if initial_state is not None else resolve_query_initials(query, spec)
+    )
     if initials is None:
         return QueryResult(
             query_id=qid,
@@ -1022,6 +1113,14 @@ def _run_query(
                 )
             ],
         )
+
+    if initial_state is not None and (
+        query.initial is not None
+        or (not (query.given or query.given_any) and spec.initial is not None)
+    ):
+        # The storage plan built this relation without interning its roots.
+        for ctx in initials:
+            state_key(ctx)
 
     budget = query_budget(query, spec.max_states, max_states)
     if not isinstance(query, (Reachable, Unreachable, AlwaysHolds, NoDeadEnd, DeadActions)):
@@ -1130,11 +1229,21 @@ def explore_slice(
         ):
             return exp, used
     roots, numbers, inert = analysis.project_roots(piece, initials)
+    store_edges = not isinstance(cache, ExplorationStorage) or cache.stores_edges(
+        initials, max_states, piece
+    )
     exp = explore(
-        analysis.sliced_spec(piece), roots, max_states, root_numbers=numbers, inert_roots=inert
+        analysis.sliced_spec(piece),
+        roots,
+        max_states,
+        root_numbers=numbers,
+        inert_roots=inert,
+        store_edges=store_edges,
     )
     if not clean_only or (not exp.capped and not exp.findings and not exp.excluded):
         explored.append((piece, exp))
+        if isinstance(cache, ExplorationStorage):
+            cache.track(initials, max_states, exp)
     return exp, piece
 
 
@@ -1187,8 +1296,92 @@ def explore_cached(spec: Spec, initials: list[dict], max_states: int, cache: dic
     root_keys = tuple(dict.fromkeys(state_key(ctx) for ctx in initials))
     cache_key = (root_keys, max_states)
     if cache_key not in cache:
-        cache[cache_key] = explore(spec, initials, max_states)
+        store_edges = not isinstance(cache, ExplorationStorage) or cache.stores_edges(
+            initials, max_states, None
+        )
+        exp = explore(spec, initials, max_states, store_edges=store_edges)
+        cache[cache_key] = exp
+        if isinstance(cache, ExplorationStorage):
+            cache.track(initials, max_states, exp)
     return cache[cache_key]
+
+
+class ExplorationStorage(dict):
+    """In-run whole-model memo and storage plan for validation's graph consumers."""
+
+    def __init__(self, analysis: SliceAnalysis | None = None) -> None:
+        super().__init__()
+        self.analysis = analysis
+        self.remaining: Counter = Counter()
+        self.edge_slices: dict[tuple, set] = {}
+        self.groups: dict[tuple, list[Exploration]] = {}
+        self._root_sets: dict[int, tuple[list[dict], tuple]] = {}
+
+    def group(self, initials: list[dict], budget: int) -> tuple:
+        cached = self._root_sets.get(id(initials))
+        if cached is None:
+            roots = tuple(dict.fromkeys(map(_root_signature, initials)))
+            cached = self._root_sets[id(initials)] = (initials, roots)
+        return cached[1], budget
+
+    def register(self, initials: list[dict] | None, budget: int) -> tuple | None:
+        if initials is None:
+            return None
+        group = self.group(initials, budget)
+        self.remaining[group] += 1
+        return group
+
+    def plan_query(self, query: Query, initials: list[dict] | None, budget: int) -> tuple | None:
+        group = self.register(initials, budget)
+        if group is None or initials is None:
+            return group
+        locks = isinstance(query, NoDeadEnd)
+        if not locks and not (isinstance(query, Reachable) and len(group[0]) > 1):
+            return group
+        wanted = self.edge_slices.setdefault(group, set())
+        analysis = self.analysis
+        if analysis is None:
+            wanted.add(None)
+            return group
+
+        goal = query.goal if isinstance(query, NoDeadEnd) else query.predicate
+        canonical = not (query.given or query.given_any or query.initial is not None)
+        # Trust can select the free or constrained cone. Both have fixed
+        # identities, so plan them before building any shared graphs.
+        for unconstrained in (False, True) if canonical else (False,):
+            piece = analysis.predicate_slice(
+                goal, locks=locks, canonical=False, unconstrained=unconstrained
+            )
+            wanted.add(None if piece.vars is None else piece.key)
+            if locks:
+                lock_free = analysis.predicate_slice(
+                    goal, canonical=False, unconstrained=unconstrained
+                )
+                candidate = analysis.recoverability_slice(
+                    goal, piece, initials, canonical=canonical, free=lock_free
+                )
+                if candidate is not None:
+                    wanted.add(candidate[0].key)
+        return group
+
+    def stores_edges(self, initials: list[dict], budget: int, piece: Slice | None) -> bool:
+        group = self.group(initials, budget)
+        return (None if piece is None else piece.key) in self.edge_slices.get(group, ())
+
+    def track(self, initials: list[dict], budget: int, exp: Exploration) -> None:
+        group = self.group(initials, budget)
+        self.groups.setdefault(group, []).append(exp)
+
+    def finish(self, group: tuple | None, decided: dict[str, Exploration] | None) -> None:
+        if group is None:
+            return
+        self.remaining[group] -= 1
+        if self.remaining[group]:
+            return
+        pinned = {id(exp) for exp in decided.values()} if decided is not None else set()
+        for exp in self.groups.pop(group, ()):
+            if id(exp) not in pinned:
+                exp.release_graph()
 
 
 def build_canonical_initials(spec: Spec) -> tuple[list[dict] | None, str | None]:
@@ -1506,18 +1699,29 @@ def _scan_states(exp: Exploration, predicate: Predicate, *, collect_matches: boo
     return scan
 
 
-def _co_reachable(exp: Exploration, goals: set[int]) -> set[int]:
-    """States with a path to a goal, including paths across BFS discovery trees."""
-    reverse: dict[int, list[int]] = {}
-    for src, dst in zip(exp.edge_src, exp.edge_dst, strict=True):
-        reverse.setdefault(dst, []).append(src)
-    reached = set(goals)
-    stack = list(reached)
+def _co_reachable(exp: Exploration, goals: Iterable[int]) -> bytearray:
+    """Return a visitation flag per state with a path to a goal."""
+    # Each target owns a chain of incoming edge indices. Reuse the forward
+    # graph's sources so the reverse index needs only one integer per edge.
+    incoming = array("i", [-1]) * len(exp.keys)
+    previous = array("i", [-1]) * len(exp.edge_dst)
+    for edge, dst in enumerate(exp.edge_dst):
+        previous[edge] = incoming[dst]
+        incoming[dst] = edge
+
+    reached = bytearray(len(exp.keys))
+    stack = array("i", goals)
+    for goal in stack:
+        reached[goal] = 1
+    sources = exp.edge_src
     while stack:
-        for prev in reverse.get(stack.pop(), ()):
-            if prev not in reached:
-                reached.add(prev)
-                stack.append(prev)
+        edge = incoming[stack.pop()]
+        while edge >= 0:
+            src = sources[edge]
+            if not reached[src]:
+                reached[src] = 1
+                stack.append(src)
+            edge = previous[edge]
     return reached
 
 
@@ -1586,7 +1790,7 @@ def _eval_reachable(
         missing_roots = [
             root
             for root in exp.roots
-            if exp.index[root] not in reached or exp.index[root] in exp.invalid_roots
+            if not reached[exp.index[root]] or exp.index[root] in exp.invalid_roots
         ]
         # Prefer real missing-path evidence over a root already known invalid.
         missing = next(
@@ -1796,15 +2000,15 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
     refs = _collect_field_refs(query.goal)
     applicable = 0
     errors: list[str] = []
-    goal_states = set()
-    for key in exp.order:
+    goal_states = array("i")
+    for idx, key in enumerate(exp.order):
         ctx = decode_state(key)  # keys of exp.order are all explored
         if any(field_context_key(r) not in ctx for r in refs):
             continue
         applicable += 1
         try:
             if evaluate(query.goal, ctx):
-                goal_states.add(key)
+                goal_states.append(idx)
         except Exception as exc:
             message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
             if message not in errors:
@@ -1833,10 +2037,10 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
             ],
         )
 
-    co_reachable = _co_reachable(exp, {exp.index[key] for key in goal_states})
+    co_reachable = _co_reachable(exp, goal_states)
 
     for idx, key in enumerate(exp.order):  # BFS order → shortest trace to the first dead end
-        if idx not in co_reachable:
+        if not co_reachable[idx]:
             trace = exp.trace_to(key)
             return QueryResult(
                 query_id=qid,

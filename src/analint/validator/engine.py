@@ -305,6 +305,10 @@ def _run_checks(
             probe_ms[query.id] = (perf_counter() - started) * 1000
             if proof is not None:
                 safety_proofs[query.id] = proof
+        del probe_analysis
+        if decided is None:
+            for proof in safety_proofs.values():
+                proof.exploration.release_graph()
     verification_scope = None
     if checks is not None:
         from analint.validator.verification_scope import VerificationScope
@@ -354,7 +358,12 @@ def _run_checks(
 
     # The canonical initial is part of the model: build it once (reused below)
     # and validate that it builds even when nothing consumes it.
-    from analint.validator.explorer import build_canonical_initials
+    from analint.validator.explorer import (
+        ExplorationStorage,
+        build_canonical_initials,
+        resolve_query_initials,
+        run_query,
+    )
 
     canonical_initials: list | None = None
     canonical_error: str | None = None
@@ -372,12 +381,30 @@ def _run_checks(
 
     # Shared by the canonical invariant check and the queries: a default-source
     # query with the same roots and budget reuses the canonical exploration.
-    explorations: dict = {}
     analysis = None
     if sliced and (selection.invariants or selection.queries):
         from analint.validator.slicing import SliceAnalysis
 
         analysis = SliceAnalysis(spec)
+    explorations = ExplorationStorage(analysis)
+    canonical_group = explorations.register(canonical_initials, max_states or spec.max_states)
+    query_runs = []
+    for query in selection.queries:
+        started = perf_counter()
+        initial_state = (
+            (safety_proofs[query.id].initials, None)
+            if query.id in safety_proofs
+            else resolve_query_initials(query, spec, intern=False)
+        )
+        group = (
+            None
+            if query.id in safety_proofs
+            else explorations.plan_query(
+                query, initial_state[0], query_budget(query, spec.max_states, max_states)
+            )
+        )
+        query_runs.append((query, initial_state, group, (perf_counter() - started) * 1000))
+
     if selection.invariants:
         from analint.validator.explorer import cover_actions, verify_invariants
 
@@ -413,12 +440,12 @@ def _run_checks(
                     ),
                 )
 
-    if selection.queries:
-        from analint.validator.explorer import resolve_query_initials, run_query
+    explorations.finish(canonical_group, decided)
 
-        for query in selection.queries:
+    if query_runs:
+        for query, initial_state, group, setup_ms in query_runs:
             if verification_scope is not None:
-                initials, _ = resolve_query_initials(query, spec)
+                initials, _ = initial_state
                 verification_scope.register(
                     initials,
                     [f"query:{query.id}"],
@@ -438,14 +465,18 @@ def _run_checks(
                     max_states=max_states,
                     analysis=analysis,
                     explorations=decided,
+                    initial_state=initial_state,
                     coverage_actions=(
                         verification_scope.actions_for([f"query:{query.id}"])
                         if verification_scope is not None
                         else None
                     ),
                 )
-            query_result.elapsed_ms = (query_result.elapsed_ms or 0.0) + probe_ms.get(query.id, 0.0)
+            query_result.elapsed_ms = (
+                (query_result.elapsed_ms or 0.0) + probe_ms.get(query.id, 0.0) + setup_ms
+            )
             result.query_results.append(query_result)
+            explorations.finish(group, decided)
 
     if tlc:
         from analint.validator.tlc_fallback import decide_with_tlc

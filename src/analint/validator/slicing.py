@@ -578,7 +578,13 @@ class SliceAnalysis:
         return None
 
     def recoverability_slice(
-        self, goal: Any, full: Slice, initials: list[dict], *, canonical: bool
+        self,
+        goal: Any,
+        full: Slice,
+        initials: list[dict],
+        *,
+        canonical: bool,
+        free: Slice | None = None,
     ) -> tuple[Slice, int] | None:
         """Omit local disablers when every omitted flag can always be restored.
 
@@ -587,7 +593,8 @@ class SliceAnalysis:
         disabler. With the flags restored, ordinary guards are at least as
         permissive, and effects and the goal cannot observe the restoration.
         """
-        free = self.predicate_slice(goal, canonical=canonical)
+        if free is None:
+            free = self.predicate_slice(goal, canonical=canonical)
         if free.vars is None or free.vars != full.vars or free.constrained != full.constrained:
             return None
         kept = {id(action) for action in free.actions}

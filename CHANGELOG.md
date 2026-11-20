@@ -17,6 +17,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Exploration compiles effect operands and reuses parent state codes for
+  untouched slots. The transition kernel uses copy-on-write snapshots and
+  skips constraint checks that cannot apply to the action. (#82)
+
 - Validation uses less exploration memory by keeping edges for graph readers,
   compacting the BFS frontier and reverse reachability index, and releasing
   state storage after its last check. Reports, traces and graph artifacts

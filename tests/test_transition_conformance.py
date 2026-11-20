@@ -63,7 +63,7 @@ from analint import (
     Spec,
 )
 from analint.models.scenario import Expect
-from analint.reporter.base import Severity
+from analint.reporter.base import Code, Severity
 from analint.validator.explorer import build_initial, explore
 from analint.validator.rule_checker import resolve
 from analint.validator.scenario_runner import run_scenario
@@ -431,3 +431,59 @@ def test_invalid_initial_invariant_is_defect_in_both():
     invariant = Invariant(Flag.n == 1, id="initial_is_valid")
     spec = Spec(id="s", name="S", entities=[Flag], actions=[a], invariants=[invariant])
     _assert_agree(spec, a, [Flag(n=0)], "DEFECT", expected_edge=False)
+
+
+def test_action_plans_keep_field_and_lifecycle_defects():
+    bound = Action(id="over_limit", effect=[Set(Flag.n, 9)])
+    edge = Action(id="illegal_edge", effect=[Set(Doc.state, Status.C)])
+    spec = Spec(id="s", name="S", entities=[Flag, Doc], actions=[bound, edge])
+    initial, error = build_initial(spec, [])
+    assert initial is not None, error
+    result = explore(spec, [initial], 100)
+    assert [(finding.location, finding.code) for finding in result.findings] == [
+        ("action:over_limit", Code.FIELD_CONSTRAINT),
+        ("action:illegal_edge", Code.UNDECLARED_LIFECYCLE_EDGE),
+    ]
+    assert result.state_count == 1
+    assert not result.edges
+
+
+def test_custom_copy_can_change_an_unwritten_lifecycle_field():
+    class CopyingDoc(Entity):
+        state: Status = Lifecycle(Status.A, transitions={Status.A: [Status.B]})
+        count: int = 0
+
+        def __copy__(self):
+            return CopyingDoc(state=Status.C, count=self.count)
+
+    action = Action(id="increment", effect=[Add(CopyingDoc.count, 1)])
+    spec = Spec(id="s", name="S", entities=[CopyingDoc], actions=[action])
+    assert _scenario_cat(spec, action, [CopyingDoc()]) == "DEFECT"
+    result = explore(spec, [{CopyingDoc: CopyingDoc()}], 100)
+    assert [f.code for f in result.findings] == [Code.UNDECLARED_LIFECYCLE_EDGE]
+    assert not result.edges
+
+
+def test_unsupported_effect_operand_reports_interpreter_error():
+    action = Action(id="unknown", effect=[Set(Flag.n, object())])
+    spec = _flag_spec(action)
+    initial, error = build_initial(spec, [])
+    assert initial is not None, error
+    result = explore(spec, [initial], 100)
+    assert len(result.findings) == 1
+    finding = result.findings[0]
+    assert finding.code is Code.EVALUATION_ERROR
+    assert (
+        finding.message
+        == "effect evaluation error: unsupported operand node: object [after: unknown]"
+    )
+
+
+def test_unwritten_lifecycle_with_non_reflexive_value_is_still_checked():
+    class Meter(Entity):
+        state: float = Lifecycle(float("nan"))
+        count: int = 0
+
+    action = Action(id="increment", effect=[Add(Meter.count, 1)])
+    spec = Spec(id="s", name="S", entities=[Meter], actions=[action])
+    _assert_agree(spec, action, [Meter()], "DEFECT", expected_edge=False)

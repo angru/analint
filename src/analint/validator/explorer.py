@@ -354,23 +354,26 @@ def state_key(ctx: dict) -> StateKey:
     """
     layout_id, layout = _state_layout(tuple(ctx))
     out = [layout_id]
-    for table, seen, (key, scoped, fields) in zip(
-        _SLOT_CODES[layout_id], _SLOT_VALUES[layout_id], layout, strict=True
-    ):
-        values = ctx[key].__dict__
-        if scoped:
-            if values.get("_analint_present", True):
-                value = (True, *map(values.get, fields))
-            else:
-                value = (False,)
-        else:
-            value = tuple(map(values.get, fields))
-        code = table.get(value)
-        if code is None:
-            code = table[value] = len(seen)
-            seen.append(value)
-        out.append(code)
+    for slot, (key, scoped, fields) in enumerate(layout):
+        out.append(_intern(layout_id, slot, _slot_value(ctx[key], scoped, fields)))
     return _pack(out)
+
+
+def _slot_value(instance: Any, scoped: bool, fields: tuple) -> tuple:
+    values = instance.__dict__
+    if scoped:
+        if values.get("_analint_present", True):
+            return (True, *map(values.get, fields))
+        return (False,)
+    return tuple(map(values.get, fields))
+
+
+def _successor_key(parent: list[int], post: dict, changed_slots: tuple) -> StateKey:
+    codes = parent.copy()
+    layout_id = codes[0]
+    for slot, (key, scoped, fields) in changed_slots:
+        codes[slot + 1] = _intern(layout_id, slot, _slot_value(post[key], scoped, fields))
+    return _pack(codes)
 
 
 def _root_signature(ctx: dict) -> tuple:
@@ -822,8 +825,9 @@ def _explore(
     codes = [exp.action_code(action.id) for action in spec.actions]
     invalidated = _guard_invalidation(spec)
     rechecks = _invariant_rechecks(spec)
-    plans = [build_plan(action) for action in spec.actions]
+    plans = [build_plan(action, spec.lifecycles) for action in spec.actions]
     numbered = list(enumerate(zip(spec.actions, codes, plans, strict=True)))
+    slots_by_layout: dict[int, list[tuple]] = {}
     index_get = exp.index.get
     add_src, add_act, add_dst = exp.edge_src.append, exp.edge_action.append, exp.edge_dst.append
     while queue:
@@ -833,6 +837,18 @@ def _explore(
             break
         idx, ctx, rejected, keys = queue.pop_state()
         successors: list[tuple[int, dict, int]] = []
+        parent_codes = list(_codes(exp.keys[idx]))
+        layout_id = parent_codes[0]
+        slots_by_action = slots_by_layout.get(layout_id)
+        if slots_by_action is None:
+            slots_by_action = slots_by_layout[layout_id] = [
+                tuple(
+                    (slot, entry)
+                    for slot, entry in enumerate(_LAYOUTS[layout_id])
+                    if entry[0] in plan.changed
+                )
+                for plan in plans
+            ]
 
         for i, (action, code, plan) in numbered:
             if rejected >> i & 1 or action.id in exp.excluded:
@@ -862,7 +878,13 @@ def _explore(
                 continue
             assert post is not None
             try:
-                k2 = state_key(post)
+                # Custom copying can change other slots, and Create can add a
+                # slot to a hand-built context. Both require full keying.
+                k2 = (
+                    _successor_key(parent_codes, post, slots_by_action[i])
+                    if not result.custom_copy and len(post) == len(ctx)
+                    else state_key(post)
+                )
             except TypeError as exc:
                 exp.report_once(
                     Severity.ERROR,

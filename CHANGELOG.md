@@ -17,6 +17,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 
+- Reuse smaller `NoDeadEnd` slices when every omitted disabler has an always
+  available local boolean re-enabler. Reports identify the reduced graph used
+  for a clean proof. Other outcomes use the full slice to preserve diagnostics
+  and shortest counterexamples. (#79)
 - Reduce action-coverage work for local boolean enablers starting off: reuse a
   complete narrow firing proof only when all guard/effect inputs are local and
   no postcondition, emitted event or invariant can introduce a later defect.

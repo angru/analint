@@ -141,3 +141,65 @@ def test_storage_planning_does_not_intern_future_roots():
     result = validate_spec(spec)
     assert result.verdict == "PASS"
     assert result.query_results[0].trace == ["jump"]
+
+
+@pytest.mark.parametrize("reader", ["states", "order", "parents", "edges", "trace", "reverse"])
+def test_released_graph_rejects_reads(reader):
+    exp = explorer.Exploration()
+    exp.add_state(b"root", -1, -1)
+    exp.release_graph()
+    assert exp.state_count == 1
+    with pytest.raises(AssertionError, match="released"):
+        if reader == "trace":
+            exp.trace_to(b"root")
+        elif reader == "reverse":
+            explorer._co_reachable(exp, [])
+        else:
+            len(getattr(exp, reader))
+
+
+def test_edgeless_exploration_rejects_edge_reads():
+    exp = explorer.explore(explorer.Spec(id="empty", name="Empty"), [{}], 10, store_edges=False)
+    assert len(exp.states) == 1
+    with pytest.raises(AssertionError, match="not stored"):
+        len(exp.edges)
+    with pytest.raises(AssertionError, match="not stored"):
+        explorer._co_reachable(exp, [0])
+
+
+def test_reduced_recoverability_matches_full_storage(monkeypatch):
+    from analint import Action, AlwaysHolds, Entity, NoDeadEnd, Not, Set, Spec
+    from analint.validator.engine import validate_spec
+
+    class Gate(Entity):
+        allowed: bool = True
+
+    class Process(Entity):
+        done: bool = False
+
+    spec = Spec(
+        id="recoverable",
+        name="Recoverable",
+        actions=[
+            Action(id="restrict", effect=[Set(Gate.allowed, False)]),
+            Action(id="restore", pre=[Not(Gate.allowed)], effect=[Set(Gate.allowed, True)]),
+            Action(
+                id="finish", pre=[Gate.allowed, Not(Process.done)], effect=[Set(Process.done, True)]
+            ),
+        ],
+        queries=[
+            AlwaysHolds(Process.done >= False, id="safety"),
+            NoDeadEnd(Process.done, id="recover"),
+        ],
+    )
+
+    report = _without_timing(result_to_dict(validate_spec(spec, sliced=True)))
+    recovery = report["queries"][1]
+    assert recovery["status"] == "PASS"
+    assert recovery["slice"]["restorable_flags"] == 1
+    assert recovery["states_explored"] == 2
+    monkeypatch.setattr(explorer, "_Frontier", _LiveContexts)
+    monkeypatch.setattr(explorer, "_co_reachable", _legacy_reverse)
+    monkeypatch.setattr(explorer.ExplorationStorage, "stores_edges", lambda *args: True)
+    monkeypatch.setattr(explorer.Exploration, "release_graph", lambda self: None)
+    assert _without_timing(result_to_dict(validate_spec(spec, sliced=True))) == report

@@ -83,7 +83,8 @@ class Exploration:
     ``parents`` and ``edges`` keep the key-based read interface.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, store_edges: bool = True) -> None:
+        self._edges_stored = store_edges
         self.keys: list[StateKey] = []  # index → key, in BFS order
         self.index: dict[StateKey, int] = {}  # key → index
         self.parent = array("i")  # index → parent index (-1 for a root)
@@ -137,9 +138,17 @@ class Exploration:
         self._seen.clear()
 
     def discard_edges(self) -> None:
+        self._edges_stored = False
         self.edge_src = array("i")
         self.edge_action = array("i")
         self.edge_dst = array("i")
+
+    def _require_graph(self) -> None:
+        assert self._released_count is None, "exploration graph was released"
+
+    def _require_edges(self) -> None:
+        self._require_graph()
+        assert self._edges_stored, "exploration edges were not stored"
 
     # ── building ─────────────────────────────────────────────────────────────
 
@@ -162,14 +171,17 @@ class Exploration:
 
     @property
     def order(self) -> list[StateKey]:
+        self._require_graph()
         return self.keys
 
     @property
     def states(self) -> _States:
+        self._require_graph()
         return _States(self)
 
     @property
     def parents(self) -> _Parents:
+        self._require_graph()
         return _Parents(self)
 
     @property
@@ -189,6 +201,7 @@ class Exploration:
             self.finding_states.setdefault(index, set()).add(state)
 
     def trace_to(self, key: StateKey) -> list[str]:
+        self._require_graph()
         return self._trace(self.index[key])
 
     def _trace(self, idx: int) -> list[str]:
@@ -199,6 +212,7 @@ class Exploration:
         return list(reversed(steps))
 
     def root_of(self, key: StateKey) -> StateKey:
+        self._require_graph()
         idx = self.index[key]
         while self.parent[idx] >= 0:
             idx = self.parent[idx]
@@ -210,6 +224,7 @@ class Exploration:
         A counterexample over an initial-state SET is ambiguous without its
         root (research/16): 'init #2 ⊢ vote(...)' pins the configuration.
         """
+        self._require_graph()
         if len(self.roots) <= 1:
             return ""
         return f"init #{self.roots[self.root_of(key)]} ⊢ "
@@ -260,15 +275,18 @@ class _Edges(Sequence):
     """(source key, action id, target key) per explored transition."""
 
     def __init__(self, exp: Exploration) -> None:
+        exp._require_edges()
         self._exp = exp
 
     def __len__(self) -> int:
+        self._exp._require_edges()
         return len(self._exp.edge_src)
 
     def __getitem__(self, i: Any) -> Any:  # int → edge, slice → list of edges
         if isinstance(i, slice):
             return [self[j] for j in range(*i.indices(len(self)))]
         exp = self._exp
+        exp._require_edges()
         return (
             exp.keys[exp.edge_src[i]],
             exp.action_ids[exp.edge_action[i]],
@@ -754,7 +772,7 @@ def _explore(
     inert_roots: frozenset[int],
     store_edges: bool = True,
 ) -> Exploration:
-    exp = Exploration()
+    exp = Exploration(store_edges=store_edges)
 
     # Actions whose preconditions reference event payloads are not explorable:
     # events are not part of the state. Report explicitly instead of silently
@@ -1701,6 +1719,7 @@ def _scan_states(exp: Exploration, predicate: Predicate, *, collect_matches: boo
 
 def _co_reachable(exp: Exploration, goals: Iterable[int]) -> bytearray:
     """Return a visitation flag per state with a path to a goal."""
+    exp._require_edges()
     # Each target owns a chain of incoming edge indices. Reuse the forward
     # graph's sources so the reverse index needs only one integer per edge.
     incoming = array("i", [-1]) * len(exp.keys)

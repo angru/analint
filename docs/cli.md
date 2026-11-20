@@ -81,21 +81,23 @@ checks are needed. `--no-slice` uses a conservative constrained
 dependency closure and still explores the whole state space.
 
 The verdict and exit code aggregate requested checks, their supporting proofs,
-and relevant transition defects. For example, `safe_a` can PASS (exit 0) while
-an independent invariant `bounded_b` fails: the B finding is shown separately.
-Try `analint check benchmarks/independent_checks.py --check safe_a` from a source
-checkout; the unfiltered check still FAILs. Flow-only requests check applicable
-invariants at each step and skip global exploration.
+and relevant transition defects. **Unreleased:** sliced selections explore the
+selected and supporting slices, with action-slice defect coverage seeded by
+their dependencies. A clean unconstrained safety proof supplies its own
+coverage. For example, `analint check benchmarks/independent_checks.py --check safe_a`
+passes and identifies `bump_b` as unassessed. The unfiltered check still fails
+on B's invariant. Flow-only requests check applicable invariants at each step
+and skip global exploration.
 
-All-action defect coverage from the verification roots remains enabled. Unrelated
-findings go into **`model_findings`**, with bounded coverage recorded separately in
-**`model_coverage`**: root sets, exploration/state counts, caps, excluded actions,
-and the fact that unselected invariants were not proved. These findings retain
-severity, code, location and trace text, but affect neither the selected verdict
-nor `--strict`. A model diagnostic is not a proof result, and an empty diagnostic
-list does not establish model health. Run an unfiltered check for full validation.
-Counts include reused explorations and are not a measure of newly performed work.
-Speculative safety graphs are not part of diagnostic coverage.
+Findings outside the selected dependencies that are encountered during this
+work still go into **`model_findings`**. These findings retain severity, code,
+location and trace text and affect neither the selected verdict nor `--strict`.
+**`model_coverage`** reports bounded reachability coverage, including root sets,
+exploration/state counts, caps and excluded actions. The counts include reused
+graphs and successful safety proofs and exclude unsuccessful speculative
+attempts. `model_coverage.scope` is `selected_slices_from_verification_roots`
+for sliced selections (including whole-model fallbacks) and
+`actions_from_verification_roots` with `--no-slice`.
 
 Structural errors, load failures and invalid declared initial relations remain
 blocking. Every invariant still participates in initial-state legality: an illegal
@@ -113,20 +115,34 @@ falls back to the whole model. No action or invariant is removed from the model.
 
 Filtered JSON reports add `selection` (also in compact mode): `requested`,
 `supporting`, `not_selected`, `dependencies`, full `model_actions`, `action_coverage`,
-selected-scope `excluded_actions`, effective `options` and `budgets`. Dependencies
-identify actions/constraints used by each check; whole-model fallback is explicit.
-Model-wide exclusions are in `model_coverage.excluded_actions`. `not_selected`
-describes checks, never removed actions. Coverage is bounded, not an exhaustive
-full-model verdict. Caps or excluded actions in unrelated diagnostic exploration
-do not make the requested property INCONCLUSIVE; an incomplete exploration needed
-by the property still does. Found witnesses/counterexamples remain conclusive.
+selected-scope `excluded_actions`, effective `options` and `budgets`. Explicit
+check selections also list `covered_actions` (included in bounded reachability
+coverage at one or more verification root sets) and `unassessed_actions`
+(outside that coverage). Transition defects and fireability of unassessed
+actions are outside the report's reachability scope. Actions excluded within
+the covered slices are listed separately in `model_coverage.excluded_actions`.
+Dependencies identify actions and constraints used by each check, including
+whole-model fallback. Caps and exclusions can limit coverage within a slice.
+A successful unconstrained safety proof can establish absence of defects on
+its slice. Its graph may include paths that invariant pruning would block, so
+inclusion in `covered_actions` alone establishes no fireability verdict.
+Found witnesses and counterexamples remain conclusive.
+
+Each sliced check spends its budget on its own dependencies. For example, a
+safety check with a large budget and a witness check with a small budget can
+both pass even if extra exploration would find a defect in an action only
+the witness depends on. With `--no-slice`, the safety check's larger
+whole-model exploration can discover that defect, which then blocks the
+combined verdict when the checks share verification roots.
 
 A selected PASS establishes only its reported scope. `--strict` still applies to
 warnings in verdict-bearing sections, including structural warnings about the
 whole model. Scenario/tag filters without `--check` retain full-check behavior.
-The all-action diagnostic pass remains work even when the proof set is small;
-selection is not a guarantee of a smaller state space or a faster check.
-An unsuccessful safety attempt can add work before the constrained retry.
+Run an unfiltered check for full validation. A selection is only as cheap as
+its slices: when a selected property's slice spans most of the model (for
+example, 32 of 33 actions because every action touches a shared balance), the
+selection explores about as much as a full check and is not faster. An unsuccessful safety attempt
+can add work before the constrained retry.
 `benchmarks/safety_bridge.py` demonstrates a passing local safety query whose
 bridge constraint would otherwise pull in broken, unrelated proofs. The selected
 run passes while the unfiltered run fails; no system actions are removed.

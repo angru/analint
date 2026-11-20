@@ -156,7 +156,7 @@ def validate(
     """``checks`` selects flow/query/invariant ids (or KIND:ID). None retains
     the full check; [] or unknown/ambiguous ids raise SelectionError. Selection
     never changes model behavior. Explicit selections prove dependency-related
-    canonical invariants and report unrelated exploration defects separately.
+    canonical invariants and limit sliced action coverage to their dependencies.
 
     ``max_states`` overrides every exploration budget for this run — the
     spec's canonical one and each query's — without mutating the model.
@@ -379,7 +379,7 @@ def _run_checks(
 
         analysis = SliceAnalysis(spec)
     if selection.invariants:
-        from analint.validator.explorer import verify_invariants
+        from analint.validator.explorer import cover_actions, verify_invariants
 
         while True:
             result.invariant_results, _ = verify_invariants(
@@ -391,6 +391,7 @@ def _run_checks(
                 cache=explorations,
                 analysis=analysis,
                 explorations=decided,
+                all_actions=verification_scope is None,
             )
             if verification_scope is None or not verification_scope.refine(analysis):
                 break
@@ -399,6 +400,18 @@ def _run_checks(
                 canonical_initials,
                 [f"invariant:{inv.id}" for inv in selection.invariants],
             )
+
+            if analysis is not None and canonical_initials is not None:
+                cover_actions(
+                    analysis,
+                    canonical_initials,
+                    max_states or spec.max_states,
+                    explorations,
+                    canonical=True,
+                    actions=verification_scope.actions_for(
+                        f"invariant:{inv.id}" for inv in selection.invariants
+                    ),
+                )
 
     if selection.queries:
         from analint.validator.explorer import resolve_query_initials, run_query
@@ -412,20 +425,9 @@ def _run_checks(
                 )
             proof = safety_proofs.get(query.id)
             if proof is not None:
-                from analint.validator.explorer import cover_actions
-
-                assert analysis is not None
-                started = perf_counter()
-                canonical = not (query.given or query.given_any or query.initial is not None)
-                cover_actions(
-                    analysis,
-                    proof.initials,
-                    query_budget(query, spec.max_states, max_states),
-                    explorations,
-                    canonical=canonical,
-                )
+                assert verification_scope is not None
+                verification_scope.safety_coverage.append((proof.piece, proof.exploration))
                 query_result = proof.result
-                query_result.elapsed_ms = (perf_counter() - started) * 1000
                 if decided is not None:
                     decided[query.id] = proof.exploration
             else:
@@ -436,6 +438,11 @@ def _run_checks(
                     max_states=max_states,
                     analysis=analysis,
                     explorations=decided,
+                    coverage_actions=(
+                        verification_scope.actions_for([f"query:{query.id}"])
+                        if verification_scope is not None
+                        else None
+                    ),
                 )
             query_result.elapsed_ms = (query_result.elapsed_ms or 0.0) + probe_ms.get(query.id, 0.0)
             result.query_results.append(query_result)

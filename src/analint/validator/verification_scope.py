@@ -10,6 +10,9 @@ constraints or grants trust to an unchecked invariant.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
+from analint.models.action import Action
 from analint.models.query import AlwaysHolds, Reachable, Unreachable
 from analint.models.root import Spec
 from analint.reporter.base import Code, Finding, ValidationResult
@@ -90,6 +93,11 @@ class VerificationScope:
         self.root_findings: list[Finding] = []
         self.root_defects: set[tuple] = set()
         self.checked_roots: set[tuple] = set()
+        self.safety_coverage: list[tuple[Slice, Exploration]] = []
+
+    def actions_for(self, checks: Iterable[str]) -> tuple[Action, ...]:
+        targets = {id(action) for name in checks for action in self.pieces[name].actions}
+        return tuple(action for action in self.spec.actions if id(action) in targets)
 
     def _metadata(self) -> None:
         selection = self.selection
@@ -169,13 +177,13 @@ class VerificationScope:
         self, result: ValidationResult, cache: dict, analysis: SliceAnalysis | None
     ) -> None:
         runs = [(key, exp) for key, exp in cache.items()]
+        covered = {a.id for a in self.spec.actions} if runs else set()
         if analysis is not None:
-            runs += [
-                ((tuple(dict.fromkeys(roots)), budget), exp)
-                for (roots, budget), entries in analysis.explored.items()
-                for piece, exp in entries
-                if analysis.is_exact(piece)
-            ]
+            for (roots, budget), entries in analysis.explored.items():
+                for piece, exp in entries:
+                    if analysis.is_exact(piece):
+                        runs.append(((tuple(dict.fromkeys(roots)), budget), exp))
+                        covered.update(a.id for a in piece.actions)
         scoped: dict[tuple, Finding] = {}
         model: dict[tuple, Finding] = {}
         seen: dict[int, Exploration] = {}
@@ -229,8 +237,15 @@ class VerificationScope:
                     )
         result.exploration_findings.extend(scoped.values())
         result.model_findings = [f for key, f in model.items() if key not in scoped]
+        for piece, exp in self.safety_coverage:
+            covered.update(a.id for a in piece.actions)
+            seen[id(exp)] = exp
         result.model_coverage = {
-            "scope": "actions_from_verification_roots",
+            "scope": (
+                "selected_slices_from_verification_roots"
+                if self.sliced
+                else "actions_from_verification_roots"
+            ),
             "root_sets": len(self.routes),
             "explorations": len(seen),
             "states_explored": sum(len(exp.states) for exp in seen.values()),
@@ -239,4 +254,10 @@ class VerificationScope:
             "invariant_proofs": "selected_and_supporting_only",
         }
         assert result.selection is not None
+        # Excluded event-payload actions were never explored.
+        covered.difference_update(excluded)
         result.selection["excluded_actions"] = selected_excluded
+        result.selection["covered_actions"] = [a.id for a in self.spec.actions if a.id in covered]
+        result.selection["unassessed_actions"] = [
+            a.id for a in self.spec.actions if a.id not in covered
+        ]

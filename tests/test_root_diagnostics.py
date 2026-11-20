@@ -78,11 +78,14 @@ def test_later_violation_from_a_legal_root_survives(entry, roots):
         spec.queries[0].given_any = [[b(n=3)], [b()]]
     else:
         spec.queries.append(AlwaysHolds(a.n <= 1, given=[b()], id="legal"))
-    result = validate_spec(spec, checks=[q.id for q in spec.queries])
+    result = validate_spec(spec, checks=[q.id for q in spec.queries], sliced=False)
     assert result.verdict == "FAIL"
     violations = [f for f in result.model_findings if f.location == "invariant:limit"]
-    assert len(violations) == 1
-    assert "advance_b → advance_b" in violations[0].message
+    # Whole-model exploration reaches the B violation with A at both 0 and 1.
+    assert sorted(f.message for f in violations) == [
+        "invariant 'B.n <= 1' breaks [after: advance_a → advance_b → advance_b]",
+        "invariant 'B.n <= 1' breaks [after: advance_b → advance_b]",
+    ]
 
 
 def test_root_diagnostics_across_reports_cache_and_trace(entry, monkeypatch):
@@ -220,7 +223,7 @@ def test_matching_prose_does_not_hide_a_later_evaluation_error(entry):
     # evaluation errors then have identical messages; their states still differ.
     spec.actions = [Action(id="(initial state)", pre=[b.n == 0], effect=[Set(b.n, 2)])]
     spec.queries = [AlwaysHolds(a.n <= 1, id="safe", given_any=[[b(n=3)], [b()]])]
-    result = validate_spec(spec, checks=["safe"])
+    result = validate_spec(spec, checks=["safe"], sliced=False)
     assert result.verdict == "FAIL"
     assert len(result.model_findings) == 1
     assert result.model_findings[0].code == Code.INVARIANT_EVALUATION_ERROR

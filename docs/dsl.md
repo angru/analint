@@ -47,9 +47,10 @@ When upgrading from 0.0.x, review these changes to the verification contract.
   and chained comparisons such as `0 <= Account.balance <= 100` with
   `And(0 <= Account.balance, Account.balance <= 100)`. Boolean conversion now raises
   instead of silently losing part of a condition.
-- Selected checks report unrelated defects in `model_findings` without changing
-  their verdict. Consumers should read `selection` and `model_coverage`; a selected
-  PASS does not certify every property. An unfiltered check retains full scope.
+- Selected checks put unrelated defects encountered during exploration in
+  `model_findings`, outside the selected verdict. **Unreleased:** sliced
+  selections list actions outside action coverage in `selection.unassessed_actions`.
+  Read `model_coverage` for the bounds on coverage.
 - Handle INCONCLUSIVE (CLI exit 4), including when excluded event-subscriber
   actions prevent a proof. Do not infer success from an absence of counterexamples.
 - TLC can find a transition defect while the target property stays INCONCLUSIVE.
@@ -652,8 +653,10 @@ full_result = validate_spec(spec)
 Neither function edits the declaration lists, query budgets or fixtures. Results
 with a selection describe its scope; only that scope is established by PASS.
 Structural checks always cover the whole model, and reachability checks retain
-dependency-related invariant proofs and action-defect coverage. Unrelated defects
-are reported in `model_findings` with `model_coverage`, outside the selected verdict.
+dependency-related invariant proofs and action-defect coverage. **Unreleased:**
+sliced selections report actions outside that coverage in
+`selection.unassessed_actions`. Unrelated defects encountered during exploration
+go into `model_findings` with `model_coverage`, outside the selected verdict.
 An unfiltered run still aggregates all checks and defects. See the
 [CLI selection contract](cli.md#selecting-checks-over-one-model) for
 supporting checks, scenario/tag compatibility and trace settings. A static shared

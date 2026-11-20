@@ -974,6 +974,7 @@ def run_query(
     max_states: int | None = None,
     analysis: SliceAnalysis | None = None,
     explorations: dict[str, Exploration] | None = None,
+    coverage_actions: tuple[Action, ...] | None = None,
 ) -> QueryResult:
     """``max_states`` overrides the query's own budget (``check --max-states``).
     With ``analysis`` the query is checked on its slice (research/34 §5).
@@ -983,7 +984,13 @@ def run_query(
     evaluation performed by this call; cached work is not charged again."""
     started = perf_counter()
     result = _run_query(
-        query, spec, cache, max_states=max_states, analysis=analysis, explorations=explorations
+        query,
+        spec,
+        cache,
+        max_states=max_states,
+        analysis=analysis,
+        explorations=explorations,
+        coverage_actions=coverage_actions,
     )
     result.elapsed_ms = (perf_counter() - started) * 1000
     return result
@@ -997,6 +1004,7 @@ def _run_query(
     max_states: int | None,
     analysis: SliceAnalysis | None,
     explorations: dict[str, Exploration] | None = None,
+    coverage_actions: tuple[Action, ...] | None = None,
 ) -> QueryResult:
     qid = query.id or type(query).__name__
     explorations = {} if explorations is None else explorations
@@ -1032,8 +1040,16 @@ def _run_query(
         # defects; the per-action slices do the same and decide DeadActions
         # invariants were proven from the canonical roots only (SliceAnalysis)
         canonical = not (query.given or query.given_any or query.initial is not None)
-        per_action = cover_actions(analysis, initials, budget, cache, canonical=canonical)
-        if isinstance(query, DeadActions):
+        dead_actions = isinstance(query, DeadActions)
+        per_action = cover_actions(
+            analysis,
+            initials,
+            budget,
+            cache,
+            canonical=canonical,
+            actions=None if dead_actions else coverage_actions,
+        )
+        if dead_actions:
             return _eval_dead_actions_sliced(qid, spec, per_action)
         if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
             piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
@@ -1129,15 +1145,17 @@ def cover_actions(
     cache: dict,
     *,
     canonical: bool,
+    actions: tuple[Action, ...] | None = None,
 ) -> dict[int, Exploration]:
-    """Every action explored in its own slice from these roots — the sliced
-    counterpart of one full exploration: it surfaces each action's defects and
-    decides its fireability. Keyed by id(action)."""
-    key = (analysis.roots_key(initials), max_states, canonical)
+    """Explore the requested actions in their own slices to assess defects and
+    fireability. With no subset, this is the sliced counterpart of one full
+    exploration. Results are keyed by id(action)."""
+    actions = tuple(analysis.spec.actions) if actions is None else actions
+    key = (analysis.roots_key(initials), max_states, canonical, tuple(map(id, actions)))
     if key not in analysis.covered:
         # largest slices first, so the nested ones reuse their explorations
         pieces = []
-        for action in analysis.spec.actions:
+        for action in actions:
             narrow = analysis.local_enabler_slice(action, initials, canonical=canonical)
             piece = narrow or analysis.action_slice(action, canonical=canonical)
             pieces.append((action, piece, narrow is not None))
@@ -1196,6 +1214,7 @@ def verify_invariants(
     cache: dict | None = None,
     analysis: SliceAnalysis | None = None,
     explorations: dict[str, Exploration] | None = None,
+    all_actions: bool = True,
 ) -> tuple[list[InvariantResult], Exploration | None]:
     """Verify every world invariant over the reachable states of the canonical
     model (or only ``invariants`` when supplied, without changing constraints).
@@ -1279,7 +1298,8 @@ def verify_invariants(
             result.slice = used.summary()
             results.append(result)
         # defects parity with the full canonical exploration (see cover_actions)
-        cover_actions(analysis, initials, max_states, cache, canonical=True)
+        if all_actions:
+            cover_actions(analysis, initials, max_states, cache, canonical=True)
         return results, None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()

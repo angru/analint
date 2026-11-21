@@ -438,8 +438,12 @@ class SliceAnalysis:
         self._roots_keys: dict[int, tuple[list, tuple]] = {}
         # (roots, budget) -> [(slice, exploration)] explored in this run
         self.explored: dict[tuple, list] = {}
+        self.retain_derived_graphs = True
         self.derived_attempts: dict[tuple, Attempt | None] = {}
-        self.covered: dict[tuple, dict] = {}  # (roots, budget, canonical, action identities)
+        self.projected_coverage: dict[tuple, dict] = {}
+        self.covered: dict[
+            tuple, tuple[dict, list[dict]]
+        ] = {}  # (roots, budget, canonical, action identities)
         self._action_slices: dict[tuple, Slice] = {}
         self.sliceable = True
         self.action_vars: dict[int, set[Var]] = {}

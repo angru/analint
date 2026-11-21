@@ -293,6 +293,7 @@ def _run_checks(
         # Speculative graphs must not acquire canonical trust or contribute
         # diagnostics. Share only their own roots/budget cache across attempts.
         probe_analysis = SliceAnalysis(spec)
+        probe_analysis.retain_derived_graphs = decided is not None
         for query in selection.queries:
             started = perf_counter()
             proof = prove_query(
@@ -388,6 +389,7 @@ def _run_checks(
         from analint.validator.slicing import SliceAnalysis
 
         analysis = SliceAnalysis(spec)
+        analysis.retain_derived_graphs = decided is not None
         analysis.derived_attempts = derived_attempts
     explorations = ExplorationStorage(analysis)
     canonical_group = explorations.register(canonical_initials, max_states or spec.max_states)
@@ -471,8 +473,10 @@ def _run_checks(
             proof = safety_proofs.get(query.id)
             if proof is not None:
                 assert verification_scope is not None
-                verification_scope.safety_coverage.append((proof.piece, proof.exploration))
                 query_result = proof.result
+                verification_scope.safety_coverage.extend(
+                    (proof.piece, graph) for graph in (proof.exploration, *proof.projected_coverage)
+                )
                 if decided is not None:
                     decided[query.id] = proof.exploration
             else:

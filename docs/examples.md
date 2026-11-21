@@ -67,11 +67,11 @@ Within each revision, all selections reuse the same prepared `Spec`; the runner
 checks membership identity and unchanged declarations. Every original action is
 retained, including delivery, loss and compensations.
 
-| Model revision | Full check | Selected flows | Selected payment safety | States per property |
+| Model revision | Full check | Selected flows | Selected payment safety | Exact states per property |
 | --- | --- | --- | --- | --- |
 | Baseline | PASS | No flows declared | PASS in full run | 34 |
-| Old model plus new requirement probes | FAIL | Cancellation fails; delivery passes | PASS | 34 |
-| Cancellation with atomic refund | PASS | PASS separately and together | PASS | 36 |
+| Old model plus new requirement probes | FAIL | Cancellation fails; delivery passes | PASS (14 projected states) | 34 |
+| Cancellation with atomic refund | PASS | PASS separately and together | PASS (14 projected states) | 36 |
 | Above plus an alternative cancellation without refund | FAIL | PASS separately and together | FAIL | 38 |
 
 The old-model probe fails because the new journey is blocked, not because the old
@@ -91,11 +91,11 @@ passing selected safety proof needs no supporting invariant; the failing control
 falls back to the constrained path with `delivered_means_paid` as support. No
 query is INCONCLUSIVE and no original action is removed.
 
-The model is coupled: selection still explores 36 states in the passing revision.
-One local Python 3.14 run took about 4.3 ms for full validation, 4.0 ms for the safety
-selection, and 1 ms per individual flow, excluding preparation. These are single
-observations, not a speedup claim. Compact output was slightly larger on these
-small reports. See the committed
+The two passing selected safety checks use the `over-approx` model relation. The
+projection explores 14 states in each revision. The exact slices explore 34 and
+36 states respectively. An earlier Python 3.14 run measured about 4.3 ms for full
+validation, 4.0 ms for the exact safety selection, and 1 ms per individual flow,
+excluding preparation. See the committed
 [measurement record](https://github.com/angru/analint/blob/main/benchmarks/fulfillment-trial-results.json)
 for source hashes and all measurements.
 

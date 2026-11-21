@@ -48,6 +48,10 @@ class Projection:
     spec: Spec
     variables: frozenset[Var]
     dropped: list[dict]
+    dropped_guards: dict[str, list[tuple[Any, set[Var]]]]
+
+    def widened_fields(self, previous: frozenset[Var]) -> list[str]:
+        return sorted(map(_label, self.variables - previous))
 
     @property
     def fields(self) -> list[str]:
@@ -73,7 +77,14 @@ class Projection:
         return projected
 
 
-def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection | None:
+def derive(
+    analysis: SliceAnalysis,
+    predicate: Any,
+    exact: Slice,
+    *,
+    obligation: Action | None = None,
+    retain: frozenset[Var] = frozenset(),
+) -> Projection | None:
     """Follow all expanded writers to a fixed point over visible update inputs.
 
     Keep postconditions and payloads together with all of their inputs. Keep
@@ -89,14 +100,19 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
         return None
     state_types = set(spec.entities)
     try:
-        variables = _guard_vars(predicate)
+        variables = (
+            _guard_vars(predicate)
+            if obligation is None
+            else analysis.action_vars[id(obligation)] | analysis.lock_vars[id(obligation)]
+        )
+        variables.update(retain)
         if not variables:
             return None
         while True:
             previous = set(variables)
             writers = {id(action) for var in previous for action in analysis.writers.get(var, ())}
             for action in spec.actions:
-                if id(action) not in writers:
+                if id(action) not in writers and action is not obligation:
                     continue
                 for effect in action.effect:
                     targets = _effect_vars(effect)
@@ -134,10 +150,11 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
 
         actions: list[Action] = []
         dropped = []
+        dropped_guards: dict[str, list[tuple[Any, set[Var]]]] = {}
         for action in spec.actions:
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
-            if not effects:
+            if not effects and action is not obligation:
                 dropped.append(
                     {
                         "location": location,
@@ -162,9 +179,11 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
             for index, guard in enumerate(action.pre, 1):
                 terms = guard.exprs if isinstance(guard, _And) else [guard]
                 for term_index, term in enumerate(terms, 1):
-                    if _guard_vars(term) <= variables:
+                    reads = _guard_vars(term)
+                    if reads <= variables:
                         pre.append(term)
                     else:
+                        dropped_guards.setdefault(action.id, []).append((term, reads - variables))
                         suffix = f".and[{term_index}]" if isinstance(guard, _And) else ""
                         dropped.append(
                             {
@@ -193,4 +212,5 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
         spec.model_copy(update={"actions": actions, "invariants": []}),
         frozenset(variables),
         dropped,
+        dropped_guards,
     )

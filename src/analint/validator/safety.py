@@ -15,6 +15,7 @@ from analint.validator.explorer import (
     Exploration,
     ExplorationStorage,
     _evaluate,
+    cover_actions,
     explore_slice,
     resolve_query_initials,
 )
@@ -28,6 +29,7 @@ class SafetyProof:
     exploration: Exploration
     piece: Slice
     initials: list[dict]
+    projected_coverage: tuple[Exploration, ...] = ()
 
 
 def prove_query(
@@ -50,9 +52,34 @@ def prove_query(
     budget = query_budget(query, spec.max_states, max_states)
     probe = None
     if isinstance(query, Unreachable):
-        from analint.validator.derived_proof import attempt
+        from analint.validator.derived_proof import attempt, cover_defects
 
         probe = attempt(query, analysis, piece, initials, budget)
+        blocked = probe.blocked_actions(piece) if probe is not None else ()
+        exact_coverage = (
+            cover_actions(
+                analysis, initials, budget, ExplorationStorage(), canonical=False, actions=blocked
+            )
+            if blocked
+            else {}
+        )
+        cleared = probe is not None and probe.covered_by(blocked, exact_coverage)
+        if probe is not None and (probe.proved or cleared):
+            coverage = list(exact_coverage.values())
+            for action in piece.actions:
+                if id(action) in exact_coverage:
+                    continue
+                certificate = cover_defects(
+                    action, analysis, piece, initials, budget, canonical=False
+                )
+                if certificate is None:
+                    break
+                certificate[1].release_graph()
+                coverage.append(certificate[1])
+            else:
+                assert isinstance(probe.result, QueryResult)
+                probe.result.model = probe.report(covered=blocked if cleared else ())
+                return SafetyProof(probe.result, probe.graph, piece, initials, tuple(coverage))
     exp, used = explore_slice(
         analysis,
         piece,

@@ -486,7 +486,11 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
 
     for actual, expected in zip(projected_checks, exact_checks, strict=True):
         compare(actual, expected)
-        if actual.model is None or actual.model["relation"] in (None, "exact"):
+        # DeadActions counts distinct graphs used by its per-action strategy.
+        # Projected coverage can change what exact graphs are already available.
+        if getattr(actual, "kind", None) == "DeadActions":
+            assert actual.slice["per_action"] == expected.slice["per_action"]
+        elif actual.model is None or actual.model["relation"] in (None, "exact"):
             assert (actual.states_explored, actual.slice) == (
                 expected.states_explored,
                 expected.slice,

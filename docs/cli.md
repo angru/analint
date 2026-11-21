@@ -204,7 +204,9 @@ checking still decides `NoDeadEnd`.
 
 `slice` describes an exact slice. When exact diagnostic coverage already
 explored that slice, its state count can still appear in `states_explored`.
-The attempt counts describe the graphs used by the proof itself. A smaller
+The attempt counts describe the graphs used by the proof itself. For
+`DeadActions`, `states_explored` sums the distinct graphs used to assess
+actions, which depends on the coverage and graph reuse strategy. A smaller
 proof can complete within the state budget when the exact slice would cap,
 provided the required coverage also completes in a full run. `--no-slice`
 uses the whole model. TLC checks exact graphs.

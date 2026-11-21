@@ -434,9 +434,13 @@ TARGETS = [
     "entry", [p for p in TARGETS if p.name != "__init__.py"], ids=lambda p: str(p.relative_to(ROOT))
 )
 def test_example_and_benchmark_differential(entry, monkeypatch):
-    # The full M6 risk increment has 4.4 million states (research/36).
-    # Exercise the same roots and budget on both paths in the ordinary suite.
-    budget = 2000 if entry.name == "m6_risk.py" else None
+    # The standalone broker increments default to budgets up to five million.
+    # Keep their differential bounded and use the live model budgets for M4/M6.
+    broker_increment = entry.parent == ROOT / "benchmarks" / "broker" and entry.stem not in {
+        "m4",
+        "m6",
+    }
+    budget = 2000 if broker_increment else None
     proofs = set()
     attempt = derived_proof.attempt
 

@@ -33,6 +33,7 @@ from analint.validator.state_checks import InvariantPlan
 Target = Invariant | Unreachable
 Result = InvariantResult | QueryResult
 _MAX_REFINEMENTS = 3
+_MAX_WITNESS_REPLAYS = 32
 
 
 def _witness_budget(budget: int) -> int:
@@ -597,25 +598,34 @@ def reach_witness(
             witness = None
             replay_reads: set[Var] = set()
             if not graph.findings:
-                scan = _scan_states(graph, query.predicate)
+                scan = _scan_states(graph, query.predicate, collect_matches=True)
                 witness = scan.first_match
                 if scan.errors or witness is None:
                     abstract["status"] = QueryStatus.FAIL
                     abstract["evaluation_errors"] = scan.errors
                     return probe
                 abstract["status"] = QueryStatus.PASS
+                replay = None
+                # An invented shortest path can coexist with a real witness
+                # elsewhere on the same covering graph. Refine only if none
+                # of the bounded replay candidates works.
+                for index, match in enumerate(scan.matches[:_MAX_WITNESS_REPLAYS]):
+                    candidate = graph.keys[match]
+                    replay = _replay_path(
+                        analysis,
+                        projection,
+                        graph,
+                        candidate,
+                        root,
+                        number,
+                        len(exact_roots) > 1,
+                        exact=exact,
+                        replay_reads=replay_reads if index == 0 else None,
+                    )
+                    if replay is not None:
+                        witness = candidate
+                        break
                 abstract["candidate_trace"] = graph.trace_to(witness)
-                replay = _replay_path(
-                    analysis,
-                    projection,
-                    graph,
-                    witness,
-                    root,
-                    number,
-                    len(exact_roots) > 1,
-                    exact=exact,
-                    replay_reads=replay_reads,
-                )
                 abstract["replayed"] = replay is not None
                 if replay is not None:
                     break

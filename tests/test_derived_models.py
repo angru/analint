@@ -1072,3 +1072,31 @@ def test_supporting_transition_defect_has_an_independent_coverage_obligation():
     [finding] = covered[id(broken)].findings
     assert finding.location == "action:broken"
     assert finding.code == "transition.field_constraint"
+
+
+def test_reachability_replays_an_alternative_before_widening():
+    class Data(Entity):
+        outcome: int = 0
+        allowed: bool = False
+        audit: bool = False
+
+    query = Reachable(Data.outcome > 0, id="reach")
+    spec = Spec(
+        id="other_witness",
+        name="Alternative projected witness",
+        actions=[
+            Action(
+                id="invented",
+                pre=[Data.allowed],
+                effect=[Set(Data.outcome, 1), Set(Data.audit, True)],
+            ),
+            Action(id="actual", effect=[Set(Data.outcome, 2), Set(Data.audit, True)]),
+        ],
+        queries=[query],
+    )
+    [result] = validate_spec(spec, checks=["reach"]).query_results
+    assert result.trace == ["actual"]
+    first, replay = result.model["attempts"]
+    assert first["candidate_trace"] == ["actual"]
+    assert first["widened_fields"] == []
+    assert replay["relation"] == "under-approx: replayed"

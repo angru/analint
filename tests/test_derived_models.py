@@ -914,9 +914,12 @@ def test_refines_spurious_counterexample_or_transition_defect(overflow):
         limit: int = 1
         audit: bool = False
 
+    guards = [Data.value < Data.limit]
+    if not overflow:
+        guards.append(Data.value < 1)
     increment = Action(
         id="increment",
-        pre=[Data.value < Data.limit],
+        pre=guards,
         effect=[Add(Data.value, 1), Set(Data.audit, True)],
     )
     target = Unreachable(Data.value == 2 if overflow else Data.value == 1, id="safety")
@@ -930,7 +933,12 @@ def test_refines_spurious_counterexample_or_transition_defect(overflow):
     probe = _check(spec, target)
     assert probe.proved
     first, final = probe.report()["attempts"]
-    assert first["proof_blockers"]
+    if overflow:
+        assert first["proof_blockers"]
+    else:
+        assert not first["proof_blockers"]
+        assert first["candidate_trace"] == ["increment"]
+        assert first["replayed"] is False
     assert final["widened_fields"] == ["Data.limit"]
     assert final["clean"]
     assert final["states_explored"] == (2 if overflow else 1)

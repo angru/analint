@@ -468,3 +468,47 @@ def _replays(spec, roots, trace, predicate, expected):
             if evaluate(predicate, context) == expected:
                 return True
     return False
+
+
+def test_projection_preserves_equal_values_with_different_arithmetic(tmp_path):
+    value = 2**56
+
+    class Data(Entity):
+        number: int = value
+        audit: bool = False
+
+    forbidden = Unreachable(
+        Data.number // 3 < value // 3,
+        id="forbidden",
+        given_any=[[Data()], [Data(number=float(value), audit=True)]],
+    )
+    spec = Spec(
+        id="numeric",
+        name="numeric",
+        actions=[
+            Action(
+                id="reset",
+                effect=[Set(Data.number, value), Set(Data.audit, False)],
+            )
+        ],
+        queries=[forbidden],
+    )
+
+    def probe():
+        analysis = SliceAnalysis(spec)
+        roots, error = resolve_query_initials(forbidden, spec)
+        assert roots is not None, error
+        piece = analysis.predicate_slice(forbidden.predicate, canonical=False)
+        return derived_proof.attempt(forbidden, analysis, piece, roots, 128)
+
+    with use_store(tmp_path):
+        for _ in range(2):
+            attempt = probe()
+            assert attempt is not None
+            assert attempt.result.status == "FAIL"
+            assert attempt.replayed is not None
+            result, graph = attempt.replayed
+            assert result.trace == []
+            assert list(graph.roots.values()) == [2]
+        assert explorer._STORE is not None and explorer._STORE.hits == 1
+    assert validate_spec(spec, checks=["forbidden"]).query_results[0].status == "FAIL"

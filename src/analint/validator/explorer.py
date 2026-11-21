@@ -307,6 +307,7 @@ class _Edges(Sequence):
 # the key stores one small code per slot, and each distinct tuple is kept once.
 _LAYOUT_IDS: dict[tuple, int] = {}
 _LAYOUTS: list[tuple] = []  # layout id → layout
+_PROJECTED_LAYOUTS: set[int] = set()
 _SLOT_CODES: list[list[dict]] = []  # layout id → slot → value tuple → code
 _SLOT_VALUES: list[list[list]] = []  # layout id → slot → code → value tuple
 _SLOT_INSTANCES: list[list[dict]] = []  # layout id → slot → code → decoded instance
@@ -328,9 +329,12 @@ def _state_layout(keys: tuple, projection: frozenset[Var] | None = None) -> tupl
         )
         for key in sorted(keys, key=context_key_label)
     )
-    layout_id = _LAYOUT_IDS.get(layout)
+    identity = (layout, projection is not None)
+    layout_id = _LAYOUT_IDS.get(identity)
     if layout_id is None:
-        layout_id = _LAYOUT_IDS[layout] = len(_LAYOUTS)
+        layout_id = _LAYOUT_IDS[identity] = len(_LAYOUTS)
+        if projection is not None:
+            _PROJECTED_LAYOUTS.add(layout_id)
         _LAYOUTS.append(layout)
         _SLOT_CODES.append([{} for _ in layout])
         _SLOT_VALUES.append([[] for _ in layout])
@@ -404,10 +408,17 @@ def _root_signature(ctx: dict) -> tuple:
 def _intern(layout_id: int, slot: int, value: tuple) -> int:
     """The code of a slot's value tuple, interning it when new."""
     table = _SLOT_CODES[layout_id][slot]
-    code = table.get(value)
+    # Erasure can merge concrete states whose numerically equal values
+    # have different arithmetic behavior (for example, int and float).
+    identity = (
+        tuple((type(v), v.hex() if type(v) is float else v) for v in value)
+        if layout_id in _PROJECTED_LAYOUTS
+        else value
+    )
+    code = table.get(identity)
     if code is None:
         seen = _SLOT_VALUES[layout_id][slot]
-        code = table[value] = len(seen)
+        code = table[identity] = len(seen)
         seen.append(value)
     return code
 

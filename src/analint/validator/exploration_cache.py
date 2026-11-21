@@ -118,14 +118,14 @@ def _name(cls: type) -> str:
 def _value(value: Any, classes: dict[str, type] | None = None) -> Any:
     """A state value as JSON-safe data; the inverse is ``_Registry.value``.
     ``classes`` collects the enum and entity classes the values name."""
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        return {"f": repr(value)}
     if isinstance(value, Enum):
         if classes is not None:
             classes[_name(type(value))] = type(value)
         return {"e": _name(type(value)), "n": value.name}
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return {"f": repr(value)}
     if isinstance(value, InstanceRef):
         if classes is not None:
             classes[_name(value.entity_cls)] = value.entity_cls
@@ -175,8 +175,11 @@ def _canon(obj: Any, classes: dict[str, type]) -> Any:
             obj.field_name,
             _value(obj.initial, classes),
             sorted(
-                [_value(src, classes), [_value(d, classes) for d in dsts]]
-                for src, dsts in obj.transitions.items()
+                (
+                    [_value(src, classes), [_value(d, classes) for d in dsts]]
+                    for src, dsts in obj.transitions.items()
+                ),
+                key=json.dumps,
             ),
             [_value(t, classes) for t in obj.terminal],
         ]
@@ -254,7 +257,7 @@ def digest(
     ]
     if projection is not None:
         body.append(
-            ["over-approx/v1", sorted((context_key_label(key), name) for key, name in projection)]
+            ["over-approx/v2", sorted((context_key_label(key), name) for key, name in projection)]
         )
     done: dict[str, Any] = {}
     while len(done) < len(classes):  # class definitions may name more classes
@@ -296,7 +299,7 @@ def _describe(layout: tuple) -> list:
 def encode(exp: Exploration) -> dict:
     layouts: dict[int, int] = {}  # layout id → local index
     described: list = []
-    tables: list[list[dict]] = []  # local layout → slot → value tuple → local code
+    tables: list[list[dict]] = []  # local layout → slot → interned code → local code
     states = array("I")
     for key in exp.keys:
         codes = explorer._codes(key)
@@ -308,13 +311,19 @@ def encode(exp: Exploration) -> dict:
             tables.append([{} for _ in explorer._LAYOUTS[layout_id]])
         states.append(local)
         for slot, code in enumerate(codes[1:]):
-            value = explorer._SLOT_VALUES[layout_id][slot][code]
             table = tables[local][slot]
-            states.append(table.setdefault(value, len(table)))
+            states.append(table.setdefault(code, len(table)))
     return {
         "layouts": described,
         "values": [
-            [[[_value(v) for v in value] for value in table] for table in slots] for slots in tables
+            [
+                [
+                    [_value(v) for v in explorer._SLOT_VALUES[layout_id][slot][code]]
+                    for code in table
+                ]
+                for slot, table in enumerate(slots)
+            ]
+            for layout_id, slots in zip(layouts, tables, strict=True)
         ],
         "states": _b64(states),
         "parent": _b64(exp.parent),

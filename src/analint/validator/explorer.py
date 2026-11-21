@@ -312,14 +312,18 @@ _SLOT_INSTANCES: list[list[dict]] = []  # layout id → slot → code → decode
 
 
 @lru_cache(maxsize=256)
-def _state_layout(keys: tuple) -> tuple[int, tuple]:
+def _state_layout(keys: tuple, projection: frozenset[Var] | None = None) -> tuple[int, tuple]:
     """(layout id, sorted (key, scoped, field names)) for a context's key set —
     the same for every state of one exploration, so computed once, not per state."""
     layout = tuple(
         (
             key,
             isinstance(key, InstanceRef),
-            tuple(sorted(all_fields(key.entity_cls if isinstance(key, InstanceRef) else key))),
+            tuple(
+                name
+                for name in sorted(all_fields(_key_entity_cls(key)))
+                if projection is None or (key, name) in projection
+            ),
         )
         for key in sorted(keys, key=context_key_label)
     )
@@ -352,7 +356,10 @@ def state_key(ctx: dict) -> StateKey:
     the field-by-field equality of the values (research/36 R4). Raises
     ``TypeError`` for an unhashable field value.
     """
-    layout_id, layout = _state_layout(tuple(ctx))
+    return _key_in_layout(ctx, *_state_layout(tuple(ctx)))
+
+
+def _key_in_layout(ctx: dict, layout_id: int, layout: tuple) -> StateKey:
     out = [layout_id]
     for slot, (key, scoped, fields) in enumerate(layout):
         out.append(_intern(layout_id, slot, _slot_value(ctx[key], scoped, fields)))
@@ -738,6 +745,7 @@ def explore(
     root_numbers: list[int] | None = None,
     inert_roots: frozenset[int] = frozenset(),
     store_edges: bool = True,
+    projection: frozenset[Var] | None = None,
 ) -> Exploration:
     """BFS from ``initial_ctxs``. ``root_numbers`` keeps the 1-based labels of a
     subset of a larger root set (slices); roots at ``inert_roots`` positions
@@ -745,11 +753,27 @@ def explore(
     function of its arguments, so an exploration store may memoise it."""
     if _STORE is not None:
         # The disk format always contains the complete edge stream.
-        exp = _STORE.explore(_explore, spec, initial_ctxs, max_states, root_numbers, inert_roots)
+        exp = _STORE.explore(
+            _explore,
+            spec,
+            initial_ctxs,
+            max_states,
+            root_numbers,
+            inert_roots,
+            **({"projection": projection} if projection is not None else {}),
+        )
         if not store_edges:
             exp.discard_edges()
         return exp
-    return _explore(spec, initial_ctxs, max_states, root_numbers, inert_roots, store_edges)
+    return _explore(
+        spec,
+        initial_ctxs,
+        max_states,
+        root_numbers,
+        inert_roots,
+        store_edges,
+        **({"projection": projection} if projection is not None else {}),
+    )
 
 
 class _Frontier(deque):
@@ -774,6 +798,7 @@ def _explore(
     root_numbers: list[int] | None,
     inert_roots: frozenset[int],
     store_edges: bool = True,
+    projection: frozenset[Var] | None = None,
 ) -> Exploration:
     exp = Exploration(store_edges=store_edges)
 
@@ -810,7 +835,11 @@ def _explore(
     queue = _Frontier()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
-        key0 = state_key(ctx)
+        key0 = (
+            state_key(ctx)
+            if projection is None
+            else _key_in_layout(ctx, *_state_layout(tuple(ctx), projection))
+        )
         if key0 in exp.index:
             continue
         idx0 = exp.add_state(key0, -1, -1)
@@ -883,6 +912,8 @@ def _explore(
                 k2 = (
                     _successor_key(parent_codes, post, slots_by_action[i])
                     if not result.custom_copy and len(post) == len(ctx)
+                    else _key_in_layout(post, *_state_layout(tuple(post), projection))
+                    if projection is not None
                     else state_key(post)
                 )
             except TypeError as exc:

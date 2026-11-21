@@ -231,6 +231,8 @@ def digest(
     max_states: int,
     root_numbers: list[int] | None,
     inert: frozenset[int],
+    *,
+    projection: frozenset | None = None,
 ) -> tuple[str, dict[str, type]]:
     """The identity of one exploration's inputs, and the classes they name;
     raises ``_Uncacheable``. Every value a state can hold comes from a root,
@@ -250,6 +252,10 @@ def digest(
         [_canon(s, classes) for s in spec.scopes],
         [_slot_values(ctx, classes) for ctx in initials],
     ]
+    if projection is not None:
+        body.append(
+            ["over-approx/v1", sorted((context_key_label(key), name) for key, name in projection)]
+        )
     done: dict[str, Any] = {}
     while len(done) < len(classes):  # class definitions may name more classes
         for name in sorted(set(classes) - set(done)):
@@ -348,11 +354,18 @@ class _Registry:
         return self.refs[(data["r"], json.dumps(data["k"]))]
 
 
-def decode(data: dict, spec: Spec, initials: list[dict], classes: dict[str, type]) -> Exploration:
+def decode(
+    data: dict,
+    spec: Spec,
+    initials: list[dict],
+    classes: dict[str, type],
+    *,
+    projection: frozenset | None = None,
+) -> Exploration:
     """Rebuild an exploration; raises on anything that does not match."""
     current = {}
     for ctx in initials:
-        layout_id, layout = explorer._state_layout(tuple(ctx))
+        layout_id, layout = explorer._state_layout(tuple(ctx), projection)
         current[json.dumps(_describe(layout))] = layout_id
     layout_ids = [current[json.dumps(described)] for described in data["layouts"]]
     registry = _Registry(spec, initials, classes)
@@ -428,15 +441,16 @@ class _Store:
         max_states: int,
         root_numbers: list[int] | None,
         inert: frozenset[int],
+        **options: Any,
     ) -> Exploration:
         try:
-            key, classes = digest(spec, initials, max_states, root_numbers, inert)
+            key, classes = digest(spec, initials, max_states, root_numbers, inert, **options)
         except _Uncacheable:
-            return run(spec, initials, max_states, root_numbers, inert)
+            return run(spec, initials, max_states, root_numbers, inert, **options)
         path = self.directory / f"{key}.json.z"
         try:
             data = json.loads(zlib.decompress(path.read_bytes()))
-            exp = decode(data, spec, initials, classes)
+            exp = decode(data, spec, initials, classes, **options)
         except Exception:  # absent, unreadable or stale: explore instead
             exp = None
         else:
@@ -445,7 +459,7 @@ class _Store:
                 os.utime(path)  # recently used: pruned last
             return exp
         self.misses += 1
-        exp = run(spec, initials, max_states, root_numbers, inert)
+        exp = run(spec, initials, max_states, root_numbers, inert, **options)
         try:
             blob = zlib.compress(json.dumps(encode(exp), separators=(",", ":")).encode(), 6)
         except _Uncacheable:

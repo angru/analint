@@ -1447,6 +1447,40 @@ def test_firing_replay_uses_deduplicated_exact_roots(monkeypatch):
     assert witness["trace"] == ["enable", "target"]
 
 
+def test_dead_actions_uses_a_concrete_prefix_when_projected_replay_fails(monkeypatch):
+    class Data(Entity):
+        progress: int = 0
+        audit: bool = False
+
+    advance = Action(id="advance", pre=[Data.progress < 100], effect=[Add(Data.progress, 1)])
+    audit = Action(
+        id="audit",
+        pre=[Data.progress == 0],
+        effect=[Set(Data.progress, 0), Set(Data.audit, True)],
+    )
+    target = Action(id="target", pre=[Data.progress == 1])
+    spec = Spec(id="firing", name="Firing", actions=[advance, audit, target])
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    original = derived_proof.firing_witness
+
+    def miss(action, *args):
+        return None if action is target else original(action, *args)
+
+    monkeypatch.setattr(derived_proof, "firing_witness", miss)
+    witnesses = []
+    covered = explorer.cover_actions(
+        analysis, roots, 512, {}, canonical=True, firing_proofs=witnesses
+    )
+    witness = next(item for item in witnesses if item["action"] == "target")
+    assert witness["trace"] == ["advance", "target"]
+    assert witness["source"] == "concrete prefix"
+    assert witness["states_explored"] == 128
+    assert witness["complete"] is False
+    assert not covered[id(target)].capped
+    assert target.id in covered[id(target)].fired
+
+
 def test_full_reachability_reuses_a_witness_on_a_capped_exact_graph(monkeypatch):
     class Data(Entity):
         value: int = 0

@@ -1467,7 +1467,12 @@ def cover_actions(
     """Explore the requested actions in their own slices to assess defects and
     fireability. With no subset, this is the sliced counterpart of one full
     exploration. Results are keyed by id(action)."""
-    from analint.validator.derived_proof import _witness_budget, cover_defects, firing_witness
+    from analint.validator.derived_proof import (
+        _witness_budget,
+        cover_defects,
+        firing_prefix_witness,
+        firing_witness,
+    )
 
     actions = tuple(analysis.spec.actions) if actions is None else actions
     root_key = (analysis.roots_key(initials), max_states, canonical)
@@ -1483,6 +1488,7 @@ def cover_actions(
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         covered = {}
         witnesses = []
+        firing_prefixes: dict[tuple, Exploration] = {}
         proofs = analysis.projected_coverage.setdefault(root_key, {})
         # An own-root full run can request many overlapping projections. Give
         # the batch one speculative allowance before exact slice reuse takes over.
@@ -1521,6 +1527,19 @@ def cover_actions(
                 return None
             if require_firing:
                 witness = firing_witness(action, analysis, piece, initials, proof)
+                if witness is None and action.id in proof[1].fired:
+                    # One real firing suffices after independent diagnostic
+                    # coverage. Try a bounded prefix before exact exhaustion.
+                    if piece.key not in firing_prefixes:
+                        roots, numbers, inert = analysis.project_roots(piece, initials)
+                        firing_prefixes[piece.key] = explore(
+                            analysis.spec.model_copy(update={"actions": list(piece.actions)}),
+                            roots,
+                            min(16_384, _witness_budget(max_states)),
+                            root_numbers=numbers,
+                            inert_roots=inert,
+                        )
+                    witness = firing_prefix_witness(action, piece, firing_prefixes[piece.key])
                 if witness is None:
                     return None
                 witnesses.append(witness)

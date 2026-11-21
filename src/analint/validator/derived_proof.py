@@ -971,3 +971,27 @@ def firing_witness(
                 "retained_fields": projection.fields,
             }
     return None
+
+
+def firing_prefix_witness(action: Action, piece: Slice, graph: Exploration) -> dict | None:
+    """Report one concrete firing from a bounded prefix of the exact slice."""
+    if action.id not in graph.fired:
+        return None
+    code = graph.action_ids.index(action.id)
+    for src, edge_action in zip(graph.edge_src, graph.edge_action, strict=True):
+        if edge_action == code:
+            key = graph.keys[src]
+            trace = [*graph.trace_to(key), action.id]
+            return {
+                "relation": "under-approx: replayed",
+                "backend": "native",
+                "complete": not graph.capped and not graph.excluded,
+                "status": QueryStatus.PASS,
+                "root": graph.roots[graph.root_of(key)],
+                "action": action.id,
+                "trace": trace,
+                "states_explored": graph.state_count,
+                "retained_fields": piece.summary()["fields"],
+                "source": "concrete prefix",
+            }
+    return None

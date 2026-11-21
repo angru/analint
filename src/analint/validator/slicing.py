@@ -440,7 +440,9 @@ class SliceAnalysis:
         self.explored: dict[tuple, list] = {}
         self.derived_attempts: dict[tuple, Attempt | None] = {}
         self.projected_coverage: dict[tuple, dict] = {}
-        self.covered: dict[tuple, dict] = {}  # (roots, budget, canonical, action identities)
+        self.covered: dict[
+            tuple, tuple[dict, list[dict]]
+        ] = {}  # (roots, budget, canonical, action identities)
         self._action_slices: dict[tuple, Slice] = {}
         self.sliceable = True
         self.action_vars: dict[int, set[Var]] = {}

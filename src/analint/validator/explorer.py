@@ -1225,6 +1225,7 @@ def _run_query(
         # invariants were proven from the canonical roots only (SliceAnalysis)
         canonical = not (query.given or query.given_any or query.initial is not None)
         dead_actions = isinstance(query, DeadActions)
+        firing_proofs: list[dict] = []
         per_action = cover_actions(
             analysis,
             initials,
@@ -1232,10 +1233,29 @@ def _run_query(
             cache,
             canonical=canonical,
             actions=None if dead_actions else coverage_actions,
-            require_firing=dead_actions,
+            firing_proofs=firing_proofs if dead_actions else None,
         )
         if dead_actions:
-            return _eval_dead_actions_sliced(qid, spec, per_action)
+            result = _eval_dead_actions_sliced(qid, spec, per_action)
+            if firing_proofs:
+                from analint.validator.derived_proof import _root_source
+
+                result.model = {
+                    "relation": (
+                        "under-approx: replayed"
+                        if result.status == QueryStatus.PASS
+                        else "exact"
+                        if result.status == QueryStatus.FAIL
+                        else None
+                    ),
+                    "system_id": spec.id,
+                    "view_id": None,
+                    "proof_rule": "projection",
+                    "root_source": _root_source(query),
+                    "root_numbers": list(range(1, len(initials) + 1)),
+                    "attempts": firing_proofs,
+                }
+            return result
         if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
             piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
             candidate = analysis.recoverability_slice(
@@ -1262,7 +1282,14 @@ def _run_query(
                 # belong to the full exploration whenever a proof fails.
         else:
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
-        from analint.validator.derived_proof import attempt
+        from analint.validator.derived_proof import attempt, reach_witness
+
+        if isinstance(query, Reachable):
+            witness = reach_witness(query, analysis, piece, initials, budget)
+            if witness is not None:
+                result, explorations[qid] = witness
+                _retain_exact_statistics(result, analysis, piece, initials, budget)
+                return result
 
         probe = None
         if isinstance(query, Unreachable):
@@ -1374,15 +1401,16 @@ def cover_actions(
     *,
     canonical: bool,
     actions: tuple[Action, ...] | None = None,
-    require_firing: bool = False,
+    firing_proofs: list[dict] | None = None,
 ) -> dict[int, Exploration]:
     """Explore the requested actions in their own slices to assess defects and
     fireability. With no subset, this is the sliced counterpart of one full
     exploration. Results are keyed by id(action)."""
-    from analint.validator.derived_proof import cover_defects
+    from analint.validator.derived_proof import cover_defects, firing_witness
 
     actions = tuple(analysis.spec.actions) if actions is None else actions
     root_key = (analysis.roots_key(initials), max_states, canonical)
+    require_firing = firing_proofs is not None
     key = (*root_key, tuple(map(id, actions)), require_firing)
     if key not in analysis.covered:
         # largest slices first, so the nested ones reuse their explorations
@@ -1402,18 +1430,25 @@ def cover_actions(
             )
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         covered = {}
+        witnesses = []
         proofs = analysis.projected_coverage.setdefault(root_key, {})
         for action, piece, narrow in pieces:
             identity = id(action)
-            if not require_firing and not narrow:
+            if not narrow:
                 if identity not in proofs:
                     proofs[identity] = cover_defects(
                         action, analysis, piece, initials, max_states, canonical=canonical
                     )
                 proof = proofs[identity]
                 if proof is not None:
-                    covered[identity] = proof[1]
-                    continue
+                    if not require_firing:
+                        covered[identity] = proof[1]
+                        continue
+                    witness = firing_witness(action, analysis, piece, initials, proof)
+                    if witness is not None:
+                        witnesses.append(witness)
+                        covered[identity] = proof[1]
+                        continue
             exp = explore_slice(analysis, piece, initials, max_states, cache, reuse_superset=True)[
                 0
             ]
@@ -1429,8 +1464,11 @@ def cover_actions(
                     reuse_superset=True,
                 )[0]
             covered[id(action)] = exp
-        analysis.covered[key] = covered
-    return analysis.covered[key]
+        analysis.covered[key] = covered, witnesses
+    covered, witnesses = analysis.covered[key]
+    if firing_proofs is not None:
+        firing_proofs.extend(witnesses)
+    return covered
 
 
 def explore_cached(spec: Spec, initials: list[dict], max_states: int, cache: dict) -> Exploration:

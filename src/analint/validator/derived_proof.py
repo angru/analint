@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 from analint.models.action import Action
 from analint.models.invariant import Invariant
-from analint.models.query import Unreachable
+from analint.models.query import Reachable, Unreachable
+from analint.models.root import Query
 from analint.models.scope import InstanceRef, is_present
 from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.derived_model import Projection, derive
@@ -14,8 +15,10 @@ from analint.validator.explorer import (
     _eval_reachable,
     _key_in_layout,
     _report_invariant_violations,
+    _scan_states,
     _state_layout,
     _verify_one_invariant,
+    decode_state,
     explore,
     state_key,
 )
@@ -146,6 +149,59 @@ class Attempt:
         }
 
 
+def _replay_path(
+    analysis: SliceAnalysis,
+    projection: Projection,
+    abstract: Exploration,
+    witness: StateKey,
+    root: dict,
+    number: int,
+    multiple_roots: bool,
+    *,
+    exact: Slice | None = None,
+) -> tuple[Exploration, StateKey] | None:
+    origin = abstract.root_of(witness)
+    projected_root = projection.context(root)
+    layout = _state_layout(tuple(projected_root), projection.variables)
+    if _key_in_layout(projected_root, *layout) != origin or not analysis.root_is_legal(root):
+        return None
+    actions = {action.id: action for action in (exact.actions if exact else analysis.spec.actions)}
+    path = []
+    cursor = witness
+    while cursor != origin:
+        parent, action_id = abstract.parents[cursor]
+        action = actions.get(action_id)
+        if action is None:
+            return None
+        path.append((action, cursor))
+        cursor = parent
+
+    plans = {id(inv): InvariantPlan(inv) for inv in analysis.spec.invariants}
+    concrete = Exploration(store_edges=False)
+    ctx = root
+    key = state_key(root)
+    concrete.add_state(key, -1, -1)
+    concrete.roots[key] = number
+    concrete.multiple_roots = multiple_roots
+    for action, expected in reversed(path):
+        transition = step(analysis.spec, action, ctx, explain=False)
+        post = transition.post_context
+        if transition.outcome != Outcome.ACCEPTED or post is None:
+            return None
+        if _key_in_layout(projection.context(post), *layout) != expected:
+            return None
+        try:
+            next_key = state_key(post)
+        except TypeError:
+            return None  # the concrete explorer cannot record this state
+        concrete.add_state(next_key, concrete.index[key], concrete.action_code(action.id))
+        key, ctx = next_key, post
+        invalid = _report_invariant_violations(analysis.spec, ctx, key, concrete, plans=plans)
+        if invalid and (expected != witness or exact is not None):
+            return None
+    return concrete, key
+
+
 def _replay(
     target: Target,
     analysis: SliceAnalysis,
@@ -154,51 +210,20 @@ def _replay(
     witness: StateKey,
     initials: list[dict],
 ) -> tuple[Result, Exploration] | None:
-    actions = {action.id: action for action in analysis.spec.actions}
-    origin = abstract.root_of(witness)
-    path = []
-    cursor = witness
-    while cursor != origin:
-        parent, action_id = abstract.parents[cursor]
-        path.append((actions[action_id], cursor))
-        cursor = parent
-    path.reverse()
-    plans = {id(inv): InvariantPlan(inv) for inv in analysis.spec.invariants}
     for number, root in enumerate(initials, 1):
-        projected_root = projection.context(root)
-        layout = _state_layout(tuple(projected_root), projection.variables)
-        if _key_in_layout(projected_root, *layout) != origin or not analysis.root_is_legal(root):
+        replay = _replay_path(
+            analysis, projection, abstract, witness, root, number, len(initials) > 1
+        )
+        if replay is None:
             continue
-        concrete = Exploration(store_edges=False)
-        ctx = root
-        key = state_key(root)
-        concrete.add_state(key, -1, -1)
-        concrete.roots[key] = number
-        concrete.multiple_roots = len(initials) > 1
-        for action, expected in path:
-            transition = step(analysis.spec, action, ctx, explain=False)
-            post = transition.post_context
-            if transition.outcome != Outcome.ACCEPTED or post is None:
-                break
-            if _key_in_layout(projection.context(post), *layout) != expected:
-                break
-            try:
-                next_key = state_key(post)
-            except TypeError:
-                break  # the concrete explorer cannot record this state
-            concrete.add_state(next_key, concrete.index[key], concrete.action_code(action.id))
-            key, ctx = next_key, post
-            invalid = _report_invariant_violations(analysis.spec, ctx, key, concrete, plans=plans)
-            if invalid and expected != witness:
-                break
-        else:
-            result = _evaluate(target, concrete)
-            if (
-                result.status == QueryStatus.FAIL
-                and result.witness_key == key
-                and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
-            ):
-                return result, concrete
+        concrete, key = replay
+        result = _evaluate(target, concrete)
+        if (
+            result.status == QueryStatus.FAIL
+            and result.witness_key == key
+            and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
+        ):
+            return result, concrete
     return None
 
 
@@ -262,14 +287,6 @@ def _attempt(
         if candidate is not None and not graph.excluded
         else None
     )
-    source = "canonical"
-    if isinstance(target, Unreachable):
-        if target.initial is not None:
-            source = "initial"
-        elif target.given_any:
-            source = "given_any"
-        elif target.given:
-            source = "given"
     return Attempt(
         projection,
         graph,
@@ -278,7 +295,7 @@ def _attempt(
         candidate,
         replay,
         analysis.spec.id,
-        source,
+        _root_source(target) if isinstance(target, Unreachable) else "canonical",
         list(range(1, len(initials) + 1)),
     )
 
@@ -324,3 +341,149 @@ def cover_defects(
     if graph.capped or graph.findings or graph.excluded:
         return None
     return projection, graph
+
+
+def _root_source(query: Query) -> str:
+    if query.initial is not None:
+        return "initial"
+    if query.given_any:
+        return "given_any"
+    return "given" if query.given else "canonical"
+
+
+def _projection_report(
+    analysis: SliceAnalysis, projection: Projection, query: Query, attempts: list[dict]
+) -> dict:
+    return {
+        "relation": "under-approx: replayed",
+        "system_id": analysis.spec.id,
+        "view_id": None,
+        "proof_rule": "projection",
+        "root_source": _root_source(query),
+        "root_numbers": sorted({attempt["root"] for attempt in attempts}),
+        "retained_fields": projection.fields,
+        "dropped": projection.dropped,
+        "omitted_writers": [item["location"] for item in projection.dropped if item.get("writes")],
+        "attempts": attempts,
+        "recheck": None,
+    }
+
+
+def reach_witness(
+    query: Reachable,
+    analysis: SliceAnalysis,
+    exact: Slice,
+    initials: list[dict],
+    budget: int,
+) -> tuple[QueryResult, Exploration] | None:
+    projection = derive(analysis, query.predicate, exact)
+    if projection is None or any(not analysis.root_is_legal(ctx) for ctx in initials):
+        return None
+    exact_roots, _, inert = analysis.project_roots(exact, initials)
+    if inert:
+        return None
+    # Per-root exploration preserves obligations even when abstract roots merge.
+    # A complete scan is required because evaluation errors outrank a witness.
+    attempts = []
+    best = None
+    states = 0
+    sub_budget = min(4096, max(1, budget // 4))
+    for number, root in enumerate(initials, 1):
+        graph = explore(
+            projection.spec,
+            [projection.context(root)],
+            sub_budget,
+            store_edges=False,
+            projection=projection.variables,
+        )
+        if graph.capped or graph.findings or graph.excluded:
+            return None
+        scan = _scan_states(graph, query.predicate)
+        witness = scan.first_match
+        if scan.errors or witness is None:
+            return None
+        replay = _replay_path(
+            analysis, projection, graph, witness, root, number, len(exact_roots) > 1, exact=exact
+        )
+        if replay is None:
+            return None
+        concrete, _ = replay
+        result = _eval_reachable(query, query.id or "Reachable", concrete, True)
+        if result.status != QueryStatus.PASS:
+            return None
+        if best is None or concrete.state_count < best[1].state_count:
+            best = result, concrete
+        states += graph.state_count
+        attempts.extend(
+            (
+                {
+                    "relation": "over-approx",
+                    "backend": "native",
+                    "budget": sub_budget,
+                    "complete": True,
+                    "status": QueryStatus.PASS,
+                    "root": number,
+                    "states_explored": graph.state_count,
+                },
+                {
+                    "relation": "under-approx: replayed",
+                    "backend": "native",
+                    "complete": True,
+                    "status": QueryStatus.PASS,
+                    "root": number,
+                    "states_explored": concrete.state_count,
+                    "trace": result.trace,
+                },
+            )
+        )
+    if best is None:
+        return None
+    result, concrete = best
+    result.states_explored = states
+    result.model = _projection_report(analysis, projection, query, attempts)
+    return result, concrete
+
+
+def firing_witness(
+    action: Action,
+    analysis: SliceAnalysis,
+    exact: Slice,
+    initials: list[dict],
+    proof: tuple[Projection, Exploration],
+) -> dict | None:
+    projection, graph = proof
+    if action.id not in graph.fired:
+        return None
+    projected = next(
+        candidate for candidate in projection.spec.actions if candidate.id == action.id
+    )
+    witness = next(
+        (
+            key
+            for key in graph.order
+            if step(projection.spec, projected, decode_state(key), explain=False).entered
+        ),
+        None,
+    )
+    if witness is None:
+        return None
+    for number, root in enumerate(initials, 1):
+        replay = _replay_path(
+            analysis, projection, graph, witness, root, number, len(initials) > 1, exact=exact
+        )
+        if replay is None:
+            continue
+        concrete, key = replay
+        if step(analysis.spec, action, decode_state(key), explain=False).entered:
+            return {
+                "relation": "under-approx: replayed",
+                "backend": "native",
+                "complete": True,
+                "status": QueryStatus.PASS,
+                "root": number,
+                "action": action.id,
+                "trace": [*concrete.trace_to(key), action.id],
+                "states_explored": concrete.state_count,
+                "retained_fields": projection.fields,
+            }
+    return None

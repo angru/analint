@@ -1294,7 +1294,7 @@ def _run_query(
         probe = None
         if isinstance(query, Unreachable):
             probe = attempt(query, analysis, piece, initials, budget)
-            if probe is not None and probe.proved and coverage_actions is not None:
+            if probe is not None and probe.proved:
                 probe.result.model = probe.report()
                 explorations[qid] = probe.graph
                 assert isinstance(probe.result, QueryResult)
@@ -1639,8 +1639,6 @@ def verify_invariants(
         # invariant trusted: it never prunes, other slices need not include it.
         from analint.validator.derived_proof import attempt
 
-        # Full runs retain their exact per-check budgets and diagnostic
-        # graphs. A selected check can take a clean proof before exact search.
         pending = []
         proved = {}
         probes = {}
@@ -1650,7 +1648,7 @@ def verify_invariants(
             probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
-                if probe.proved and not all_actions:
+                if probe.proved:
                     result = probe.result
                     assert isinstance(result, InvariantResult)
                     result.model = probe.report()

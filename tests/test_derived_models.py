@@ -436,7 +436,7 @@ TARGETS = [
 def test_example_and_benchmark_differential(entry, monkeypatch):
     # The full M6 risk increment has 4.4 million states (research/36).
     # Exercise the same roots and budget on both paths in the ordinary suite.
-    budget = 2000 if entry.parent.name == "broker" else None
+    budget = 2000 if entry.name == "m6_risk.py" else None
     proofs = set()
     attempt = derived_proof.attempt
 
@@ -458,8 +458,18 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     exact = without_projection()
     # Library modules that do not declare an entry point have no checks.
     assert projected.load_errors == exact.load_errors
-    if exact.verdict != "INCONCLUSIVE":
-        assert projected.verdict == exact.verdict
+    if projected.verdict != exact.verdict:
+        assert (exact.verdict, projected.verdict) == ("INCONCLUSIVE", "PASS")
+        assert any(
+            actual.model
+            and actual.model["relation"] in ("over-approx", "under-approx: replayed")
+            and expected.status == "INCONCLUSIVE"
+            for actual, expected in zip(
+                [*projected.invariant_results, *projected.query_results],
+                [*exact.invariant_results, *exact.query_results],
+                strict=True,
+            )
+        )
     assert projected.exploration_findings == exact.exploration_findings
     projected_checks = [*projected.invariant_results, *projected.query_results]
     exact_checks = [*exact.invariant_results, *exact.query_results]
@@ -476,6 +486,11 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
 
     for actual, expected in zip(projected_checks, exact_checks, strict=True):
         compare(actual, expected)
+        if actual.model is None or actual.model["relation"] in (None, "exact"):
+            assert (actual.states_explored, actual.slice) == (
+                expected.states_explored,
+                expected.slice,
+            )
 
     def check_id(check):
         return check.invariant_id if hasattr(check, "invariant_id") else check.query_id

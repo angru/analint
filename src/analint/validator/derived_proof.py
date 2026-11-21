@@ -313,20 +313,10 @@ def _replay(
     witness: StateKey,
     initials: list[dict],
     exact: Slice,
-    replay_reads: set[Var],
 ) -> tuple[Result, Exploration] | None:
     roots, numbers, _ = analysis.project_roots(exact, initials)
     for number, root in zip(numbers, roots, strict=True):
-        replay = _replay_path(
-            analysis,
-            projection,
-            abstract,
-            witness,
-            root,
-            number,
-            len(roots) > 1,
-            replay_reads=replay_reads,
-        )
+        replay = _replay_path(analysis, projection, abstract, witness, root, number, len(roots) > 1)
         if replay is None:
             continue
         concrete, key = replay
@@ -400,9 +390,8 @@ def _attempt(
             and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
             else None
         )
-        replay_reads: set[Var] = set()
         replay = (
-            _replay(target, analysis, projection, graph, candidate, initials, exact, replay_reads)
+            _replay(target, analysis, projection, graph, candidate, initials, exact)
             if candidate is not None and not graph.excluded
             else None
         )
@@ -427,9 +416,7 @@ def _attempt(
             or refinement == _MAX_REFINEMENTS
         ):
             return current
-        widened = _refine(
-            analysis, predicate, exact, projection, graph, candidate, replay_reads=replay_reads
-        )
+        widened = _refine(analysis, predicate, exact, projection, graph, candidate)
         if widened is None:
             return current
         previous_rounds.append(current.round_report())

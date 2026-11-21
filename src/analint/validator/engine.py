@@ -285,6 +285,7 @@ def _run_checks(
     selection = select_checks(spec, checks, scenario_ids, tags)
     safety_proofs: dict[str, SafetyProof] = {}
     probe_ms: dict[str, float] = {}
+    derived_attempts = {}
     if checks is not None and sliced and selection.queries:
         from analint.validator.safety import prove_query
         from analint.validator.slicing import SliceAnalysis
@@ -305,6 +306,7 @@ def _run_checks(
             probe_ms[query.id] = (perf_counter() - started) * 1000
             if proof is not None:
                 safety_proofs[query.id] = proof
+        derived_attempts = probe_analysis.derived_attempts
         del probe_analysis
         if decided is None:
             for proof in safety_proofs.values():
@@ -386,6 +388,7 @@ def _run_checks(
         from analint.validator.slicing import SliceAnalysis
 
         analysis = SliceAnalysis(spec)
+        analysis.derived_attempts = derived_attempts
     explorations = ExplorationStorage(analysis)
     canonical_group = explorations.register(canonical_initials, max_states or spec.max_states)
     query_runs = []
@@ -406,7 +409,11 @@ def _run_checks(
         query_runs.append((query, initial_state, group, (perf_counter() - started) * 1000))
 
     if selection.invariants:
-        from analint.validator.explorer import cover_actions, verify_invariants
+        from analint.validator.explorer import (
+            _retain_exact_statistics,
+            cover_actions,
+            verify_invariants,
+        )
 
         while True:
             result.invariant_results, _ = verify_invariants(
@@ -439,6 +446,17 @@ def _run_checks(
                         f"invariant:{inv.id}" for inv in selection.invariants
                     ),
                 )
+                for inv, checked in zip(
+                    selection.invariants, result.invariant_results, strict=True
+                ):
+                    if checked.model is not None and checked.model["relation"] == "over-approx":
+                        _retain_exact_statistics(
+                            checked,
+                            analysis,
+                            analysis.invariant_slice(inv, unconstrained=True),
+                            canonical_initials,
+                            max_states or spec.max_states,
+                        )
 
     explorations.finish(canonical_group, decided)
 

@@ -173,6 +173,27 @@ includes safety attempts (even discarded attempts) and action coverage requested
 by that query. Model preparation and invariant-phase shared action coverage are
 excluded. Summing these timings does not give total command time.
 
+**Unreleased:** invariant and `Unreachable` results with a projection attempt
+include a `model` object. Its `relation` is `over-approx` for a projected safety
+proof, `under-approx: replayed` for a concrete violation confirmed by replay,
+`exact` for a deciding exact retry, or `null` when the retry is inconclusive.
+The object lists the system ID, root source and numbers, retained fields,
+dropped elements with reasons, ordered attempts and the exact `recheck` when
+one was needed. Each attempt records its backend, budget, completeness, status
+and explored state count. The projected attempt's status is local to its graph.
+Its `proof_blockers` list explains transition defects, evaluation errors, or
+budget exhaustion that prevent transferring a proof to the system. Candidate
+traces are local to the attempt. A trace
+on the check itself is concrete and a replayed trace may be longer than the
+shortest witness. `slice` continues to describe an exact slice. When exact
+diagnostic coverage already explored that slice, its state count can still
+appear in `states_explored`. Read the deciding attempt for the proof's own
+state count. A selected `--check` can prove PASS when the same obligation in a
+full run is INCONCLUSIVE. The projected graph can complete within budget even
+if the exact graph caps, or prove that excluded actions leave all retained fields
+and slot presence unchanged. Full runs retain exact per-check budget and exclusion
+behavior. `--no-slice` uses only the whole model. TLC checks only exact graphs.
+
 **0.1.0:** a `tlc.transition_defect` finding is retained in the affected
 query or invariant's `findings` and repeated in `exploration`. The first occurrence
 attributes the defect to that check; the second makes the aggregate run FAIL

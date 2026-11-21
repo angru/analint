@@ -74,6 +74,7 @@ def decide_with_tlc(
             timeout,
             defect_actions.get(f"invariant:{inv.id}") if defect_actions is not None else None,
         )
+        _record_exact_backend(res, timeout)
 
     queries = {q.id: q for q in spec.queries}
     for res in undecided_queries:
@@ -105,6 +106,25 @@ def decide_with_tlc(
             timeout,
             defect_actions.get(f"query:{query.id}") if defect_actions is not None else None,
         )
+        _record_exact_backend(res, timeout)
+
+
+def _record_exact_backend(res: InvariantResult | QueryResult, timeout: float | None) -> None:
+    if res.model is None:
+        return
+    attempt = {
+        "relation": "exact",
+        "backend": "tlc",
+        "budget": None,
+        "timeout_seconds": timeout,
+        "complete": res.status != QueryStatus.INCONCLUSIVE,
+        "status": res.status,
+        "states_explored": res.states_explored if res.backend == "tlc" else None,
+    }
+    res.model["attempts"].append(attempt)
+    res.model["recheck"] = attempt
+    if res.status != QueryStatus.INCONCLUSIVE:
+        res.model["relation"] = "exact"
 
 
 def _exported(

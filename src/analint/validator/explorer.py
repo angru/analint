@@ -95,6 +95,7 @@ class Exploration:
         self.action_ids: list[str] = []  # action code → id
         self._action_codes: dict[str, int] = {}
         self.roots: dict = {}  # root key → 1-based initial index
+        self.multiple_roots = False  # replay carries one path from a multi-root relation
         self.invalid_roots: set[int] = set()  # state indices retained but not expanded
         self.fired: set = set()  # action ids ever enabled
         self.findings: list = []  # violations met en route
@@ -225,7 +226,7 @@ class Exploration:
         root (research/16): 'init #2 ⊢ vote(...)' pins the configuration.
         """
         self._require_graph()
-        if len(self.roots) <= 1:
+        if len(self.roots) <= 1 and not self.multiple_roots:
             return ""
         return f"init #{self.roots[self.root_of(key)]} ⊢ "
 
@@ -306,26 +307,34 @@ class _Edges(Sequence):
 # the key stores one small code per slot, and each distinct tuple is kept once.
 _LAYOUT_IDS: dict[tuple, int] = {}
 _LAYOUTS: list[tuple] = []  # layout id → layout
+_PROJECTED_LAYOUTS: set[int] = set()
 _SLOT_CODES: list[list[dict]] = []  # layout id → slot → value tuple → code
 _SLOT_VALUES: list[list[list]] = []  # layout id → slot → code → value tuple
 _SLOT_INSTANCES: list[list[dict]] = []  # layout id → slot → code → decoded instance
 
 
 @lru_cache(maxsize=256)
-def _state_layout(keys: tuple) -> tuple[int, tuple]:
+def _state_layout(keys: tuple, projection: frozenset[Var] | None = None) -> tuple[int, tuple]:
     """(layout id, sorted (key, scoped, field names)) for a context's key set —
     the same for every state of one exploration, so computed once, not per state."""
     layout = tuple(
         (
             key,
             isinstance(key, InstanceRef),
-            tuple(sorted(all_fields(key.entity_cls if isinstance(key, InstanceRef) else key))),
+            tuple(
+                name
+                for name in sorted(all_fields(_key_entity_cls(key)))
+                if projection is None or (key, name) in projection
+            ),
         )
         for key in sorted(keys, key=context_key_label)
     )
-    layout_id = _LAYOUT_IDS.get(layout)
+    identity = (layout, projection is not None)
+    layout_id = _LAYOUT_IDS.get(identity)
     if layout_id is None:
-        layout_id = _LAYOUT_IDS[layout] = len(_LAYOUTS)
+        layout_id = _LAYOUT_IDS[identity] = len(_LAYOUTS)
+        if projection is not None:
+            _PROJECTED_LAYOUTS.add(layout_id)
         _LAYOUTS.append(layout)
         _SLOT_CODES.append([{} for _ in layout])
         _SLOT_VALUES.append([[] for _ in layout])
@@ -352,7 +361,10 @@ def state_key(ctx: dict) -> StateKey:
     the field-by-field equality of the values (research/36 R4). Raises
     ``TypeError`` for an unhashable field value.
     """
-    layout_id, layout = _state_layout(tuple(ctx))
+    return _key_in_layout(ctx, *_state_layout(tuple(ctx)))
+
+
+def _key_in_layout(ctx: dict, layout_id: int, layout: tuple) -> StateKey:
     out = [layout_id]
     for slot, (key, scoped, fields) in enumerate(layout):
         out.append(_intern(layout_id, slot, _slot_value(ctx[key], scoped, fields)))
@@ -396,10 +408,17 @@ def _root_signature(ctx: dict) -> tuple:
 def _intern(layout_id: int, slot: int, value: tuple) -> int:
     """The code of a slot's value tuple, interning it when new."""
     table = _SLOT_CODES[layout_id][slot]
-    code = table.get(value)
+    # Erasure can merge concrete states whose numerically equal values
+    # have different arithmetic behavior (for example, int and float).
+    identity = (
+        tuple((type(v), v.hex() if type(v) is float else v) for v in value)
+        if layout_id in _PROJECTED_LAYOUTS
+        else value
+    )
+    code = table.get(identity)
     if code is None:
         seen = _SLOT_VALUES[layout_id][slot]
-        code = table[value] = len(seen)
+        code = table[identity] = len(seen)
         seen.append(value)
     return code
 
@@ -738,6 +757,7 @@ def explore(
     root_numbers: list[int] | None = None,
     inert_roots: frozenset[int] = frozenset(),
     store_edges: bool = True,
+    projection: frozenset[Var] | None = None,
 ) -> Exploration:
     """BFS from ``initial_ctxs``. ``root_numbers`` keeps the 1-based labels of a
     subset of a larger root set (slices); roots at ``inert_roots`` positions
@@ -745,11 +765,27 @@ def explore(
     function of its arguments, so an exploration store may memoise it."""
     if _STORE is not None:
         # The disk format always contains the complete edge stream.
-        exp = _STORE.explore(_explore, spec, initial_ctxs, max_states, root_numbers, inert_roots)
+        exp = _STORE.explore(
+            _explore,
+            spec,
+            initial_ctxs,
+            max_states,
+            root_numbers,
+            inert_roots,
+            **({"projection": projection} if projection is not None else {}),
+        )
         if not store_edges:
             exp.discard_edges()
         return exp
-    return _explore(spec, initial_ctxs, max_states, root_numbers, inert_roots, store_edges)
+    return _explore(
+        spec,
+        initial_ctxs,
+        max_states,
+        root_numbers,
+        inert_roots,
+        store_edges,
+        **({"projection": projection} if projection is not None else {}),
+    )
 
 
 class _Frontier(deque):
@@ -774,6 +810,7 @@ def _explore(
     root_numbers: list[int] | None,
     inert_roots: frozenset[int],
     store_edges: bool = True,
+    projection: frozenset[Var] | None = None,
 ) -> Exploration:
     exp = Exploration(store_edges=store_edges)
 
@@ -810,7 +847,11 @@ def _explore(
     queue = _Frontier()
     for pos, ctx in enumerate(initial_ctxs):
         index = root_numbers[pos] if root_numbers is not None else pos + 1
-        key0 = state_key(ctx)
+        key0 = (
+            state_key(ctx)
+            if projection is None
+            else _key_in_layout(ctx, *_state_layout(tuple(ctx), projection))
+        )
         if key0 in exp.index:
             continue
         idx0 = exp.add_state(key0, -1, -1)
@@ -883,6 +924,8 @@ def _explore(
                 k2 = (
                     _successor_key(parent_codes, post, slots_by_action[i])
                     if not result.custom_copy and len(post) == len(ctx)
+                    else _key_in_layout(post, *_state_layout(tuple(post), projection))
+                    if projection is not None
                     else state_key(post)
                 )
             except TypeError as exc:
@@ -1216,10 +1259,28 @@ def _run_query(
                 # belong to the full exploration whenever a proof fails.
         else:
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
+        from analint.validator.derived_proof import attempt
+
+        probe = None
+        if isinstance(query, Unreachable):
+            probe = attempt(query, analysis, piece, initials, budget)
+            if probe is not None and probe.proved and coverage_actions is not None:
+                probe.result.model = probe.report()
+                explorations[qid] = probe.graph
+                assert isinstance(probe.result, QueryResult)
+                _retain_exact_statistics(probe.result, analysis, piece, initials, budget)
+                return probe.result
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
         explorations[qid] = exp
         result = _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
+        if probe is not None:
+            if result.status == QueryStatus.INCONCLUSIVE and probe.replayed is not None:
+                replay, explorations[qid] = probe.replayed
+                assert isinstance(replay, QueryResult)
+                replay.model = probe.report(result, budget, exact_graph=exp, replayed=True)
+                return replay
+            result.model = probe.report(result, budget, exact_graph=exp)
         return result
     exp = explore_cached(spec, initials, budget, cache)
     explorations[qid] = exp
@@ -1236,6 +1297,21 @@ def _evaluate(query: Query, qid: str, exp: Exploration, spec: Spec) -> QueryResu
     if isinstance(query, NoDeadEnd):
         return _eval_no_dead_end(query, qid, exp)
     return _eval_dead_actions(query, qid, exp, spec)
+
+
+def _retain_exact_statistics(
+    result: InvariantResult | QueryResult,
+    analysis: SliceAnalysis,
+    piece: Slice,
+    initials: list[dict],
+    budget: int,
+) -> None:
+    """Retain legacy statistics when exact coverage already built this graph."""
+    for used, exp in analysis.explored.get((analysis.roots_key(initials), budget), ()):
+        if used.key == piece.key and not exp.capped and not exp.excluded:
+            result.states_explored = exp.state_count
+            result.slice = used.summary()
+            return
 
 
 def explore_slice(
@@ -1496,12 +1572,30 @@ def verify_invariants(
         # Phase 1: each invariant on its unconstrained slice. That model prunes
         # less than the whole one, so a PASS there is final — and makes the
         # invariant trusted: it never prunes, other slices need not include it.
+        from analint.validator.derived_proof import attempt
+
+        # Full runs retain their exact per-check budgets and diagnostic
+        # graphs. A selected check can take a clean proof before exact search.
         pending = []
+        proved = {}
+        probes = {}
         for inv in targets:
             started = perf_counter()
+            piece = analysis.invariant_slice(inv, unconstrained=True)
+            probe = attempt(inv, analysis, piece, initials, max_states)
+            if probe is not None:
+                probes[id(inv)] = probe
+                if probe.proved and not all_actions:
+                    result = probe.result
+                    assert isinstance(result, InvariantResult)
+                    result.model = probe.report()
+                    result.elapsed_ms = (perf_counter() - started) * 1000
+                    proved[id(inv)] = result
+                    explorations[inv.id] = probe.graph
+                    continue
             exp, used = explore_slice(
                 analysis,
-                analysis.invariant_slice(inv, unconstrained=True),
+                piece,
                 initials,
                 max_states,
                 cache,
@@ -1511,14 +1605,15 @@ def verify_invariants(
         # invariants sharing an exploration are checked in one pass over it
         verdicts = _verify_grouped([(inv, exp) for inv, exp, _, _ in pending])
         checked = []
-        for (inv, _, used, explore_ms), result in zip(pending, verdicts, strict=True):
+        for (inv, exp, used, explore_ms), result in zip(pending, verdicts, strict=True):
             result.elapsed_ms = (result.elapsed_ms or 0.0) + explore_ms
             if result.status == QueryStatus.PASS:
                 analysis.trusted.add(id(inv))
-            checked.append((inv, result, used))
+            checked.append((inv, result, used, exp))
+        analysis.trusted.update(proved)
         # Phase 2: a FAIL is true of the whole model only on an exact slice.
-        results = []
-        for inv, result, used in checked:
+        results_by_target = dict(proved)
+        for inv, result, used, exp in checked:
             if result.status == QueryStatus.FAIL and not analysis.is_exact(used):
                 elapsed_ms = result.elapsed_ms or 0.0
                 started = perf_counter()
@@ -1529,11 +1624,21 @@ def verify_invariants(
                 explorations[inv.id] = exp
                 result.elapsed_ms = elapsed_ms + (perf_counter() - started) * 1000
             result.slice = used.summary()
-            results.append(result)
+            probe = probes.get(id(inv))
+            if probe is not None:
+                if result.status == QueryStatus.INCONCLUSIVE and probe.replayed is not None:
+                    replay, explorations[inv.id] = probe.replayed
+                    assert isinstance(replay, InvariantResult)
+                    replay.model = probe.report(result, max_states, exact_graph=exp, replayed=True)
+                    replay.elapsed_ms = result.elapsed_ms
+                    result = replay
+                else:
+                    result.model = probe.report(result, max_states, exact_graph=exp)
+            results_by_target[id(inv)] = result
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:
             cover_actions(analysis, initials, max_states, cache, canonical=True)
-        return results, None
+        return [results_by_target[id(inv)] for inv in targets], None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()
     exp = explore_cached(spec, initials, max_states, cache)

@@ -118,14 +118,14 @@ def _name(cls: type) -> str:
 def _value(value: Any, classes: dict[str, type] | None = None) -> Any:
     """A state value as JSON-safe data; the inverse is ``_Registry.value``.
     ``classes`` collects the enum and entity classes the values name."""
-    if value is None or isinstance(value, (bool, int, str)):
-        return value
-    if isinstance(value, float):
-        return {"f": repr(value)}
     if isinstance(value, Enum):
         if classes is not None:
             classes[_name(type(value))] = type(value)
         return {"e": _name(type(value)), "n": value.name}
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return {"f": repr(value)}
     if isinstance(value, InstanceRef):
         if classes is not None:
             classes[_name(value.entity_cls)] = value.entity_cls
@@ -175,8 +175,11 @@ def _canon(obj: Any, classes: dict[str, type]) -> Any:
             obj.field_name,
             _value(obj.initial, classes),
             sorted(
-                [_value(src, classes), [_value(d, classes) for d in dsts]]
-                for src, dsts in obj.transitions.items()
+                (
+                    [_value(src, classes), [_value(d, classes) for d in dsts]]
+                    for src, dsts in obj.transitions.items()
+                ),
+                key=json.dumps,
             ),
             [_value(t, classes) for t in obj.terminal],
         ]
@@ -231,6 +234,8 @@ def digest(
     max_states: int,
     root_numbers: list[int] | None,
     inert: frozenset[int],
+    *,
+    projection: frozenset | None = None,
 ) -> tuple[str, dict[str, type]]:
     """The identity of one exploration's inputs, and the classes they name;
     raises ``_Uncacheable``. Every value a state can hold comes from a root,
@@ -250,6 +255,10 @@ def digest(
         [_canon(s, classes) for s in spec.scopes],
         [_slot_values(ctx, classes) for ctx in initials],
     ]
+    if projection is not None:
+        body.append(
+            ["over-approx/v2", sorted((context_key_label(key), name) for key, name in projection)]
+        )
     done: dict[str, Any] = {}
     while len(done) < len(classes):  # class definitions may name more classes
         for name in sorted(set(classes) - set(done)):
@@ -290,7 +299,7 @@ def _describe(layout: tuple) -> list:
 def encode(exp: Exploration) -> dict:
     layouts: dict[int, int] = {}  # layout id → local index
     described: list = []
-    tables: list[list[dict]] = []  # local layout → slot → value tuple → local code
+    tables: list[list[dict]] = []  # local layout → slot → interned code → local code
     states = array("I")
     for key in exp.keys:
         codes = explorer._codes(key)
@@ -302,13 +311,19 @@ def encode(exp: Exploration) -> dict:
             tables.append([{} for _ in explorer._LAYOUTS[layout_id]])
         states.append(local)
         for slot, code in enumerate(codes[1:]):
-            value = explorer._SLOT_VALUES[layout_id][slot][code]
             table = tables[local][slot]
-            states.append(table.setdefault(value, len(table)))
+            states.append(table.setdefault(code, len(table)))
     return {
         "layouts": described,
         "values": [
-            [[[_value(v) for v in value] for value in table] for table in slots] for slots in tables
+            [
+                [
+                    [_value(v) for v in explorer._SLOT_VALUES[layout_id][slot][code]]
+                    for code in table
+                ]
+                for slot, table in enumerate(slots)
+            ]
+            for layout_id, slots in zip(layouts, tables, strict=True)
         ],
         "states": _b64(states),
         "parent": _b64(exp.parent),
@@ -348,11 +363,18 @@ class _Registry:
         return self.refs[(data["r"], json.dumps(data["k"]))]
 
 
-def decode(data: dict, spec: Spec, initials: list[dict], classes: dict[str, type]) -> Exploration:
+def decode(
+    data: dict,
+    spec: Spec,
+    initials: list[dict],
+    classes: dict[str, type],
+    *,
+    projection: frozenset | None = None,
+) -> Exploration:
     """Rebuild an exploration; raises on anything that does not match."""
     current = {}
     for ctx in initials:
-        layout_id, layout = explorer._state_layout(tuple(ctx))
+        layout_id, layout = explorer._state_layout(tuple(ctx), projection)
         current[json.dumps(_describe(layout))] = layout_id
     layout_ids = [current[json.dumps(described)] for described in data["layouts"]]
     registry = _Registry(spec, initials, classes)
@@ -428,15 +450,16 @@ class _Store:
         max_states: int,
         root_numbers: list[int] | None,
         inert: frozenset[int],
+        **options: Any,
     ) -> Exploration:
         try:
-            key, classes = digest(spec, initials, max_states, root_numbers, inert)
+            key, classes = digest(spec, initials, max_states, root_numbers, inert, **options)
         except _Uncacheable:
-            return run(spec, initials, max_states, root_numbers, inert)
+            return run(spec, initials, max_states, root_numbers, inert, **options)
         path = self.directory / f"{key}.json.z"
         try:
             data = json.loads(zlib.decompress(path.read_bytes()))
-            exp = decode(data, spec, initials, classes)
+            exp = decode(data, spec, initials, classes, **options)
         except Exception:  # absent, unreadable or stale: explore instead
             exp = None
         else:
@@ -445,7 +468,7 @@ class _Store:
                 os.utime(path)  # recently used: pruned last
             return exp
         self.misses += 1
-        exp = run(spec, initials, max_states, root_numbers, inert)
+        exp = run(spec, initials, max_states, root_numbers, inert, **options)
         try:
             blob = zlib.compress(json.dumps(encode(exp), separators=(",", ":")).encode(), 6)
         except _Uncacheable:

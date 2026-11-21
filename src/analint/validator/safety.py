@@ -47,19 +47,27 @@ def prove_query(
     initials, _ = resolve_query_initials(query, spec)
     if initials is None or any(check_invariants(spec, ctx, "initial") for ctx in initials):
         return None  # do not prove a property by projecting away an illegal root
+    budget = query_budget(query, spec.max_states, max_states)
+    probe = None
+    if isinstance(query, Unreachable):
+        from analint.validator.derived_proof import attempt
+
+        probe = attempt(query, analysis, piece, initials, budget)
     exp, used = explore_slice(
         analysis,
         piece,
         initials,
-        query_budget(query, spec.max_states, max_states),
+        budget,
         ExplorationStorage(),
     )
     if exp.excluded or any(f.severity == Severity.ERROR for f in exp.findings):
         return None
     result = _evaluate(query, query.id, exp, spec)
+    if probe is not None:
+        result.model = probe.report(result, budget, exact_graph=exp)
     if result.status == QueryStatus.INCONCLUSIVE and tlc:
         from analint.backends.tlc import TlcUnavailable, find_tlc
-        from analint.validator.tlc_fallback import _decide_query
+        from analint.validator.tlc_fallback import _decide_query, _record_exact_backend
 
         try:
             find_tlc()
@@ -75,6 +83,7 @@ def prove_query(
             tlc_timeout,
             {action.id for action in used.actions},
         )
+        _record_exact_backend(result, tlc_timeout)
     if result.status != QueryStatus.PASS:
         return None
     result.slice = used.summary()

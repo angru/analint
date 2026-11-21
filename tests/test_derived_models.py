@@ -1,0 +1,679 @@
+"""Differential and planted checks for projected safety proofs."""
+
+from enum import StrEnum
+from pathlib import Path
+
+import pytest
+
+from analint import (
+    Action,
+    Add,
+    And,
+    Bound,
+    Create,
+    Entity,
+    Event,
+    Field,
+    ForAll,
+    Implies,
+    Initial,
+    Invariant,
+    Lifecycle,
+    Not,
+    Or,
+    Present,
+    Scope,
+    Set,
+    Spec,
+    Unreachable,
+)
+from analint.reporter.json_reporter import result_to_dict
+from analint.validator import derived_proof, explorer
+from analint.validator.derived_model import derive
+from analint.validator.engine import prepare_model, validate, validate_spec
+from analint.validator.exploration_cache import use_store
+from analint.validator.explorer import (
+    build_canonical_initials,
+    resolve_query_initials,
+    verify_invariants,
+)
+from analint.validator.kernel import Outcome, step
+from analint.validator.rule_checker import evaluate
+from analint.validator.slicing import SliceAnalysis
+from analint.validator.state_checks import check_invariants
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _check(spec, target, *, budget=128):
+    analysis = SliceAnalysis(spec)
+    roots, error = build_canonical_initials(spec)
+    assert roots is not None, error
+    if isinstance(target, Invariant):
+        exact = analysis.invariant_slice(target, unconstrained=True)
+    else:
+        exact = analysis.predicate_slice(target.predicate, canonical=True)
+    attempt = derived_proof.attempt(target, analysis, exact, roots, budget)
+    assert attempt is not None
+    return attempt
+
+
+def test_two_roots_do_not_share_a_hidden_postcondition_value():
+    class Account(Entity):
+        pro: bool = False
+        balance: int = 0
+        audit: bool = False
+
+    limit = Invariant(Account.balance <= 10, id="limit")
+    spec = Spec(
+        id="accounts",
+        name="accounts",
+        initial=Initial(vary=[Account.pro]),
+        actions=[
+            Action(
+                id="credit",
+                pre=[Account.balance < 20],
+                effect=[Add(Account.balance, 10), Set(Account.audit, True)],
+                post=[Implies(Not(Account.pro), Account.balance <= 10)],
+            )
+        ],
+        invariants=[limit],
+    )
+    probe = _check(spec, limit)
+    assert probe.projection.fields == ["Account.balance", "Account.pro"]
+    assert probe.replayed is not None
+    witness, graph = probe.replayed
+    assert graph.roots[graph.root_of(witness.witness_key)] == 2
+    assert witness.trace == ["credit", "credit"]
+    assert validate_spec(spec).invariant_results[0].trace == witness.trace
+
+
+def test_hidden_writer_is_revisited_and_swap_reads_one_pre_state():
+    class Pair(Entity):
+        left: int = 0
+        right: int = 1
+        source: int = 0
+        audit: bool = False
+
+    unsafe = Unreachable(Pair.left == 2, id="unsafe")
+    distinct = Invariant(Pair.left != Pair.right, id="distinct")
+    swap = Action(
+        id="swap",
+        effect=[Set(Pair.left, Pair.right), Set(Pair.right, Pair.left), Set(Pair.audit, True)],
+    )
+    load = Action(id="load", effect=[Set(Pair.right, Pair.source)])
+    source = Action(id="source", effect=[Set(Pair.source, 2)])
+    probe = _check(
+        Spec(id="pair", name="pair", actions=[swap, load, source], queries=[unsafe]), unsafe
+    )
+    assert probe.projection.fields == ["Pair.left", "Pair.right", "Pair.source"]
+    assert probe.replayed is not None
+    assert probe.replayed[0].trace == ["source", "load", "swap"]
+    assert _check(
+        Spec(id="swap", name="swap", actions=[swap], invariants=[distinct]), distinct
+    ).proved
+
+
+@pytest.mark.parametrize(
+    "value, saturate, status", [(2, False, "PASS"), (2, "high", "FAIL"), (-1, "high", "PASS")]
+)
+def test_retained_bound_defects_or_clamps(value, saturate, status):
+    class Counter(Entity):
+        x: int = Field(0, ge=0, le=1, saturate=saturate)
+        done: bool = False
+
+    query = Unreachable(Counter.x == 1, id="one")
+    spec = Spec(
+        id="bounded",
+        name="bounded",
+        actions=[Action(id="over", effect=[Set(Counter.x, value), Set(Counter.done, True)])],
+        queries=[query],
+    )
+    probe = _check(spec, query)
+    assert not probe.proved
+    result = validate_spec(spec)
+    assert result.query_results[0].status == status
+    blockers = probe.report()["attempts"][0]["proof_blockers"]
+    assert any(b["code"] == "transition.field_constraint" for b in blockers) == (status == "PASS")
+    if status == "PASS":
+        [blocker] = blockers
+        assert blocker["location"] == "action:over"
+        assert "Counter.x" in blocker["message"]
+    if status == "FAIL":
+        assert probe.replayed is not None
+
+
+def test_erased_hard_bound_produces_a_spurious_candidate():
+    class Counter(Entity):
+        x: int = Field(0, le=1)
+        done: bool = False
+
+    query = Unreachable(Counter.done, id="unfinished")
+    spec = Spec(
+        id="bounded",
+        name="bounded",
+        actions=[Action(id="over", effect=[Set(Counter.x, 2), Set(Counter.done, True)])],
+        queries=[query],
+    )
+    probe = _check(spec, query)
+    assert probe.candidate is not None
+    assert probe.replayed is None
+    result = validate_spec(spec)
+    assert result.query_results[0].status == "PASS"
+    assert result.query_results[0].model["recheck"]["status"] == "PASS"
+    assert result.exploration_findings
+
+
+def test_replay_rejects_a_hidden_unrepresentable_effect():
+    class Poison(int):
+        def __add__(self, other):
+            return []
+
+    class Data(Entity):
+        visible: bool = False
+        hidden: int = Poison(0)
+
+    query = Unreachable(Data.visible, id="invisible")
+    spec = Spec(
+        id="unrepresentable",
+        name="Unrepresentable effect",
+        actions=[Action(id="show", effect=[Set(Data.visible, True), Add(Data.hidden, 1)])],
+        queries=[query],
+    )
+    probe = _check(spec, query)
+    assert probe.candidate is not None and probe.replayed is None
+    report = validate_spec(spec)
+    assert report.query_results[0].status == "PASS"
+    assert report.verdict == "FAIL"
+
+
+def test_hidden_terminal_lock_is_retained():
+    class State(StrEnum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Item(Entity):
+        state: State = Lifecycle(
+            State.OPEN, transitions={State.OPEN: [State.CLOSED]}, terminal=[State.CLOSED]
+        )
+        moved: bool = False
+        audit: bool = False
+
+    check = Unreachable(Item.moved, id="locked")
+    spec = Spec(
+        id="lock",
+        name="lock",
+        initial=Initial(given=[Item(state=State.CLOSED)]),
+        actions=[Action(id="move", effect=[Set(Item.moved, True), Set(Item.audit, True)])],
+        queries=[check],
+    )
+    probe = _check(spec, check)
+    assert "Item.state" in probe.projection.fields
+    assert probe.proved
+
+
+def test_slots_cannot_supply_fields_while_absent():
+    class Item(Entity):
+        active: bool = False
+        hidden: bool = False
+
+    class Audit(Entity):
+        created: bool = False
+
+    items = Scope(Item, keys=["first"], initially_present=False)
+    (first,) = tuple(items)
+    inv = Invariant(first.active, id="active")
+    item = Bound("item", items)
+    all_active = Invariant(ForAll(item, item.active), id="all_active")
+    guarded = Unreachable(And(Present(first), first.active), id="no_active")
+    spec = Spec(
+        id="presence",
+        name="presence",
+        actions=[
+            Action(id="create", effect=[Create(first, active=True), Set(Audit.created, True)])
+        ],
+        scopes=[items],
+        queries=[guarded],
+        invariants=[inv, all_active],
+    )
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    assert roots is not None
+    exact = analysis.invariant_slice(inv, unconstrained=True)
+    projection = derive(analysis, inv.expression, exact)
+    assert projection is not None
+    assert projection.context(roots[0])[first].__dict__["_analint_present"] is False
+    assert derived_proof.attempt(inv, analysis, exact, roots, 128) is None
+    assert (
+        derived_proof.attempt(
+            all_active,
+            analysis,
+            analysis.invariant_slice(all_active, unconstrained=True),
+            roots,
+            128,
+        )
+        is None
+    )
+    report = validate_spec(spec)
+    assert report.invariant_results[0].status == "PASS"
+    assert report.query_results[0].trace == ["create"]
+
+
+def test_replay_observes_invalid_endpoint_even_when_exact_search_caps():
+    class Data(Entity):
+        x: int = 0
+        hidden: int = 0
+
+    limit = Invariant(Data.x <= 1, id="limit")
+    forbidden = Unreachable(Data.x == 2, id="forbidden")
+    spec = Spec(
+        id="capped",
+        name="capped",
+        max_states=12,
+        invariants=[limit],
+        queries=[forbidden],
+        actions=[
+            *[Action(id=f"noise_{n}", effect=[Set(Data.hidden, n)]) for n in range(1, 12)],
+            Action(id="advance", pre=[Data.x < 2], effect=[Add(Data.x, 1), Set(Data.hidden, 0)]),
+        ],
+    )
+    roots, _ = build_canonical_initials(spec)
+    exact, _ = verify_invariants(spec, roots, max_states=12)
+    assert exact[0].status == "INCONCLUSIVE"
+    report = validate_spec(spec)
+    for result in [*report.invariant_results, *report.query_results]:
+        assert result.status == "FAIL"
+        assert result.trace == ["advance", "advance"]
+        assert result.model["relation"] == "under-approx: replayed"
+        assert result.model["recheck"]["status"] == "INCONCLUSIVE"
+
+
+def test_excluded_visible_writer_and_predicate_error_do_not_prove_pass():
+    class Data(Entity):
+        number: int = 0
+        hidden: bool = False
+
+    class Signal(Event):
+        ready: bool
+
+    unreachable = Unreachable(Data.number == 1, id="one")
+    signal = Action(
+        id="signal", pre=[Signal.ready], effect=[Set(Data.number, 1), Set(Data.hidden, True)]
+    )
+    spec = Spec(id="excluded", name="excluded", actions=[signal], queries=[unreachable])
+    report = validate_spec(spec)
+    assert report.query_results[0].status == "INCONCLUSIVE"
+    assert report.exploration_findings[0].location == "action:signal"
+    assert report.query_results[0].model is None  # relevant exclusion prevents projection
+    assert report.exploration_findings[0].code == "exploration.action_excluded"
+
+    error = Unreachable(1 // Data.number == 1, id="divide")
+    write = Action(id="write", effect=[Set(Data.number, 2), Set(Data.hidden, True)])
+    spec = Spec(id="error", name="error", actions=[write], queries=[error])
+    probe = _check(spec, error)
+    assert not probe.proved and probe.candidate is None
+    [evaluation_error] = probe.report()["attempts"][0]["proof_blockers"]
+    assert evaluation_error["code"] == "query.evaluation_error"
+    assert "division" in evaluation_error["message"]
+    assert validate_spec(spec).query_results[0].status == "FAIL"
+
+
+def test_drop_disjunction_as_a_unit():
+    class Data(Entity):
+        visible: bool = False
+        hidden: bool = False
+
+    query = Unreachable(Data.visible, id="invisible")
+    spec = Spec(
+        id="disjunction",
+        name="Disjunction",
+        initial=Initial(vary=[Data.hidden]),
+        actions=[
+            Action(
+                id="show",
+                pre=[Or(Data.visible, Data.hidden)],
+                effect=[Set(Data.visible, True)],
+            )
+        ],
+        queries=[query],
+    )
+    probe = _check(spec, query)
+    assert probe.replayed is not None
+    replay, graph = probe.replayed
+    assert replay.trace == ["show"]
+    assert graph.roots[graph.root_of(replay.witness_key)] == 2
+    assert probe.graph.roots[probe.graph.root_of(probe.candidate)] == 1
+
+
+@pytest.mark.parametrize("checks", [None, ["too_far"]])
+def test_exact_coverage_keeps_a_later_hidden_transition_defect(checks):
+    class Data(Entity):
+        x: int = 0
+        audit: int = Field(0, le=1)
+
+    spec = Spec(
+        id="coverage",
+        name="Coverage",
+        actions=[
+            Action(id="advance", pre=[Data.x < 2], effect=[Add(Data.x, 1), Add(Data.audit, 1)])
+        ],
+        queries=[Unreachable(Data.x > 2, id="too_far")],
+    )
+    report = validate_spec(spec, checks=checks)
+    assert report.query_results[0].status == "PASS"
+    assert report.query_results[0].model["relation"] == (
+        "exact" if checks is None else "over-approx"
+    )
+    assert report.verdict == "FAIL"
+    [finding] = report.exploration_findings
+    assert finding.code == "transition.field_constraint"
+    assert "advance → advance" in finding.message
+
+
+@pytest.mark.parametrize("checks", [None, ["safe", "forbidden"]])
+def test_projection_cold_warm_and_exact_reports(tmp_path, monkeypatch, checks):
+    class Data(Entity):
+        x: int = 0
+        audit: bool = False
+
+    spec = Spec(
+        id="cache",
+        name="cache",
+        actions=[
+            Action(id="advance", pre=[Data.x < 1], effect=[Add(Data.x, 1), Set(Data.audit, True)])
+        ],
+        invariants=[Invariant(Data.x <= 1, id="safe")],
+        queries=[Unreachable(Data.x == 2, id="forbidden")],
+    )
+
+    def run():
+        result = result_to_dict(validate_spec(spec, checks=checks))
+        for item in [*result["invariants"], *result["queries"]]:
+            item.pop("elapsed_ms", None)
+        return result
+
+    with use_store(tmp_path):
+        cold = run()
+        with monkeypatch.context() as warm_cache:
+
+            def miss(*args, **kwargs):
+                pytest.fail("warm exact or projected graph missed the cache")
+
+            warm_cache.setattr(explorer, "_explore", miss)
+            warm = run()
+        assert explorer._STORE is not None and explorer._STORE.hits > 0
+    assert cold == warm
+    for item in [*warm["invariants"], *warm["queries"]]:
+        assert item["status"] == "PASS"
+        model = item["model"]
+        # Selected query support is discharged by a clean exact exploration.
+        expected = "over-approx" if checks is not None and item in warm["invariants"] else "exact"
+        assert model["relation"] == expected
+        if expected == "exact":
+            assert [a["relation"] for a in model["attempts"]] == ["over-approx", "exact"]
+            assert model["recheck"] == model["attempts"][-1]
+            assert model["recheck"]["status"] == "PASS"
+        assert item["model"]["retained_fields"] == ["Data.x"]
+    monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)
+    exact = run()
+    assert exact["verdict"] == warm["verdict"]
+    assert exact["exploration"] == warm["exploration"]
+    if checks is not None:
+        [projected_inv] = warm["invariants"]
+        [exact_inv] = exact["invariants"]
+        assert projected_inv["slice"] == exact_inv["slice"]
+        assert projected_inv["states_explored"] == exact_inv["states_explored"]
+
+
+TARGETS = [
+    *sorted((ROOT / "examples").glob("*/spec.py")),
+    *sorted((ROOT / "benchmarks").glob("*.py")),
+    *sorted((ROOT / "benchmarks/broker").glob("m*.py")),
+]
+
+
+@pytest.mark.parametrize(
+    "entry", [p for p in TARGETS if p.name != "__init__.py"], ids=lambda p: str(p.relative_to(ROOT))
+)
+def test_example_and_benchmark_differential(entry, monkeypatch):
+    # The full M6 risk increment has 4.4 million states (research/36).
+    # Exercise the same roots and budget on both paths in the ordinary suite.
+    budget = 2000 if entry.name == "m6_risk.py" else None
+    proofs = set()
+    attempt = derived_proof.attempt
+
+    def observe(target, *args):
+        probe = attempt(target, *args)
+        if probe is not None and probe.proved:
+            proofs.add(target.id)
+        return probe
+
+    def without_projection(**kwargs):
+        with monkeypatch.context() as exact_run:
+            exact_run.setattr(derived_proof, "attempt", lambda *_: None)
+            return validate(entry, max_states=budget, **kwargs)
+
+    monkeypatch.setattr(derived_proof, "attempt", observe)
+    projected = validate(entry, max_states=budget)
+    exact = without_projection()
+    # Library modules that do not declare an entry point have no checks.
+    assert projected.load_errors == exact.load_errors
+    assert projected.verdict == exact.verdict
+    assert projected.exploration_findings == exact.exploration_findings
+    projected_checks = [
+        *projected.invariant_results,
+        *(result for result in projected.query_results if result.kind == "Unreachable"),
+    ]
+    exact_checks = [
+        *exact.invariant_results,
+        *(result for result in exact.query_results if result.kind == "Unreachable"),
+    ]
+
+    def legacy(check):
+        return check.status, check.trace, check.findings, check.states_explored, check.slice
+
+    assert [legacy(check) for check in projected_checks] == [
+        legacy(check) for check in exact_checks
+    ]
+
+    def check_id(check):
+        return check.invariant_id if hasattr(check, "invariant_id") else check.query_id
+
+    def requested(run, name):
+        return next(
+            check
+            for check in [*run.invariant_results, *run.query_results]
+            if check_id(check) == name
+        )
+
+    full_proofs = proofs.copy()
+    for result in exact_checks:
+        name = check_id(result)
+        assert name not in full_proofs or result.status != "FAIL", name
+        proofs.clear()
+        selected = validate(entry, max_states=budget, checks=[name])
+        control = without_projection(checks=[name])
+        actual = requested(selected, name)
+        expected = requested(control, name)
+        assert name not in proofs or expected.status != "FAIL", name
+        assert selected.exploration_findings == control.exploration_findings
+        if actual.status == "PASS" and expected.status == "INCONCLUSIVE":
+            assert actual.model["relation"] == "over-approx"
+        else:
+            assert (actual.status, actual.trace, actual.findings) == (
+                expected.status,
+                expected.trace,
+                expected.findings,
+            )
+
+    if not any(result.trace is not None for result in projected_checks):
+        return
+    spec = prepare_model(entry).spec
+    for result in projected.invariant_results:
+        if result.trace is not None:
+            target = next(inv for inv in spec.invariants if inv.id == result.invariant_id)
+            roots, _ = build_canonical_initials(spec)
+            assert _replays(spec, roots, result.trace, target.expression, False)
+    for result in projected.query_results:
+        if result.kind == "Unreachable" and result.trace is not None:
+            target = next(query for query in spec.queries if query.id == result.query_id)
+            roots, _ = resolve_query_initials(target, spec)
+            assert _replays(spec, roots, result.trace, target.predicate, True)
+
+
+def _replays(spec, roots, trace, predicate, expected):
+    actions = {action.id: action for action in spec.actions}
+    for context in roots:
+        for action_id in trace:
+            if check_invariants(spec, context, "pre"):
+                break
+            result = step(spec, actions[action_id], context)
+            if result.outcome != Outcome.ACCEPTED:
+                break
+            context = result.post_context
+        else:
+            if evaluate(predicate, context) == expected:
+                return True
+    return False
+
+
+def test_projection_preserves_equal_values_with_different_arithmetic(tmp_path):
+    value = 2**56
+
+    class Data(Entity):
+        number: int = value
+        audit: bool = False
+
+    forbidden = Unreachable(
+        Data.number // 3 < value // 3,
+        id="forbidden",
+        given_any=[[Data()], [Data(number=float(value), audit=True)]],
+    )
+    spec = Spec(
+        id="numeric",
+        name="numeric",
+        actions=[
+            Action(
+                id="reset",
+                effect=[Set(Data.number, value), Set(Data.audit, False)],
+            )
+        ],
+        queries=[forbidden],
+    )
+
+    def probe():
+        analysis = SliceAnalysis(spec)
+        roots, error = resolve_query_initials(forbidden, spec)
+        assert roots is not None, error
+        piece = analysis.predicate_slice(forbidden.predicate, canonical=False)
+        return derived_proof.attempt(forbidden, analysis, piece, roots, 128)
+
+    with use_store(tmp_path):
+        for _ in range(2):
+            attempt = probe()
+            assert attempt is not None
+            assert attempt.result.status == "FAIL"
+            assert attempt.replayed is not None
+            result, graph = attempt.replayed
+            assert result.trace == []
+            assert list(graph.roots.values()) == [2]
+        assert explorer._STORE is not None and explorer._STORE.hits == 1
+    assert validate_spec(spec, checks=["forbidden"]).query_results[0].status == "FAIL"
+
+
+@pytest.mark.parametrize("outcome, status", [("ok", "PASS"), ("violation", "FAIL")])
+def test_tlc_records_deciding_exact_query_attempt(monkeypatch, outcome, status):
+    from analint.backends.tlc import TlcResult
+    from analint.reporter.terminal import _model_note
+    from analint.validator import tlc_fallback
+
+    class Data(Entity):
+        reached: bool = False
+        hidden: int = 0
+
+    spec = Spec(
+        id="backend",
+        name="Backend",
+        max_states=8,
+        actions=[
+            *[Action(id=f"noise_{n}", effect=[Set(Data.hidden, n)]) for n in range(1, 9)],
+            Action(id="enter", pre=[Data.hidden == 8], effect=[Set(Data.reached, True)]),
+        ],
+        queries=[Unreachable(Data.reached, id="forbidden")],
+    )
+    monkeypatch.setattr(tlc_fallback, "find_tlc", lambda: None)
+    monkeypatch.setattr(
+        tlc_fallback,
+        "run_tlc",
+        lambda *_args, **_kwargs: TlcResult(
+            outcome, trace=["noise_8", "enter"], distinct_states=10
+        ),
+    )
+    [result] = validate_spec(spec, tlc=True).query_results
+    assert result.status == status
+    model = result.model
+    assert model["relation"] == "exact"
+    assert [(a["backend"], a["status"]) for a in model["attempts"]] == [
+        ("native", "FAIL"),
+        ("native", "INCONCLUSIVE"),
+        ("tlc", status),
+    ]
+    assert model["recheck"] == model["attempts"][-1]
+    assert model["recheck"]["states_explored"] == 10
+    assert _model_note(model) == ", system backend, exact"
+
+
+@pytest.mark.parametrize("excluded", [False, True])
+def test_selected_projection_can_prove_safety_when_full_exact_is_inconclusive(excluded):
+    class Data(Entity):
+        reached: bool = False
+        hidden: int = 0
+
+    class Signal(Event):
+        ready: bool
+
+    noise = (
+        [Action(id="signal", pre=[Signal.ready], effect=[Set(Data.hidden, 1)])]
+        if excluded
+        else [Action(id=f"noise_{n}", effect=[Set(Data.hidden, n)]) for n in range(1, 9)]
+    )
+    spec = Spec(
+        id="strengthening",
+        name="Selected safety proof",
+        max_states=8,
+        actions=[
+            *noise,
+            Action(id="reset", effect=[Set(Data.reached, False), Set(Data.hidden, 0)]),
+        ],
+        queries=[Unreachable(Data.reached, id="forbidden")],
+    )
+    [full] = validate_spec(spec).query_results
+    [selected] = validate_spec(spec, checks=["forbidden"]).query_results
+    assert full.status == "INCONCLUSIVE"
+    assert full.model["recheck"]["complete"] is False
+    assert selected.status == "PASS"
+    assert selected.model["relation"] == "over-approx"
+    assert selected.model["attempts"][0]["states_explored"] == 1
+
+
+def test_capped_projection_reports_its_budget_blocker():
+    class Data(Entity):
+        x: int = 0
+        audit: bool = False
+
+    check = Unreachable(Data.x == 99, id="forbidden")
+    spec = Spec(
+        id="capped_projection",
+        name="Capped projection",
+        actions=[
+            Action(id="inc", pre=[Data.x < 3], effect=[Add(Data.x, 1), Set(Data.audit, True)])
+        ],
+        queries=[check],
+    )
+    probe = _check(spec, check, budget=8)
+    first = probe.report()["attempts"][0]
+    assert first["status"] == "INCONCLUSIVE"
+    assert not first["complete"]
+    [blocker] = first["proof_blockers"]
+    assert blocker["code"] == "check.budget_exhausted"
+    assert "2-state budget" in blocker["message"]

@@ -128,12 +128,30 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
     _print_summary(result, strict)
 
 
+def _model_note(model: dict | None) -> str:
+    if model is None:
+        return ""
+    system = f"system {model['system_id']}"
+    relation = model["relation"]
+    if relation == "over-approx":
+        return escape(f", {system}, proved via over-approximation")
+    if relation == "under-approx: replayed":
+        replay = next(a for a in model["attempts"] if a["relation"] == relation)
+        return escape(
+            f", {system}, under-approx: replayed, init #{replay['root']}, trace may not be shortest"
+        )
+    if relation is None:
+        replay = ", replay failed" if "candidate_trace" in model["attempts"][0] else ""
+        return escape(f", {system}{replay}, exact re-check inconclusive")
+    return escape(f", {system}, exact")
+
+
 def _print_query(qr: QueryResult) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
     color = colors.get(qr.status, "white")
     meta = (
         f"({qr.kind}, {qr.states_explored} states"
-        f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)})"
+        f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)}{_model_note(qr.model)})"
     )
     console.print(f"  [{color}]{qr.status:<4}[/{color}]  {escape(qr.query_id):<40} {meta}")
     for f in qr.findings:
@@ -162,7 +180,7 @@ def _print_invariant(ir: InvariantResult) -> None:
     color = colors.get(ir.status, "white")
     meta = (
         f"({ir.states_explored} states{_slice_note(ir.slice)}"
-        f"{_time_note(ir.elapsed_ms)}{_backend_note(ir.backend)})"
+        f"{_time_note(ir.elapsed_ms)}{_backend_note(ir.backend)}{_model_note(ir.model)})"
     )
     console.print(f"  [{color}]{ir.status:<11}[/{color}] {escape(ir.label):<40} {meta}")
     for f in ir.findings:

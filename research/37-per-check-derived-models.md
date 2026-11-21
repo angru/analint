@@ -1,7 +1,7 @@
 # 37 — Per-check derived models with a labelled relation to the system
 
 **Date:** 2026-11-20
-**Status:** proposal awaiting review
+**Status:** accepted. Phase 1 implemented.
 **Inputs:** analint `main` at `4a288bb`, `ROADMAP.md`, `AGENTS.md`, the concepts, CLI and DSL references, research/34–36, `exness-spec/exness`, and two analysis reports produced for #83. The reports are uncommitted. Their measurements and estimates used here appear in §§1 and 8. [#83](https://github.com/angru/analint/issues/83) · [#79](https://github.com/angru/analint/issues/79) · [PR #84](https://github.com/angru/analint/pull/84) · [#81](https://github.com/angru/analint/issues/81) · [#68](https://github.com/angru/analint/issues/68) · [#53](https://github.com/angru/analint/issues/53)
 
 ## 1. Question and evidence

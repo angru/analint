@@ -37,7 +37,7 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from analint.models.action import Action
 from analint.models.boolean import BoolValue
@@ -77,6 +77,9 @@ from analint.models.value import is_literal_operand
 from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.state_checks import check_invariants
+
+if TYPE_CHECKING:
+    from analint.validator.derived_proof import Attempt
 
 PRESENT = "@present"
 Var = tuple[Any, str]
@@ -435,6 +438,7 @@ class SliceAnalysis:
         self._roots_keys: dict[int, tuple[list, tuple]] = {}
         # (roots, budget) -> [(slice, exploration)] explored in this run
         self.explored: dict[tuple, list] = {}
+        self.derived_attempts: dict[tuple, Attempt | None] = {}
         self.covered: dict[tuple, dict] = {}  # (roots, budget, canonical, action identities)
         self._action_slices: dict[tuple, Slice] = {}
         self.sliceable = True

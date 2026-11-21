@@ -11,6 +11,7 @@ from analint import (
     And,
     Bound,
     Create,
+    DeadActions,
     Entity,
     Event,
     Field,
@@ -19,9 +20,11 @@ from analint import (
     Initial,
     Invariant,
     Lifecycle,
+    NoDeadEnd,
     Not,
     Or,
     Present,
+    Reachable,
     Scope,
     Set,
     Spec,
@@ -361,9 +364,7 @@ def test_exact_coverage_keeps_a_later_hidden_transition_defect(checks):
     )
     report = validate_spec(spec, checks=checks)
     assert report.query_results[0].status == "PASS"
-    assert report.query_results[0].model["relation"] == (
-        "exact" if checks is None else "over-approx"
-    )
+    assert report.query_results[0].model["relation"] == "over-approx"
     assert report.verdict == "FAIL"
     [finding] = report.exploration_findings
     assert finding.code == "transition.field_constraint"
@@ -406,13 +407,10 @@ def test_projection_cold_warm_and_exact_reports(tmp_path, monkeypatch, checks):
     for item in [*warm["invariants"], *warm["queries"]]:
         assert item["status"] == "PASS"
         model = item["model"]
-        # Selected query support is discharged by a clean exact exploration.
-        expected = "over-approx" if checks is not None and item in warm["invariants"] else "exact"
+        expected = "exact" if item in warm["queries"] and checks is not None else "over-approx"
         assert model["relation"] == expected
-        if expected == "exact":
-            assert [a["relation"] for a in model["attempts"]] == ["over-approx", "exact"]
-            assert model["recheck"] == model["attempts"][-1]
-            assert model["recheck"]["status"] == "PASS"
+        relations = [a["relation"] for a in model["attempts"]]
+        assert relations == (["over-approx", "exact"] if expected == "exact" else ["over-approx"])
         assert item["model"]["retained_fields"] == ["Data.x"]
     monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)
     exact = run()
@@ -438,7 +436,7 @@ TARGETS = [
 def test_example_and_benchmark_differential(entry, monkeypatch):
     # The full M6 risk increment has 4.4 million states (research/36).
     # Exercise the same roots and budget on both paths in the ordinary suite.
-    budget = 2000 if entry.name == "m6_risk.py" else None
+    budget = 2000 if entry.parent.name == "broker" else None
     proofs = set()
     attempt = derived_proof.attempt
 
@@ -451,6 +449,8 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     def without_projection(**kwargs):
         with monkeypatch.context() as exact_run:
             exact_run.setattr(derived_proof, "attempt", lambda *_: None)
+            exact_run.setattr(derived_proof, "cover_defects", lambda *_, **__: None)
+            exact_run.setattr(derived_proof, "reach_witness", lambda *_: None)
             return validate(entry, max_states=budget, **kwargs)
 
     monkeypatch.setattr(derived_proof, "attempt", observe)
@@ -458,23 +458,24 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     exact = without_projection()
     # Library modules that do not declare an entry point have no checks.
     assert projected.load_errors == exact.load_errors
-    assert projected.verdict == exact.verdict
+    if exact.verdict != "INCONCLUSIVE":
+        assert projected.verdict == exact.verdict
     assert projected.exploration_findings == exact.exploration_findings
-    projected_checks = [
-        *projected.invariant_results,
-        *(result for result in projected.query_results if result.kind == "Unreachable"),
-    ]
-    exact_checks = [
-        *exact.invariant_results,
-        *(result for result in exact.query_results if result.kind == "Unreachable"),
-    ]
+    projected_checks = [*projected.invariant_results, *projected.query_results]
+    exact_checks = [*exact.invariant_results, *exact.query_results]
 
-    def legacy(check):
-        return check.status, check.trace, check.findings, check.states_explored, check.slice
+    def compare(actual, expected):
+        if actual.status == "PASS" and expected.status == "INCONCLUSIVE":
+            assert actual.model["relation"] in ("over-approx", "under-approx: replayed")
+        else:
+            assert (actual.status, actual.trace, actual.findings) == (
+                expected.status,
+                expected.trace,
+                expected.findings,
+            )
 
-    assert [legacy(check) for check in projected_checks] == [
-        legacy(check) for check in exact_checks
-    ]
+    for actual, expected in zip(projected_checks, exact_checks, strict=True):
+        compare(actual, expected)
 
     def check_id(check):
         return check.invariant_id if hasattr(check, "invariant_id") else check.query_id
@@ -497,14 +498,7 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
         expected = requested(control, name)
         assert name not in proofs or expected.status != "FAIL", name
         assert selected.exploration_findings == control.exploration_findings
-        if actual.status == "PASS" and expected.status == "INCONCLUSIVE":
-            assert actual.model["relation"] == "over-approx"
-        else:
-            assert (actual.status, actual.trace, actual.findings) == (
-                expected.status,
-                expected.trace,
-                expected.findings,
-            )
+        compare(actual, expected)
 
     if not any(result.trace is not None for result in projected_checks):
         return
@@ -515,7 +509,11 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
             roots, _ = build_canonical_initials(spec)
             assert _replays(spec, roots, result.trace, target.expression, False)
     for result in projected.query_results:
-        if result.kind == "Unreachable" and result.trace is not None:
+        if (
+            result.kind in ("Reachable", "Unreachable")
+            and result.trace is not None
+            and (result.status == "PASS" if result.kind == "Reachable" else result.status == "FAIL")
+        ):
             target = next(query for query in spec.queries if query.id == result.query_id)
             roots, _ = resolve_query_initials(target, spec)
             assert _replays(spec, roots, result.trace, target.predicate, True)
@@ -624,7 +622,7 @@ def test_tlc_records_deciding_exact_query_attempt(monkeypatch, outcome, status):
 
 
 @pytest.mark.parametrize("excluded", [False, True])
-def test_selected_projection_can_prove_safety_when_full_exact_is_inconclusive(excluded):
+def test_projection_can_prove_safety_when_exact_is_inconclusive(excluded):
     class Data(Entity):
         reached: bool = False
         hidden: int = 0
@@ -649,8 +647,8 @@ def test_selected_projection_can_prove_safety_when_full_exact_is_inconclusive(ex
     )
     [full] = validate_spec(spec).query_results
     [selected] = validate_spec(spec, checks=["forbidden"]).query_results
-    assert full.status == "INCONCLUSIVE"
-    assert full.model["recheck"]["complete"] is False
+    assert full.status == ("PASS" if excluded else "INCONCLUSIVE")
+    assert full.model["relation"] == ("over-approx" if excluded else None)
     assert selected.status == "PASS"
     assert selected.model["relation"] == "over-approx"
     assert selected.model["attempts"][0]["states_explored"] == 1
@@ -677,3 +675,181 @@ def test_capped_projection_reports_its_budget_blocker():
     [blocker] = first["proof_blockers"]
     assert blocker["code"] == "check.budget_exhausted"
     assert "2-state budget" in blocker["message"]
+
+
+@pytest.mark.parametrize("selected", [False, True])
+@pytest.mark.parametrize("allowed", [False, True])
+def test_reachability_and_action_entry_require_concrete_replay(selected, allowed):
+    class Data(Entity):
+        allowed: bool = False
+        ready: bool = False
+        audit: bool = False
+        done: bool = False
+
+    prepare = Action(
+        id="prepare", pre=[Data.allowed], effect=[Set(Data.ready, True), Set(Data.audit, True)]
+    )
+    consume = Action(id="consume", pre=[Data.ready], effect=[Set(Data.done, True)])
+    reach = Reachable(Data.ready, id="reach", given=[Data(allowed=allowed)])
+    dead = DeadActions(id="dead", given=[Data(allowed=allowed)])
+    spec = Spec(id="replay", name="Replay", actions=[prepare, consume], queries=[reach, dead])
+    report = validate_spec(spec, checks=["reach", "dead"] if selected else None)
+    exact = validate_spec(spec, sliced=False, checks=["reach", "dead"] if selected else None)
+    reached, fired = report.query_results
+    for actual, expected in zip(report.query_results, exact.query_results, strict=True):
+        assert (actual.status, actual.trace) == (expected.status, expected.trace)
+    if allowed:
+        assert reached.trace == ["prepare"]
+        assert reached.model["relation"] == "under-approx: replayed"
+        assert fired.model["relation"] == "under-approx: replayed"
+        assert any(
+            attempt.get("trace") == ["prepare", "consume"] for attempt in fired.model["attempts"]
+        )
+    else:
+        assert reached.model["relation"] == "exact"
+        assert not reached.model["attempts"][0]["replayed"]
+        assert fired.model is None
+        assert "consume, prepare" in fired.findings[0].message
+
+
+@pytest.mark.parametrize("both_legal_paths", [False, True])
+def test_reachability_replays_each_root_even_when_their_projections_merge(both_legal_paths):
+    class Data(Entity):
+        allowed: bool = False
+        ready: bool = False
+        audit: bool = False
+
+    reach = Reachable(
+        Data.ready,
+        id="reach",
+        given_any=[(Data(allowed=True),), (Data(allowed=both_legal_paths, audit=True),)],
+    )
+    spec = Spec(
+        id="two_roots",
+        name="Two roots",
+        actions=[
+            Action(
+                id="prepare",
+                pre=[Data.allowed],
+                effect=[Set(Data.ready, True), Set(Data.audit, True)],
+            )
+        ],
+        queries=[reach],
+    )
+    [actual] = validate_spec(spec, checks=["reach"]).query_results
+    [exact] = validate_spec(spec, sliced=False, checks=["reach"]).query_results
+    assert actual.status == exact.status
+    assert actual.model is not None
+    if both_legal_paths:
+        assert actual.model["root_numbers"] == [1, 2]
+        assert actual.trace == exact.trace == ["prepare"]
+    else:
+        assert actual.model["relation"] == "exact"
+        assert not actual.model["attempts"][-2]["replayed"]
+        assert "init #2" in actual.findings[0].message
+
+
+def test_reachability_evaluation_error_overrides_root_witness():
+    class Data(Entity):
+        divisor: int = 1
+        audit: bool = False
+
+    query = Reachable(1 // Data.divisor == 1, id="reach")
+    spec = Spec(
+        id="errors",
+        name="Errors",
+        actions=[Action(id="zero", effect=[Set(Data.divisor, 0), Set(Data.audit, True)])],
+        queries=[query],
+    )
+    [actual] = validate_spec(spec).query_results
+    assert actual.status == "FAIL"
+    assert actual.findings[0].code == "query.evaluation_error"
+    assert actual.model["relation"] == "exact"
+    assert actual.model["attempts"][0]["evaluation_errors"]
+
+
+def test_no_dead_end_does_not_use_an_invented_recovery_path():
+    class Data(Entity):
+        goal: bool = True
+        trapped: bool = False
+
+    query = NoDeadEnd(Data.goal, id="recovery")
+    spec = Spec(
+        id="trap",
+        name="Trap",
+        actions=[
+            Action(id="trap", effect=[Set(Data.goal, False), Set(Data.trapped, True)]),
+            Action(id="recover", pre=[Not(Data.trapped)], effect=[Set(Data.goal, True)]),
+        ],
+        queries=[query],
+    )
+    for checks in (None, ["recovery"]):
+        [actual] = validate_spec(spec, checks=checks).query_results
+        [exact] = validate_spec(spec, sliced=False, checks=checks).query_results
+        assert (actual.status, actual.trace, actual.findings) == (
+            exact.status,
+            exact.trace,
+            exact.findings,
+        )
+        assert actual.status == "FAIL"
+        assert actual.trace == ["trap"]
+        assert actual.model is None
+
+
+@pytest.mark.parametrize("checks", [None, ["safe"]])
+def test_projected_safety_keeps_defect_in_an_omitted_writer(checks):
+    class Data(Entity):
+        ready: bool = False
+        hidden: bool = False
+        count: int = Field(0, le=0)
+
+    safe = Invariant(Implies(Data.ready, Data.ready), id="safe")
+    spec = Spec(
+        id="hidden_defect",
+        name="Hidden defect",
+        actions=[
+            Action(id="enable", effect=[Set(Data.hidden, True)]),
+            Action(id="bad", pre=[Data.hidden], effect=[Set(Data.ready, True), Add(Data.count, 1)]),
+        ],
+        invariants=[safe],
+    )
+    report = validate_spec(spec, checks=checks)
+    assert report.verdict == "FAIL"
+    [finding] = report.exploration_findings
+    assert finding.code == "transition.field_constraint"
+    assert "enable → bad" in finding.message
+    assert "action:enable" in report.invariant_results[0].model["omitted_writers"]
+
+
+@pytest.mark.parametrize("checks", [None, ["safe"]])
+def test_complete_projected_coverage_needs_no_exact_graph(monkeypatch, checks):
+    class Data(Entity):
+        a: bool = False
+        b: bool = False
+        c: bool = False
+
+    spec = Spec(
+        id="cycle",
+        name="Dependency cycle",
+        actions=[
+            Action(id="first", pre=[Data.b], effect=[Set(Data.a, True)]),
+            Action(id="second", pre=[Data.c], effect=[Set(Data.b, True)]),
+            Action(id="third", pre=[Data.a], effect=[Set(Data.c, True)]),
+        ],
+        invariants=[Invariant(Implies(Data.a, Data.a), id="safe")],
+    )
+    # The invariant holds even after weakening first's guard.
+    # Each action projection drops one input from the cyclic dependencies.
+    explore = explorer._explore
+    exact = []
+
+    def observe(*args, **kwargs):
+        if kwargs.get("projection") is None:
+            exact.append(args[0])
+        return explore(*args, **kwargs)
+
+    monkeypatch.setattr(explorer, "_explore", observe)
+    report = validate_spec(spec, checks=checks)
+    assert report.verdict == "PASS"
+    assert report.invariant_results[0].model["relation"] == "over-approx"
+    assert not exact

@@ -363,7 +363,6 @@ def _run_checks(
     from analint.validator.explorer import (
         ExplorationStorage,
         build_canonical_initials,
-        cover_actions,
         resolve_query_initials,
         run_query,
     )
@@ -402,7 +401,7 @@ def _run_checks(
         )
         group = (
             None
-            if query.id in safety_proofs and safety_proofs[query.id].result.model is None
+            if query.id in safety_proofs
             else explorations.plan_query(
                 query, initial_state[0], query_budget(query, spec.max_states, max_states)
             )
@@ -412,6 +411,7 @@ def _run_checks(
     if selection.invariants:
         from analint.validator.explorer import (
             _retain_exact_statistics,
+            cover_actions,
             verify_invariants,
         )
 
@@ -472,21 +472,9 @@ def _run_checks(
             if proof is not None:
                 assert verification_scope is not None
                 query_result = proof.result
-                if (
-                    analysis is not None
-                    and query_result.model is not None
-                    and query_result.model["relation"] == "over-approx"
-                ):
-                    cover_actions(
-                        analysis,
-                        proof.initials,
-                        query_budget(query, spec.max_states, max_states),
-                        explorations,
-                        canonical=not (query.given or query.given_any or query.initial is not None),
-                        actions=proof.piece.actions,
-                    )
-                else:
-                    verification_scope.safety_coverage.append((proof.piece, proof.exploration))
+                verification_scope.safety_coverage.extend(
+                    (proof.piece, graph) for graph in (proof.exploration, *proof.projected_coverage)
+                )
                 if decided is not None:
                     decided[query.id] = proof.exploration
             else:

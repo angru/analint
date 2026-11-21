@@ -194,6 +194,8 @@ def _replay_path(
             next_key = state_key(post)
         except TypeError:
             return None  # the concrete explorer cannot record this state
+        if next_key in concrete.index:
+            return None  # the concrete state key collapses this projected step
         concrete.add_state(next_key, concrete.index[key], concrete.action_code(action.id))
         key, ctx = next_key, post
         invalid = _report_invariant_violations(analysis.spec, ctx, key, concrete, plans=plans)
@@ -295,7 +297,7 @@ def _attempt(
         candidate,
         replay,
         analysis.spec.id,
-        _root_source(target) if isinstance(target, Unreachable) else "canonical",
+        root_source(target) if isinstance(target, Unreachable) else "canonical",
         list(range(1, len(initials) + 1)),
     )
 
@@ -343,7 +345,7 @@ def cover_defects(
     return projection, graph
 
 
-def _root_source(query: Query) -> str:
+def root_source(query: Query) -> str:
     if query.initial is not None:
         return "initial"
     if query.given_any:
@@ -351,22 +353,24 @@ def _root_source(query: Query) -> str:
     return "given" if query.given else "canonical"
 
 
-def _projection_report(
-    analysis: SliceAnalysis, projection: Projection, query: Query, attempts: list[dict]
-) -> dict:
-    return {
-        "relation": "under-approx: replayed",
-        "system_id": analysis.spec.id,
-        "view_id": None,
-        "proof_rule": "projection",
-        "root_source": _root_source(query),
-        "root_numbers": sorted({attempt["root"] for attempt in attempts}),
-        "retained_fields": projection.fields,
-        "dropped": projection.dropped,
-        "omitted_writers": [item["location"] for item in projection.dropped if item.get("writes")],
-        "attempts": attempts,
-        "recheck": None,
-    }
+@dataclass
+class ReachProbe:
+    model: dict
+    witness: tuple[QueryResult, Exploration] | None = None
+
+    def record_exact(self, result: QueryResult, graph: Exploration, budget: int) -> None:
+        self.model["relation"] = "exact" if result.status != QueryStatus.INCONCLUSIVE else None
+        recheck = {
+            "relation": "exact",
+            "backend": "native",
+            "budget": budget,
+            "complete": not graph.capped and not graph.excluded,
+            "status": result.status,
+            "states_explored": graph.state_count,
+        }
+        self.model["recheck"] = recheck
+        self.model["attempts"].append(recheck)
+        result.model = self.model
 
 
 def reach_witness(
@@ -375,16 +379,31 @@ def reach_witness(
     exact: Slice,
     initials: list[dict],
     budget: int,
-) -> tuple[QueryResult, Exploration] | None:
+) -> ReachProbe | None:
     projection = derive(analysis, query.predicate, exact)
     if projection is None or any(not analysis.root_is_legal(ctx) for ctx in initials):
         return None
-    exact_roots, _, inert = analysis.project_roots(exact, initials)
-    if inert:
-        return None
+    exact_roots, _, _ = analysis.project_roots(exact, initials)
     # Per-root exploration preserves obligations even when abstract roots merge.
     # A complete scan is required because evaluation errors outrank a witness.
-    attempts = []
+    attempts: list[dict] = []
+    probe = ReachProbe(
+        {
+            "relation": "under-approx: replayed",
+            "system_id": analysis.spec.id,
+            "view_id": None,
+            "proof_rule": "projection",
+            "root_source": root_source(query),
+            "root_numbers": list(range(1, len(initials) + 1)),
+            "retained_fields": projection.fields,
+            "dropped": projection.dropped,
+            "omitted_writers": [
+                item["location"] for item in projection.dropped if item.get("writes")
+            ],
+            "attempts": attempts,
+            "recheck": None,
+        }
+    )
     best = None
     states = 0
     sub_budget = min(4096, max(1, budget // 4))
@@ -396,52 +415,58 @@ def reach_witness(
             store_edges=False,
             projection=projection.variables,
         )
-        if graph.capped or graph.findings or graph.excluded:
-            return None
+        complete = not graph.capped and not graph.excluded
+        abstract = {
+            "relation": "over-approx",
+            "backend": "native",
+            "budget": sub_budget,
+            "complete": complete,
+            "root": number,
+            "states_explored": graph.state_count,
+            "status": QueryStatus.INCONCLUSIVE,
+            "proof_blockers": [finding.to_dict() for finding in graph.findings],
+        }
+        attempts.append(abstract)
+        if not complete or graph.findings:
+            return probe
         scan = _scan_states(graph, query.predicate)
         witness = scan.first_match
         if scan.errors or witness is None:
-            return None
+            abstract["status"] = QueryStatus.FAIL
+            abstract["evaluation_errors"] = scan.errors
+            return probe
+        abstract["status"] = QueryStatus.PASS
+        abstract["candidate_trace"] = graph.trace_to(witness)
         replay = _replay_path(
             analysis, projection, graph, witness, root, number, len(exact_roots) > 1, exact=exact
         )
+        abstract["replayed"] = replay is not None
         if replay is None:
-            return None
+            return probe
         concrete, _ = replay
         result = _eval_reachable(query, query.id or "Reachable", concrete, True)
         if result.status != QueryStatus.PASS:
-            return None
+            return probe
         if best is None or concrete.state_count < best[1].state_count:
             best = result, concrete
         states += graph.state_count
-        attempts.extend(
-            (
-                {
-                    "relation": "over-approx",
-                    "backend": "native",
-                    "budget": sub_budget,
-                    "complete": True,
-                    "status": QueryStatus.PASS,
-                    "root": number,
-                    "states_explored": graph.state_count,
-                },
-                {
-                    "relation": "under-approx: replayed",
-                    "backend": "native",
-                    "complete": True,
-                    "status": QueryStatus.PASS,
-                    "root": number,
-                    "states_explored": concrete.state_count,
-                    "trace": result.trace,
-                },
-            )
+        attempts.append(
+            {
+                "relation": "under-approx: replayed",
+                "backend": "native",
+                "complete": True,
+                "status": QueryStatus.PASS,
+                "root": number,
+                "states_explored": concrete.state_count,
+                "trace": result.trace,
+            }
         )
-    if best is None:
-        return None
-    result, concrete = best
-    result.states_explored = states
-    result.model = _projection_report(analysis, projection, query, attempts)
-    return result, concrete
+    if best is not None:
+        result, _ = best
+        result.states_explored = states
+        result.model = probe.model
+        probe.witness = best
+    return probe
 
 
 def firing_witness(

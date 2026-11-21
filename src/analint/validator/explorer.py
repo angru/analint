@@ -1238,7 +1238,7 @@ def _run_query(
         if dead_actions:
             result = _eval_dead_actions_sliced(qid, spec, per_action)
             if firing_proofs:
-                from analint.validator.derived_proof import _root_source
+                from analint.validator.derived_proof import root_source
 
                 result.model = {
                     "relation": (
@@ -1251,7 +1251,7 @@ def _run_query(
                     "system_id": spec.id,
                     "view_id": None,
                     "proof_rule": "projection",
-                    "root_source": _root_source(query),
+                    "root_source": root_source(query),
                     "root_numbers": list(range(1, len(initials) + 1)),
                     "attempts": firing_proofs,
                 }
@@ -1284,17 +1284,25 @@ def _run_query(
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
         from analint.validator.derived_proof import attempt, reach_witness
 
-        if isinstance(query, Reachable):
-            witness = reach_witness(query, analysis, piece, initials, budget)
-            if witness is not None:
-                result, explorations[qid] = witness
+        coverage_complete = not any(
+            per_action[id(action)].capped for action in piece.actions if id(action) in per_action
+        )
+        reach_probe = None
+        if isinstance(query, Reachable) and coverage_complete:
+            reach_probe = reach_witness(query, analysis, piece, initials, budget)
+            if reach_probe is not None and reach_probe.witness is not None:
+                result, explorations[qid] = reach_probe.witness
                 _retain_exact_statistics(result, analysis, piece, initials, budget)
                 return result
 
         probe = None
         if isinstance(query, Unreachable):
             probe = attempt(query, analysis, piece, initials, budget)
-            if probe is not None and probe.proved:
+            if (
+                probe is not None
+                and probe.proved
+                and (coverage_complete or coverage_actions is not None)
+            ):
                 probe.result.model = probe.report()
                 explorations[qid] = probe.graph
                 assert isinstance(probe.result, QueryResult)
@@ -1304,6 +1312,8 @@ def _run_query(
         explorations[qid] = exp
         result = _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
+        if reach_probe is not None:
+            reach_probe.record_exact(result, exp, budget)
         if probe is not None:
             if result.status == QueryStatus.INCONCLUSIVE and probe.replayed is not None:
                 replay, explorations[qid] = probe.replayed
@@ -1419,28 +1429,32 @@ def cover_actions(
             narrow = analysis.local_enabler_slice(action, initials, canonical=canonical)
             piece = narrow or analysis.action_slice(action, canonical=canonical)
             pieces.append((action, piece, narrow is not None))
-        if not require_firing:
-            # Exact action graphs also covered their dependency actions.
-            dependencies = {id(action) for _, piece, _ in pieces for action in piece.actions}
-            requested = {id(action) for action in actions}
-            pieces.extend(
-                (action, analysis.action_slice(action, canonical=canonical), False)
-                for action in analysis.spec.actions
-                if id(action) in dependencies - requested
-            )
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         covered = {}
         witnesses = []
         proofs = analysis.projected_coverage.setdefault(root_key, {})
+
+        def prove(action: Action) -> tuple | None:
+            identity = id(action)
+            if identity not in proofs:
+                proofs[identity] = cover_defects(
+                    action,
+                    analysis,
+                    analysis.action_slice(action, canonical=canonical),
+                    initials,
+                    max_states,
+                    canonical=canonical,
+                )
+            return proofs[identity]
+
+        requested = {id(action) for action in actions}
         for action, piece, narrow in pieces:
             identity = id(action)
             if not narrow:
-                if identity not in proofs:
-                    proofs[identity] = cover_defects(
-                        action, analysis, piece, initials, max_states, canonical=canonical
-                    )
-                proof = proofs[identity]
-                if proof is not None:
+                proof = prove(action)
+                if proof is not None and all(
+                    id(dep) in requested or prove(dep) is not None for dep in piece.actions
+                ):
                     if not require_firing:
                         covered[identity] = proof[1]
                         continue
@@ -1700,7 +1714,25 @@ def verify_invariants(
             results_by_target[id(inv)] = result
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:
-            cover_actions(analysis, initials, max_states, cache, canonical=True)
+            coverage = cover_actions(analysis, initials, max_states, cache, canonical=True)
+            for inv in targets:
+                if id(inv) not in proved:
+                    continue
+                piece = analysis.invariant_slice(inv, unconstrained=True)
+                if not any(coverage[id(action)].capped for action in piece.actions):
+                    continue
+                # A safety proof may erase a real diagnostic. Preserve the
+                # original check when relevant defect coverage reached its cap.
+                started = perf_counter()
+                exp, used = explore_slice(analysis, piece, initials, max_states, cache)
+                result = _verify_one_invariant(inv, exp)
+                result.slice = used.summary()
+                result.model = probes[id(inv)].report(result, max_states, exact_graph=exp)
+                result.elapsed_ms = (proved[id(inv)].elapsed_ms or 0.0) + (
+                    perf_counter() - started
+                ) * 1000
+                results_by_target[id(inv)] = result
+                explorations[inv.id] = exp
         return [results_by_target[id(inv)] for inv in targets], None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()
@@ -2483,7 +2515,7 @@ def _excluded_actions_result(qid: str, kind: str, exp: Exploration) -> QueryResu
 
 def _origin_findings(exp: Exploration, key: StateKey, qid: str) -> list[Finding]:
     """Describe the initial configuration a trace starts from (multi-root only)."""
-    if len(exp.roots) <= 1:
+    if len(exp.roots) <= 1 and not exp.multiple_roots:
         return []
     root = exp.root_of(key)
     rendered = ", ".join(f"{k}={v}" for k, v in render_state(exp.states[root]).items())

@@ -745,7 +745,10 @@ def test_reachability_replays_each_root_even_when_their_projections_merge(both_l
         assert actual.trace == exact.trace == ["prepare"]
     else:
         assert actual.model["relation"] == "exact"
-        assert not actual.model["attempts"][-2]["replayed"]
+        assert any(
+            attempt.get("root") == 2 and attempt.get("replayed") is False
+            for attempt in actual.model["attempts"]
+        )
         assert "init #2" in actual.findings[0].message
 
 
@@ -902,3 +905,60 @@ def test_action_coverage_budget_scales_with_exact_budget():
     proof = derived_proof.cover_defects(target, analysis, piece, roots, 20_000, canonical=True)
     assert proof is not None
     assert proof[1].state_count == 4101
+
+
+@pytest.mark.parametrize("overflow", [False, True])
+def test_refines_spurious_counterexample_or_transition_defect(overflow):
+    class Data(Entity):
+        value: int = Field(default=0, le=1)
+        limit: int = 1
+        audit: bool = False
+
+    increment = Action(
+        id="increment",
+        pre=[Data.value < Data.limit],
+        effect=[Add(Data.value, 1), Set(Data.audit, True)],
+    )
+    target = Unreachable(Data.value == 2 if overflow else Data.value == 1, id="safety")
+    spec = Spec(
+        id="refine_guard",
+        name="Refine a dropped bound",
+        initial=Initial(given=[Data(limit=int(overflow))]),
+        actions=[increment],
+        queries=[target],
+    )
+    probe = _check(spec, target)
+    assert probe.proved
+    first, final = probe.report()["attempts"]
+    assert first["proof_blockers"]
+    assert final["widened_fields"] == ["Data.limit"]
+    assert final["clean"]
+    assert final["states_explored"] == (2 if overflow else 1)
+
+
+def test_refines_a_non_replaying_reachability_witness():
+    class Data(Entity):
+        allowed: bool = False
+        done: bool = False
+        audit: bool = False
+
+    query = Reachable(Data.done, id="reach")
+    spec = Spec(
+        id="refine_witness",
+        name="Refine a non-replaying witness",
+        actions=[
+            Action(
+                id="shortcut",
+                pre=[Data.allowed],
+                effect=[Set(Data.done, True), Set(Data.audit, True)],
+            ),
+            Action(id="unlock", effect=[Set(Data.allowed, True)]),
+        ],
+        queries=[query],
+    )
+    [result] = validate_spec(spec, checks=["reach"]).query_results
+    assert result.model["relation"] == "under-approx: replayed"
+    assert result.trace == ["unlock", "shortcut"]
+    first, refined, _ = result.model["attempts"]
+    assert first["replayed"] is False
+    assert refined["widened_fields"] == ["Data.allowed"]

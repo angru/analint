@@ -48,6 +48,10 @@ class Projection:
     spec: Spec
     variables: frozenset[Var]
     dropped: list[dict]
+    dropped_guards: dict[str, set[Var]]
+
+    def widened_fields(self, previous: frozenset[Var]) -> list[str]:
+        return sorted(map(_label, self.variables - previous))
 
     @property
     def fields(self) -> list[str]:
@@ -79,6 +83,7 @@ def derive(
     exact: Slice,
     *,
     obligation: Action | None = None,
+    retain: frozenset[Var] = frozenset(),
 ) -> Projection | None:
     """Follow all expanded writers to a fixed point over visible update inputs.
 
@@ -100,6 +105,7 @@ def derive(
             if obligation is None
             else analysis.action_vars[id(obligation)] | analysis.lock_vars[id(obligation)]
         )
+        variables.update(retain)
         if not variables:
             return None
         while True:
@@ -144,6 +150,7 @@ def derive(
 
         actions: list[Action] = []
         dropped = []
+        dropped_guards: dict[str, set[Var]] = {}
         for action in spec.actions:
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
@@ -172,9 +179,11 @@ def derive(
             for index, guard in enumerate(action.pre, 1):
                 terms = guard.exprs if isinstance(guard, _And) else [guard]
                 for term_index, term in enumerate(terms, 1):
-                    if _guard_vars(term) <= variables:
+                    reads = _guard_vars(term)
+                    if reads <= variables:
                         pre.append(term)
                     else:
+                        dropped_guards.setdefault(action.id, set()).update(reads - variables)
                         suffix = f".and[{term_index}]" if isinstance(guard, _And) else ""
                         dropped.append(
                             {
@@ -203,4 +212,5 @@ def derive(
         spec.model_copy(update={"actions": actions, "invariants": []}),
         frozenset(variables),
         dropped,
+        dropped_guards,
     )

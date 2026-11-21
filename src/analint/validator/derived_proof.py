@@ -1,6 +1,6 @@
 """Speculative safety checking and concrete replay."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from analint.models.action import Action
 from analint.models.invariant import Invariant
@@ -23,11 +23,36 @@ from analint.validator.explorer import (
     state_key,
 )
 from analint.validator.kernel import Outcome, step
-from analint.validator.slicing import PRESENT, Slice, SliceAnalysis
+from analint.validator.slicing import PRESENT, Slice, SliceAnalysis, Var
 from analint.validator.state_checks import InvariantPlan
 
 Target = Invariant | Unreachable
 Result = InvariantResult | QueryResult
+_MAX_REFINEMENTS = 3
+
+
+def _refine(
+    analysis: SliceAnalysis,
+    predicate,
+    exact: Slice,
+    projection: Projection,
+    graph: Exploration,
+    witness: StateKey | None = None,
+    *,
+    obligation: Action | None = None,
+) -> Projection | None:
+    actions = set(graph.trace_to(witness)) if witness is not None else set()
+    for finding_index, origins in graph.finding_states.items():
+        finding = graph.findings[finding_index]
+        actions.add(finding.location.removeprefix("action:"))
+        for origin in origins:
+            actions.update(graph._trace(origin))
+    reads = {var for action in actions for var in projection.dropped_guards.get(action, ())}
+    if not reads:
+        return None
+    return derive(
+        analysis, predicate, exact, obligation=obligation, retain=projection.variables | reads
+    )
 
 
 def _evaluate(target: Target, graph: Exploration) -> Result:
@@ -47,6 +72,8 @@ class Attempt:
     system_id: str
     root_source: str
     roots: list[int]
+    previous_rounds: list[dict] = field(default_factory=list)
+    widened_fields: list[str] = field(default_factory=list)
 
     def _diagnostic_blockers(self) -> list[Finding]:
         return [
@@ -66,19 +93,7 @@ class Attempt:
     def proved(self) -> bool:
         return self.result.status == QueryStatus.PASS and not self.graph.capped and self.clean
 
-    def report(
-        self,
-        exact: Result | None = None,
-        budget: int | None = None,
-        *,
-        exact_graph: Exploration | None = None,
-        replayed: bool = False,
-    ) -> dict:
-        relation = "over-approx" if exact is None else "exact"
-        if replayed:
-            relation = "under-approx: replayed"
-        elif exact is not None and exact.status == QueryStatus.INCONCLUSIVE:
-            relation = None
+    def round_report(self) -> dict:
         blockers = self._diagnostic_blockers()
         if self.graph.capped:
             blockers.append(
@@ -98,12 +113,29 @@ class Attempt:
             "proof_blockers": [finding.to_dict() for finding in blockers],
             "status": self.result.status,
             "states_explored": self.graph.state_count,
+            "retained_fields": self.projection.fields,
+            "widened_fields": self.widened_fields,
         }
         if self.candidate is not None:
             first["candidate_trace"] = self.graph.trace_to(self.candidate)
             first["candidate_root"] = self.graph.roots[self.graph.root_of(self.candidate)]
             first["replayed"] = self.replayed is not None
-        attempts = [first]
+        return first
+
+    def report(
+        self,
+        exact: Result | None = None,
+        budget: int | None = None,
+        *,
+        exact_graph: Exploration | None = None,
+        replayed: bool = False,
+    ) -> dict:
+        relation = "over-approx" if exact is None else "exact"
+        if replayed:
+            relation = "under-approx: replayed"
+        elif exact is not None and exact.status == QueryStatus.INCONCLUSIVE:
+            relation = None
+        attempts = [*self.previous_rounds, self.round_report()]
         if self.replayed is not None:
             result, graph = self.replayed
             attempts.append(
@@ -270,36 +302,50 @@ def _attempt(
         # and universal predicates that can be evaluated on an empty scope.
         return None
     sub_budget = min(4096, max(1, budget // 4))
-    graph = explore(
-        projection.spec,
-        roots,
-        sub_budget,
-        store_edges=False,
-        projection=projection.variables,
-    )
-    result = _evaluate(target, graph)
-    candidate = (
-        result.witness_key
-        if result.status == QueryStatus.FAIL
-        and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
-        else None
-    )
-    replay = (
-        _replay(target, analysis, projection, graph, candidate, initials, exact)
-        if candidate is not None and not graph.excluded
-        else None
-    )
-    return Attempt(
-        projection,
-        graph,
-        result,
-        sub_budget,
-        candidate,
-        replay,
-        analysis.spec.id,
-        root_source(target) if isinstance(target, Unreachable) else "canonical",
-        list(range(1, len(initials) + 1)),
-    )
+    previous_rounds: list[dict] = []
+    widened_fields: list[str] = []
+    for refinement in range(_MAX_REFINEMENTS + 1):
+        graph = explore(
+            projection.spec,
+            [projection.context(ctx) for ctx in initials],
+            sub_budget,
+            store_edges=False,
+            projection=projection.variables,
+        )
+        result = _evaluate(target, graph)
+        candidate = (
+            result.witness_key
+            if result.status == QueryStatus.FAIL
+            and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
+            else None
+        )
+        replay = (
+            _replay(target, analysis, projection, graph, candidate, initials, exact)
+            if candidate is not None and not graph.excluded
+            else None
+        )
+        current = Attempt(
+            projection,
+            graph,
+            result,
+            sub_budget,
+            candidate,
+            replay,
+            analysis.spec.id,
+            root_source(target) if isinstance(target, Unreachable) else "canonical",
+            list(range(1, len(initials) + 1)),
+        )
+        current.previous_rounds = previous_rounds
+        current.widened_fields = widened_fields
+        if current.proved or replay is not None or refinement == _MAX_REFINEMENTS:
+            return current
+        widened = _refine(analysis, predicate, exact, projection, graph, candidate)
+        if widened is None:
+            return current
+        previous_rounds.append(current.round_report())
+        widened_fields = widened.widened_fields(projection.variables)
+        projection = widened
+    raise AssertionError("refinement loop must return")
 
 
 def cover_defects(
@@ -333,16 +379,23 @@ def cover_defects(
         )
         if probe is None or not probe.proved:
             return None
-    graph = explore(
-        projection.spec,
-        [projection.context(ctx) for ctx in initials],
-        max(1, budget // 4),
-        store_edges=False,
-        projection=projection.variables,
-    )
-    if graph.capped or graph.findings or graph.excluded:
-        return None
-    return projection, graph
+    for refinement in range(_MAX_REFINEMENTS + 1):
+        graph = explore(
+            projection.spec,
+            [projection.context(ctx) for ctx in initials],
+            max(1, budget // 4),
+            store_edges=False,
+            projection=projection.variables,
+        )
+        if not graph.capped and not graph.findings and not graph.excluded:
+            return projection, graph
+        if refinement == _MAX_REFINEMENTS or graph.capped or graph.excluded:
+            return None
+        widened = _refine(analysis, None, exact, projection, graph, obligation=action)
+        if widened is None:
+            return None
+        projection = widened
+    return None
 
 
 def root_source(query: Query) -> str:
@@ -408,41 +461,68 @@ def reach_witness(
     states = 0
     sub_budget = max(1, budget // 4)
     for number, root in enumerate(initials, 1):
-        graph = explore(
-            projection.spec,
-            [projection.context(root)],
-            sub_budget,
-            store_edges=False,
-            projection=projection.variables,
-        )
-        complete = not graph.capped and not graph.excluded
-        abstract = {
-            "relation": "over-approx",
-            "backend": "native",
-            "budget": sub_budget,
-            "complete": complete,
-            "root": number,
-            "states_explored": graph.state_count,
-            "status": QueryStatus.INCONCLUSIVE,
-            "proof_blockers": [finding.to_dict() for finding in graph.findings],
-        }
-        attempts.append(abstract)
-        if not complete or graph.findings:
-            return probe
-        scan = _scan_states(graph, query.predicate)
-        witness = scan.first_match
-        if scan.errors or witness is None:
-            abstract["status"] = QueryStatus.FAIL
-            abstract["evaluation_errors"] = scan.errors
-            return probe
-        abstract["status"] = QueryStatus.PASS
-        abstract["candidate_trace"] = graph.trace_to(witness)
-        replay = _replay_path(
-            analysis, projection, graph, witness, root, number, len(exact_roots) > 1, exact=exact
-        )
-        abstract["replayed"] = replay is not None
-        if replay is None:
-            return probe
+        widened_fields: list[str] = []
+        for refinement in range(_MAX_REFINEMENTS + 1):
+            graph = explore(
+                projection.spec,
+                [projection.context(root)],
+                sub_budget,
+                store_edges=False,
+                projection=projection.variables,
+            )
+            complete = not graph.capped and not graph.excluded
+            abstract = {
+                "relation": "over-approx",
+                "backend": "native",
+                "budget": sub_budget,
+                "complete": complete,
+                "root": number,
+                "states_explored": graph.state_count,
+                "status": QueryStatus.INCONCLUSIVE,
+                "proof_blockers": [finding.to_dict() for finding in graph.findings],
+                "retained_fields": projection.fields,
+                "widened_fields": widened_fields,
+            }
+            attempts.append(abstract)
+            if not complete:
+                return probe
+            witness = None
+            if not graph.findings:
+                scan = _scan_states(graph, query.predicate)
+                witness = scan.first_match
+                if scan.errors or witness is None:
+                    abstract["status"] = QueryStatus.FAIL
+                    abstract["evaluation_errors"] = scan.errors
+                    return probe
+                abstract["status"] = QueryStatus.PASS
+                abstract["candidate_trace"] = graph.trace_to(witness)
+                replay = _replay_path(
+                    analysis,
+                    projection,
+                    graph,
+                    witness,
+                    root,
+                    number,
+                    len(exact_roots) > 1,
+                    exact=exact,
+                )
+                abstract["replayed"] = replay is not None
+                if replay is not None:
+                    break
+            if refinement == _MAX_REFINEMENTS:
+                return probe
+            widened = _refine(analysis, query.predicate, exact, projection, graph, witness)
+            if widened is None:
+                return probe
+            widened_fields = widened.widened_fields(projection.variables)
+            projection = widened
+            probe.model["retained_fields"] = projection.fields
+            probe.model["dropped"] = projection.dropped
+            probe.model["omitted_writers"] = [
+                item["location"] for item in projection.dropped if item.get("writes")
+            ]
+        else:
+            raise AssertionError("refinement loop must decide whether to replay")
         concrete, _ = replay
         result = _eval_reachable(query, query.id or "Reachable", concrete, True)
         if result.status != QueryStatus.PASS:

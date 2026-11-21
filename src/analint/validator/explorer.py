@@ -907,7 +907,11 @@ def _explore(
                 # needs one (building the trace for every step was a hot spot)
                 for finding in step(spec, action, ctx, trace=exp._trace(idx), plan=plan).findings:
                     exp.report_once(
-                        finding.severity, finding.location, finding.message, finding.code
+                        finding.severity,
+                        finding.location,
+                        finding.message,
+                        finding.code,
+                        state=idx if projection is not None else None,
                     )
                 continue
 

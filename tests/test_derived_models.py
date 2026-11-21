@@ -1228,3 +1228,35 @@ def test_firing_replay_uses_deduplicated_exact_roots(monkeypatch):
     witness = derived_proof.firing_witness(target, analysis, piece, roots, proof)
     assert witness["root"] == 1
     assert witness["trace"] == ["enable", "target"]
+
+
+def test_full_reachability_reuses_a_witness_on_a_capped_exact_graph(monkeypatch):
+    class Data(Entity):
+        value: int = 0
+        audit: bool = False
+
+    grow = Action(id="grow", effect=[Add(Data.value, 1), Set(Data.audit, True)])
+    spec = Spec(
+        id="exact_witness",
+        name="Reuse exact witness",
+        actions=[grow],
+        queries=[Reachable(Data.value == 1, id="reach")],
+    )
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    cache = explorer.ExplorationStorage(analysis)
+    piece = analysis.predicate_slice(spec.queries[0].predicate, canonical=True)
+    exp, _ = explorer.explore_slice(analysis, piece, roots, 5, cache)
+    assert exp.capped
+
+    def unexpected_projection(*args, **kwargs):
+        pytest.fail("exact graph already witnessed reachability")
+
+    # Keep coverage complete so this test distinguishes exact witness reuse
+    # from the independent cap on per-action defect coverage.
+    monkeypatch.setattr(explorer, "cover_actions", lambda *args, **kwargs: {})
+    monkeypatch.setattr(derived_proof, "reach_witness", unexpected_projection)
+    result = explorer.run_query(spec.queries[0], spec, cache, max_states=5, analysis=analysis)
+    assert result.status == "PASS"
+    assert result.trace == ["grow"]
+    assert result.states_explored == exp.state_count

@@ -1229,6 +1229,13 @@ def _run_query(
         # invariants were proven from the canonical roots only (SliceAnalysis)
         canonical = not (query.given or query.given_any or query.initial is not None)
         dead_actions = isinstance(query, DeadActions)
+        prior_graphs = (
+            tuple(analysis.explored.get((analysis.roots_key(initials), budget), ()))
+            if isinstance(query, Reachable)
+            and coverage_actions is None
+            and isinstance(cache, ExplorationStorage)
+            else ()
+        )
         firing_proofs: list[dict] = []
         per_action = cover_actions(
             analysis,
@@ -1293,15 +1300,16 @@ def _run_query(
             per_action[id(action)].capped for action in piece.actions if id(action) in per_action
         )
         reach_probe = None
-        shared_recovery = (
-            isinstance(cache, ExplorationStorage)
-            and cache.plans_recovery(initials, budget, piece)
-            and any(
-                used.key == piece.key and not exp.capped and not exp.excluded and not exp.findings
-                for used, exp in analysis.explored.get((analysis.roots_key(initials), budget), ())
-            )
-        )
-        if isinstance(query, Reachable) and coverage_complete and not shared_recovery:
+        exact_reach = None
+        for used, exp in prior_graphs:
+            if used.key == piece.key:
+                exact_reach = _evaluate(query, qid, exp, spec)
+                if exact_reach.status == QueryStatus.PASS:
+                    explorations[qid] = exp
+                    exact_reach.slice = used.summary()
+                    return exact_reach
+                break
+        if isinstance(query, Reachable) and coverage_complete:
             reach_probe = reach_witness(query, analysis, piece, initials, budget)
             if reach_probe is not None and reach_probe.witness is not None:
                 result, explorations[qid] = reach_probe.witness
@@ -1325,7 +1333,7 @@ def _run_query(
                 return probe.result
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
         explorations[qid] = exp
-        result = _evaluate(query, qid, exp, spec)
+        result = exact_reach or _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
         if reach_probe is not None:
             reach_probe.record_exact(result, exp, budget)

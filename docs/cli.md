@@ -196,8 +196,10 @@ A `Reachable` proof requires an error-free
 covering scan and a concrete witness from each legal root. The check's trace
 is concrete. `DeadActions` can use replayed action-entry witnesses alongside
 exact results for other actions. Transition defects require independent
-coverage after a firing witness. The validator uses exact action slices when
-it cannot certify clean coverage on a projection, and exact recovery
+coverage after a firing witness. Each action has its own coverage obligation.
+A supporting writer's speculative defect stays in that projection, and the
+writer's own obligation decides whether there is a system diagnostic. The
+validator uses exact action slices when it cannot certify coverage, and exact recovery
 checking still decides `NoDeadEnd`.
 
 `slice` describes an exact slice. When exact diagnostic coverage already

@@ -1471,7 +1471,7 @@ def cover_actions(
         requested = {id(action) for action in actions}
         for action, piece, narrow in pieces:
             identity = id(action)
-            if require_firing and piece.vars is not None:
+            if piece.vars is not None:
                 existing = _existing_slice(
                     analysis, piece, analysis.explored.get(root_key[:2], []), reuse_superset=True
                 )

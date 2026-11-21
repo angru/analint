@@ -1054,3 +1054,20 @@ def test_dead_actions_reuses_complete_exact_coverage(monkeypatch):
     assert covered[id(increment)] is exact
     assert exact.fired == {"increment"}
     assert not firing_proofs
+
+
+def test_supporting_transition_defect_has_an_independent_coverage_obligation():
+    class Data(Entity):
+        value: int = Field(default=0, le=1)
+        audit: bool = False
+
+    reset = Action(id="reset", effect=[Set(Data.value, 0)])
+    broken = Action(id="broken", effect=[Set(Data.value, 2), Set(Data.audit, True)])
+    spec = Spec(id="independent_coverage", name="Independent coverage", actions=[reset, broken])
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    covered = explorer.cover_actions(analysis, roots, 128, {}, canonical=True)
+    assert not covered[id(reset)].findings
+    [finding] = covered[id(broken)].findings
+    assert finding.location == "action:broken"
+    assert finding.code == "transition.field_constraint"

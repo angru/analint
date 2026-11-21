@@ -1,6 +1,8 @@
 """Speculative safety checking and concrete replay."""
 
+from copy import copy
 from dataclasses import dataclass, field
+from math import isqrt
 
 from analint.models.action import Action
 from analint.models.invariant import Invariant
@@ -32,6 +34,12 @@ Result = InvariantResult | QueryResult
 _MAX_REFINEMENTS = 3
 
 
+def _witness_budget(budget: int) -> int:
+    # Coverage may run for every expanded action. Limit duplicate speculative
+    # work at large budgets while giving bigger checks room beyond 4096 states.
+    return max(1, min(budget // 4, 32 * isqrt(budget)))
+
+
 def _refine(
     analysis: SliceAnalysis,
     predicate: Predicate | None,
@@ -42,13 +50,24 @@ def _refine(
     *,
     obligation: Action | None = None,
 ) -> Projection | None:
-    actions = set(graph.trace_to(witness)) if witness is not None else set()
-    for finding_index, origins in graph.finding_states.items():
-        finding = graph.findings[finding_index]
-        actions.add(finding.location.removeprefix("action:"))
-        for origin in origins:
-            actions.update(graph._trace(origin))
-    reads = {var for action in actions for var in projection.dropped_guards.get(action, ())}
+    faulting_actions = {
+        graph.findings[index].location.removeprefix("action:") for index in graph.finding_states
+    }
+    reads = {
+        var for action in faulting_actions for var in projection.dropped_guards.get(action, ())
+    }
+    if not reads:
+        origins = {origin for states in graph.finding_states.values() for origin in states}
+        paths = [graph._trace(origin) for origin in sorted(origins)]
+        if witness is not None:
+            paths.append(graph.trace_to(witness))
+        # Prefer the guard closest to each failed step. Earlier guards can
+        # bring in unrelated state, so reconsider them only on a later round.
+        for path in paths:
+            for action in reversed(path):
+                if action in projection.dropped_guards:
+                    reads.update(projection.dropped_guards[action])
+                    break
     if not reads:
         return None
     return derive(
@@ -333,6 +352,8 @@ def _attempt(
     previous_rounds: list[dict] = []
     widened_fields: list[str] = []
     for refinement in range(_MAX_REFINEMENTS + 1):
+        if refinement:
+            sub_budget = _witness_budget(budget)
         graph = explore(
             projection.spec,
             [projection.context(ctx) for ctx in initials],
@@ -393,8 +414,9 @@ def cover_defects(
 ) -> tuple[Projection, Exploration] | None:
     """Prove clean transition coverage with the target action intact.
 
-    Supporting writers may be weakened. Their failures are speculative and
-    force exact coverage, which owns diagnostic ordering and trace attribution.
+    Supporting writers may be weakened. Their rejected edges cannot remove
+    a concrete accepted edge. Their defects are assessed by their own coverage
+    obligations, so they cannot block this action's certificate.
     """
     if any(not analysis.root_is_legal(ctx) for ctx in initials):
         return None
@@ -417,11 +439,29 @@ def cover_defects(
         graph = explore(
             projection.spec,
             [projection.context(ctx) for ctx in initials],
-            max(1, budget // 4),
+            _witness_budget(budget),
             store_edges=False,
             projection=projection.variables,
         )
-        if not graph.capped and not graph.findings and not graph.excluded:
+        supporting_locations = {
+            f"action:{writer.id}" for writer in projection.spec.actions if writer.id != action.id
+        }
+        if (
+            not graph.capped
+            and not graph.excluded
+            and all(
+                finding.location in supporting_locations
+                and finding.code.value.startswith("transition.")
+                for finding in graph.findings
+            )
+        ):
+            if graph.findings:
+                # The certificate enters coverage bookkeeping. Keep speculative
+                # supporting diagnostics and their provenance out of it.
+                graph = copy(graph)
+                graph.findings = []
+                graph.finding_states = {}
+                graph._seen = {}
             return projection, graph
         if refinement == _MAX_REFINEMENTS or graph.capped or graph.excluded:
             return None
@@ -493,7 +533,7 @@ def reach_witness(
     )
     best = None
     states = 0
-    sub_budget = max(1, budget // 4)
+    sub_budget = _witness_budget(budget)
     for number, root in enumerate(initials, 1):
         widened_fields: list[str] = []
         for refinement in range(_MAX_REFINEMENTS + 1):

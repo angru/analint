@@ -475,15 +475,26 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     assert [legacy(check) for check in projected_checks] == [
         legacy(check) for check in exact_checks
     ]
+
+    def check_id(check):
+        return check.invariant_id if hasattr(check, "invariant_id") else check.query_id
+
+    def requested(run, name):
+        return next(
+            check
+            for check in [*run.invariant_results, *run.query_results]
+            if check_id(check) == name
+        )
+
     full_proofs = proofs.copy()
     for result in exact_checks:
-        name = result.invariant_id if hasattr(result, "invariant_id") else result.query_id
+        name = check_id(result)
         assert name not in full_proofs or result.status != "FAIL", name
         proofs.clear()
         selected = validate(entry, max_states=budget, checks=[name])
         control = without_projection(checks=[name])
-        [actual] = [*selected.invariant_results, *selected.query_results]
-        [expected] = [*control.invariant_results, *control.query_results]
+        actual = requested(selected, name)
+        expected = requested(control, name)
         assert name not in proofs or expected.status != "FAIL", name
         assert selected.exploration_findings == control.exploration_findings
         if actual.status == "PASS" and expected.status == "INCONCLUSIVE":

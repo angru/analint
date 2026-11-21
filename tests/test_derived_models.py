@@ -159,6 +159,29 @@ def test_erased_hard_bound_produces_a_spurious_candidate():
     assert result.exploration_findings
 
 
+def test_replay_rejects_a_hidden_unrepresentable_effect():
+    class Poison(int):
+        def __add__(self, other):
+            return []
+
+    class Data(Entity):
+        visible: bool = False
+        hidden: int = Poison(0)
+
+    query = Unreachable(Data.visible, id="invisible")
+    spec = Spec(
+        id="unrepresentable",
+        name="Unrepresentable effect",
+        actions=[Action(id="show", effect=[Set(Data.visible, True), Add(Data.hidden, 1)])],
+        queries=[query],
+    )
+    probe = _check(spec, query)
+    assert probe.candidate is not None and probe.replayed is None
+    report = validate_spec(spec)
+    assert report.query_results[0].status == "PASS"
+    assert report.verdict == "FAIL"
+
+
 def test_hidden_terminal_lock_is_retained():
     class State(StrEnum):
         OPEN = "open"

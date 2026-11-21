@@ -166,7 +166,10 @@ def _replay(
                 break
             if _key_in_layout(projection.context(post), *layout) != expected:
                 break
-            next_key = state_key(post)
+            try:
+                next_key = state_key(post)
+            except TypeError:
+                break  # the concrete explorer cannot record this state
             concrete.add_state(next_key, concrete.index[key], concrete.action_code(action.id))
             key, ctx = next_key, post
             invalid = _report_invariant_violations(analysis.spec, ctx, key, concrete, plans=plans)
@@ -174,7 +177,11 @@ def _replay(
                 break
         else:
             result = _evaluate(target, concrete)
-            if result.status == QueryStatus.FAIL and result.witness_key == key:
+            if (
+                result.status == QueryStatus.FAIL
+                and result.witness_key == key
+                and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
+            ):
                 return result, concrete
     return None
 

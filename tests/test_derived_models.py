@@ -1171,3 +1171,27 @@ def test_own_root_projected_coverage_shares_one_work_allowance(monkeypatch):
     assert remaining == [32, 0]
     assert covered[id(first)].fired == {"first"}
     assert covered[id(second)].fired == {"second"}
+
+
+def test_safety_first_round_scales_with_exact_budget():
+    class Data(Entity):
+        value: int = 0
+        audit: bool = False
+
+    invariant = Invariant(Data.value <= 4100, id="limit")
+    spec = Spec(
+        id="scaling_safety",
+        name="Scaling safety",
+        invariants=[invariant],
+        actions=[
+            Action(
+                id="grow",
+                pre=[Data.value < 4100],
+                effect=[Add(Data.value, 1), Set(Data.audit, True)],
+            ),
+        ],
+    )
+    probe = _check(spec, invariant, budget=20_000)
+    assert probe.proved
+    assert probe.graph.state_count == 4101
+    assert not probe.previous_rounds

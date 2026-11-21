@@ -380,12 +380,10 @@ def _attempt(
         # could only observe slot contents after creation, including aggregates
         # and universal predicates that can be evaluated on an empty scope.
         return None
-    sub_budget = min(4096, max(1, budget // 4))
+    sub_budget = _witness_budget(budget)
     previous_rounds: list[dict] = []
     widened_fields: list[str] = []
     for refinement in range(_MAX_REFINEMENTS + 1):
-        if refinement:
-            sub_budget = _witness_budget(budget)
         graph = explore(
             projection.spec,
             [projection.context(ctx) for ctx in initials],

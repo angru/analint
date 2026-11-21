@@ -9,10 +9,12 @@ from analint import (
     Action,
     Add,
     And,
+    Bound,
     Create,
     Entity,
     Event,
     Field,
+    ForAll,
     Implies,
     Initial,
     Invariant,
@@ -218,6 +220,8 @@ def test_slots_cannot_supply_fields_while_absent():
     items = Scope(Item, keys=["first"], initially_present=False)
     (first,) = tuple(items)
     inv = Invariant(first.active, id="active")
+    item = Bound("item", items)
+    all_active = Invariant(ForAll(item, item.active), id="all_active")
     guarded = Unreachable(And(Present(first), first.active), id="no_active")
     spec = Spec(
         id="presence",
@@ -227,7 +231,7 @@ def test_slots_cannot_supply_fields_while_absent():
         ],
         scopes=[items],
         queries=[guarded],
-        invariants=[inv],
+        invariants=[inv, all_active],
     )
     analysis = SliceAnalysis(spec)
     roots, _ = build_canonical_initials(spec)
@@ -237,6 +241,16 @@ def test_slots_cannot_supply_fields_while_absent():
     assert projection is not None
     assert projection.context(roots[0])[first].__dict__["_analint_present"] is False
     assert derived_proof.attempt(inv, analysis, exact, roots, 128) is None
+    assert (
+        derived_proof.attempt(
+            all_active,
+            analysis,
+            analysis.invariant_slice(all_active, unconstrained=True),
+            roots,
+            128,
+        )
+        is None
+    )
     report = validate_spec(spec)
     assert report.invariant_results[0].status == "PASS"
     assert report.query_results[0].trace == ["create"]
@@ -400,9 +414,12 @@ TARGETS = [
     "entry", [p for p in TARGETS if p.name != "__init__.py"], ids=lambda p: str(p.relative_to(ROOT))
 )
 def test_example_and_benchmark_differential(entry, monkeypatch):
-    projected = validate(entry)
+    # The full M6 risk increment has 4.4 million states (research/36).
+    # Exercise the same roots and budget on both paths in the ordinary suite.
+    budget = 2000 if entry.name == "m6_risk.py" else None
+    projected = validate(entry, max_states=budget)
     monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)
-    exact = validate(entry)
+    exact = validate(entry, max_states=budget)
     # Library modules that do not declare an entry point have no checks.
     assert projected.load_errors == exact.load_errors
     assert projected.verdict == exact.verdict
@@ -415,8 +432,12 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
         *exact.invariant_results,
         *(result for result in exact.query_results if result.kind == "Unreachable"),
     ]
-    assert [(result.status, result.trace, result.findings) for result in projected_checks] == [
-        (result.status, result.trace, result.findings) for result in exact_checks
+
+    def legacy(check):
+        return check.status, check.trace, check.findings, check.states_explored, check.slice
+
+    assert [legacy(check) for check in projected_checks] == [
+        legacy(check) for check in exact_checks
     ]
     if not any(result.trace is not None for result in projected_checks):
         return

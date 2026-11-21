@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from analint.models.invariant import Invariant
 from analint.models.query import Unreachable
+from analint.models.scope import InstanceRef, is_present
 from analint.reporter.base import Code, InvariantResult, QueryResult, QueryStatus
 from analint.validator.derived_model import Projection, derive
 from analint.validator.explorer import (
@@ -18,7 +19,7 @@ from analint.validator.explorer import (
     state_key,
 )
 from analint.validator.kernel import Outcome, step
-from analint.validator.slicing import Slice, SliceAnalysis
+from analint.validator.slicing import PRESENT, Slice, SliceAnalysis
 from analint.validator.state_checks import InvariantPlan
 
 Target = Invariant | Unreachable
@@ -212,7 +213,19 @@ def _attempt(
         return None
     roots = [projection.context(ctx) for ctx in initials]
     applicability = InvariantPlan(target if isinstance(target, Invariant) else Invariant(predicate))
-    if not any(applicability.is_applicable(root) for root in roots):
+    scoped_reads = {
+        key
+        for key, name in projection.variables
+        if isinstance(key, InstanceRef) and name != PRESENT
+    }
+    if not any(
+        applicability.is_applicable(root)
+        and (not scoped_reads or any(is_present(root, key) for key in scoped_reads))
+        for root in roots
+    ):
+        # Keep exact budget and applicability semantics when a content check
+        # could only observe slot contents after creation, including aggregates
+        # and universal predicates that can be evaluated on an empty scope.
         return None
     sub_budget = min(4096, max(1, budget // 4))
     graph = explore(

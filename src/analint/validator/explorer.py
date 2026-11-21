@@ -1253,7 +1253,7 @@ def _run_query(
         probe = None
         if isinstance(query, Unreachable):
             probe = attempt(query, analysis, piece, initials, budget)
-            if probe is not None and probe.proved:
+            if probe is not None and probe.proved and coverage_actions is not None:
                 probe.result.model = probe.report()
                 explorations[qid] = probe.graph
                 assert isinstance(probe.result, QueryResult)
@@ -1269,7 +1269,11 @@ def _run_query(
                 assert isinstance(replay, QueryResult)
                 replay.model = probe.report(result, budget, exact_graph=exp, replayed=True)
                 return replay
-            result.model = probe.report(result, budget, exact_graph=exp)
+            result.model = (
+                probe.report()
+                if probe.proved and result.status == QueryStatus.PASS
+                else probe.report(result, budget, exact_graph=exp)
+            )
         return result
     exp = explore_cached(spec, initials, budget, cache)
     explorations[qid] = exp
@@ -1563,6 +1567,8 @@ def verify_invariants(
         # invariant trusted: it never prunes, other slices need not include it.
         from analint.validator.derived_proof import attempt
 
+        # Full runs retain their exact per-check budgets and diagnostic
+        # graphs. A selected check can take a clean proof before exact search.
         pending = []
         proved = {}
         probes = {}
@@ -1572,7 +1578,7 @@ def verify_invariants(
             probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
-                if probe.proved:
+                if probe.proved and not all_actions:
                     result = probe.result
                     assert isinstance(result, InvariantResult)
                     result.model = probe.report()
@@ -1620,20 +1626,15 @@ def verify_invariants(
                     replay.elapsed_ms = result.elapsed_ms
                     result = replay
                 else:
-                    result.model = probe.report(result, max_states, exact_graph=exp)
+                    result.model = (
+                        probe.report()
+                        if probe.proved and result.status == QueryStatus.PASS
+                        else probe.report(result, max_states, exact_graph=exp)
+                    )
             results_by_target[id(inv)] = result
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:
             cover_actions(analysis, initials, max_states, cache, canonical=True)
-        for inv in targets:
-            if id(inv) in proved:
-                _retain_exact_statistics(
-                    proved[id(inv)],
-                    analysis,
-                    analysis.invariant_slice(inv, unconstrained=True),
-                    initials,
-                    max_states,
-                )
         return [results_by_target[id(inv)] for inv in targets], None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()

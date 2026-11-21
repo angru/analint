@@ -173,13 +173,17 @@ precondition by removing a conjunct that reads an erased field. The projected
 graph covers every reachable concrete state for the retained fields.
 
 A complete, error-free result with a legal, applicable concrete root can
-prove safety. The budgeted attempt leaves world-invariant pruning disabled.
+prove safety. Checks over scoped contents use exact execution when no
+applicable root contains a retained slot. The budgeted attempt leaves
+world-invariant pruning disabled.
 A projected counterexample describes a candidate path. The checker tries that
 path from the matching concrete roots with the original transition kernel and
 world invariants. When the exact retry reaches its budget, a replayed violation
 still establishes failure. The checker keeps exact action coverage for
-transition diagnostics. Unsupported projections and unsuccessful proofs use
-the existing exact verification pipeline.
+transition diagnostics. Full checks also retain their exact per-check budgets
+and reporting statistics. Selected checks can finish the property proof on
+the smaller graph. Unsupported projections and unsuccessful proofs use the
+existing exact verification pipeline.
 
 ## TLC fallback
 

@@ -287,7 +287,7 @@ def test_cli_reports_the_slice_and_no_slice_restores_the_whole_model():
     sliced = json.loads(runner.invoke(app, ["check", path, "-f", "json"]).output)
     whole = json.loads(runner.invoke(app, ["check", path, "-f", "json", "--no-slice"]).output)
 
-    assert all("slice" in q or q["model"]["relation"] == "over-approx" for q in sliced["queries"])
+    assert all("slice" in q for q in sliced["queries"])
     assert all("slice" not in q for q in whole["queries"])
     assert [q["status"] for q in sliced["queries"]] == [q["status"] for q in whole["queries"]]
 

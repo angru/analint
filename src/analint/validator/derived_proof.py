@@ -1,13 +1,16 @@
-"""Speculative safety checking and concrete replay."""
+"""Projected proofs and concrete replay."""
 
+from collections import deque
+from collections.abc import Iterable
 from copy import copy
 from dataclasses import dataclass, field
-from math import isqrt
+from enum import Enum
+from math import isfinite, isqrt
 
 from analint.models.action import Action
 from analint.models.invariant import Invariant
 from analint.models.predicate import Predicate
-from analint.models.query import Reachable, Unreachable
+from analint.models.query import NoDeadEnd, Reachable, Unreachable
 from analint.models.root import Query
 from analint.models.scope import InstanceRef, is_present
 from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
@@ -29,6 +32,7 @@ from analint.validator.kernel import Outcome, step
 from analint.validator.rule_checker import evaluate
 from analint.validator.slicing import PRESENT, Slice, SliceAnalysis, Var
 from analint.validator.state_checks import InvariantPlan
+from analint.validator.structural import _collect_field_refs
 
 Target = Invariant | Unreachable
 Result = InvariantResult | QueryResult
@@ -521,9 +525,9 @@ def root_source(query: Query) -> str:
 
 
 @dataclass
-class ReachProbe:
+class QueryProbe:
     model: dict
-    witness: tuple[QueryResult, Exploration] | None = None
+    decision: tuple[QueryResult, Exploration] | None = None
 
     def record_exact(self, result: QueryResult, graph: Exploration, budget: int) -> None:
         self.model["relation"] = "exact" if result.status != QueryStatus.INCONCLUSIVE else None
@@ -540,13 +544,254 @@ class ReachProbe:
         result.model = self.model
 
 
+def recovery_probe(
+    query: NoDeadEnd,
+    analysis: SliceAnalysis,
+    exact: Slice,
+    initials: list[dict],
+    budget: int,
+    coverage: dict[int, Exploration],
+    *,
+    canonical: bool,
+) -> QueryProbe:
+    """Build a decreasing rank using only intact concrete transitions."""
+    probe = QueryProbe(
+        {
+            "relation": None,
+            "system_id": analysis.spec.id,
+            "view_id": None,
+            "proof_rule": "local-recovery",
+            "root_source": root_source(query),
+            "root_numbers": list(range(1, len(initials) + 1)),
+            "retained_fields": [],
+            "attempts": [],
+            "recheck": None,
+        }
+    )
+    blockers = _recovery_blockers(analysis, exact, initials, budget, coverage, canonical)
+    projection = derive(analysis, query.goal, exact) if not blockers else None
+    if projection is None:
+        probe.model["attempts"].append(
+            {
+                "relation": "over-approx",
+                "backend": "native",
+                "complete": False,
+                "status": QueryStatus.INCONCLUSIVE,
+                "states_explored": 0,
+                "ranks": [],
+                "proof_blockers": blockers or ["no smaller supported projection"],
+            }
+        )
+        return probe
+
+    limit = _witness_budget(budget)
+    widened_fields: list[str] = []
+    concrete = {action.id: action for action in exact.actions}
+    for refinement in range(_MAX_REFINEMENTS + 1):
+        graph = explore(
+            projection.spec,
+            [projection.context(ctx) for ctx in initials],
+            limit,
+            projection=projection.variables,
+        )
+        probe.model.update(
+            retained_fields=projection.fields,
+            dropped=projection.dropped,
+            omitted_writers=[item["location"] for item in projection.dropped if item.get("writes")],
+        )
+        blockers = []
+        if graph.capped:
+            blockers.append("projected state budget exhausted")
+        if graph.excluded:
+            blockers.append("excluded projected action")
+        if any(
+            not finding.code.value.startswith("transition.")
+            or (action := concrete.get(finding.location.removeprefix("action:"))) is None
+            or coverage[id(action)].findings
+            for finding in graph.findings
+        ):
+            blockers.append("unresolved projected diagnostics")
+
+        ranks: list[int] = []
+        recovery_actions: list[str] = []
+        missing: set[Var] = set()
+        if not blockers:
+            state_blocker = _recovery_state_blocker(projection, graph)
+            if state_blocker is not None:
+                blockers.append(state_blocker)
+        if not blockers:
+            scan = _scan_states(graph, query.goal, collect_matches=True)
+            if scan.errors:
+                blockers.extend(scan.errors)
+            elif not scan.matches:
+                blockers.append("no projected goal state")
+            else:
+                ranks, recovery_actions, missing = _recovery_ranks(
+                    analysis, concrete, projection, graph, scan.matches
+                )
+                if sum(ranks) != graph.state_count:
+                    blockers.append("some projected states lack a uniform recovery path")
+
+        probe.model["attempts"].append(
+            {
+                "relation": "over-approx",
+                "backend": "native",
+                "budget": limit,
+                "complete": not graph.capped and not graph.excluded,
+                "status": QueryStatus.INCONCLUSIVE if blockers else QueryStatus.PASS,
+                "states_explored": graph.state_count,
+                "retained_fields": projection.fields,
+                "widened_fields": widened_fields,
+                "ranks": ranks,
+                "recovery_actions": recovery_actions,
+                "proof_blockers": blockers,
+            }
+        )
+        if not blockers:
+            probe.model["relation"] = "over-approx"
+            result = QueryResult(
+                query.id or "NoDeadEnd", "NoDeadEnd", states_explored=graph.state_count
+            )
+            result.model = probe.model
+            probe.decision = result, graph
+            return probe
+        if not missing or refinement == _MAX_REFINEMENTS:
+            break
+        widened = _refine(analysis, query.goal, exact, projection, graph, replay_reads=missing)
+        if widened is None:
+            break
+        widened_fields = widened.widened_fields(projection.variables)
+        projection = widened
+    return probe
+
+
+def _recovery_blockers(
+    analysis: SliceAnalysis,
+    exact: Slice,
+    initials: list[dict],
+    budget: int,
+    coverage: dict[int, Exploration],
+    canonical: bool,
+) -> list[str]:
+    if any(not analysis.root_is_legal(ctx) for ctx in initials):
+        return ["inert or illegal root"]
+    state_types = set(analysis.spec.entities)
+    # Even an excluded action erased by the projection would make the
+    # exact recovery check undecided if it belongs to the exact slice.
+    blockers = [
+        f"incomplete diagnostic coverage: {action.id}"
+        for action in exact.actions
+        if (assessed := coverage.get(id(action))) is None
+        or assessed.capped
+        or action.id in assessed.excluded
+        or any(
+            ref.entity_cls not in state_types
+            for guard in action.pre
+            for ref in _collect_field_refs(guard)
+        )
+    ]
+    if blockers:
+        return blockers
+    for inv in analysis.spec.invariants:
+        support = analysis.invariant_slice(inv, unconstrained=True)
+        if (
+            canonical
+            and id(inv) in analysis.trusted
+            and all(
+                (assessed := coverage.get(id(action))) is not None and not assessed.capped
+                for action in support.actions
+            )
+        ):
+            continue
+        proof = attempt(inv, analysis, support, initials, budget)
+        if proof is None or not (
+            proof.proved or proof.covered_by(proof.blocked_actions(support), coverage)
+        ):
+            blockers.append(f"invariant lacks a system proof: {inv.id}")
+    return blockers
+
+
+def _recovery_state_blocker(projection: Projection, graph: Exploration) -> str | None:
+    # Projected keys keep type distinctions that exact keys may collapse.
+    # A rank-decreasing edge must still decrease rank after exact interning.
+    observed: dict[tuple[Var, object], tuple[type, str | None]] = {}
+    fields = [var for var in projection.variables if var[1] != PRESENT]
+    for key in graph.order:
+        context = decode_state(key)
+        for var in fields:
+            owner, name = var
+            if owner not in context or (
+                isinstance(owner, InstanceRef) and not is_present(context, owner)
+            ):
+                continue
+            value = context[owner].__dict__[name]
+            cls = type(value)
+            if cls is float:
+                if not isfinite(value):
+                    return "non-finite projected value"
+                representation = value.hex()
+            else:
+                if cls not in (bool, int, str, type(None)) and not isinstance(
+                    value, (Enum, InstanceRef)
+                ):
+                    return "unsupported projected value"
+                representation = None
+            identity = (cls, representation)
+            if observed.setdefault((var, value), identity) != identity:
+                return "exact state keys can merge distinct projected values"
+    return None
+
+
+def _recovery_ranks(
+    analysis: SliceAnalysis,
+    concrete: dict[str, Action],
+    projection: Projection,
+    graph: Exploration,
+    goals: Iterable[int],
+) -> tuple[list[int], list[str], set[Var]]:
+    missing = {
+        name: (analysis.action_vars[id(action)] | analysis.lock_vars[id(action)])
+        - projection.variables
+        for name, action in concrete.items()
+    }
+    intact = {name for name, fields in missing.items() if not fields}
+    # Each incoming edge comes from one named action with every concrete
+    # guard, effect and implicit kernel input intact.
+    incoming: list[list[int]] = [[] for _ in graph.keys]
+    for edge, (dst, code) in enumerate(zip(graph.edge_dst, graph.edge_action, strict=True)):
+        if graph.action_ids[code] in intact:
+            incoming[dst].append(edge)
+    recovery_actions = set()
+    queue = deque(goals)
+    rank = dict.fromkeys(queue, 0)
+    counts = [len(queue)]
+    while queue:
+        target = queue.popleft()
+        depth = rank[target] + 1
+        for edge in incoming[target]:
+            source = graph.edge_src[edge]
+            if source not in rank:
+                rank[source] = depth
+                recovery_actions.add(graph.action_ids[graph.edge_action[edge]])
+                if depth == len(counts):
+                    counts.append(0)
+                counts[depth] += 1
+                queue.append(source)
+    refine: set[Var] = set()
+    if len(rank) != graph.state_count:
+        for src, dst, code in zip(graph.edge_src, graph.edge_dst, graph.edge_action, strict=True):
+            if src not in rank and dst in rank:
+                refine.update(missing.get(graph.action_ids[code], ()))
+    return counts, sorted(recovery_actions), refine
+
+
 def reach_witness(
     query: Reachable,
     analysis: SliceAnalysis,
     exact: Slice,
     initials: list[dict],
     budget: int,
-) -> ReachProbe | None:
+) -> QueryProbe | None:
     projection = derive(analysis, query.predicate, exact)
     if projection is None or any(not analysis.root_is_legal(ctx) for ctx in initials):
         return None
@@ -554,7 +799,7 @@ def reach_witness(
     # Per-root exploration preserves obligations even when abstract roots merge.
     # A complete scan is required because evaluation errors outrank a witness.
     attempts: list[dict] = []
-    probe = ReachProbe(
+    probe = QueryProbe(
         {
             "relation": "under-approx: replayed",
             "system_id": analysis.spec.id,
@@ -678,7 +923,7 @@ def reach_witness(
         result, _ = best
         result.states_explored = states
         result.model = probe.model
-        probe.witness = best
+        probe.decision = best
     return probe
 
 

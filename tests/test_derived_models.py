@@ -546,3 +546,45 @@ def test_projection_preserves_equal_values_with_different_arithmetic(tmp_path):
             assert list(graph.roots.values()) == [2]
         assert explorer._STORE is not None and explorer._STORE.hits == 1
     assert validate_spec(spec, checks=["forbidden"]).query_results[0].status == "FAIL"
+
+
+@pytest.mark.parametrize("outcome, status", [("ok", "PASS"), ("violation", "FAIL")])
+def test_tlc_records_deciding_exact_query_attempt(monkeypatch, outcome, status):
+    from analint.backends.tlc import TlcResult
+    from analint.reporter.terminal import _model_note
+    from analint.validator import tlc_fallback
+
+    class Data(Entity):
+        reached: bool = False
+        hidden: int = 0
+
+    spec = Spec(
+        id="backend",
+        name="Backend",
+        max_states=8,
+        actions=[
+            *[Action(id=f"noise_{n}", effect=[Set(Data.hidden, n)]) for n in range(1, 9)],
+            Action(id="enter", pre=[Data.hidden == 8], effect=[Set(Data.reached, True)]),
+        ],
+        queries=[Unreachable(Data.reached, id="forbidden")],
+    )
+    monkeypatch.setattr(tlc_fallback, "find_tlc", lambda: None)
+    monkeypatch.setattr(
+        tlc_fallback,
+        "run_tlc",
+        lambda *_args, **_kwargs: TlcResult(
+            outcome, trace=["noise_8", "enter"], distinct_states=10
+        ),
+    )
+    [result] = validate_spec(spec, tlc=True).query_results
+    assert result.status == status
+    model = result.model
+    assert model["relation"] == "exact"
+    assert [(a["backend"], a["status"]) for a in model["attempts"]] == [
+        ("native", "FAIL"),
+        ("native", "INCONCLUSIVE"),
+        ("tlc", status),
+    ]
+    assert model["recheck"] == model["attempts"][-1]
+    assert model["recheck"]["states_explored"] == 10
+    assert _model_note(model) == ", system backend, exact"

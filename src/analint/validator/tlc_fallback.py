@@ -106,6 +106,7 @@ def decide_with_tlc(
             timeout,
             defect_actions.get(f"query:{query.id}") if defect_actions is not None else None,
         )
+        _record_exact_backend(res, timeout)
 
 
 def _record_exact_backend(res: InvariantResult | QueryResult, timeout: float | None) -> None:

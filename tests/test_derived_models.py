@@ -1108,3 +1108,66 @@ def test_reachability_replays_an_alternative_before_widening():
     assert first["candidate_trace"] == ["actual"]
     assert first["widened_fields"] == []
     assert replay["relation"] == "under-approx: replayed"
+
+
+def test_full_run_uses_planned_recovery_graph_for_matching_checks(monkeypatch):
+    class Data(Entity):
+        active: bool = False
+        audit: bool = False
+
+    start = Action(id="start", effect=[Set(Data.active, True), Set(Data.audit, True)])
+    stop = Action(id="stop", effect=[Set(Data.active, False)])
+    spec = Spec(
+        id="recovery_reuse",
+        name="Recovery reuse",
+        actions=[start, stop],
+        invariants=[Invariant(Data.active == Data.active, id="safety")],
+        queries=[
+            Reachable(Data.active == True, id="active"),  # noqa: E712
+            NoDeadEnd(Data.active == False, id="recover"),  # noqa: E712
+            DeadActions(id="firing"),
+        ],
+    )
+
+    def unexpected_projection(*args, **kwargs):
+        pytest.fail("the planned recovery graph already covers this obligation")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(derived_proof, "attempt", unexpected_projection)
+        patch.setattr(derived_proof, "reach_witness", unexpected_projection)
+        patch.setattr(derived_proof, "cover_defects", unexpected_projection)
+        full = validate_spec(spec)
+    assert full.verdict == "PASS"
+    assert full.query_results[0].trace == ["start"]
+    assert full.query_results[0].model is None
+    selected = validate_spec(spec, checks=["safety", "active"])
+    assert selected.verdict == full.verdict
+    assert selected.query_results[0].trace == full.query_results[0].trace
+    assert selected.invariant_results[0].model["relation"] == "over-approx"
+
+
+def test_own_root_projected_coverage_shares_one_work_allowance(monkeypatch):
+    class Data(Entity):
+        x: bool = False
+        y: bool = False
+
+    first = Action(id="first", effect=[Set(Data.x, True)])
+    second = Action(id="second", effect=[Set(Data.y, True)])
+    spec = Spec(id="work_limit", name="Work limit", actions=[first, second])
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    remaining = []
+
+    def spend_allowance(*args, work=None, **kwargs):
+        assert work is not None
+        remaining.append(work[0])
+        work[0] = 0
+        return None
+
+    monkeypatch.setattr(derived_proof, "cover_defects", spend_allowance)
+    covered = explorer.cover_actions(
+        analysis, roots, 128, {}, canonical=False, limit_projection_work=True
+    )
+    assert remaining == [32, 0]
+    assert covered[id(first)].fired == {"first"}
+    assert covered[id(second)].fired == {"second"}

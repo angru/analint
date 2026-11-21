@@ -74,6 +74,7 @@ def prove_query(
                 )
                 if certificate is None:
                     break
+                certificate[1].release_graph()
                 coverage.append(certificate[1])
             else:
                 assert isinstance(probe.result, QueryResult)

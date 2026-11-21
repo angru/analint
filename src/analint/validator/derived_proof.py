@@ -106,6 +106,7 @@ class Attempt:
     roots: list[int]
     previous_rounds: list[dict] = field(default_factory=list)
     widened_fields: list[str] = field(default_factory=list)
+    compact_report: dict | None = None
 
     def _diagnostic_blockers(self) -> list[Finding]:
         return [
@@ -148,7 +149,13 @@ class Attempt:
             for action in actions
         )
 
+    def release_graph(self) -> None:
+        self.compact_report = self.round_report()
+        self.graph.release_graph()
+
     def round_report(self) -> dict:
+        if self.compact_report is not None:
+            return self.compact_report.copy()
         blockers = self._diagnostic_blockers()
         if self.graph.capped:
             blockers.append(
@@ -339,7 +346,10 @@ def attempt(
 ) -> Attempt | None:
     key = (id(target), analysis.roots_key(initials), budget, exact.key)
     if key not in analysis.derived_attempts:
-        analysis.derived_attempts[key] = _attempt(target, analysis, exact, initials, budget)
+        probe = _attempt(target, analysis, exact, initials, budget)
+        if probe is not None and not analysis.retain_derived_graphs:
+            probe.release_graph()
+        analysis.derived_attempts[key] = probe
     return analysis.derived_attempts[key]
 
 
@@ -433,6 +443,7 @@ def cover_defects(
     budget: int,
     *,
     canonical: bool,
+    work: list[int] | None = None,
 ) -> tuple[Projection, Exploration] | None:
     """Prove clean transition coverage with the target action intact.
 
@@ -440,7 +451,9 @@ def cover_defects(
     a concrete accepted edge. Their defects are assessed by their own coverage
     obligations, so they cannot block this action's certificate.
     """
-    if any(not analysis.root_is_legal(ctx) for ctx in initials):
+    if (work is not None and work[0] <= 0) or any(
+        not analysis.root_is_legal(ctx) for ctx in initials
+    ):
         return None
     projection = derive(analysis, None, exact, obligation=action)
     if projection is None:
@@ -458,13 +471,20 @@ def cover_defects(
         if probe is None or not probe.proved:
             return None
     for refinement in range(_MAX_REFINEMENTS + 1):
+        limit = _witness_budget(budget)
+        if work is not None:
+            if work[0] <= 0:
+                return None
+            limit = min(limit, work[0])
         graph = explore(
             projection.spec,
             [projection.context(ctx) for ctx in initials],
-            _witness_budget(budget),
+            limit,
             store_edges=False,
             projection=projection.variables,
         )
+        if work is not None:
+            work[0] -= graph.state_count
         supporting_locations = {
             f"action:{writer.id}" for writer in projection.spec.actions if writer.id != action.id
         }

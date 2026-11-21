@@ -417,9 +417,23 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     # The full M6 risk increment has 4.4 million states (research/36).
     # Exercise the same roots and budget on both paths in the ordinary suite.
     budget = 2000 if entry.name == "m6_risk.py" else None
+    proofs = set()
+    attempt = derived_proof.attempt
+
+    def observe(target, *args):
+        probe = attempt(target, *args)
+        if probe is not None and probe.proved:
+            proofs.add(target.id)
+        return probe
+
+    def without_projection(**kwargs):
+        with monkeypatch.context() as exact_run:
+            exact_run.setattr(derived_proof, "attempt", lambda *_: None)
+            return validate(entry, max_states=budget, **kwargs)
+
+    monkeypatch.setattr(derived_proof, "attempt", observe)
     projected = validate(entry, max_states=budget)
-    monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)
-    exact = validate(entry, max_states=budget)
+    exact = without_projection()
     # Library modules that do not declare an entry point have no checks.
     assert projected.load_errors == exact.load_errors
     assert projected.verdict == exact.verdict
@@ -439,6 +453,26 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     assert [legacy(check) for check in projected_checks] == [
         legacy(check) for check in exact_checks
     ]
+    full_proofs = proofs.copy()
+    for result in exact_checks:
+        name = result.invariant_id if hasattr(result, "invariant_id") else result.query_id
+        assert name not in full_proofs or result.status != "FAIL", name
+        proofs.clear()
+        selected = validate(entry, max_states=budget, checks=[name])
+        control = without_projection(checks=[name])
+        [actual] = [*selected.invariant_results, *selected.query_results]
+        [expected] = [*control.invariant_results, *control.query_results]
+        assert name not in proofs or expected.status != "FAIL", name
+        assert selected.exploration_findings == control.exploration_findings
+        if actual.status == "PASS" and expected.status == "INCONCLUSIVE":
+            assert actual.model["relation"] == "over-approx"
+        else:
+            assert (actual.status, actual.trace, actual.findings) == (
+                expected.status,
+                expected.trace,
+                expected.findings,
+            )
+
     if not any(result.trace is not None for result in projected_checks):
         return
     spec = prepare_model(entry).spec

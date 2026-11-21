@@ -185,7 +185,11 @@ on the check itself is concrete and a replayed trace may be longer than the
 shortest witness. `slice` continues to describe an exact slice. When exact
 diagnostic coverage already explored that slice, its state count can still
 appear in `states_explored`. Read the deciding attempt for the proof's own
-state count. `--no-slice` uses only the whole model. TLC checks only exact graphs.
+state count. A selected `--check` can prove PASS when the same obligation in a
+full run is INCONCLUSIVE. The projected graph can complete within budget even
+if the exact graph caps, or prove that excluded actions leave all retained fields
+and slot presence unchanged. Full runs retain exact per-check budget and exclusion
+behavior. `--no-slice` uses only the whole model. TLC checks only exact graphs.
 
 **0.1.0:** a `tlc.transition_defect` finding is retained in the affected
 query or invariant's `findings` and repeated in `exploration`. The first occurrence

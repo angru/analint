@@ -597,3 +597,36 @@ def test_tlc_records_deciding_exact_query_attempt(monkeypatch, outcome, status):
     assert model["recheck"] == model["attempts"][-1]
     assert model["recheck"]["states_explored"] == 10
     assert _model_note(model) == ", system backend, exact"
+
+
+@pytest.mark.parametrize("excluded", [False, True])
+def test_selected_projection_can_prove_safety_when_full_exact_is_inconclusive(excluded):
+    class Data(Entity):
+        reached: bool = False
+        hidden: int = 0
+
+    class Signal(Event):
+        ready: bool
+
+    noise = (
+        [Action(id="signal", pre=[Signal.ready], effect=[Set(Data.hidden, 1)])]
+        if excluded
+        else [Action(id=f"noise_{n}", effect=[Set(Data.hidden, n)]) for n in range(1, 9)]
+    )
+    spec = Spec(
+        id="strengthening",
+        name="Selected safety proof",
+        max_states=8,
+        actions=[
+            *noise,
+            Action(id="reset", effect=[Set(Data.reached, False), Set(Data.hidden, 0)]),
+        ],
+        queries=[Unreachable(Data.reached, id="forbidden")],
+    )
+    [full] = validate_spec(spec).query_results
+    [selected] = validate_spec(spec, checks=["forbidden"]).query_results
+    assert full.status == "INCONCLUSIVE"
+    assert full.model["recheck"]["complete"] is False
+    assert selected.status == "PASS"
+    assert selected.model["relation"] == "over-approx"
+    assert selected.model["attempts"][0]["states_explored"] == 1

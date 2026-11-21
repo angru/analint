@@ -1373,17 +1373,9 @@ def explore_slice(
     if piece.vars is None:
         return explore_cached(analysis.spec, initials, max_states, cache), piece
     explored = analysis.explored.setdefault((analysis.roots_key(initials), max_states), [])
-    for used, exp in explored:
-        if used.key == piece.key or (
-            reuse_superset
-            and not exp.capped
-            and piece.vars <= used.vars
-            # more variables need not mean more actions: an effectless action,
-            # or a writer that only switches a flag off, joins only its own slice
-            and {id(a) for a in piece.actions} <= {id(a) for a in used.actions}
-            and analysis.is_exact(used)
-        ):
-            return exp, used
+    existing = _existing_slice(analysis, piece, explored, reuse_superset=reuse_superset)
+    if existing is not None:
+        return existing
     roots, numbers, inert = analysis.project_roots(piece, initials)
     store_edges = not isinstance(cache, ExplorationStorage) or cache.stores_edges(
         initials, max_states, piece
@@ -1401,6 +1393,29 @@ def explore_slice(
         if isinstance(cache, ExplorationStorage):
             cache.track(initials, max_states, exp)
     return exp, piece
+
+
+def _existing_slice(
+    analysis: SliceAnalysis,
+    piece: Slice,
+    explored: list[tuple[Slice, Exploration]],
+    *,
+    reuse_superset: bool,
+) -> tuple[Exploration, Slice] | None:
+    for used, exp in explored:
+        if used.key == piece.key or (
+            reuse_superset
+            and not exp.capped
+            and piece.vars is not None
+            and used.vars is not None
+            and piece.vars <= used.vars
+            # more variables need not mean more actions: an effectless action,
+            # or a writer that only switches a flag off, joins only its own slice
+            and {id(a) for a in piece.actions} <= {id(a) for a in used.actions}
+            and analysis.is_exact(used)
+        ):
+            return exp, used
+    return None
 
 
 def cover_actions(
@@ -1450,6 +1465,17 @@ def cover_actions(
         requested = {id(action) for action in actions}
         for action, piece, narrow in pieces:
             identity = id(action)
+            if require_firing and piece.vars is not None:
+                existing = _existing_slice(
+                    analysis, piece, analysis.explored.get(root_key[:2], []), reuse_superset=True
+                )
+                if (
+                    existing is not None
+                    and not existing[0].capped
+                    and (not narrow or action.id in existing[0].fired)
+                ):
+                    covered[identity] = existing[0]
+                    continue
             if not narrow:
                 proof = prove(action)
                 if proof is not None and all(

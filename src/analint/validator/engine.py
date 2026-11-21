@@ -409,7 +409,11 @@ def _run_checks(
         query_runs.append((query, initial_state, group, (perf_counter() - started) * 1000))
 
     if selection.invariants:
-        from analint.validator.explorer import cover_actions, verify_invariants
+        from analint.validator.explorer import (
+            _retain_exact_statistics,
+            cover_actions,
+            verify_invariants,
+        )
 
         while True:
             result.invariant_results, _ = verify_invariants(
@@ -442,6 +446,17 @@ def _run_checks(
                         f"invariant:{inv.id}" for inv in selection.invariants
                     ),
                 )
+                for inv, checked in zip(
+                    selection.invariants, result.invariant_results, strict=True
+                ):
+                    if checked.model is not None and checked.model["relation"] == "over-approx":
+                        _retain_exact_statistics(
+                            checked,
+                            analysis,
+                            analysis.invariant_slice(inv, unconstrained=True),
+                            canonical_initials,
+                            max_states or spec.max_states,
+                        )
 
     explorations.finish(canonical_group, decided)
 

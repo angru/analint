@@ -410,6 +410,11 @@ def test_projection_cold_warm_and_exact_reports(tmp_path, monkeypatch, checks):
     exact = run()
     assert exact["verdict"] == warm["verdict"]
     assert exact["exploration"] == warm["exploration"]
+    if checks is not None:
+        [projected_inv] = warm["invariants"]
+        [exact_inv] = exact["invariants"]
+        assert projected_inv["slice"] == exact_inv["slice"]
+        assert projected_inv["states_explored"] == exact_inv["states_explored"]
 
 
 TARGETS = [

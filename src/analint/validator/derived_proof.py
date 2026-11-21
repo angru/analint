@@ -211,11 +211,11 @@ def _replay(
     abstract: Exploration,
     witness: StateKey,
     initials: list[dict],
+    exact: Slice,
 ) -> tuple[Result, Exploration] | None:
-    for number, root in enumerate(initials, 1):
-        replay = _replay_path(
-            analysis, projection, abstract, witness, root, number, len(initials) > 1
-        )
+    roots, numbers, _ = analysis.project_roots(exact, initials)
+    for number, root in zip(numbers, roots, strict=True):
+        replay = _replay_path(analysis, projection, abstract, witness, root, number, len(roots) > 1)
         if replay is None:
             continue
         concrete, key = replay
@@ -285,7 +285,7 @@ def _attempt(
         else None
     )
     replay = (
-        _replay(target, analysis, projection, graph, candidate, initials)
+        _replay(target, analysis, projection, graph, candidate, initials, exact)
         if candidate is not None and not graph.excluded
         else None
     )

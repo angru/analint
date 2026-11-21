@@ -853,3 +853,26 @@ def test_complete_projected_coverage_needs_no_exact_graph(monkeypatch, checks):
     assert report.verdict == "PASS"
     assert report.invariant_results[0].model["relation"] == "over-approx"
     assert not exact
+
+
+def test_replayed_unreachable_uses_exact_slice_root_attribution():
+    class Data(Entity):
+        reached: bool = False
+        audit: bool = False
+
+    class Other(Entity):
+        flag: bool = False
+
+    check = Unreachable(Data.reached, id="forbidden")
+    spec = Spec(
+        id="merged_roots",
+        name="Merged exact roots",
+        initial=Initial(vary=[Other.flag]),
+        actions=[Action(id="reach", effect=[Set(Data.reached, True), Set(Data.audit, True)])],
+        queries=[check],
+    )
+    probe = _check(spec, check)
+    assert probe.replayed is not None
+    replay, graph = probe.replayed
+    assert not graph.multiple_roots
+    assert [finding.code.value for finding in replay.findings] == ["query.reached_forbidden"]

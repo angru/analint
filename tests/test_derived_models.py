@@ -133,9 +133,12 @@ def test_retained_bound_defects_or_clamps(value, saturate, status):
     assert not probe.proved
     result = validate_spec(spec)
     assert result.query_results[0].status == status
-    assert any(f.code == "transition.field_constraint" for f in probe.graph.findings) == (
-        status == "PASS"
-    )
+    blockers = probe.report()["attempts"][0]["proof_blockers"]
+    assert any(b["code"] == "transition.field_constraint" for b in blockers) == (status == "PASS")
+    if status == "PASS":
+        [blocker] = blockers
+        assert blocker["location"] == "action:over"
+        assert "Counter.x" in blocker["message"]
     if status == "FAIL":
         assert probe.replayed is not None
 
@@ -301,12 +304,17 @@ def test_excluded_visible_writer_and_predicate_error_do_not_prove_pass():
     report = validate_spec(spec)
     assert report.query_results[0].status == "INCONCLUSIVE"
     assert report.exploration_findings[0].location == "action:signal"
+    assert report.query_results[0].model is None  # relevant exclusion prevents projection
+    assert report.exploration_findings[0].code == "exploration.action_excluded"
 
     error = Unreachable(1 // Data.number == 1, id="divide")
     write = Action(id="write", effect=[Set(Data.number, 2), Set(Data.hidden, True)])
     spec = Spec(id="error", name="error", actions=[write], queries=[error])
     probe = _check(spec, error)
     assert not probe.proved and probe.candidate is None
+    [evaluation_error] = probe.report()["attempts"][0]["proof_blockers"]
+    assert evaluation_error["code"] == "query.evaluation_error"
+    assert "division" in evaluation_error["message"]
     assert validate_spec(spec).query_results[0].status == "FAIL"
 
 
@@ -635,3 +643,26 @@ def test_selected_projection_can_prove_safety_when_full_exact_is_inconclusive(ex
     assert selected.status == "PASS"
     assert selected.model["relation"] == "over-approx"
     assert selected.model["attempts"][0]["states_explored"] == 1
+
+
+def test_capped_projection_reports_its_budget_blocker():
+    class Data(Entity):
+        x: int = 0
+        audit: bool = False
+
+    check = Unreachable(Data.x == 99, id="forbidden")
+    spec = Spec(
+        id="capped_projection",
+        name="Capped projection",
+        actions=[
+            Action(id="inc", pre=[Data.x < 3], effect=[Add(Data.x, 1), Set(Data.audit, True)])
+        ],
+        queries=[check],
+    )
+    probe = _check(spec, check, budget=8)
+    first = probe.report()["attempts"][0]
+    assert first["status"] == "INCONCLUSIVE"
+    assert not first["complete"]
+    [blocker] = first["proof_blockers"]
+    assert blocker["code"] == "check.budget_exhausted"
+    assert "2-state budget" in blocker["message"]

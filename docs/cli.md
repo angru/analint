@@ -180,7 +180,10 @@ proof, `under-approx: replayed` for a concrete violation confirmed by replay,
 The object lists the system ID, root source and numbers, retained fields,
 dropped elements with reasons, ordered attempts and the exact `recheck` when
 one was needed. Each attempt records its backend, budget, completeness, status
-and explored state count. Candidate traces are local to the attempt. A trace
+and explored state count. The projected attempt's status is local to its graph.
+Its `proof_blockers` list explains transition defects, evaluation errors, or
+budget exhaustion that prevent transferring a proof to the system. Candidate
+traces are local to the attempt. A trace
 on the check itself is concrete and a replayed trace may be longer than the
 shortest witness. `slice` continues to describe an exact slice. When exact
 diagnostic coverage already explored that slice, its state count can still

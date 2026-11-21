@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from analint.models.invariant import Invariant
 from analint.models.query import Unreachable
 from analint.models.scope import InstanceRef, is_present
-from analint.reporter.base import Code, InvariantResult, QueryResult, QueryStatus
+from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.derived_model import Projection, derive
 from analint.validator.explorer import (
     Exploration,
@@ -44,16 +44,19 @@ class Attempt:
     root_source: str
     roots: list[int]
 
+    def _diagnostic_blockers(self) -> list[Finding]:
+        return [
+            *self.graph.findings,
+            *(
+                finding
+                for finding in self.result.findings
+                if finding.code in (Code.INVARIANT_EVALUATION_ERROR, Code.QUERY_EVALUATION_ERROR)
+            ),
+        ]
+
     @property
     def clean(self) -> bool:
-        return (
-            not self.graph.findings
-            and not self.graph.excluded
-            and not any(
-                finding.code in (Code.INVARIANT_EVALUATION_ERROR, Code.QUERY_EVALUATION_ERROR)
-                for finding in self.result.findings
-            )
-        )
+        return not self.graph.excluded and not self._diagnostic_blockers()
 
     @property
     def proved(self) -> bool:
@@ -72,12 +75,23 @@ class Attempt:
             relation = "under-approx: replayed"
         elif exact is not None and exact.status == QueryStatus.INCONCLUSIVE:
             relation = None
+        blockers = self._diagnostic_blockers()
+        if self.graph.capped:
+            blockers.append(
+                Finding(
+                    Severity.WARNING,
+                    "model:over-approx",
+                    f"projected exploration exhausted its {self.budget}-state budget",
+                    Code.BUDGET_EXHAUSTED,
+                )
+            )
         first = {
             "relation": "over-approx",
             "backend": "native",
             "budget": self.budget,
             "complete": not self.graph.capped and not self.graph.excluded,
             "clean": self.clean,
+            "proof_blockers": [finding.to_dict() for finding in blockers],
             "status": self.result.status,
             "states_explored": self.graph.state_count,
         }

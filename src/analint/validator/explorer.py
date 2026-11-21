@@ -54,7 +54,7 @@ from analint.models.scope import (
 )
 from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
 from analint.validator.kernel import Outcome, build_plan, step
-from analint.validator.rule_checker import evaluate
+from analint.validator.rule_checker import compile_predicate, evaluate
 from analint.validator.slicing import (
     PRESENT,
     Slice,
@@ -108,6 +108,7 @@ class Exploration:
         self._seen: dict[tuple, int] = {}
         self._released_count: int | None = None
         self._root_origins: dict[int, tuple[StateKey, ...]] = {}
+        self._query_context_cache: tuple[int, frozenset, dict[bytes, dict]] | None = None
 
     @property
     def state_count(self) -> int:
@@ -129,6 +130,7 @@ class Exploration:
         self._root_origins = {i: self.root_origins(i) for i in self.finding_states}
         self._released_count = len(self.keys)
         self.keys.clear()
+        self._query_context_cache = None
         self.index.clear()
         self.roots.clear()
         self.parent = array("i")
@@ -1818,23 +1820,67 @@ class _Scan:
     """
 
     first_match: StateKey | None = None
-    matches: set[int] = dc_field(default_factory=set)
+    matches: array = dc_field(default_factory=lambda: array("i"))
     applicable: int = 0
     errors: list = dc_field(default_factory=list)
 
 
+def _query_contexts(exp: Exploration, predicate: Predicate, required: frozenset) -> Iterator[dict]:
+    """Reuse decoded contexts for repeat combinations of the slots a query reads."""
+    keys = exp.order
+    reads: set[Var] = set()
+    try:
+        _pred_vars(predicate, reads)
+    except _Unsliceable:
+        yield from map(decode_state, keys)
+        return
+
+    if keys:
+        layout_id = _codes(keys[0])[0]
+        layout = _LAYOUTS[layout_id]
+        owners = required | {owner for owner, _ in reads}
+        slots = [i for i, (owner, _, _) in enumerate(layout, start=1) if owner in owners]
+        if layout_id < _ESCAPE and slots and slots[-1] - slots[0] + 1 < len(layout):
+            # Fixed-width keys put all relevant slot codes in one byte span.
+            # A different layout or any escaped code requires ordinary decoding.
+            prefix = keys[0][:2]
+            width = 2 * (len(layout) + 1)
+            span = slice(2 * slots[0], 2 * (slots[-1] + 1))
+            cached = exp._query_context_cache
+            if cached is None or cached[:2] != (layout_id, owners):
+                cached = exp._query_context_cache = (layout_id, owners, {})
+            cache = cached[2]
+            for key in keys:
+                if len(key) != width or not key.startswith(prefix):
+                    yield decode_state(key)
+                    continue
+                signature = key[span]
+                ctx = cache.get(signature)
+                if ctx is None:
+                    full = decode_state(key)
+                    ctx = {owner: full[owner] for owner in owners if owner in full}
+                    if len(cache) < 4096:
+                        cache[signature] = ctx
+                yield ctx
+            return
+    yield from map(decode_state, keys)
+
+
 def _scan_states(exp: Exploration, predicate: Predicate, *, collect_matches: bool = False) -> _Scan:
     scan = _Scan()
-    refs = _collect_field_refs(predicate)
-    for idx, key in enumerate(exp.order):
-        ctx = decode_state(key)  # keys of exp.order are all explored
-        if any(field_context_key(r) not in ctx for r in refs):
+    required = frozenset(field_context_key(ref) for ref in _collect_field_refs(predicate))
+    check = None
+    contexts = _query_contexts(exp, predicate, required)
+    for idx, (key, ctx) in enumerate(zip(exp.order, contexts, strict=True)):
+        if not required <= ctx.keys():
             continue
         scan.applicable += 1
         try:
-            if evaluate(predicate, ctx):
+            if check is None:
+                check = compile_predicate(predicate)
+            if check(ctx):
                 if collect_matches:
-                    scan.matches.add(idx)
+                    scan.matches.append(idx)
                 if scan.first_match is None:
                     scan.first_match = key
         except Exception as exc:
@@ -2094,7 +2140,9 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     )
 
 
-def _dead_end_finding(qid: str, goal: str, exp: Exploration, key: StateKey) -> Finding:
+def _dead_end_finding(
+    qid: str, goal: str, exp: Exploration, key: StateKey, trace: list[str]
+) -> Finding:
     """Explain the chosen witness only from its invariant-to-state provenance."""
     idx = exp.index[key]
     reasons: dict[Code, list[str]] = {}
@@ -2113,7 +2161,7 @@ def _dead_end_finding(qid: str, goal: str, exp: Exploration, key: StateKey) -> F
             name = finding.location.removeprefix("invariant:")
             if name not in names:
                 names.append(name)
-    prefix = f"dead end: after {exp.origin(key)}{_trace_str(exp.trace_to(key))}"
+    prefix = f"dead end: after {exp.origin(key)}{_trace_str(trace)}"
     if reasons:
         details = "; ".join(
             f"{label}: {', '.join(repr(name) for name in reasons[code])}"
@@ -2143,31 +2191,15 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
     if exp.capped:
         return _inconclusive(qid, "NoDeadEnd", exp)
 
-    refs = _collect_field_refs(query.goal)
-    applicable = 0
-    errors: list[str] = []
-    goal_states = array("i")
-    for idx, key in enumerate(exp.order):
-        ctx = decode_state(key)  # keys of exp.order are all explored
-        if any(field_context_key(r) not in ctx for r in refs):
-            continue
-        applicable += 1
-        try:
-            if evaluate(query.goal, ctx):
-                goal_states.append(idx)
-        except Exception as exc:
-            message = f"evaluation error: {exc} [at: {_trace_str(exp.trace_to(key))}]"
-            if message not in errors:
-                errors.append(message)
-
-    if errors:
-        return _model_error_result(qid, "NoDeadEnd", exp, errors)
-    if applicable == 0:
+    scan = _scan_states(exp, query.goal, collect_matches=True)
+    if scan.errors:
+        return _model_error_result(qid, "NoDeadEnd", exp, scan.errors)
+    if scan.applicable == 0:
         return _never_applicable_result(qid, "NoDeadEnd", exp, text)
     if exp.excluded:
         # Missing transitions can both hide new dead ends and enable recovery.
         return _excluded_actions_result(qid, "NoDeadEnd", exp)
-    if not goal_states:
+    if not scan.matches:
         return QueryResult(
             query_id=qid,
             kind="NoDeadEnd",
@@ -2183,7 +2215,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
             ],
         )
 
-    co_reachable = _co_reachable(exp, goal_states)
+    co_reachable = _co_reachable(exp, scan.matches)
 
     for idx, key in enumerate(exp.order):  # BFS order → shortest trace to the first dead end
         if not co_reachable[idx]:
@@ -2196,7 +2228,7 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
                 trace=trace,
                 witness_key=key,
                 findings=[
-                    _dead_end_finding(qid, text, exp, key),
+                    _dead_end_finding(qid, text, exp, key, trace),
                     *_origin_findings(exp, key, qid),
                 ],
             )

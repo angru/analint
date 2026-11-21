@@ -48,7 +48,7 @@ class Projection:
     spec: Spec
     variables: frozenset[Var]
     dropped: list[dict]
-    dropped_guards: dict[str, set[Var]]
+    dropped_guards: dict[str, list[tuple[Any, set[Var]]]]
 
     def widened_fields(self, previous: frozenset[Var]) -> list[str]:
         return sorted(map(_label, self.variables - previous))
@@ -150,7 +150,7 @@ def derive(
 
         actions: list[Action] = []
         dropped = []
-        dropped_guards: dict[str, set[Var]] = {}
+        dropped_guards: dict[str, list[tuple[Any, set[Var]]]] = {}
         for action in spec.actions:
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
@@ -183,7 +183,7 @@ def derive(
                     if reads <= variables:
                         pre.append(term)
                     else:
-                        dropped_guards.setdefault(action.id, set()).update(reads - variables)
+                        dropped_guards.setdefault(action.id, []).append((term, reads - variables))
                         suffix = f".and[{term_index}]" if isinstance(guard, _And) else ""
                         dropped.append(
                             {

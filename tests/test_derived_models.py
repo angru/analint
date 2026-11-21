@@ -961,6 +961,7 @@ def test_refines_spurious_counterexample_or_transition_defect(overflow):
 
 def test_refines_a_non_replaying_reachability_witness():
     class Data(Entity):
+        environment: bool = True
         allowed: bool = False
         done: bool = False
         audit: bool = False
@@ -972,7 +973,7 @@ def test_refines_a_non_replaying_reachability_witness():
         actions=[
             Action(
                 id="shortcut",
-                pre=[Data.allowed],
+                pre=[Data.environment, Data.allowed],
                 effect=[Set(Data.done, True), Set(Data.audit, True)],
             ),
             Action(id="unlock", effect=[Set(Data.allowed, True)]),

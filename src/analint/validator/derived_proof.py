@@ -26,7 +26,8 @@ from analint.validator.explorer import (
     state_key,
 )
 from analint.validator.kernel import Outcome, step
-from analint.validator.slicing import PRESENT, Slice, SliceAnalysis
+from analint.validator.rule_checker import evaluate
+from analint.validator.slicing import PRESENT, Slice, SliceAnalysis, Var
 from analint.validator.state_checks import InvariantPlan
 
 Target = Invariant | Unreachable
@@ -49,13 +50,19 @@ def _refine(
     witness: StateKey | None = None,
     *,
     obligation: Action | None = None,
+    replay_reads: set[Var] | None = None,
 ) -> Projection | None:
     faulting_actions = {
         graph.findings[index].location.removeprefix("action:") for index in graph.finding_states
     }
-    reads = {
-        var for action in faulting_actions for var in projection.dropped_guards.get(action, ())
-    }
+    reads = set(replay_reads or ())
+    if not reads:
+        reads.update(
+            var
+            for action in faulting_actions
+            for _, term_reads in projection.dropped_guards.get(action, ())
+            for var in term_reads
+        )
     if not reads:
         origins = {origin for states in graph.finding_states.values() for origin in states}
         paths = [graph._trace(origin) for origin in sorted(origins)]
@@ -66,7 +73,11 @@ def _refine(
         for path in paths:
             for action in reversed(path):
                 if action in projection.dropped_guards:
-                    reads.update(projection.dropped_guards[action])
+                    reads.update(
+                        var
+                        for _, term_reads in projection.dropped_guards[action]
+                        for var in term_reads
+                    )
                     break
     if not reads:
         return None
@@ -238,6 +249,7 @@ def _replay_path(
     multiple_roots: bool,
     *,
     exact: Slice | None = None,
+    replay_reads: set[Var] | None = None,
 ) -> tuple[Exploration, StateKey] | None:
     origin = abstract.root_of(witness)
     projected_root = projection.context(root)
@@ -266,6 +278,15 @@ def _replay_path(
         transition = step(analysis.spec, action, ctx, explain=False)
         post = transition.post_context
         if transition.outcome != Outcome.ACCEPTED or post is None:
+            if replay_reads is not None:
+                for term, reads in projection.dropped_guards.get(action.id, ()):
+                    try:
+                        blocked = not evaluate(term, ctx)
+                    except Exception:
+                        blocked = True
+                    if blocked:
+                        replay_reads.update(reads)
+                        break
             return None
         if _key_in_layout(projection.context(post), *layout) != expected:
             return None
@@ -291,10 +312,20 @@ def _replay(
     witness: StateKey,
     initials: list[dict],
     exact: Slice,
+    replay_reads: set[Var],
 ) -> tuple[Result, Exploration] | None:
     roots, numbers, _ = analysis.project_roots(exact, initials)
     for number, root in zip(numbers, roots, strict=True):
-        replay = _replay_path(analysis, projection, abstract, witness, root, number, len(roots) > 1)
+        replay = _replay_path(
+            analysis,
+            projection,
+            abstract,
+            witness,
+            root,
+            number,
+            len(roots) > 1,
+            replay_reads=replay_reads,
+        )
         if replay is None:
             continue
         concrete, key = replay
@@ -368,8 +399,9 @@ def _attempt(
             and result.findings[0].code in (Code.INVARIANT_VIOLATED, Code.REACHED_FORBIDDEN)
             else None
         )
+        replay_reads: set[Var] = set()
         replay = (
-            _replay(target, analysis, projection, graph, candidate, initials, exact)
+            _replay(target, analysis, projection, graph, candidate, initials, exact, replay_reads)
             if candidate is not None and not graph.excluded
             else None
         )
@@ -394,7 +426,9 @@ def _attempt(
             or refinement == _MAX_REFINEMENTS
         ):
             return current
-        widened = _refine(analysis, predicate, exact, projection, graph, candidate)
+        widened = _refine(
+            analysis, predicate, exact, projection, graph, candidate, replay_reads=replay_reads
+        )
         if widened is None:
             return current
         previous_rounds.append(current.round_report())
@@ -561,6 +595,7 @@ def reach_witness(
             if not complete:
                 return probe
             witness = None
+            replay_reads: set[Var] = set()
             if not graph.findings:
                 scan = _scan_states(graph, query.predicate)
                 witness = scan.first_match
@@ -579,13 +614,22 @@ def reach_witness(
                     number,
                     len(exact_roots) > 1,
                     exact=exact,
+                    replay_reads=replay_reads,
                 )
                 abstract["replayed"] = replay is not None
                 if replay is not None:
                     break
             if refinement == _MAX_REFINEMENTS:
                 return probe
-            widened = _refine(analysis, query.predicate, exact, projection, graph, witness)
+            widened = _refine(
+                analysis,
+                query.predicate,
+                exact,
+                projection,
+                graph,
+                witness,
+                replay_reads=replay_reads,
+            )
             if widened is None:
                 return probe
             widened_fields = widened.widened_fields(projection.variables)

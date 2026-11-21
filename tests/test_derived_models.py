@@ -1014,3 +1014,28 @@ def test_transition_blocker_cleared_on_its_action_slice(monkeypatch, selected, q
     assert not report.exploration_findings
     assert result.model["relation"] == "over-approx"
     assert result.model["attempts"][-1]["covered_transition_actions"] == ["increment"]
+
+
+def test_dead_actions_reuses_complete_exact_coverage(monkeypatch):
+    class Counter(Entity):
+        value: int = 0
+
+    increment = Action(id="increment", pre=[Counter.value == 0], effect=[Add(Counter.value, 1)])
+    spec = Spec(id="reuse_exact", name="Reuse exact coverage", actions=[increment])
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    piece = analysis.action_slice(increment, canonical=True)
+    cache = {}
+    exact, _ = explorer.explore_slice(analysis, piece, roots, 128, cache)
+
+    def unexpected_probe(*args, **kwargs):
+        pytest.fail("complete exact coverage already establishes action entry")
+
+    monkeypatch.setattr(derived_proof, "cover_defects", unexpected_probe)
+    firing_proofs = []
+    covered = explorer.cover_actions(
+        analysis, roots, 128, cache, canonical=True, firing_proofs=firing_proofs
+    )
+    assert covered[id(increment)] is exact
+    assert exact.fired == {"increment"}
+    assert not firing_proofs

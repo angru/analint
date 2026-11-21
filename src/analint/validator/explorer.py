@@ -1302,12 +1302,14 @@ def _run_query(
         probe = None
         if isinstance(query, Unreachable):
             probe = attempt(query, analysis, piece, initials, budget)
+            blocked = probe.blocked_actions(piece) if probe is not None else ()
+            cleared = probe is not None and probe.covered_by(blocked, per_action)
             if (
                 probe is not None
-                and probe.proved
+                and (probe.proved or cleared)
                 and (coverage_complete or coverage_actions is not None)
             ):
-                probe.result.model = probe.report()
+                probe.result.model = probe.report(covered=blocked if cleared else ())
                 explorations[qid] = probe.graph
                 assert isinstance(probe.result, QueryResult)
                 _retain_exact_statistics(probe.result, analysis, piece, initials, budget)
@@ -1692,10 +1694,17 @@ def verify_invariants(
             probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
-                if probe.proved:
+                blocked = probe.blocked_actions(piece)
+                cleared = bool(blocked) and probe.covered_by(
+                    blocked,
+                    cover_actions(
+                        analysis, initials, max_states, cache, canonical=True, actions=blocked
+                    ),
+                )
+                if probe.proved or cleared:
                     result = probe.result
                     assert isinstance(result, InvariantResult)
-                    result.model = probe.report()
+                    result.model = probe.report(covered=blocked if cleared else ())
                     result.elapsed_ms = (perf_counter() - started) * 1000
                     proved[id(inv)] = result
                     explorations[inv.id] = probe.graph

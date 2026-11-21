@@ -93,6 +93,29 @@ class Attempt:
     def proved(self) -> bool:
         return self.result.status == QueryStatus.PASS and not self.graph.capped and self.clean
 
+    def blocked_actions(self, piece: Slice) -> tuple[Action, ...]:
+        """Find transition-only blockers that independent coverage can clear."""
+        if self.graph.capped or self.graph.excluded or self.result.status != QueryStatus.PASS:
+            return ()
+        blockers = self._diagnostic_blockers()
+        locations = {f"action:{action.id}": action for action in piece.actions}
+        if not blockers or any(
+            finding.location not in locations or not finding.code.value.startswith("transition.")
+            for finding in blockers
+        ):
+            return ()
+        names = {finding.location for finding in blockers}
+        return tuple(action for name, action in locations.items() if name in names)
+
+    def covered_by(self, actions: tuple[Action, ...], coverage: dict[int, Exploration]) -> bool:
+        return bool(actions) and all(
+            (graph := coverage.get(id(action))) is not None
+            and not graph.capped
+            and not graph.excluded
+            and not graph.findings
+            for action in actions
+        )
+
     def round_report(self) -> dict:
         blockers = self._diagnostic_blockers()
         if self.graph.capped:
@@ -129,13 +152,17 @@ class Attempt:
         *,
         exact_graph: Exploration | None = None,
         replayed: bool = False,
+        covered: tuple[Action, ...] = (),
     ) -> dict:
         relation = "over-approx" if exact is None else "exact"
         if replayed:
             relation = "under-approx: replayed"
         elif exact is not None and exact.status == QueryStatus.INCONCLUSIVE:
             relation = None
-        attempts = [*self.previous_rounds, self.round_report()]
+        current: dict = self.round_report()
+        if covered:
+            current["covered_transition_actions"] = [action.id for action in covered]
+        attempts = [*self.previous_rounds, current]
         if self.replayed is not None:
             result, graph = self.replayed
             attempts.append(

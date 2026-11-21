@@ -962,3 +962,47 @@ def test_refines_a_non_replaying_reachability_witness():
     first, refined, _ = result.model["attempts"]
     assert first["replayed"] is False
     assert refined["widened_fields"] == ["Data.allowed"]
+
+
+@pytest.mark.parametrize("selected", [False, True])
+@pytest.mark.parametrize("query", [False, True])
+def test_transition_blocker_cleared_on_its_action_slice(monkeypatch, selected, query):
+    class Data(Entity):
+        value: int = Field(default=0, le=1)
+        limit: int = 1
+        audit: bool = False
+
+    class Other(Entity):
+        noise: int = 0
+        audit: bool = False
+
+    # Skip refinement to exercise the independent action coverage fallback.
+    monkeypatch.setattr(derived_proof, "_MAX_REFINEMENTS", 0)
+    predicate = And(Data.value == 2, Other.noise == 99)
+    target = (
+        Unreachable(predicate, id="safety") if query else Invariant(Not(predicate), id="safety")
+    )
+    spec = Spec(
+        id="clear_blocker",
+        name="Clear a speculative transition blocker",
+        actions=[
+            Action(
+                id="increment",
+                pre=[Data.value < Data.limit],
+                effect=[Add(Data.value, 1), Set(Data.audit, True)],
+            ),
+            Action(
+                id="noise",
+                pre=[Other.noise < 10],
+                effect=[Add(Other.noise, 1), Set(Other.audit, True)],
+            ),
+        ],
+        invariants=[] if query else [target],
+        queries=[target] if query else [],
+    )
+    report = validate_spec(spec, checks=["safety"] if selected else None)
+    [result] = report.query_results if query else report.invariant_results
+    assert report.verdict == "PASS"
+    assert not report.exploration_findings
+    assert result.model["relation"] == "over-approx"
+    assert result.model["attempts"][-1]["covered_transition_actions"] == ["increment"]

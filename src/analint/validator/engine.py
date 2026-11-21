@@ -459,7 +459,7 @@ def _run_checks(
                 verification_scope.safety_coverage.append((proof.piece, proof.exploration))
                 query_result = proof.result
                 if decided is not None:
-                    decided[query.id] = proof.deciding_exploration or proof.exploration
+                    decided[query.id] = proof.exploration
             else:
                 query_result = run_query(
                     query,

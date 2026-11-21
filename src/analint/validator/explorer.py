@@ -1280,11 +1280,7 @@ def _run_query(
                 assert isinstance(replay, QueryResult)
                 replay.model = probe.report(result, budget, exact_graph=exp, replayed=True)
                 return replay
-            result.model = (
-                probe.report()
-                if probe.proved and result.status == QueryStatus.PASS
-                else probe.report(result, budget, exact_graph=exp)
-            )
+            result.model = probe.report(result, budget, exact_graph=exp)
         return result
     exp = explore_cached(spec, initials, budget, cache)
     explorations[qid] = exp
@@ -1637,11 +1633,7 @@ def verify_invariants(
                     replay.elapsed_ms = result.elapsed_ms
                     result = replay
                 else:
-                    result.model = (
-                        probe.report()
-                        if probe.proved and result.status == QueryStatus.PASS
-                        else probe.report(result, max_states, exact_graph=exp)
-                    )
+                    result.model = probe.report(result, max_states, exact_graph=exp)
             results_by_target[id(inv)] = result
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:

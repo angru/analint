@@ -28,7 +28,6 @@ class SafetyProof:
     exploration: Exploration
     piece: Slice
     initials: list[dict]
-    deciding_exploration: Exploration | None = None
 
 
 def prove_query(
@@ -88,9 +87,4 @@ def prove_query(
     if result.status != QueryStatus.PASS:
         return None
     result.slice = used.summary()
-    if probe is not None and probe.proved and result.backend is None:
-        # The exact graph still supplies diagnostic coverage and the existing
-        # slice statistics. The proof's state count is recorded in model.
-        result.model = probe.report()
-        return SafetyProof(result, exp, used, initials, probe.graph)
     return SafetyProof(result, exp, used, initials)

@@ -353,7 +353,9 @@ def test_exact_coverage_keeps_a_later_hidden_transition_defect(checks):
     )
     report = validate_spec(spec, checks=checks)
     assert report.query_results[0].status == "PASS"
-    assert report.query_results[0].model["relation"] == "over-approx"
+    assert report.query_results[0].model["relation"] == (
+        "exact" if checks is None else "over-approx"
+    )
     assert report.verdict == "FAIL"
     [finding] = report.exploration_findings
     assert finding.code == "transition.field_constraint"
@@ -395,7 +397,14 @@ def test_projection_cold_warm_and_exact_reports(tmp_path, monkeypatch, checks):
     assert cold == warm
     for item in [*warm["invariants"], *warm["queries"]]:
         assert item["status"] == "PASS"
-        assert item["model"]["relation"] == "over-approx"
+        model = item["model"]
+        # Selected query support is discharged by a clean exact exploration.
+        expected = "over-approx" if checks is not None and item in warm["invariants"] else "exact"
+        assert model["relation"] == expected
+        if expected == "exact":
+            assert [a["relation"] for a in model["attempts"]] == ["over-approx", "exact"]
+            assert model["recheck"] == model["attempts"][-1]
+            assert model["recheck"]["status"] == "PASS"
         assert item["model"]["retained_fields"] == ["Data.x"]
     monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)
     exact = run()

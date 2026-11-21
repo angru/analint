@@ -95,6 +95,7 @@ class Exploration:
         self.action_ids: list[str] = []  # action code → id
         self._action_codes: dict[str, int] = {}
         self.roots: dict = {}  # root key → 1-based initial index
+        self.multiple_roots = False  # replay carries one path from a multi-root relation
         self.invalid_roots: set[int] = set()  # state indices retained but not expanded
         self.fired: set = set()  # action ids ever enabled
         self.findings: list = []  # violations met en route
@@ -225,7 +226,7 @@ class Exploration:
         root (research/16): 'init #2 ⊢ vote(...)' pins the configuration.
         """
         self._require_graph()
-        if len(self.roots) <= 1:
+        if len(self.roots) <= 1 and not self.multiple_roots:
             return ""
         return f"init #{self.roots[self.root_of(key)]} ⊢ "
 
@@ -1247,10 +1248,27 @@ def _run_query(
                 # belong to the full exploration whenever a proof fails.
         else:
             piece = analysis.predicate_slice(query.predicate, canonical=canonical)
+        from analint.validator.derived_proof import attempt
+
+        probe = None
+        if isinstance(query, Unreachable):
+            probe = attempt(query, analysis, piece, initials, budget)
+            if probe is not None and probe.proved:
+                probe.result.model = probe.report()
+                explorations[qid] = probe.graph
+                assert isinstance(probe.result, QueryResult)
+                return probe.result
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
         explorations[qid] = exp
         result = _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
+        if probe is not None:
+            if result.status == QueryStatus.INCONCLUSIVE and probe.replayed is not None:
+                replay, explorations[qid] = probe.replayed
+                assert isinstance(replay, QueryResult)
+                replay.model = probe.report(result, budget, exact_graph=exp, replayed=True)
+                return replay
+            result.model = probe.report(result, budget, exact_graph=exp)
         return result
     exp = explore_cached(spec, initials, budget, cache)
     explorations[qid] = exp
@@ -1527,12 +1545,28 @@ def verify_invariants(
         # Phase 1: each invariant on its unconstrained slice. That model prunes
         # less than the whole one, so a PASS there is final — and makes the
         # invariant trusted: it never prunes, other slices need not include it.
+        from analint.validator.derived_proof import attempt
+
         pending = []
+        proved = {}
+        probes = {}
         for inv in targets:
             started = perf_counter()
+            piece = analysis.invariant_slice(inv, unconstrained=True)
+            probe = attempt(inv, analysis, piece, initials, max_states)
+            if probe is not None:
+                probes[id(inv)] = probe
+                if probe.proved:
+                    result = probe.result
+                    assert isinstance(result, InvariantResult)
+                    result.model = probe.report()
+                    result.elapsed_ms = (perf_counter() - started) * 1000
+                    proved[id(inv)] = result
+                    explorations[inv.id] = probe.graph
+                    continue
             exp, used = explore_slice(
                 analysis,
-                analysis.invariant_slice(inv, unconstrained=True),
+                piece,
                 initials,
                 max_states,
                 cache,
@@ -1542,14 +1576,15 @@ def verify_invariants(
         # invariants sharing an exploration are checked in one pass over it
         verdicts = _verify_grouped([(inv, exp) for inv, exp, _, _ in pending])
         checked = []
-        for (inv, _, used, explore_ms), result in zip(pending, verdicts, strict=True):
+        for (inv, exp, used, explore_ms), result in zip(pending, verdicts, strict=True):
             result.elapsed_ms = (result.elapsed_ms or 0.0) + explore_ms
             if result.status == QueryStatus.PASS:
                 analysis.trusted.add(id(inv))
-            checked.append((inv, result, used))
+            checked.append((inv, result, used, exp))
+        analysis.trusted.update(proved)
         # Phase 2: a FAIL is true of the whole model only on an exact slice.
-        results = []
-        for inv, result, used in checked:
+        results_by_target = dict(proved)
+        for inv, result, used, exp in checked:
             if result.status == QueryStatus.FAIL and not analysis.is_exact(used):
                 elapsed_ms = result.elapsed_ms or 0.0
                 started = perf_counter()
@@ -1560,11 +1595,21 @@ def verify_invariants(
                 explorations[inv.id] = exp
                 result.elapsed_ms = elapsed_ms + (perf_counter() - started) * 1000
             result.slice = used.summary()
-            results.append(result)
+            probe = probes.get(id(inv))
+            if probe is not None:
+                if result.status == QueryStatus.INCONCLUSIVE and probe.replayed is not None:
+                    replay, explorations[inv.id] = probe.replayed
+                    assert isinstance(replay, InvariantResult)
+                    replay.model = probe.report(result, max_states, exact_graph=exp, replayed=True)
+                    replay.elapsed_ms = result.elapsed_ms
+                    result = replay
+                else:
+                    result.model = probe.report(result, max_states, exact_graph=exp)
+            results_by_target[id(inv)] = result
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:
             cover_actions(analysis, initials, max_states, cache, canonical=True)
-        return results, None
+        return [results_by_target[id(inv)] for inv in targets], None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()
     exp = explore_cached(spec, initials, max_states, cache)

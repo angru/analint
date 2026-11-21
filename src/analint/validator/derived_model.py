@@ -1,10 +1,12 @@
 """Projection for one-sided safety proofs (research/37)."""
 
+from copyreg import dispatch_table
 from dataclasses import dataclass
 from typing import Any
 
 from analint.models.action import Action
 from analint.models.effect import Add, Create, Delete, Set, Subtract
+from analint.models.predicate import _And
 from analint.models.root import Spec
 from analint.models.scope import InstanceRef, context_key_label
 from analint.validator.kernel import _has_plain_copy
@@ -60,12 +62,15 @@ class Projection:
             names = fields.setdefault(key, [])
             if field != PRESENT:
                 names.append(field)
-        return {
-            key: _build_instance(key, scoped, tuple(names), _slot_value(inst, scoped, tuple(names)))
-            for key, inst in root.items()
-            if (names := fields.get(key)) is not None
-            for scoped in (isinstance(key, InstanceRef),)
-        }
+        projected = {}
+        for key, inst in root.items():
+            if key in fields:
+                names = tuple(fields[key])
+                scoped = isinstance(key, InstanceRef)
+                projected[key] = _build_instance(
+                    key, scoped, names, _slot_value(inst, scoped, names)
+                )
+        return projected
 
 
 def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection | None:
@@ -80,7 +85,7 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
         return None
     spec = analysis.spec
     # Custom copying/access can observe or change fields outside the DSL.
-    if any(not _has_plain_copy(cls) for cls in spec.entities):
+    if any(not _has_plain_copy(cls) or cls in dispatch_table for cls in spec.entities):
         return None
     state_types = set(spec.entities)
     try:
@@ -133,7 +138,19 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
             if not effects:
-                dropped.append({"location": location, "reason": "no retained writes"})
+                dropped.append(
+                    {
+                        "location": location,
+                        "reason": "no retained writes",
+                        "writes": sorted(
+                            {
+                                _label(var)
+                                for effect in action.effect
+                                for var in _effect_vars(effect)
+                            }
+                        ),
+                    }
+                )
                 continue
             if any(
                 ref.entity_cls not in state_types
@@ -143,16 +160,19 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
                 return None  # a relevant excluded writer cannot support a certificate
             pre = []
             for index, guard in enumerate(action.pre, 1):
-                if _guard_vars(guard) <= variables:
-                    pre.append(guard)
-                else:
-                    dropped.append(
-                        {
-                            "location": location,
-                            "element": f"pre[{index}]",
-                            "reason": "reads erased fields",
-                        }
-                    )
+                terms = guard.exprs if isinstance(guard, _And) else [guard]
+                for term_index, term in enumerate(terms, 1):
+                    if _guard_vars(term) <= variables:
+                        pre.append(term)
+                    else:
+                        suffix = f".and[{term_index}]" if isinstance(guard, _And) else ""
+                        dropped.append(
+                            {
+                                "location": location,
+                                "element": f"pre[{index}]{suffix}",
+                                "reason": "reads erased fields",
+                            }
+                        )
             for index, effect in enumerate(action.effect, 1):
                 if not _effect_vars(effect) & variables:
                     dropped.append(

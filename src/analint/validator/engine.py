@@ -285,6 +285,7 @@ def _run_checks(
     selection = select_checks(spec, checks, scenario_ids, tags)
     safety_proofs: dict[str, SafetyProof] = {}
     probe_ms: dict[str, float] = {}
+    derived_attempts = {}
     if checks is not None and sliced and selection.queries:
         from analint.validator.safety import prove_query
         from analint.validator.slicing import SliceAnalysis
@@ -305,6 +306,7 @@ def _run_checks(
             probe_ms[query.id] = (perf_counter() - started) * 1000
             if proof is not None:
                 safety_proofs[query.id] = proof
+        derived_attempts = probe_analysis.derived_attempts
         del probe_analysis
         if decided is None:
             for proof in safety_proofs.values():
@@ -386,6 +388,7 @@ def _run_checks(
         from analint.validator.slicing import SliceAnalysis
 
         analysis = SliceAnalysis(spec)
+        analysis.derived_attempts = derived_attempts
     explorations = ExplorationStorage(analysis)
     canonical_group = explorations.register(canonical_initials, max_states or spec.max_states)
     query_runs = []
@@ -456,7 +459,7 @@ def _run_checks(
                 verification_scope.safety_coverage.append((proof.piece, proof.exploration))
                 query_result = proof.result
                 if decided is not None:
-                    decided[query.id] = proof.exploration
+                    decided[query.id] = proof.deciding_exploration or proof.exploration
             else:
                 query_result = run_query(
                     query,

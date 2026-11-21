@@ -28,6 +28,7 @@ class SafetyProof:
     exploration: Exploration
     piece: Slice
     initials: list[dict]
+    deciding_exploration: Exploration | None = None
 
 
 def prove_query(
@@ -47,11 +48,17 @@ def prove_query(
     initials, _ = resolve_query_initials(query, spec)
     if initials is None or any(check_invariants(spec, ctx, "initial") for ctx in initials):
         return None  # do not prove a property by projecting away an illegal root
+    budget = query_budget(query, spec.max_states, max_states)
+    probe = None
+    if isinstance(query, Unreachable):
+        from analint.validator.derived_proof import attempt
+
+        probe = attempt(query, analysis, piece, initials, budget)
     exp, used = explore_slice(
         analysis,
         piece,
         initials,
-        query_budget(query, spec.max_states, max_states),
+        budget,
         ExplorationStorage(),
     )
     if exp.excluded or any(f.severity == Severity.ERROR for f in exp.findings):
@@ -78,4 +85,11 @@ def prove_query(
     if result.status != QueryStatus.PASS:
         return None
     result.slice = used.summary()
+    if probe is not None:
+        if probe.proved and result.backend is None:
+            projected = probe.result
+            assert isinstance(projected, QueryResult)
+            projected.model = probe.report()
+            return SafetyProof(projected, exp, used, initials, probe.graph)
+        result.model = probe.report(result, budget, exact_graph=exp)
     return SafetyProof(result, exp, used, initials)

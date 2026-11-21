@@ -1,33 +1,64 @@
 """Query scan work and compatibility with the full pre-optimization reports."""
 
-import hashlib
-import json
 from pathlib import Path
 
 import pytest
 
-from analint import Action, Entity, Set, Spec, Unreachable
+from analint import (
+    Absent,
+    Action,
+    And,
+    Bound,
+    Entity,
+    Exists,
+    Present,
+    Scope,
+    Set,
+    Spec,
+    Unreachable,
+)
 from analint.reporter.base import Code
 from analint.reporter.json_reporter import result_to_dict
 from analint.validator import explorer
 from analint.validator.engine import validate, validate_spec
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_REPORTS = json.loads(
-    (Path(__file__).with_name("snapshots") / "query_reports_fb04fc6.json").read_text()
-)
+BENCHMARKS = ROOT / "benchmarks"
+REPORT_TARGETS = [
+    *((path, None) for path in sorted((ROOT / "examples").glob("*/spec.py"))),
+    *((path, None) for path in sorted((BENCHMARKS / "broker").glob("m*.py"))),
+    *(
+        (path, None)
+        for path in sorted(BENCHMARKS.glob("*.py"))
+        if path.name != "__init__.py" and not path.name.startswith("fulfillment_")
+    ),
+    *(
+        (ROOT / "examples/fulfillment/spec.py", extra)
+        for extra in sorted(BENCHMARKS.glob("fulfillment_*.py"))
+    ),
+]
 
 
-def _report_digest(entry):
-    path, _, extra = entry.partition(" + ")
-    # Use the existing bounded differential budget for the 4.4M-state risk increment.
-    budget = 2000 if path.endswith("/m6_risk.py") else None
-    report = result_to_dict(
-        validate(ROOT / path, max_states=budget, extra=ROOT / extra if extra else None)
-    )
-    for check in report["queries"] + report["invariants"]:
-        check.pop("elapsed_ms", None)
-    return hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
+def _interpreted_scan(exp, predicate, *, collect_matches=False):
+    """Reference scan using the applicability and evaluation loop from fb04fc6."""
+    scan = explorer._Scan()
+    refs = explorer._collect_field_refs(predicate)
+    for idx, key in enumerate(exp.order):
+        ctx = explorer.decode_state(key)
+        if any(explorer.field_context_key(ref) not in ctx for ref in refs):
+            continue
+        scan.applicable += 1
+        try:
+            if explorer.evaluate(predicate, ctx):
+                if collect_matches:
+                    scan.matches.append(idx)
+                if scan.first_match is None:
+                    scan.first_match = key
+        except Exception as exc:
+            message = f"evaluation error: {exc} [at: {explorer._trace_str(exp.trace_to(key))}]"
+            if message not in scan.errors:
+                scan.errors.append(message)
+    return scan
 
 
 def test_query_owned_root_still_reports_transition_defects():
@@ -115,6 +146,58 @@ def test_query_scan_preserves_late_errors_and_escaped_codes(monkeypatch):
     assert "step_2" in scan.errors[-1]
 
 
-@pytest.mark.parametrize("entry", BASE_REPORTS)
-def test_query_optimization_preserves_base_json(entry):
-    assert _report_digest(entry) == BASE_REPORTS[entry]
+def test_restricted_context_preserves_quantification_and_presence():
+    class Account(Entity):
+        balance: int = 0
+
+    class Unrelated(Entity):
+        value: int = 0
+
+    accounts = Scope(Account, keys=["a", "b"])
+    a, b = accounts["a"], accounts["b"]
+    member = Bound("member", accounts)
+    predicate = And(Present(a), Exists(member, member.balance > 0))
+    graph = explorer.Exploration()
+    for i, (first, second) in enumerate(
+        [
+            (a(balance=1), Absent(b)),
+            (a(balance=0), b(balance=1)),
+            (Absent(a), b(balance=1)),
+            (a(balance=0), Absent(b)),
+            (a(balance=0), b(balance=1)),
+        ]
+    ):
+        graph.keys.append(explorer.state_key({a: first, b: second, Unrelated: Unrelated(value=i)}))
+
+    expected = _interpreted_scan(graph, predicate, collect_matches=True)
+    actual = explorer._scan_states(graph, predicate, collect_matches=True)
+    assert actual == expected
+    assert list(actual.matches) == [0, 1, 4]
+    cache = graph._query_context_cache
+    assert cache is not None
+    assert len(cache[2]) == 4
+    assert all(Unrelated not in ctx for ctx in cache[2].values())
+
+
+@pytest.mark.parametrize(
+    ("entry", "extra"),
+    [
+        pytest.param(path, extra, id=str((extra or path).relative_to(ROOT)))
+        for path, extra in REPORT_TARGETS
+    ],
+)
+def test_query_optimization_preserves_base_json(entry, extra, monkeypatch):
+    # The 4.4M-state risk increment uses the existing differential budget.
+    budget = 2000 if entry.name == "m6_risk.py" else None
+
+    def report():
+        result = result_to_dict(validate(entry, max_states=budget, extra=extra))
+        for check in result["queries"] + result["invariants"]:
+            check.pop("elapsed_ms", None)
+        return result
+
+    actual = report()
+    with monkeypatch.context() as reference:
+        reference.setattr(explorer, "_scan_states", _interpreted_scan)
+        expected = report()
+    assert actual == expected

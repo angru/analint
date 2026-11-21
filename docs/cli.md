@@ -186,7 +186,13 @@ The object records the system ID, root source, original root numbers and
 ordered attempts. Predicate projections also list retained fields, dropped
 elements and any exact `recheck`. Projected attempts are local to their graph.
 Their blockers describe transition defects, predicate evaluation errors,
-exclusions or the state budget. A `Reachable` proof requires an error-free
+exclusions or the state budget. After a projected defect or failed replay,
+the validator can restore fields from omitted guards along the candidate
+path and retry up to three times. Each round lists its retained and newly
+added fields. For a projected safety PASS with transition-only blockers,
+independent clean action coverage can clear the blockers. The attempt
+lists those actions in `covered_transition_actions`.
+A `Reachable` proof requires an error-free
 covering scan and a concrete witness from each legal root. The check's trace
 is concrete. `DeadActions` can use replayed action-entry witnesses alongside
 exact results for other actions. Transition defects require independent

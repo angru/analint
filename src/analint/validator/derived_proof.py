@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from analint.models.action import Action
 from analint.models.invariant import Invariant
+from analint.models.predicate import Predicate
 from analint.models.query import Reachable, Unreachable
 from analint.models.root import Query
 from analint.models.scope import InstanceRef, is_present
@@ -23,7 +24,7 @@ from analint.validator.explorer import (
     state_key,
 )
 from analint.validator.kernel import Outcome, step
-from analint.validator.slicing import PRESENT, Slice, SliceAnalysis, Var
+from analint.validator.slicing import PRESENT, Slice, SliceAnalysis
 from analint.validator.state_checks import InvariantPlan
 
 Target = Invariant | Unreachable
@@ -33,7 +34,7 @@ _MAX_REFINEMENTS = 3
 
 def _refine(
     analysis: SliceAnalysis,
-    predicate,
+    predicate: Predicate | None,
     exact: Slice,
     projection: Projection,
     graph: Exploration,
@@ -295,7 +296,7 @@ def attempt(
     initials: list[dict],
     budget: int,
 ) -> Attempt | None:
-    key = (id(target), analysis.roots_key(initials), budget)
+    key = (id(target), analysis.roots_key(initials), budget, exact.key)
     if key not in analysis.derived_attempts:
         analysis.derived_attempts[key] = _attempt(target, analysis, exact, initials, budget)
     return analysis.derived_attempts[key]
@@ -364,7 +365,13 @@ def _attempt(
         )
         current.previous_rounds = previous_rounds
         current.widened_fields = widened_fields
-        if current.proved or replay is not None or refinement == _MAX_REFINEMENTS:
+        if (
+            current.proved
+            or replay is not None
+            or graph.capped
+            or graph.excluded
+            or refinement == _MAX_REFINEMENTS
+        ):
             return current
         widened = _refine(analysis, predicate, exact, projection, graph, candidate)
         if widened is None:

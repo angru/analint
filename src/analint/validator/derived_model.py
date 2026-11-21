@@ -73,7 +73,13 @@ class Projection:
         return projected
 
 
-def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection | None:
+def derive(
+    analysis: SliceAnalysis,
+    predicate: Any,
+    exact: Slice,
+    *,
+    obligation: Action | None = None,
+) -> Projection | None:
     """Follow all expanded writers to a fixed point over visible update inputs.
 
     Keep postconditions and payloads together with all of their inputs. Keep
@@ -89,14 +95,18 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
         return None
     state_types = set(spec.entities)
     try:
-        variables = _guard_vars(predicate)
+        variables = (
+            _guard_vars(predicate)
+            if obligation is None
+            else analysis.action_vars[id(obligation)] | analysis.lock_vars[id(obligation)]
+        )
         if not variables:
             return None
         while True:
             previous = set(variables)
             writers = {id(action) for var in previous for action in analysis.writers.get(var, ())}
             for action in spec.actions:
-                if id(action) not in writers:
+                if id(action) not in writers and action is not obligation:
                     continue
                 for effect in action.effect:
                     targets = _effect_vars(effect)
@@ -137,7 +147,7 @@ def derive(analysis: SliceAnalysis, predicate: Any, exact: Slice) -> Projection 
         for action in spec.actions:
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
-            if not effects:
+            if not effects and action is not obligation:
                 dropped.append(
                     {
                         "location": location,

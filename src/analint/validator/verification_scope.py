@@ -184,9 +184,17 @@ class VerificationScope:
                     if analysis.is_exact(piece):
                         runs.append(((tuple(dict.fromkeys(roots)), budget), exp))
                         covered.update(a.id for a in piece.actions)
+        seen: dict[int, Exploration] = {}
+        if analysis is not None:
+            for proofs in analysis.projected_coverage.values():
+                for action in self.spec.actions:
+                    proof = proofs.get(id(action))
+                    if proof is not None:
+                        _, exp = proof
+                        covered.add(action.id)
+                        seen[id(exp)] = exp
         scoped: dict[tuple, Finding] = {}
         model: dict[tuple, Finding] = {}
-        seen: dict[int, Exploration] = {}
         excluded: dict[str, str] = {}
         selected_excluded: dict[str, str] = {}
         for key, exp in runs:

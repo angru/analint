@@ -1232,6 +1232,7 @@ def _run_query(
             cache,
             canonical=canonical,
             actions=None if dead_actions else coverage_actions,
+            require_firing=dead_actions,
         )
         if dead_actions:
             return _eval_dead_actions_sliced(qid, spec, per_action)
@@ -1373,12 +1374,16 @@ def cover_actions(
     *,
     canonical: bool,
     actions: tuple[Action, ...] | None = None,
+    require_firing: bool = False,
 ) -> dict[int, Exploration]:
     """Explore the requested actions in their own slices to assess defects and
     fireability. With no subset, this is the sliced counterpart of one full
     exploration. Results are keyed by id(action)."""
+    from analint.validator.derived_proof import cover_defects
+
     actions = tuple(analysis.spec.actions) if actions is None else actions
-    key = (analysis.roots_key(initials), max_states, canonical, tuple(map(id, actions)))
+    root_key = (analysis.roots_key(initials), max_states, canonical)
+    key = (*root_key, tuple(map(id, actions)), require_firing)
     if key not in analysis.covered:
         # largest slices first, so the nested ones reuse their explorations
         pieces = []
@@ -1386,9 +1391,29 @@ def cover_actions(
             narrow = analysis.local_enabler_slice(action, initials, canonical=canonical)
             piece = narrow or analysis.action_slice(action, canonical=canonical)
             pieces.append((action, piece, narrow is not None))
+        if not require_firing:
+            # Exact action graphs also covered their dependency actions.
+            dependencies = {id(action) for _, piece, _ in pieces for action in piece.actions}
+            requested = {id(action) for action in actions}
+            pieces.extend(
+                (action, analysis.action_slice(action, canonical=canonical), False)
+                for action in analysis.spec.actions
+                if id(action) in dependencies - requested
+            )
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         covered = {}
+        proofs = analysis.projected_coverage.setdefault(root_key, {})
         for action, piece, narrow in pieces:
+            identity = id(action)
+            if not require_firing and not narrow:
+                if identity not in proofs:
+                    proofs[identity] = cover_defects(
+                        action, analysis, piece, initials, max_states, canonical=canonical
+                    )
+                proof = proofs[identity]
+                if proof is not None:
+                    covered[identity] = proof[1]
+                    continue
             exp = explore_slice(analysis, piece, initials, max_states, cache, reuse_superset=True)[
                 0
             ]

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from analint.models.action import Action
 from analint.models.invariant import Invariant
 from analint.models.query import Unreachable
 from analint.models.scope import InstanceRef, is_present
@@ -280,3 +281,46 @@ def _attempt(
         source,
         list(range(1, len(initials) + 1)),
     )
+
+
+def cover_defects(
+    action: Action,
+    analysis: SliceAnalysis,
+    exact: Slice,
+    initials: list[dict],
+    budget: int,
+    *,
+    canonical: bool,
+) -> tuple[Projection, Exploration] | None:
+    """Prove clean transition coverage with the target action intact.
+
+    Supporting writers may be weakened. Their failures are speculative and
+    force exact coverage, which owns diagnostic ordering and trace attribution.
+    """
+    if any(not analysis.root_is_legal(ctx) for ctx in initials):
+        return None
+    projection = derive(analysis, None, exact, obligation=action)
+    if projection is None:
+        return None
+    for invariant in exact.invariants:
+        if canonical and id(invariant) in analysis.trusted:
+            continue
+        probe = attempt(
+            invariant,
+            analysis,
+            analysis.invariant_slice(invariant, unconstrained=True),
+            initials,
+            budget,
+        )
+        if probe is None or not probe.proved:
+            return None
+    graph = explore(
+        projection.spec,
+        [projection.context(ctx) for ctx in initials],
+        min(4096, max(1, budget // 4)),
+        store_edges=False,
+        projection=projection.variables,
+    )
+    if graph.capped or graph.findings or graph.excluded:
+        return None
+    return projection, graph

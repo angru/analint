@@ -336,7 +336,7 @@ def cover_defects(
     graph = explore(
         projection.spec,
         [projection.context(ctx) for ctx in initials],
-        min(4096, max(1, budget // 4)),
+        max(1, budget // 4),
         store_edges=False,
         projection=projection.variables,
     )
@@ -406,7 +406,7 @@ def reach_witness(
     )
     best = None
     states = 0
-    sub_budget = min(4096, max(1, budget // 4))
+    sub_budget = max(1, budget // 4)
     for number, root in enumerate(initials, 1):
         graph = explore(
             projection.spec,

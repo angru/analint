@@ -876,3 +876,29 @@ def test_replayed_unreachable_uses_exact_slice_root_attribution():
     replay, graph = probe.replayed
     assert not graph.multiple_roots
     assert [finding.code.value for finding in replay.findings] == ["query.reached_forbidden"]
+
+
+def test_action_coverage_budget_scales_with_exact_budget():
+    class Data(Entity):
+        value: int = 0
+        audit: bool = False
+
+    target = Action(id="target", pre=[Data.value == 0], effect=[Set(Data.value, 1)])
+    spec = Spec(
+        id="scaling_coverage",
+        name="Scaling coverage",
+        actions=[
+            target,
+            Action(
+                id="grow",
+                pre=[Data.value < 4100],
+                effect=[Add(Data.value, 1), Set(Data.audit, True)],
+            ),
+        ],
+    )
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    piece = analysis.action_slice(target, canonical=True)
+    proof = derived_proof.cover_defects(target, analysis, piece, roots, 20_000, canonical=True)
+    assert proof is not None
+    assert proof[1].state_count == 4101

@@ -1260,3 +1260,29 @@ def test_full_reachability_reuses_a_witness_on_a_capped_exact_graph(monkeypatch)
     assert result.status == "PASS"
     assert result.trace == ["grow"]
     assert result.states_explored == exp.state_count
+
+
+def test_projected_attempt_keeps_candidate_report_after_releasing_graph():
+    class Data(Entity):
+        value: int = 0
+        audit: bool = False
+
+    invariant = Invariant(Data.value == 0, id="limit")
+    spec = Spec(
+        id="compact_candidate",
+        name="Compact candidate",
+        invariants=[invariant],
+        actions=[Action(id="change", effect=[Set(Data.value, 1), Set(Data.audit, True)])],
+    )
+    analysis = SliceAnalysis(spec)
+    analysis.retain_derived_graphs = False
+    roots, _ = build_canonical_initials(spec)
+    exact = analysis.invariant_slice(invariant, unconstrained=True)
+    probe = derived_proof.attempt(invariant, analysis, exact, roots, 128)
+    assert probe.replayed is not None
+    assert not probe.graph.keys
+    attempt = probe.report(replayed=True)["attempts"][0]
+    assert attempt["states_explored"] == 2
+    assert attempt["candidate_trace"] == ["change"]
+    assert attempt["replayed"] is True
+    assert probe.report(replayed=True)["attempts"][0] == attempt

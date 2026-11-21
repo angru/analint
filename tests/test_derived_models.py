@@ -1133,13 +1133,13 @@ def test_full_run_uses_planned_recovery_graph_for_matching_checks(monkeypatch):
         pytest.fail("the planned recovery graph already covers this obligation")
 
     with monkeypatch.context() as patch:
-        patch.setattr(derived_proof, "attempt", unexpected_projection)
         patch.setattr(derived_proof, "reach_witness", unexpected_projection)
         patch.setattr(derived_proof, "cover_defects", unexpected_projection)
         full = validate_spec(spec)
     assert full.verdict == "PASS"
     assert full.query_results[0].trace == ["start"]
     assert full.query_results[0].model is None
+    assert full.invariant_results[0].model["relation"] == "over-approx"
     selected = validate_spec(spec, checks=["safety", "active"])
     assert selected.verdict == full.verdict
     assert selected.query_results[0].trace == full.query_results[0].trace

@@ -1745,27 +1745,32 @@ def verify_invariants(
                 initials, max_states, piece
             ):
                 shared, _ = explore_slice(analysis, piece, initials, max_states, cache)
-            probe = (
-                None
-                if shared is not None
+            shared_clean = (
+                shared is not None
                 and not shared.capped
                 and not shared.excluded
                 and not shared.findings
-                else attempt(inv, analysis, piece, initials, max_states)
             )
+            probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
                 blocked = probe.blocked_actions(piece)
-                cleared = bool(blocked) and probe.covered_by(
-                    blocked,
-                    cover_actions(
-                        analysis, initials, max_states, cache, canonical=True, actions=blocked
-                    ),
+                cleared = (
+                    not shared_clean
+                    and bool(blocked)
+                    and probe.covered_by(
+                        blocked,
+                        cover_actions(
+                            analysis, initials, max_states, cache, canonical=True, actions=blocked
+                        ),
+                    )
                 )
                 if probe.proved or cleared:
                     result = probe.result
                     assert isinstance(result, InvariantResult)
                     result.model = probe.report(covered=blocked if cleared else ())
+                    if shared_clean:
+                        _retain_exact_statistics(result, analysis, piece, initials, max_states)
                     result.elapsed_ms = (perf_counter() - started) * 1000
                     proved[id(inv)] = result
                     explorations[inv.id] = probe.graph

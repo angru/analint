@@ -1195,3 +1195,36 @@ def test_safety_first_round_scales_with_exact_budget():
     assert probe.proved
     assert probe.graph.state_count == 4101
     assert not probe.previous_rounds
+
+
+def test_firing_replay_uses_deduplicated_exact_roots(monkeypatch):
+    class Data(Entity):
+        ready: bool = False
+        audit: bool = False
+        unused: bool = False
+
+    target = Action(id="target", pre=[Data.ready])
+    enable = Action(id="enable", effect=[Set(Data.ready, True), Set(Data.audit, True)])
+    spec = Spec(
+        id="firing_roots",
+        name="Firing roots",
+        actions=[target, enable],
+        initial=Initial(vary=[Data.unused]),
+    )
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    piece = analysis.action_slice(target, canonical=True)
+    assert len(roots) == 2
+    proof = derived_proof.cover_defects(target, analysis, piece, roots, 128, canonical=True)
+    assert proof is not None
+
+    replay_path = derived_proof._replay_path
+
+    def check_root_count(analysis, projection, graph, witness, root, number, multiple, **kwargs):
+        assert not multiple
+        return replay_path(analysis, projection, graph, witness, root, number, multiple, **kwargs)
+
+    monkeypatch.setattr(derived_proof, "_replay_path", check_root_count)
+    witness = derived_proof.firing_witness(target, analysis, piece, roots, proof)
+    assert witness["root"] == 1
+    assert witness["trace"] == ["enable", "target"]

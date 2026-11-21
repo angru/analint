@@ -705,9 +705,10 @@ def firing_witness(
     )
     if witness is None:
         return None
-    for number, root in enumerate(initials, 1):
+    roots, numbers, _ = analysis.project_roots(exact, initials)
+    for number, root in zip(numbers, roots, strict=True):
         replay = _replay_path(
-            analysis, projection, graph, witness, root, number, len(initials) > 1, exact=exact
+            analysis, projection, graph, witness, root, number, len(roots) > 1, exact=exact
         )
         if replay is None:
             continue

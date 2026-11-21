@@ -44,13 +44,19 @@ class Attempt:
     roots: list[int]
 
     @property
-    def proved(self) -> bool:
+    def clean(self) -> bool:
         return (
-            self.result.status == QueryStatus.PASS
-            and not self.graph.capped
-            and not self.graph.findings
+            not self.graph.findings
             and not self.graph.excluded
+            and not any(
+                finding.code in (Code.INVARIANT_EVALUATION_ERROR, Code.QUERY_EVALUATION_ERROR)
+                for finding in self.result.findings
+            )
         )
+
+    @property
+    def proved(self) -> bool:
+        return self.result.status == QueryStatus.PASS and not self.graph.capped and self.clean
 
     def report(
         self,
@@ -70,12 +76,7 @@ class Attempt:
             "backend": "native",
             "budget": self.budget,
             "complete": not self.graph.capped and not self.graph.excluded,
-            "clean": not self.graph.findings
-            and not self.graph.excluded
-            and not any(
-                finding.code in (Code.INVARIANT_EVALUATION_ERROR, Code.QUERY_EVALUATION_ERROR)
-                for finding in self.result.findings
-            ),
+            "clean": self.clean,
             "status": self.result.status,
             "states_explored": self.graph.state_count,
         }
@@ -203,7 +204,7 @@ def _attempt(
     if projection is None or any(not analysis.root_is_legal(ctx) for ctx in initials):
         return None
     roots = [projection.context(ctx) for ctx in initials]
-    applicability = InvariantPlan(Invariant(predicate))
+    applicability = InvariantPlan(target if isinstance(target, Invariant) else Invariant(predicate))
     if not any(applicability.is_applicable(root) for root in roots):
         return None
     sub_budget = min(4096, max(1, budget // 4))

@@ -64,9 +64,11 @@ def prove_query(
     if exp.excluded or any(f.severity == Severity.ERROR for f in exp.findings):
         return None
     result = _evaluate(query, query.id, exp, spec)
+    if probe is not None:
+        result.model = probe.report(result, budget, exact_graph=exp)
     if result.status == QueryStatus.INCONCLUSIVE and tlc:
         from analint.backends.tlc import TlcUnavailable, find_tlc
-        from analint.validator.tlc_fallback import _decide_query
+        from analint.validator.tlc_fallback import _decide_query, _record_exact_backend
 
         try:
             find_tlc()
@@ -82,14 +84,13 @@ def prove_query(
             tlc_timeout,
             {action.id for action in used.actions},
         )
+        _record_exact_backend(result, tlc_timeout)
     if result.status != QueryStatus.PASS:
         return None
     result.slice = used.summary()
-    if probe is not None:
-        if probe.proved and result.backend is None:
-            projected = probe.result
-            assert isinstance(projected, QueryResult)
-            projected.model = probe.report()
-            return SafetyProof(projected, exp, used, initials, probe.graph)
-        result.model = probe.report(result, budget, exact_graph=exp)
+    if probe is not None and probe.proved and result.backend is None:
+        # The exact graph still supplies diagnostic coverage and the existing
+        # slice statistics. The proof's state count is recorded in model.
+        result.model = probe.report()
+        return SafetyProof(result, exp, used, initials, probe.graph)
     return SafetyProof(result, exp, used, initials)

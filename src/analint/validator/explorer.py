@@ -1257,6 +1257,7 @@ def _run_query(
                 probe.result.model = probe.report()
                 explorations[qid] = probe.graph
                 assert isinstance(probe.result, QueryResult)
+                _retain_exact_statistics(probe.result, analysis, piece, initials, budget)
                 return probe.result
         exp, used = explore_slice(analysis, piece, initials, budget, cache)
         explorations[qid] = exp
@@ -1285,6 +1286,21 @@ def _evaluate(query: Query, qid: str, exp: Exploration, spec: Spec) -> QueryResu
     if isinstance(query, NoDeadEnd):
         return _eval_no_dead_end(query, qid, exp)
     return _eval_dead_actions(query, qid, exp, spec)
+
+
+def _retain_exact_statistics(
+    result: InvariantResult | QueryResult,
+    analysis: SliceAnalysis,
+    piece: Slice,
+    initials: list[dict],
+    budget: int,
+) -> None:
+    """Retain legacy statistics when exact coverage already built this graph."""
+    for used, exp in analysis.explored.get((analysis.roots_key(initials), budget), ()):
+        if used.key == piece.key and not exp.capped and not exp.excluded:
+            result.states_explored = exp.state_count
+            result.slice = used.summary()
+            return
 
 
 def explore_slice(
@@ -1609,6 +1625,15 @@ def verify_invariants(
         # defects parity with the full canonical exploration (see cover_actions)
         if all_actions:
             cover_actions(analysis, initials, max_states, cache, canonical=True)
+        for inv in targets:
+            if id(inv) in proved:
+                _retain_exact_statistics(
+                    proved[id(inv)],
+                    analysis,
+                    analysis.invariant_slice(inv, unconstrained=True),
+                    initials,
+                    max_states,
+                )
         return [results_by_target[id(inv)] for inv in targets], None
     # Charge the shared exploration to the first invariant that requests it.
     started = perf_counter()

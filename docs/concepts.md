@@ -163,6 +163,24 @@ model changes invalidate the relevant entries. The cache returns the same
 semantic findings as a fresh run. Check timing can change because it measures
 work actually performed, and shared work is charged to its first consumer.
 
+### Projected safety proofs (Unreleased)
+
+Sliced verification can first check an invariant or `Unreachable` on a
+projection of its effective initial states. It follows every expanded writer
+of a retained field and keeps inputs to visible updates, postconditions,
+payloads and lifecycle checks. It erases hidden writes and can weaken a
+precondition by removing a conjunct that reads an erased field. The projected
+graph covers every reachable concrete state for the retained fields.
+
+A complete, error-free result with a legal, applicable concrete root can
+prove safety. The budgeted attempt leaves world-invariant pruning disabled.
+A projected counterexample describes a candidate path. The checker tries that
+path from the matching concrete roots with the original transition kernel and
+world invariants. When the exact retry reaches its budget, a replayed violation
+still establishes failure. The checker keeps exact action coverage for
+transition diagnostics. Unsupported projections and unsuccessful proofs use
+the existing exact verification pipeline.
+
 ## TLC fallback
 
 `check --tlc` hands supported properties left INCONCLUSIVE to TLC on the same

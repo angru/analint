@@ -75,6 +75,7 @@ def result_to_dict(
                 **({"elapsed_ms": round(qr.elapsed_ms, 3)} if qr.elapsed_ms is not None else {}),
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
+                **({"model": qr.model} if qr.model is not None else {}),
                 **({"backend": qr.backend} if qr.backend is not None else {}),
                 "findings": _findings(qr.findings, compact),
             }
@@ -89,6 +90,7 @@ def result_to_dict(
                 **({"elapsed_ms": round(ir.elapsed_ms, 3)} if ir.elapsed_ms is not None else {}),
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
+                **({"model": ir.model} if ir.model is not None else {}),
                 **({"backend": ir.backend} if ir.backend is not None else {}),
                 "findings": _findings(ir.findings, compact),
             }

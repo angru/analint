@@ -297,7 +297,7 @@ def test_drop_disjunction_as_a_unit():
     replay, graph = probe.replayed
     assert replay.trace == ["show"]
     assert graph.roots[graph.root_of(replay.witness_key)] == 2
-    assert probe.report()["attempts"][0]["candidate_root"] == 1
+    assert probe.graph.roots[probe.graph.root_of(probe.candidate)] == 1
 
 
 @pytest.mark.parametrize("checks", [None, ["too_far"]])
@@ -373,7 +373,9 @@ TARGETS = [
 ]
 
 
-@pytest.mark.parametrize("entry", [p for p in TARGETS if p.name != "__init__.py"], ids=str)
+@pytest.mark.parametrize(
+    "entry", [p for p in TARGETS if p.name != "__init__.py"], ids=lambda p: str(p.relative_to(ROOT))
+)
 def test_example_and_benchmark_differential(entry, monkeypatch):
     projected = validate(entry)
     monkeypatch.setattr(derived_proof, "attempt", lambda *_: None)

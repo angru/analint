@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- Sliced invariant and `Unreachable` checks can prove safety on projected
+  models and replay candidate violations on the concrete system. The
+  `analint.check/v1` report records the deciding relation and attempted graphs.
+  Exact action coverage continues to report transition diagnostics. (#83)
+
 - `BoolValue(predicate)` supplies boolean operands for effects, including
   parameter-dependent flags, scoped/quantified predicates and presence checks.
   Effect values read the pre-state; binding, compiler, impact/slicing and cache

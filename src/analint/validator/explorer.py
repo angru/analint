@@ -1466,7 +1466,7 @@ def cover_actions(
         proofs = analysis.projected_coverage.setdefault(root_key, {})
         # An own-root full run can request many overlapping projections. Give
         # the batch one speculative allowance before exact slice reuse takes over.
-        work = [_witness_budget(max_states)] if limit_projection_work else None
+        work = [max(1, _witness_budget(max_states) // 32)] if limit_projection_work else None
 
         def prove(action: Action, *, retry: bool = False) -> tuple | None:
             identity = id(action)

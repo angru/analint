@@ -1168,7 +1168,7 @@ def test_own_root_projected_coverage_shares_one_work_allowance(monkeypatch):
     covered = explorer.cover_actions(
         analysis, roots, 128, {}, canonical=False, limit_projection_work=True
     )
-    assert remaining == [32, 0]
+    assert remaining == [1, 0]
     assert covered[id(first)].fired == {"first"}
     assert covered[id(second)].fired == {"second"}
 

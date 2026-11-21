@@ -53,6 +53,10 @@ def prove_query(
         from analint.validator.derived_proof import attempt
 
         probe = attempt(query, analysis, piece, initials, budget)
+        if probe is not None and probe.proved:
+            assert isinstance(probe.result, QueryResult)
+            probe.result.model = probe.report()
+            return SafetyProof(probe.result, probe.graph, piece, initials)
     exp, used = explore_slice(
         analysis,
         piece,

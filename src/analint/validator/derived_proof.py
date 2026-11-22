@@ -437,6 +437,98 @@ def _attempt(
     raise AssertionError("refinement loop must return")
 
 
+def _coverage_invariants(
+    analysis: SliceAnalysis, exact: Slice, initials: list[dict], budget: int, canonical: bool
+) -> bool:
+    for invariant in exact.invariants:
+        if canonical and id(invariant) in analysis.trusted:
+            continue
+        probe = attempt(
+            invariant,
+            analysis,
+            analysis.invariant_slice(invariant, unconstrained=True),
+            initials,
+            budget,
+        )
+        if probe is None or not probe.proved:
+            return False
+    return True
+
+
+def cover_family(
+    actions: list[Action],
+    analysis: SliceAnalysis,
+    initials: list[dict],
+    budget: int,
+    *,
+    canonical: bool,
+    work: list[int] | None,
+) -> dict[int, tuple[Projection, Exploration]]:
+    """Share an exploration among intact targets with the same projection."""
+    if (work is not None and work[0] <= 0) or any(
+        not analysis.root_is_legal(ctx) for ctx in initials
+    ):
+        return {}
+    groups: dict[frozenset[Var], list[tuple[Action, Slice]]] = {}
+    for action in actions:
+        exact = analysis.action_slice(action, canonical=canonical)
+        projection = derive(analysis, None, exact, obligation=action)
+        if projection is not None:
+            groups.setdefault(projection.variables, []).append((action, exact))
+
+    proofs = {}
+    for variables, members in groups.items():
+        if len(members) < 2 or (work is not None and work[0] <= 0):
+            continue
+        eligible = [
+            (action, exact)
+            for action, exact in members
+            if _coverage_invariants(analysis, exact, initials, budget, canonical)
+        ]
+        if len(eligible) < 2:
+            continue
+        targets = tuple(action for action, _ in eligible)
+        projection = derive(analysis, None, eligible[0][1], obligations=targets)
+        if projection is None or projection.variables != variables:
+            continue
+        limit = _witness_budget(budget)
+        if work is not None:
+            limit = min(limit, work[0])
+        graph = explore(
+            projection.spec,
+            [projection.context(ctx) for ctx in initials],
+            limit,
+            store_edges=False,
+            projection=variables,
+        )
+        if work is not None:
+            work[0] -= graph.state_count
+        locations = {f"action:{action.id}" for action in projection.spec.actions}
+        if (
+            graph.capped
+            or graph.excluded
+            or any(
+                finding.location not in locations
+                or not finding.code.value.startswith("transition.")
+                or finding.code == Code.EVALUATION_ERROR
+                for finding in graph.findings
+            )
+        ):
+            continue
+        # Other targets' defects cannot erase concrete accepted edges. Each
+        # faulting target still needs its own refinement or exact diagnostic.
+        blocked = {finding.location for finding in graph.findings}
+        graph.findings = []
+        graph.finding_states = {}
+        graph._seen = {}
+        proofs.update(
+            (id(action), (projection, graph))
+            for action in targets
+            if f"action:{action.id}" not in blocked
+        )
+    return proofs
+
+
 def cover_defects(
     action: Action,
     analysis: SliceAnalysis,
@@ -460,18 +552,8 @@ def cover_defects(
     projection = derive(analysis, None, exact, obligation=action)
     if projection is None:
         return None
-    for invariant in exact.invariants:
-        if canonical and id(invariant) in analysis.trusted:
-            continue
-        probe = attempt(
-            invariant,
-            analysis,
-            analysis.invariant_slice(invariant, unconstrained=True),
-            initials,
-            budget,
-        )
-        if probe is None or not probe.proved:
-            return None
+    if not _coverage_invariants(analysis, exact, initials, budget, canonical):
+        return None
     for refinement in range(_MAX_REFINEMENTS + 1):
         limit = _witness_budget(budget)
         if work is not None:

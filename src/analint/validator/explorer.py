@@ -1470,6 +1470,7 @@ def cover_actions(
     from analint.validator.derived_proof import (
         _witness_budget,
         cover_defects,
+        cover_family,
         firing_prefix_witness,
         firing_witness,
     )
@@ -1490,31 +1491,48 @@ def cover_actions(
         witnesses = []
         firing_prefixes: dict[tuple, Exploration] = {}
         proofs = analysis.projected_coverage.setdefault(root_key, {})
-        # An own-root full run can request many overlapping projections. Give
-        # the batch one speculative allowance before exact slice reuse takes over.
-        work = [max(1, _witness_budget(max_states) // 32)] if limit_projection_work else None
+        # Bound speculative batch work by the state budget of even one
+        # exact fallback. Each individual projection keeps its smaller cap.
+        work = [max_states] if limit_projection_work else None
+        families: dict[str, list[Action]] = {}
+        for action, _, narrow in pieces:
+            if action.family and not narrow and id(action) not in proofs:
+                families.setdefault(action.family, []).append(action)
+
+        def keep_graph(graph: Exploration) -> None:
+            if analysis.retain_derived_graphs:
+                return
+            if isinstance(cache, ExplorationStorage) and (
+                require_firing or cache.group(initials, max_states) in cache.firing_groups
+            ):
+                cache.track(initials, max_states, graph)
+            elif not require_firing:
+                graph.release_graph()
 
         def prove(action: Action, *, retry: bool = False) -> tuple | None:
             identity = id(action)
             if identity not in proofs or (retry and proofs[identity] is None):
-                proof = cover_defects(
-                    action,
-                    analysis,
-                    analysis.action_slice(action, canonical=canonical),
-                    initials,
-                    max_states,
-                    canonical=canonical,
-                    work=None if retry else work,
-                )
-                if proof is not None and not analysis.retain_derived_graphs:
-                    _, graph = proof
-                    if isinstance(cache, ExplorationStorage) and (
-                        require_firing or cache.group(initials, max_states) in cache.firing_groups
-                    ):
-                        cache.track(initials, max_states, graph)
-                    elif not require_firing:
-                        graph.release_graph()
-                proofs[identity] = proof
+                family = families.pop(action.family, [])
+                if len(family) > 1:
+                    shared = cover_family(
+                        family, analysis, initials, max_states, canonical=canonical, work=work
+                    )
+                    for graph in {id(proof[1]): proof[1] for proof in shared.values()}.values():
+                        keep_graph(graph)
+                    proofs.update(shared)
+                if identity not in proofs or retry:
+                    proof = cover_defects(
+                        action,
+                        analysis,
+                        analysis.action_slice(action, canonical=canonical),
+                        initials,
+                        max_states,
+                        canonical=canonical,
+                        work=None if retry else work,
+                    )
+                    if proof is not None:
+                        keep_graph(proof[1])
+                    proofs[identity] = proof
             return proofs[identity]
 
         requested = {id(action) for action in actions}

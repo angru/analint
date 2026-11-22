@@ -174,11 +174,21 @@ by that query. Model preparation and invariant-phase shared action coverage are
 excluded. Summing these timings does not give total command time.
 
 **0.3.0:** invariant, `Unreachable`, `Reachable`, `DeadActions` and
-`NoDeadEnd` results
-can include a `model` object. Its `relation` is `over-approx` for a projected
-safety proof, `under-approx: replayed` for concrete evidence confirmed by
-replay, `exact` for a deciding exact retry, or `null` for an inconclusive
-retry. Safety projections can decide both full and selected checks. An
+`NoDeadEnd` results can include a `model` object. Its `relation` describes
+the decision:
+
+- `over-approx` means a projected safety proof or a `NoDeadEnd` PASS
+  certified by projected recovery ranks.
+- `under-approx: replayed` means concrete evidence confirmed a witness.
+  A `DeadActions` PASS with projected firing attempts uses this value
+  even when some actions were assessed by exact exploration or a bounded
+  concrete firing prefix.
+- `exact` means exact verification decided the result. A `DeadActions`
+  FAIL with projected firing attempts uses this value for the combined
+  assessment, even when there was no query-wide exact retry.
+- `null` means the attempts left the check inconclusive.
+
+Safety projections can decide both full and selected checks. An
 exclusion can be ignored for a safety proof if the excluded action leaves
 every retained field and slot's presence unchanged. Transition coverage
 still assesses that action using its own obligation.

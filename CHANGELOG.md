@@ -9,12 +9,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.3.0] — 2026-11-22
 
-`analint.check/v1` keeps its field types and required keys. Invariant and
-query results can add `model` with the deciding `relation` and proof attempts.
-For projection-decided checks, the optional `slice` may be absent and
-`states_explored` may be smaller because it can count a proof graph. Consumers
-that compare graph sizes or selected coverage across versions should review
-the [report migration notes](docs/dsl.md#migrating-to-030).
+`analint.check/v1` is not fully backward-compatible with 0.2.0. Required
+keys and field types are unchanged, but consumers relying on the previous
+sliced-report behavior need to adapt:
+
+- Projection-decided results may omit `slice`.
+- `states_explored` can count a smaller proof graph.
+- Sliced selections report the new `model_coverage.scope` value
+  `selected_slices_from_verification_roots`.
+- Sliced selections omit transition defects of unrelated actions from
+  `model_findings`.
+
+Invariant and query results can now include `model` with the deciding
+`relation` and proof attempts. Selected reports add
+`selection.covered_actions` and `selection.unassessed_actions`.
+See the [report migration notes](docs/dsl.md#migrating-to-030).
 
 ### Added
 
@@ -34,16 +43,19 @@ the [report migration notes](docs/dsl.md#migrating-to-030).
 - Reachability and recovery scans compile predicates once, reuse decoded
   contexts and applicability checks, and retain the deciding trace and late
   evaluation errors. (#90)
+
 - Full and selected runs can use clean projected safety proofs with the
   required invariant support. Projected defect coverage keeps each target
   action intact. Reachable and DeadActions can use concrete witness replay.
   Failed replay or projected defects can trigger bounded refinement that
   restores omitted guard reads. Exact graphs are built on demand and reused
   when a planned recovery check already needs one. (#92 step 1)
+
 - NoDeadEnd can prove recovery with projected ranks backed by intact actions
   leading to the goal. Uncertified cases and dead-end findings use the exact
   path. DeadActions can establish firing with a bounded concrete prefix after
   diagnostic coverage. (#92 step 2)
+
 - Parameterized variants with the same retained fields can share a complete
   projected coverage graph, while checking each variant's own obligations.
   Query-owned projections get an aggregate allowance of `max_states`;
@@ -62,21 +74,25 @@ the [report migration notes](docs/dsl.md#migrating-to-030).
   dependencies. Each sliced check spends its budget on its own dependencies, so
   a sliced selection can pass where one check's larger budget used to expose a
   defect in another check's action, and defects of unrelated actions no longer
-  appear in `model_findings` (which remain outside the selected verdict). Reports add `selection.covered_actions` and
-  `selection.unassessed_actions`, and `model_coverage.scope` becomes
+  appear in `model_findings`, which remains outside the selected verdict.
+  Reports add `selection.covered_actions` and `selection.unassessed_actions`,
+  and `model_coverage.scope` becomes
   `selected_slices_from_verification_roots` for sliced selections (previously
   always `actions_from_verification_roots`). `DeadActions` and `NoDeadEnd`
   retain all-action coverage. A selection whose slice spans most of the model
   explores about as much as a full check. (#81)
+
 - Reuse smaller `NoDeadEnd` slices when every omitted disabler has an always
   available local boolean re-enabler. Reports identify the reduced graph used
   for a clean proof. Other outcomes use the full slice to preserve diagnostics
   and shortest counterexamples. (#79)
+
 - Reduce action-coverage work for local boolean enablers starting off: reuse a
   complete narrow firing proof only when all guard/effect inputs are local and
   no postcondition, emitted event or invariant can introduce a later defect.
   Incomplete or unsuccessful probes widen; other actions retain full coverage.
   Broker's maximum reported states fall from 38,518 to 27,228. (#53)
+
 - TLC reachability fallback reuses full-model root-legality provenance and
   assesses inert roots locally instead of launching a JVM. Only actual TLC runs
   produce backend state-count notes; mixed checks include locally assessed roots

@@ -7,17 +7,21 @@ or in the linked examples.
 
 ## Migrating to 0.3.0
 
-`analint.check/v1` retains its required keys and field types. Update consumers
-that assumed every sliced result had `slice` or that `states_explored` always
-measured an exact graph. Use `model.relation` and `model.attempts` to identify
-the proof and its state counts. Keep reading `verdict` for the run outcome.
+The 0.3.0 `analint.check/v1` report is not fully backward-compatible with
+0.2.0. Required keys and field types are unchanged. Update consumers that
+rely on the previous sliced-report behavior:
 
-For selected checks, read `selection.covered_actions`,
-`selection.unassessed_actions` and `model_coverage.scope` before comparing
-diagnostic coverage across versions. A sliced selection now reports
-`selected_slices_from_verification_roots` and can omit unrelated transition
-defects from `model_findings`. See the
-[selection contract](cli.md#selecting-checks-over-one-model).
+- Accept an absent `slice` on projection-decided results.
+- Treat `states_explored` as a reported graph count. It can count a smaller
+  proof graph. Use `model.relation` and `model.attempts` to identify the proof
+  and its graph counts.
+- Accept `selected_slices_from_verification_roots` in `model_coverage.scope`
+  for sliced selections. Read `selection.covered_actions` and
+  `selection.unassessed_actions` before comparing coverage.
+- Expect sliced selections to omit unrelated transition defects from
+  `model_findings`. Keep using `verdict` for the run outcome.
+
+See the [selection contract](cli.md#selecting-checks-over-one-model).
 
 ## Migrating to 0.2.0
 

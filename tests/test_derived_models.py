@@ -454,6 +454,7 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
         with monkeypatch.context() as exact_run:
             exact_run.setattr(derived_proof, "attempt", lambda *_: None)
             exact_run.setattr(derived_proof, "cover_defects", lambda *_, **__: None)
+            exact_run.setattr(derived_proof, "cover_family", lambda *_, **__: {})
             exact_run.setattr(derived_proof, "reach_witness", lambda *_: None)
             exact_run.setattr(derived_proof, "derive", lambda *_, **__: None)
             return validate(entry, max_states=budget, **kwargs)
@@ -476,6 +477,7 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
             )
         )
     assert projected.exploration_findings == exact.exploration_findings
+    assert projected.model_findings == exact.model_findings
     projected_checks = [*projected.invariant_results, *projected.query_results]
     exact_checks = [*exact.invariant_results, *exact.query_results]
 
@@ -524,6 +526,7 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
         expected = requested(control, name)
         assert name not in proofs or expected.status != "FAIL", name
         assert selected.exploration_findings == control.exploration_findings
+        assert selected.model_findings == control.model_findings
         compare(actual, expected)
 
     if not any(result.trace is not None for result in projected_checks):
@@ -1385,9 +1388,100 @@ def test_own_root_projected_coverage_shares_one_work_allowance(monkeypatch):
     covered = explorer.cover_actions(
         analysis, roots, 128, {}, canonical=False, limit_projection_work=True
     )
-    assert remaining == [1, 0]
+    assert remaining == [128, 0]
     assert covered[id(first)].fired == {"first"}
     assert covered[id(second)].fired == {"second"}
+
+
+@pytest.mark.parametrize("defect", ["post", "guard"])
+def test_family_coverage_keeps_clean_targets_and_falls_back_for_defect(defect, monkeypatch):
+    class Data(Entity):
+        value: int = Field(default=0, le=1)
+        audit: bool = False
+
+    # Both variants read the same fields. Only the faulty guard admits an
+    # overflow at 1, or the faulty postcondition rejects the later result.
+    clean = Action(
+        id="advance(clean)",
+        family="advance",
+        pre=[Data.value < 1],
+        effect=[Add(Data.value, 1)],
+    )
+    faulty = Action(
+        id="advance(faulty)",
+        family="advance",
+        pre=[Data.value <= 1] if defect == "guard" else [Data.value == 1],
+        effect=[Add(Data.value, 1)] if defect == "guard" else [Set(Data.value, 0)],
+        post=[] if defect == "guard" else [Data.value == 1],
+    )
+    writer = Action(id="audit", effect=[Set(Data.value, 1), Set(Data.audit, True)])
+    spec = Spec(id="family", name="Family", actions=[clean, faulty, writer])
+    roots, _ = build_canonical_initials(spec)
+    analysis = SliceAnalysis(spec)
+    probes = []
+    original = derived_proof.cover_defects
+
+    def record(action, *args, **kwargs):
+        probes.append(action.id)
+        return original(action, *args, **kwargs)
+
+    monkeypatch.setattr(derived_proof, "cover_defects", record)
+    covered = explorer.cover_actions(analysis, roots, 128, {}, canonical=True)
+    assert clean.id not in probes
+    assert faulty.id in probes
+    assert covered[id(clean)].state_count == 2
+    assert not covered[id(clean)].findings
+    assert any(f.location == f"action:{faulty.id}" for f in covered[id(faulty)].findings)
+    with monkeypatch.context() as exact:
+        exact.setattr(derived_proof, "cover_defects", lambda *_, **__: None)
+        exact.setattr(derived_proof, "derive", lambda *_, **__: None)
+        expected = explorer.cover_actions(SliceAnalysis(spec), roots, 128, {}, canonical=True)
+    assert covered[id(faulty)].findings == expected[id(faulty)].findings
+
+
+def test_own_root_family_cap_falls_back_to_full_exact_budget(monkeypatch):
+    class Data(Entity):
+        value: int = 0
+        audit: bool = False
+
+    first = Action(
+        id="grow(first)", family="grow", pre=[Data.value < 3], effect=[Add(Data.value, 1)]
+    )
+    second = Action(
+        id="grow(second)", family="grow", pre=[Data.value < 2], effect=[Add(Data.value, 1)]
+    )
+    writer = Action(id="audit", effect=[Set(Data.value, 1), Set(Data.audit, True)])
+    spec = Spec(id="own_cap", name="Own root cap", actions=[first, second, writer])
+    query = DeadActions(given=[Data(value=1)], id="usable")
+    spec.queries.append(query)
+    monkeypatch.setattr(derived_proof, "_witness_budget", lambda _: 2)
+    original = derived_proof.explore
+    projected = []
+    exact_budgets = []
+    explore_slice = explorer.explore_slice
+
+    def record(model, *args, **kwargs):
+        graph = original(model, *args, **kwargs)
+        if any(action is first for action in model.actions):
+            projected.append(graph.capped)
+        return graph
+
+    def record_exact(analysis, piece, initials, max_states, *args, **kwargs):
+        exact_budgets.append(max_states)
+        return explore_slice(analysis, piece, initials, max_states, *args, **kwargs)
+
+    monkeypatch.setattr(derived_proof, "explore", record)
+    monkeypatch.setattr(explorer, "explore_slice", record_exact)
+    actual = validate_spec(spec, max_states=32)
+    assert projected == [True]
+    assert exact_budgets and set(exact_budgets) == {32}
+    with monkeypatch.context() as exact:
+        exact.setattr(derived_proof, "derive", lambda *_, **__: None)
+        expected = validate_spec(spec, max_states=32)
+    assert actual.verdict == expected.verdict == "PASS"
+    assert actual.exploration_findings == expected.exploration_findings
+    assert actual.query_results[0].findings == expected.query_results[0].findings
+    assert actual.query_results[0].states_explored == expected.query_results[0].states_explored
 
 
 def test_safety_first_round_scales_with_exact_budget():

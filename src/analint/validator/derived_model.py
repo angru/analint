@@ -83,6 +83,7 @@ def derive(
     exact: Slice,
     *,
     obligation: Action | None = None,
+    obligations: tuple[Action, ...] = (),
     retain: frozenset[Var] = frozenset(),
 ) -> Projection | None:
     """Follow all expanded writers to a fixed point over visible update inputs.
@@ -100,10 +101,15 @@ def derive(
         return None
     state_types = set(spec.entities)
     try:
+        target_ids = {id(action) for action in obligations}
+        if obligation is not None:
+            target_ids.add(id(obligation))
         variables = (
-            _guard_vars(predicate)
-            if obligation is None
-            else analysis.action_vars[id(obligation)] | analysis.lock_vars[id(obligation)]
+            set().union(
+                *(analysis.action_vars[key] | analysis.lock_vars[key] for key in target_ids)
+            )
+            if target_ids
+            else _guard_vars(predicate)
         )
         variables.update(retain)
         if not variables:
@@ -112,7 +118,7 @@ def derive(
             previous = set(variables)
             writers = {id(action) for var in previous for action in analysis.writers.get(var, ())}
             for action in spec.actions:
-                if id(action) not in writers and action is not obligation:
+                if id(action) not in writers and id(action) not in target_ids:
                     continue
                 for effect in action.effect:
                     targets = _effect_vars(effect)
@@ -154,7 +160,7 @@ def derive(
         for action in spec.actions:
             location = f"action:{action.id}"
             effects = [effect for effect in action.effect if _effect_vars(effect) & variables]
-            if not effects and action is not obligation:
+            if not effects and id(action) not in target_ids:
                 dropped.append(
                     {
                         "location": location,
@@ -175,6 +181,9 @@ def derive(
                 for ref in _collect_field_refs(guard)
             ):
                 return None  # a relevant excluded writer cannot support a certificate
+            if obligations and id(action) in target_ids:
+                actions.append(action)
+                continue
             pre = []
             for index, guard in enumerate(action.pre, 1):
                 terms = guard.exprs if isinstance(guard, _And) else [guard]

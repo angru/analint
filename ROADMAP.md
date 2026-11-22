@@ -1,17 +1,8 @@
 # analint — Roadmap
 
-Current source version (2026-11-19): **0.2.0**. The reviewed authoring queue,
-multi-root reachability, action slicing and invariant-plan repairs are included.
-See [the changelog](CHANGELOG.md) and [migration notes](docs/dsl.md#migrating-to-020).
-Publication status and final artifact verification are recorded in the
-[v0.2.0 release](https://github.com/angru/analint/releases/tag/v0.2.0);
-merging release preparation alone does not publish a package.
-Semantic core and P5 are complete.
-analint declares finite system behaviour in Python and checks it through one
-transition kernel, canonical initial states, executable scenarios/flows and
-property-local reachability. Slicing, compact state storage and the opt-in TLC
-backend are released. Incremental successor generation and on-disk exploration
-caching are included in 0.0.3 (see `CHANGELOG.md`).
+Current source version (2026-11-22) is **0.3.0**, pending publication.
+See the [changelog](CHANGELOG.md) for release contents. The semantic core and
+P5 are complete.
 
 **This file is the single source of truth for status and priorities.**
 `research/` contains dated rationale; priorities stated only there are historical.
@@ -19,176 +10,35 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-19)
+## Current priorities (2026-11-22)
 
-The #42/#41 correctness repairs, #40 invariant-plan repair, and reviewed
-#43–#50/#54 authoring and diagnostic changes form **0.2.0**. The integration record
-below identifies the reviewed heads and validation boundary.
+1. **Publish 0.3.0 and adopt it in exness-spec.** Update its current
+   `analint>=0.2.0` requirement and rerun the full spec against the published
+   package.
+2. **Complete the external real-spec change trial.** Record a before/after
+   requirement change in the margin and payments model with full and selected
+   checks, allowed and rejected cases, and a trace on the published version.
+3. **Remaining follow-ups.** [#68](https://github.com/angru/analint/issues/68)
+   tracks slice and state-space diagnostics.
+   [#77](https://github.com/angru/analint/issues/77) tracks effect value types;
+   [#78](https://github.com/angru/analint/issues/78) tracks legal recovery
+   witnesses and invalid-root explanations.
+   [#83](https://github.com/angru/analint/issues/83) remains the design umbrella
+   for further derived models, including projected AlwaysHolds proofs, finite
+   havoc, named views and verified environments ([research/37](research/37-per-check-derived-models.md)).
+   [#11](https://github.com/angru/analint/issues/11) (immutable model preparation)
+   and [#12](https://github.com/angru/analint/issues/12) (state-store ownership)
+   remain conditional on consumer evidence.
 
-1. **Adopt 0.2.0 after publication verification.** Update the pinned dependency in
-   `exness-spec` and rerun its full specification against the published package.
-   Integration into main does not update that consumer's dependency.
-2. **Complete the external real-spec change trial.** `exness-spec` now includes
-   margin and payments contracts. Record a before/after requirement change with
-   full/selected checks, allowed/rejected cases and a trace on the published
-   version. Initial authoring and the bounded fulfillment rehearsal do not
-   replace that maintenance trial.
-3. **Remaining bounded follow-ups (P3).**
-   [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
-   state-space diagnostics, not automatic symmetry reduction.
-   [#71](https://github.com/angru/analint/issues/71) is implemented in
-   [PR #76](https://github.com/angru/analint/pull/76), pending independent review:
-   `NoDeadEnd` attributes an invariant-invalid witness using finding-to-state
-   provenance and reports `query.invalid_state`. Verdicts, graphs and ordinary
-   dead-end diagnostics are unchanged.
+Derived-model work shipped in this source version includes projected safety
+(#83, PR #89), projected defect coverage, replay and local recovery (#92,
+PRs #93–#94), and shared family coverage and the own-root allowance (#95,
+PR #96). Across the recorded exness-spec full-check comparisons, runtime went
+from roughly 210 s to 47 s and peak RSS from roughly 500 MB to 130 MB, with
+identical verdicts. The #71 invalid-state diagnostic is merged in PR #76.
 
-#49's two agreed halves are implemented: #58 adds floor division and #59 adds
-exhaustive enum lookup. Modulo and real division remain outside this scope.
-#54 now explains invalid, unexpanded roots; legal missing paths retain their
-ordinary diagnostic and root legality still blocks full/selected checks.
-
-Links: [#43](https://github.com/angru/analint/issues/43),
-[#44](https://github.com/angru/analint/issues/44),
-[#45](https://github.com/angru/analint/issues/45),
-[#46](https://github.com/angru/analint/issues/46),
-[#47](https://github.com/angru/analint/issues/47),
-[#48](https://github.com/angru/analint/issues/48),
-[#49](https://github.com/angru/analint/issues/49),
-[#50](https://github.com/angru/analint/issues/50).
-
-Broader #11 snapshot work and #12 state-store ownership remain conditional on
-concrete consumer evidence. The completed #53 optimization does not reopen P5
-or justify a general rewrite. Liveness/fairness, automatic event dispatch, unbounded structures, a general implementation bridge, semantic diff
-and a Rust core remain outside current work.
-
-## Completed follow-ups (2026-11-19)
-
-#53, #65, #66 and #67 are closed and integrated in main through merge commits.
-These changes are **unreleased**; they are not part of the published 0.2.0 package.
-
-[#67](https://github.com/angru/analint/issues/67) — completed in
-[PR #75](https://github.com/angru/analint/pull/75), merged as `0059fd1`.
-`BoolValue(predicate)` supplies parameter-dependent boolean effect operands,
-with simultaneous pre-state evaluation, binding, slicing and cache traversal.
-TLC exports proven boolean domains and explicitly refuses numeric coercions.
-Conditional effect lists remain outside this scope.
-
-[#53](https://github.com/angru/analint/issues/53) — completed in
-[PR #74](https://github.com/angru/analint/pull/74), merged as `f790282`.
-The optimization reduces broker action-slice cost while preserving defect
-coverage, including later executions of an action already enabled at a root.
-It only narrows local boolean enablers whose complete off/on exploration covers
-every defect input;
-unsuccessful or capped probes widen, and state-dependent postconditions retain
-ordinary coverage. The later-execution defect control remains FAIL.
-
-Broker on Python 3.14.5, the same model and five sequential runs without tests:
-
-| Metric | Before `70d2eaf` | #74 implementation `3eb48e8` |
-| --- | ---: | ---: |
-| Maximum reported states per check | 38,518 | 27,228 |
-| Actual exploration calls | 5 | 5 |
-| Actual explored states (sum) | 54,430 | 43,140 |
-| Slice requests / reused requests | 49 / 44 | 49 / 44 |
-| Median wall time, seconds (indicative) | 3.0224 | 2.4709 |
-
-Reproduce with `python scripts/bench_action_coverage.py examples/broker`;
-the script reports every check's count, actual materialized work and repeated
-slice returns separately. With `--cache` and fresh cache directories, both
-revisions retain PASS and warm runs perform zero actual explorations.
-
-[#65](https://github.com/angru/analint/issues/65) — completed in
-[PR #72](https://github.com/angru/analint/pull/72), merged as `07303a9`.
-Complete Reachable checks reject retained invalid matching roots as positive
-witnesses; overall root legality remains FAIL. Native/TLC, selection, trace
-and cache regressions cover the changed query-level contract.
-
-[#66](https://github.com/angru/analint/issues/66) — completed in
-[PR #73](https://github.com/angru/analint/pull/73), retargeted to main after #72
-and merged as `c2aa18d`. Reachability fallback reuses root-legality provenance
-and avoids TLC launches for inert roots. Call-count tests cover projection
-reuse; predicate errors and later backend/transition defects remain visible.
-
-## Authoring integration (2026-11-19)
-
-These changes form **0.2.0**. Each implementation branch
-passed the mandatory local pre-push suite, Ruff and ty. Existing characterization
-snapshots are unchanged. Independent reviews approved the following exact heads:
-#56 `59b227e` (after its two fixes), #57 `584d6bb`, #60 `1ce1ed7`, #61 `aa610d1`,
-#62 `1d761cf`, #63 `7183f56`, and #64 `47e5511`.
-
-| Issues | Review | Behavior |
-| --- | --- | --- |
-| #43–#45 | [PR #56](https://github.com/angru/analint/pull/56) | Count structural errors, preserve literal diagnostic subjects, and show load locations without reporting checks that never ran. |
-| #46–#47 | [PR #57](https://github.com/angru/analint/pull/57) | Complete Param operators and add optional Flow display names while keeping stable check ids. |
-| #48 | [PR #61](https://github.com/angru/analint/pull/61) | Resolve inherited query budgets per invocation across check/show/explore/trace, without mutating declarations. |
-| #50 | [PR #60](https://github.com/angru/analint/pull/60) | Clamp one selected field bound; keep other constraints hard, including Create and TLC. |
-| #49 / #58 | [PR #63](https://github.com/angru/analint/pull/63) | Floor division, with explicit zero errors and a conservative TLC export boundary. |
-| #49 / #59 | [PR #62](https://github.com/angru/analint/pull/62) | Exhaustive, copied enum-to-integer tables with no default arm. |
-| #54 | [PR #64](https://github.com/angru/analint/pull/64) | Explain invalid, unexpanded roots while preserving overall FAIL and legal missing-path diagnostics. |
-
-#57 was merged first; #62 and #63 were then retargeted to main. The remaining
-reviewed heads are included through `codex/reviewed-authoring-integration`, which
-preserves their commits and the tested conflict resolutions. Its dedicated
-cross-feature tests exercise Param arithmetic, floor division, Lookup, one-sided
-saturation, inherited budgets, named Flow rendering, cache and native/TLC checks.
-The merge resolutions retain both AST walkers and the escaped Flow display name.
-
-The local integration at `5e65a1f` passed 1367 tests with 19 existing skips;
-installed-wheel/source verification passed 609 tests, including CLI and MCP
-smoke checks. Strict documentation build, Ruff and ty passed. Subsequent merge
-preparation retained the same source, tests, dependencies and workflow contents;
-only the roadmap records the final integration status. This is source integration
-and artifact verification, not a package publication.
-
-Native arithmetic and scalar-enum lookup preserve Python equality, including
-numerically equal interned states. TLC floor division requires a nonzero constant
-integer divisor and a numerator proven integer from roots/writes. Lookup export
-requires a proven enum selector domain. Unsupported cases explicitly refuse export
-and leave capped checks INCONCLUSIVE; no approximate result is substituted.
-In particular, TLC currently refuses `Lookup(...) // n` and division of a field
-written using Lookup: its integer-domain proof does not recognize that expression.
-Native supports both; integration tests pin this conservative export boundary.
-
-## Reachability correctness integration (2026-11-19)
-
-| Issue | Merged implementation | Reviewed guarantee |
-| --- | --- | --- |
-| [#42](https://github.com/angru/analint/issues/42) | [PR #51](https://github.com/angru/analint/pull/51), `502397b` | Reachable requires a path from every admissible root, including converging paths. Native reverse reachability and per-root TLC agree; incomplete proofs stay INCONCLUSIVE. |
-| [#41](https://github.com/angru/analint/issues/41) | [PR #52](https://github.com/angru/analint/pull/52), `d7c14b6` | An action slice retains flag disablers needed by its own non-antitone guard. True dead actions and transition defects remain failures; ordinary consumers retain the optimization. |
-
-#51 was merged first. #52 was then retargeted to main and rebased from reviewed
-`78dcb0f` to `20ee1dc`; its tree stayed identical
-(`44c518e1833097c0720423e116405f582782b1f4`). Quality and Docs passed on the
-retargeted head before merge. These are source integrations, not publication.
-
-[Independent #51 review](https://github.com/angru/analint/pull/51#issuecomment-7003430980)
-reproduced the old false PASS and verified native/TLC root handling, duplicates,
-convergence and budgets; its full suite passed 1092 tests with 19 skips.
-[Independent #52 review](https://github.com/angru/analint/pull/52#issuecomment-7003459660)
-covered all six action orders, reversed polarity, budget changes and real
-failure controls; its full suite passed 1144 tests with 19 skips. Implementation
-checks also passed CLI/MCP, cold/warm cache and mandatory pre-push gates.
-Characterization snapshots are unchanged. Five historical existential-root
-expectations were deliberately corrected to the documented all-roots contract.
-
-The existing `exness-spec` passed with both fixes: 8 scenarios, 1 flow,
-2 invariants and all 4 queries, with no INCONCLUSIVE results. Seven existing
-warnings about action-scenario coverage remain. This verifies the reported
-blockers, not the still-pending independent requirement-change trial.
-
-**Accepted cost and follow-up:** the review measured broker's `scripts/bench.py`
-state metric rising from 27,228 to 38,518 (+41%). That metric is the maximum
-reported `states_explored` among checks, not total exploration work. The widened
-`request_code` slice contains all 33 actions / 19 variables because retaining
-`code_confirmed` disablers pulls in withdrawal dependencies. Approximate
-2.5-to-3.1-second timings were taken under concurrent test load and are not a
-performance gate. #53 subsequently completed that bounded optimization in
-[PR #74](https://github.com/angru/analint/pull/74), with actual exploration
-calls/state totals and controlled timings recorded under completed follow-ups
-above; fireability and defect coverage remain intact.
-The root diagnostic noted in #51 is separately tracked by #54; it does not
-change the accepted FAIL semantics for illegal initial states.
+The [changelog](CHANGELOG.md) records the earlier 0.2.0 integration and
+completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
 
 ## Verification boundary audit (2026-11-17)
 

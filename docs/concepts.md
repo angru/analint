@@ -72,7 +72,7 @@ from the invalid root. If a legal root also has no path, its ordinary missing-pa
 diagnostic takes precedence. Native traces retain the invalid root with zero
 steps; TLC traces carry the explanation without inventing state snapshots.
 
-**Unreleased (#65):** even if a retained invalid root already matches the goal,
+**0.3.0 (#65):** even if a retained invalid root already matches the goal,
 `Reachable` does not use it as a positive witness. A complete check reports FAIL
 with the same invalid-root explanation. Capped/excluded proofs still remain
 INCONCLUSIVE and predicate evaluation errors remain errors. Projection may choose
@@ -80,7 +80,7 @@ a legal representative of an equivalent root projection; its witness is legal,
 while the original root-legality failure still blocks the overall result.
 `Unreachable` retains its existing forbidden-state contract.
 
-**Unreleased (#66):** TLC fallback reuses projected full-model root legality.
+**0.3.0 (#66):** TLC fallback reuses projected full-model root legality.
 Inert roots are assessed locally with the native predicate/error rules; only
 legal roots launch TLC. Mixed-query state counts include locally assessed roots,
 but only actual TLC runs produce backend notes. A later legal missing path still
@@ -139,10 +139,11 @@ and reports them as unassessed rather than falsely declaring them dead.
 
 ## Slices, budgets and repeated checks
 
-By default, `check` explores each invariant or query on its **cone of influence**:
+By default, `check` limits exploration to the property’s **cone of influence**:
 the state it reads, the actions that can affect it, and the dependencies of those
 actions. Independent processes need not pay for their full Cartesian product.
-JSON records the slice. `check --no-slice` uses the whole model instead.
+JSON records exact slices in `slice` and derived-model decisions in
+`model.relation`. `check --no-slice` uses the whole model instead.
 
 `Spec.max_states` bounds canonical invariant exploration and supplies the default
 budget for queries, including queries with their own roots. An explicit query
@@ -163,7 +164,7 @@ model changes invalidate the relevant entries. The cache returns the same
 semantic findings as a fresh run. Check timing can change because it measures
 work actually performed, and shared work is charged to its first consumer.
 
-### Projected safety proofs (Unreleased)
+### Projected proofs (0.3.0)
 
 Sliced verification can first check an invariant or `Unreachable` on a
 projection of its effective initial states. It follows every expanded writer
@@ -179,11 +180,12 @@ world-invariant pruning disabled.
 A projected counterexample describes a candidate path. The checker tries that
 path from the matching concrete roots with the original transition kernel and
 world invariants. When the exact retry reaches its budget, a replayed violation
-still establishes failure. The checker keeps exact action coverage for
-transition diagnostics. Full checks also retain their exact per-check budgets
-and reporting statistics. Selected checks can finish the property proof on
-the smaller graph. Unsupported projections and unsuccessful proofs use the
-existing exact verification pipeline.
+still establishes failure. Full and selected checks can decide safety on the
+smaller graph with the required support. Transition diagnostics use separate
+action obligations, checked on a projection that keeps the target intact or
+on its exact slice. Reachable and DeadActions can use concrete replay for
+witnesses, and NoDeadEnd can prove recovery through ranked intact steps.
+Unsupported or unsuccessful proofs fall back to exact verification.
 
 ## TLC fallback
 

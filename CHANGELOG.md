@@ -7,12 +7,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-11-22
+
+`analint.check/v1` keeps its field types and required keys. Invariant and
+query results can add `model` with the deciding `relation` and proof attempts.
+For projection-decided checks, the optional `slice` may be absent and
+`states_explored` may be smaller because it can count a proof graph. Consumers
+that compare graph sizes or selected coverage across versions should review
+the [report migration notes](docs/dsl.md#migrating-to-030).
+
 ### Added
 
 - Sliced invariant and `Unreachable` checks can prove safety on projected
   models and replay candidate violations on the concrete system. The
   `analint.check/v1` report records the deciding relation and attempted graphs.
-  Exact action coverage continues to report transition diagnostics. (#83)
+  Transition diagnostics have their own action coverage obligations. (#83)
 
 - `BoolValue(predicate)` supplies boolean operands for effects, including
   parameter-dependent flags, scoped/quantified predicates and presence checks.
@@ -21,6 +30,24 @@ All notable changes to this project are documented here. The format is based on
   refuses numeric coercions instead of approximating them. (#67)
 
 ### Changed
+
+- Reachability and recovery scans compile predicates once, reuse decoded
+  contexts and applicability checks, and retain the deciding trace and late
+  evaluation errors. (#90)
+- Full and selected runs can use clean projected safety proofs with the
+  required invariant support. Projected defect coverage keeps each target
+  action intact. Reachable and DeadActions can use concrete witness replay.
+  Failed replay or projected defects can trigger bounded refinement that
+  restores omitted guard reads. Exact graphs are built on demand and reused
+  when a planned recovery check already needs one. (#92 step 1)
+- NoDeadEnd can prove recovery with projected ranks backed by intact actions
+  leading to the goal. Uncertified cases and dead-end findings use the exact
+  path. DeadActions can establish firing with a bounded concrete prefix after
+  diagnostic coverage. (#92 step 2)
+- Parameterized variants with the same retained fields can share a complete
+  projected coverage graph, while checking each variant's own obligations.
+  Query-owned projections get an aggregate allowance of `max_states`;
+  per-graph caps and the full exact fallback budget are preserved. (#95)
 
 - Exploration compiles effect operands and reuses parent state codes for
   untouched slots. The transition kernel uses copy-on-write snapshots and
@@ -35,7 +62,7 @@ All notable changes to this project are documented here. The format is based on
   dependencies. Each sliced check spends its budget on its own dependencies, so
   a sliced selection can pass where one check's larger budget used to expose a
   defect in another check's action, and defects of unrelated actions no longer
-  appear in `model_findings`. Reports add `selection.covered_actions` and
+  appear in `model_findings` (which remain outside the selected verdict). Reports add `selection.covered_actions` and
   `selection.unassessed_actions`, and `model_coverage.scope` becomes
   `selected_slices_from_verification_roots` for sliced selections (previously
   always `actions_from_verification_roots`). `DeadActions` and `NoDeadEnd`

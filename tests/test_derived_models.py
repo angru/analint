@@ -455,6 +455,7 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
             exact_run.setattr(derived_proof, "attempt", lambda *_: None)
             exact_run.setattr(derived_proof, "cover_defects", lambda *_, **__: None)
             exact_run.setattr(derived_proof, "reach_witness", lambda *_: None)
+            exact_run.setattr(derived_proof, "derive", lambda *_, **__: None)
             return validate(entry, max_states=budget, **kwargs)
 
     monkeypatch.setattr(derived_proof, "attempt", observe)
@@ -479,7 +480,9 @@ def test_example_and_benchmark_differential(entry, monkeypatch):
     exact_checks = [*exact.invariant_results, *exact.query_results]
 
     def compare(actual, expected):
-        if actual.status == "PASS" and expected.status == "INCONCLUSIVE":
+        if getattr(actual, "kind", None) != "NoDeadEnd" and (
+            actual.status == "PASS" and expected.status == "INCONCLUSIVE"
+        ):
             assert actual.model["relation"] in ("over-approx", "under-approx: replayed")
         else:
             assert (actual.status, actual.trace, actual.findings) == (
@@ -819,7 +822,7 @@ def test_no_dead_end_does_not_use_an_invented_recovery_path():
         )
         assert actual.status == "FAIL"
         assert actual.trace == ["trap"]
-        assert actual.model is None
+        assert actual.model["relation"] == "exact"
 
 
 @pytest.mark.parametrize("checks", [None, ["safe"]])
@@ -1110,40 +1113,254 @@ def test_reachability_replays_an_alternative_before_widening():
     assert replay["relation"] == "under-approx: replayed"
 
 
-def test_full_run_uses_planned_recovery_graph_for_matching_checks(monkeypatch):
+@pytest.mark.parametrize("checks", [None, ["recover"]])
+def test_rank_two_refines_and_avoids_the_exact_recovery_graph(monkeypatch, checks):
     class Data(Entity):
-        active: bool = False
+        progress: int = 0
+        ready: bool = False
         audit: bool = False
 
-    start = Action(id="start", effect=[Set(Data.active, True), Set(Data.audit, True)])
-    stop = Action(id="stop", effect=[Set(Data.active, False)])
+    query = NoDeadEnd(Data.progress == 2, id="recover")
     spec = Spec(
-        id="recovery_reuse",
-        name="Recovery reuse",
-        actions=[start, stop],
-        invariants=[Invariant(Data.active == Data.active, id="safety")],
-        queries=[
-            Reachable(Data.active == True, id="active"),  # noqa: E712
-            NoDeadEnd(Data.active == False, id="recover"),  # noqa: E712
-            DeadActions(id="firing"),
+        id="recovery",
+        name="Recovery",
+        initial=Initial(vary=[Data.ready]),
+        invariants=[Invariant(Data.progress <= 2, id="valid")],
+        actions=[
+            Action(
+                id="first",
+                pre=[Data.progress == 0],
+                effect=[Set(Data.progress, 1), Set(Data.ready, True)],
+            ),
+            Action(
+                id="audit",
+                pre=[Data.progress == 2],
+                effect=[Set(Data.progress, 2), Set(Data.audit, True)],
+            ),
+            Action(
+                id="finish",
+                pre=[And(Data.ready, Data.progress == 1)],
+                effect=[Set(Data.progress, 2)],
+            ),
         ],
+        queries=[query],
     )
+    exact = validate_spec(spec, sliced=False, checks=checks)
 
-    def unexpected_projection(*args, **kwargs):
-        pytest.fail("the planned recovery graph already covers this obligation")
+    def unexpected_exact(*args, **kwargs):
+        pytest.fail("the full set of derived proofs should avoid exact slice exploration")
 
-    with monkeypatch.context() as patch:
-        patch.setattr(derived_proof, "reach_witness", unexpected_projection)
-        patch.setattr(derived_proof, "cover_defects", unexpected_projection)
-        full = validate_spec(spec)
-    assert full.verdict == "PASS"
-    assert full.query_results[0].trace == ["start"]
-    assert full.query_results[0].model is None
-    assert full.invariant_results[0].model["relation"] == "over-approx"
-    selected = validate_spec(spec, checks=["safety", "active"])
-    assert selected.verdict == full.verdict
-    assert selected.query_results[0].trace == full.query_results[0].trace
-    assert selected.invariant_results[0].model["relation"] == "over-approx"
+    monkeypatch.setattr(explorer, "explore_slice", unexpected_exact)
+    actual = validate_spec(spec, checks=checks)
+    [actual_query], [exact_query] = actual.query_results, exact.query_results
+    assert actual.verdict == exact.verdict == "PASS"
+    assert actual_query.trace == exact_query.trace is None
+    assert actual_query.model["relation"] == "over-approx"
+    assert actual_query.model["recheck"] is None
+    first, second = actual_query.model["attempts"]
+    assert first["ranks"] == [1]
+    assert second["widened_fields"] == ["Data.ready"]
+    assert second["ranks"] == [1, 1, 2]
+    assert second["recovery_actions"] == ["finish", "first"]
+
+
+@pytest.mark.parametrize("checks", [None, ["recover"]])
+@pytest.mark.parametrize(
+    "case, status",
+    [
+        ("inert_root", "FAIL"),
+        ("terminal_lock", "FAIL"),
+        ("hard_bound", "FAIL"),
+        ("clamp", "PASS"),
+        ("hidden_credit", "FAIL"),
+        ("invalid_successor", "FAIL"),
+    ],
+)
+def test_recovery_preserves_concrete_kernel_and_invariant_obligations(case, status, checks):
+    class Phase(StrEnum):
+        OPEN = "open"
+        TERMINAL = "terminal"
+
+    class Data(Entity):
+        goal: bool = True
+        audit: bool = False
+        credit: bool = True
+        count: int = Field(0, le=1, saturate="high" if case == "clamp" else False)
+        phase: Phase = Lifecycle(
+            initial=Phase.OPEN,
+            transitions={Phase.OPEN: [Phase.TERMINAL]},
+            terminal=[Phase.TERMINAL],
+        )
+
+    enter_effects = [Set(Data.goal, False), Set(Data.audit, True)]
+    recover_effects = [Set(Data.goal, True)]
+    recover_guards = []
+    invariants = []
+    if case == "terminal_lock":
+        enter_effects.append(Set(Data.phase, Phase.TERMINAL))
+    if case in {"hard_bound", "clamp"}:
+        recover_effects.append(Set(Data.count, 2))
+    if case == "hidden_credit":
+        recover_guards.append(Data.credit)
+        enter_effects.append(Set(Data.credit, False))
+    if case in {"inert_root", "invalid_successor"}:
+        invariants.append(Invariant(Not(Data.audit), id="valid"))
+    query = NoDeadEnd(
+        Data.goal,
+        id="recover",
+        given=[Data(goal=False, audit=True)] if case == "inert_root" else [],
+    )
+    actions = [
+        Action(id="enter", effect=enter_effects),
+        Action(id="restore", pre=recover_guards, effect=recover_effects),
+    ]
+    if case == "hidden_credit":
+        actions.append(
+            Action(id="enter_with_credit", pre=[Data.credit], effect=[Set(Data.goal, False)])
+        )
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        actions=actions,
+        invariants=invariants,
+        queries=[query],
+    )
+    [actual] = validate_spec(spec, checks=checks).query_results
+    [exact] = validate_spec(spec, sliced=False, checks=checks).query_results
+    assert actual.status == exact.status == status
+    assert actual.trace == exact.trace
+    assert actual.findings == exact.findings
+    if status == "FAIL":
+        assert actual.model["relation"] == "exact"
+        assert actual.model["recheck"]["status"] == "FAIL"
+    else:
+        assert actual.model["relation"] == "over-approx"
+        assert actual.model["attempts"][-1]["widened_fields"] == ["Data.count"]
+
+
+def test_recovery_requires_invariants_outside_its_cone():
+    class Job(Entity):
+        done: bool = True
+        audit: bool = False
+
+    class Budget(Entity):
+        valid: bool = True
+
+    query = NoDeadEnd(Job.done, id="recover")
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        actions=[
+            Action(id="start", effect=[Set(Job.done, False), Set(Job.audit, True)]),
+            Action(id="finish", effect=[Set(Job.done, True)]),
+            Action(id="break_budget", effect=[Set(Budget.valid, False)]),
+        ],
+        invariants=[Invariant(Budget.valid, id="valid_budget")],
+        queries=[query],
+    )
+    result = validate_spec(spec, checks=["recover"])
+    [actual] = result.query_results
+    assert result.verdict == "FAIL"
+    assert actual.status == "PASS"  # exact slice omits the unrelated invariant
+    assert actual.model["relation"] == "exact"
+    assert actual.model["attempts"][0]["proof_blockers"] == [
+        "invariant lacks a system proof: valid_budget"
+    ]
+
+
+def test_relevant_event_exclusion_blocks_the_recovery_certificate():
+    class Job(Entity):
+        done: bool = True
+        audit: bool = False
+
+    class Notification(Event):
+        ready: bool
+
+    query = NoDeadEnd(Job.done, id="recover")
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        actions=[
+            Action(id="start", effect=[Set(Job.done, False), Set(Job.audit, True)]),
+            Action(id="finish", effect=[Set(Job.done, True)]),
+            Action(id="external", pre=[Notification.ready], effect=[Set(Job.done, False)]),
+        ],
+        queries=[query],
+    )
+    [actual] = validate_spec(spec, checks=["recover"]).query_results
+    [exact] = validate_spec(spec, sliced=False, checks=["recover"]).query_results
+    assert actual.status == exact.status == "INCONCLUSIVE"
+    assert actual.findings == exact.findings
+    assert actual.model["attempts"][0]["proof_blockers"] == [
+        "incomplete diagnostic coverage: external"
+    ]
+    assert actual.model["recheck"]["complete"] is False
+
+
+def test_recovery_does_not_rank_a_type_only_change_that_exact_keys_merge():
+    threshold = 2**53
+
+    class Data(Entity):
+        value: float = float(threshold)
+        audit: bool = False
+
+    goal = Data.value == threshold + 1
+    query = NoDeadEnd(goal, id="recover")
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        actions=[
+            Action(id="integer", effect=[Set(Data.value, threshold)]),
+            Action(id="advance", pre=[Data.value == threshold], effect=[Add(Data.value, 1)]),
+            Action(
+                id="audit",
+                pre=[goal],
+                effect=[Set(Data.value, threshold + 1), Set(Data.audit, True)],
+            ),
+        ],
+        queries=[query],
+    )
+    [actual] = validate_spec(spec).query_results
+    [exact] = validate_spec(spec, sliced=False).query_results
+    assert actual.status == exact.status == "FAIL"
+    assert actual.findings == exact.findings
+    assert actual.model["attempts"][0]["proof_blockers"] == [
+        "exact state keys can merge distinct projected values"
+    ]
+
+
+def test_recovery_cap_rechecks_with_the_full_budget(monkeypatch):
+    class Job(Entity):
+        progress: int = 0
+        audit: bool = False
+
+    query = NoDeadEnd(Job.progress == 2, id="recover")
+    spec = Spec(
+        id="recovery",
+        name="Recovery",
+        actions=[
+            Action(
+                id="advance",
+                pre=[Job.progress < 2],
+                effect=[Add(Job.progress, 1)],
+            ),
+            Action(
+                id="audit",
+                pre=[Job.progress == 2],
+                effect=[Set(Job.progress, 2), Set(Job.audit, True)],
+            ),
+        ],
+        queries=[query],
+    )
+    monkeypatch.setattr(derived_proof, "_witness_budget", lambda _: 2)
+    [actual] = validate_spec(spec, max_states=16).query_results
+    assert actual.status == "PASS"
+    assert actual.model["relation"] == "exact"
+    [probe, exact] = actual.model["attempts"]
+    assert probe["budget"] == 2
+    assert probe["proof_blockers"] == ["projected state budget exhausted"]
+    assert exact["budget"] == 16
+    assert exact["states_explored"] == 4
 
 
 def test_own_root_projected_coverage_shares_one_work_allowance(monkeypatch):
@@ -1228,6 +1445,40 @@ def test_firing_replay_uses_deduplicated_exact_roots(monkeypatch):
     witness = derived_proof.firing_witness(target, analysis, piece, roots, proof)
     assert witness["root"] == 1
     assert witness["trace"] == ["enable", "target"]
+
+
+def test_dead_actions_uses_a_concrete_prefix_when_projected_replay_fails(monkeypatch):
+    class Data(Entity):
+        progress: int = 0
+        audit: bool = False
+
+    advance = Action(id="advance", pre=[Data.progress < 100], effect=[Add(Data.progress, 1)])
+    audit = Action(
+        id="audit",
+        pre=[Data.progress == 0],
+        effect=[Set(Data.progress, 0), Set(Data.audit, True)],
+    )
+    target = Action(id="target", pre=[Data.progress == 1])
+    spec = Spec(id="firing", name="Firing", actions=[advance, audit, target])
+    analysis = SliceAnalysis(spec)
+    roots, _ = build_canonical_initials(spec)
+    original = derived_proof.firing_witness
+
+    def miss(action, *args):
+        return None if action is target else original(action, *args)
+
+    monkeypatch.setattr(derived_proof, "firing_witness", miss)
+    witnesses = []
+    covered = explorer.cover_actions(
+        analysis, roots, 512, {}, canonical=True, firing_proofs=witnesses
+    )
+    witness = next(item for item in witnesses if item["action"] == "target")
+    assert witness["trace"] == ["advance", "target"]
+    assert witness["source"] == "concrete prefix"
+    assert witness["states_explored"] == 128
+    assert witness["complete"] is False
+    assert not covered[id(target)].capped
+    assert target.id in covered[id(target)].fired
 
 
 def test_full_reachability_reuses_a_witness_on_a_capped_exact_graph(monkeypatch):

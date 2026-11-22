@@ -1268,8 +1268,17 @@ def _run_query(
                     "attempts": firing_proofs,
                 }
             return result
+        recovery = None
         if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
             piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
+            from analint.validator.derived_proof import recovery_probe
+
+            recovery = recovery_probe(
+                query, analysis, piece, initials, budget, per_action, canonical=canonical
+            )
+            if recovery.decision is not None:
+                result, explorations[qid] = recovery.decision
+                return result
             candidate = analysis.recoverability_slice(
                 query.goal, piece, initials, canonical=canonical
             )
@@ -1289,6 +1298,7 @@ def _run_query(
                     if result.status == QueryStatus.PASS:
                         explorations[qid] = exp
                         result.slice = {**used.summary(), "restorable_flags": flag_count}
+                        recovery.record_exact(result, exp, budget)
                         return result
                 # BFS order, invalid-state attribution and diagnostic traces
                 # belong to the full exploration whenever a proof fails.
@@ -1311,8 +1321,8 @@ def _run_query(
                 break
         if isinstance(query, Reachable) and coverage_complete:
             reach_probe = reach_witness(query, analysis, piece, initials, budget)
-            if reach_probe is not None and reach_probe.witness is not None:
-                result, explorations[qid] = reach_probe.witness
+            if reach_probe is not None and reach_probe.decision is not None:
+                result, explorations[qid] = reach_probe.decision
                 _retain_exact_statistics(result, analysis, piece, initials, budget)
                 return result
 
@@ -1335,6 +1345,8 @@ def _run_query(
         explorations[qid] = exp
         result = exact_reach or _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
+        if recovery is not None:
+            recovery.record_exact(result, exp, budget)
         if reach_probe is not None:
             reach_probe.record_exact(result, exp, budget)
         if probe is not None:
@@ -1455,7 +1467,12 @@ def cover_actions(
     """Explore the requested actions in their own slices to assess defects and
     fireability. With no subset, this is the sliced counterpart of one full
     exploration. Results are keyed by id(action)."""
-    from analint.validator.derived_proof import _witness_budget, cover_defects, firing_witness
+    from analint.validator.derived_proof import (
+        _witness_budget,
+        cover_defects,
+        firing_prefix_witness,
+        firing_witness,
+    )
 
     actions = tuple(analysis.spec.actions) if actions is None else actions
     root_key = (analysis.roots_key(initials), max_states, canonical)
@@ -1471,6 +1488,7 @@ def cover_actions(
         pieces.sort(key=lambda item: -len(item[1].vars or ()))
         covered = {}
         witnesses = []
+        firing_prefixes: dict[tuple, Exploration] = {}
         proofs = analysis.projected_coverage.setdefault(root_key, {})
         # An own-root full run can request many overlapping projections. Give
         # the batch one speculative allowance before exact slice reuse takes over.
@@ -1509,6 +1527,19 @@ def cover_actions(
                 return None
             if require_firing:
                 witness = firing_witness(action, analysis, piece, initials, proof)
+                if witness is None and action.id in proof[1].fired:
+                    # One real firing suffices after independent diagnostic
+                    # coverage. Try a bounded prefix before exact exhaustion.
+                    if piece.key not in firing_prefixes:
+                        roots, numbers, inert = analysis.project_roots(piece, initials)
+                        firing_prefixes[piece.key] = explore(
+                            analysis.spec.model_copy(update={"actions": list(piece.actions)}),
+                            roots,
+                            min(16_384, _witness_budget(max_states)),
+                            root_numbers=numbers,
+                            inert_roots=inert,
+                        )
+                    witness = firing_prefix_witness(action, piece, firing_prefixes[piece.key])
                 if witness is None:
                     return None
                 witnesses.append(witness)
@@ -1580,7 +1611,6 @@ class ExplorationStorage(dict):
         self.analysis = analysis
         self.remaining: Counter = Counter()
         self.edge_slices: dict[tuple, set] = {}
-        self.recovery_slices: dict[tuple, set] = {}
         self.firing_groups: set[tuple] = set()
         self.groups: dict[tuple, list[Exploration]] = {}
         self._root_sets: dict[int, tuple[list[dict], tuple]] = {}
@@ -1618,7 +1648,6 @@ class ExplorationStorage(dict):
         canonical = not (query.given or query.given_any or query.initial is not None)
         # Trust can select the free or constrained cone. Both have fixed
         # identities, so plan them before building any shared graphs.
-        recovery = self.recovery_slices.setdefault(group, set()) if locks else None
         for unconstrained in (False, True) if canonical else (False,):
             piece = analysis.predicate_slice(
                 goal, locks=locks, canonical=False, unconstrained=unconstrained
@@ -1633,12 +1662,7 @@ class ExplorationStorage(dict):
                 )
                 first = candidate[0].key if candidate is not None else piece.key
                 wanted.add(first)
-                assert recovery is not None
-                recovery.add(first)
         return group
-
-    def plans_recovery(self, initials: list[dict], budget: int, piece: Slice) -> bool:
-        return piece.key in self.recovery_slices.get(self.group(initials, budget), ())
 
     def stores_edges(self, initials: list[dict], budget: int, piece: Slice | None) -> bool:
         group = self.group(initials, budget)
@@ -1740,37 +1764,21 @@ def verify_invariants(
         for inv in targets:
             started = perf_counter()
             piece = analysis.invariant_slice(inv, unconstrained=True)
-            shared = None
-            if isinstance(cache, ExplorationStorage) and cache.plans_recovery(
-                initials, max_states, piece
-            ):
-                shared, _ = explore_slice(analysis, piece, initials, max_states, cache)
-            shared_clean = (
-                shared is not None
-                and not shared.capped
-                and not shared.excluded
-                and not shared.findings
-            )
             probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
                 blocked = probe.blocked_actions(piece)
-                cleared = (
-                    not shared_clean
-                    and bool(blocked)
-                    and probe.covered_by(
-                        blocked,
-                        cover_actions(
-                            analysis, initials, max_states, cache, canonical=True, actions=blocked
-                        ),
-                    )
+                cleared = bool(blocked) and probe.covered_by(
+                    blocked,
+                    cover_actions(
+                        analysis, initials, max_states, cache, canonical=True, actions=blocked
+                    ),
                 )
                 if probe.proved or cleared:
                     result = probe.result
                     assert isinstance(result, InvariantResult)
                     result.model = probe.report(covered=blocked if cleared else ())
-                    if shared_clean:
-                        _retain_exact_statistics(result, analysis, piece, initials, max_states)
+                    _retain_exact_statistics(result, analysis, piece, initials, max_states)
                     result.elapsed_ms = (perf_counter() - started) * 1000
                     proved[id(inv)] = result
                     explorations[inv.id] = probe.graph

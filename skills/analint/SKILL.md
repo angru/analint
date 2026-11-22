@@ -124,10 +124,11 @@ Classify JSON findings by `code`, not message text. A finding with
 `"expected": true` is the intended rejection inside a passing `Expect.FAIL`
 scenario (since `0.0.6`).
 
-Each invariant and query is checked on its **slice**: only the actions and
-state that can affect it. The JSON `slice` field shows its size, and
-`states_explored` counts the slice's states. A slice is exact, not an
-approximation. If a check is `INCONCLUSIVE`, raise the budget for one run with
+By default, verification uses property-local models. In 0.3.0, read
+`model.relation` for a derived-model decision and `model.attempts` for proof
+graph counts. The optional `slice` describes exact exploration.
+`states_explored` can count a smaller proof graph. If a check is
+`INCONCLUSIVE`, raise the budget for one run with
 `--max-states N`. While iterating on a large spec, pass `--cache` (MCP
 `cache=true`): unchanged slices are reused, and the report is the same as a
 fresh run's. If it is still INCONCLUSIVE and Java is available, `--tlc`

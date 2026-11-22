@@ -81,7 +81,7 @@ checks are needed. `--no-slice` uses a conservative constrained
 dependency closure and still explores the whole state space.
 
 The verdict and exit code aggregate requested checks, their supporting proofs,
-and relevant transition defects. **Unreleased:** sliced selections explore the
+and relevant transition defects. **0.3.0:** sliced selections explore the
 selected and supporting slices, with action-slice defect coverage seeded by
 their dependencies. A clean unconstrained safety proof supplies its own
 coverage. For example, `analint check benchmarks/independent_checks.py --check safe_a`
@@ -173,7 +173,8 @@ includes safety attempts (even discarded attempts) and action coverage requested
 by that query. Model preparation and invariant-phase shared action coverage are
 excluded. Summing these timings does not give total command time.
 
-**Unreleased:** invariant, `Unreachable`, `Reachable` and `DeadActions` results
+**0.3.0:** invariant, `Unreachable`, `Reachable`, `DeadActions` and
+`NoDeadEnd` results
 can include a `model` object. Its `relation` is `over-approx` for a projected
 safety proof, `under-approx: replayed` for concrete evidence confirmed by
 replay, `exact` for a deciding exact retry, or `null` for an inconclusive
@@ -199,12 +200,16 @@ exact results for other actions. Transition defects require independent
 coverage after a firing witness. Each action has its own coverage obligation.
 A supporting writer's speculative defect stays in that projection, and the
 writer's own obligation decides whether there is a system diagnostic. The
-validator uses exact action slices when it cannot certify coverage, and exact recovery
-checking still decides `NoDeadEnd`.
+validator uses exact action slices when it cannot certify coverage. DeadActions
+can also establish a firing with a bounded concrete search prefix. NoDeadEnd
+can prove recovery on a projection when every state has a rank leading to the
+goal through intact actions. Uncertified results and dead-end witnesses use the
+exact recovery path.
 
-`slice` describes an exact slice. When exact diagnostic coverage already
-explored that slice, its state count can still appear in `states_explored`.
-The attempt counts describe the graphs used by the proof itself. For
+`slice` describes an exact slice and may be absent for a projection-decided
+check. `states_explored` is always present and can count the smaller proof graph
+or an exact graph already explored for diagnostic coverage. Attempt counts
+describe the graphs used by the proof itself. For
 `DeadActions`, `states_explored` sums the distinct graphs used to assess
 actions, which depends on the coverage and graph reuse strategy. A smaller
 proof can complete within the state budget when the exact slice would cap,

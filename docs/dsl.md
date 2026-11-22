@@ -5,6 +5,20 @@ Import public declarations from `analint`. The
 below illustrate individual declarations and may refer to names defined there
 or in the linked examples.
 
+## Migrating to 0.3.0
+
+`analint.check/v1` retains its required keys and field types. Update consumers
+that assumed every sliced result had `slice` or that `states_explored` always
+measured an exact graph. Use `model.relation` and `model.attempts` to identify
+the proof and its state counts. Keep reading `verdict` for the run outcome.
+
+For selected checks, read `selection.covered_actions`,
+`selection.unassessed_actions` and `model_coverage.scope` before comparing
+diagnostic coverage across versions. A sliced selection now reports
+`selected_slices_from_verification_roots` and can omit unrelated transition
+defects from `model_findings`. See the
+[selection contract](cli.md#selecting-checks-over-one-model).
+
 ## Migrating to 0.2.0
 
 When upgrading from 0.1.0, review these changes before comparing old results.
@@ -48,7 +62,7 @@ When upgrading from 0.0.x, review these changes to the verification contract.
   `And(0 <= Account.balance, Account.balance <= 100)`. Boolean conversion now raises
   instead of silently losing part of a condition.
 - Selected checks put unrelated defects encountered during exploration in
-  `model_findings`, outside the selected verdict. **Unreleased:** sliced
+  `model_findings`, outside the selected verdict. **0.3.0:** sliced
   selections list actions outside action coverage in `selection.unassessed_actions`.
   Read `model_coverage` for the bounds on coverage.
 - Handle INCONCLUSIVE (CLI exit 4), including when excluded event-subscriber
@@ -593,7 +607,9 @@ Each accepts `id`, `label`, `max_states` and one optional initial source:
 NoDeadEnd is recoverability, not a guarantee that every execution terminates.
 Excluded event-input actions are unassessed, not dead.
 
-**Unreleased.** With slicing, `NoDeadEnd` can omit local boolean disablers
+**0.3.0.** With slicing, `NoDeadEnd` can prove recovery on a projection using
+intact actions that reduce the rank to a goal. If that certificate fails,
+the exact path can omit local boolean disablers
 when every affected flag has an always-available action that restores it. The
 goal and invariants must be independent of those flags, and terminal-lock
 dependencies are preserved. A complete, clean proof within the budget reports
@@ -653,7 +669,7 @@ full_result = validate_spec(spec)
 Neither function edits the declaration lists, query budgets or fixtures. Results
 with a selection describe its scope; only that scope is established by PASS.
 Structural checks always cover the whole model, and reachability checks retain
-dependency-related invariant proofs and action-defect coverage. **Unreleased:**
+dependency-related invariant proofs and action-defect coverage. **0.3.0:**
 sliced selections report actions outside that coverage in
 `selection.unassessed_actions`. Unrelated defects encountered during exploration
 go into `model_findings` with `model_coverage`, outside the selected verdict.

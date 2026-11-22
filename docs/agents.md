@@ -93,10 +93,13 @@ unknown/ambiguous ids return an `analint.error/v1` usage error. Qualified ids
 dependency-related supporting proofs and the selected-scope JSON metadata.
 For explicit selections, `model_findings` contains unrelated diagnostics
 encountered during bounded exploration. These are outside the selected verdict.
-**Unreleased:** sliced selections limit action exploration to selected checks
+**0.3.0:** sliced selections limit action exploration to selected checks
 and dependencies. Check `selection.unassessed_actions` for actions whose
 transition defects and fireability were outside coverage. Trace returns the
 same selection metadata. An unfiltered check covers the full model.
+For derived-model results, read `model.relation` for the deciding relation
+and `model.attempts` for proof graph counts. The optional `slice` describes
+exact exploration.
 
 Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected

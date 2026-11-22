@@ -53,8 +53,8 @@ It is not limited to business analytics: the same primitives describe game rules
 
 ## Installation
 
-The checkout targets **0.2.0**. See the [migration notes](https://angru.github.io/analint/dsl/#migrating-to-020)
-for inherited query budgets, stricter saturation and multi-root reachability.
+The checkout targets **0.3.0**. See the [migration notes](https://angru.github.io/analint/dsl/#migrating-to-030)
+for changes to verification reports.
 Use `analint --version` to check your installed package.
 
 ```bash
@@ -508,12 +508,11 @@ The softlock above is invisible to every scenario in the spec — nobody writes 
   Driving a field out of range is an error with a trace; `saturate=True`
   clamps instead, for counters where only thresholds matter.
 - If the state space exceeds `max_states` (default 10 000), the query reports **INCONCLUSIVE** instead of pretending.
-- **Each check explores only its slice.** An invariant or query is checked on
-  its *cone of influence*: the actions that can change what it reads, what
-  those actions read, and so on. Independent processes in one spec therefore
-  do not multiply each other's states. The result is exact, not an
-  approximation, and JSON reports each check's `slice`. `check --no-slice`
-  explores the whole model for every check.
+- **Checks use property-local models.** Slices follow the actions and state
+  that can affect the check. A projection can also decide a result, with its
+  relation to the system recorded in JSON as `model.relation`. When present,
+  `slice` describes exact exploration. `check --no-slice` explores the whole
+  model.
 - **What the budget leaves open, TLC can finish.** `check --tlc` exports every
   INCONCLUSIVE invariant and Reachable/Unreachable/AlwaysHolds query, on the
   slice analint used, to TLA+ and runs TLC on it. TLC keeps its states on disk
@@ -804,7 +803,7 @@ BFS over all reachable states; every query answers with a trace of action ids:
 
 ## Status
 
-This checkout targets **0.2.0**. The engine and CLI have regression and backend
+This checkout targets **0.3.0**. The engine and CLI have regression and backend
 conformance tests, but the API is not yet frozen and may change before `1.0` —
 pin a version if you depend on it.
 

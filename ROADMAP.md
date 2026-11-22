@@ -1,17 +1,8 @@
 # analint — Roadmap
 
-Current source version (2026-11-19): **0.2.0**. The reviewed authoring queue,
-multi-root reachability, action slicing and invariant-plan repairs are included.
-See [the changelog](CHANGELOG.md) and [migration notes](docs/dsl.md#migrating-to-020).
-Publication status and final artifact verification are recorded in the
-[v0.2.0 release](https://github.com/angru/analint/releases/tag/v0.2.0);
-merging release preparation alone does not publish a package.
-Semantic core and P5 are complete.
-analint declares finite system behaviour in Python and checks it through one
-transition kernel, canonical initial states, executable scenarios/flows and
-property-local reachability. Slicing, compact state storage and the opt-in TLC
-backend are released. Incremental successor generation and on-disk exploration
-caching are included in 0.0.3 (see `CHANGELOG.md`).
+Current source version (2026-11-22) is **0.3.0**, pending publication.
+See the [changelog](CHANGELOG.md) for release contents. The semantic core and
+P5 are complete.
 
 **This file is the single source of truth for status and priorities.**
 `research/` contains dated rationale; priorities stated only there are historical.
@@ -19,52 +10,37 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-19)
+## Current priorities (2026-11-22)
 
-The #42/#41 correctness repairs, #40 invariant-plan repair, and reviewed
-#43–#50/#54 authoring and diagnostic changes form **0.2.0**. The integration record
-below identifies the reviewed heads and validation boundary.
+1. **Publish 0.3.0 and adopt it in exness-spec.** Update its current
+   `analint>=0.2.0` requirement and rerun the full spec against the published
+   package.
+2. **Complete the external real-spec change trial.** Record a before/after
+   requirement change in the margin and payments model with full and selected
+   checks, allowed and rejected cases, and a trace on the published version.
+3. **Remaining follow-ups.** [#68](https://github.com/angru/analint/issues/68)
+   tracks slice and state-space diagnostics.
+   [#77](https://github.com/angru/analint/issues/77) tracks effect value types;
+   [#78](https://github.com/angru/analint/issues/78) tracks legal recovery
+   witnesses and invalid-root explanations.
+   [#83](https://github.com/angru/analint/issues/83) remains the design umbrella
+   for further derived models, including projected AlwaysHolds proofs, finite
+   havoc, named views and verified environments ([research/37](research/37-per-check-derived-models.md)).
+   [#11](https://github.com/angru/analint/issues/11) (immutable model preparation)
+   and [#12](https://github.com/angru/analint/issues/12) (state-store ownership)
+   remain conditional on consumer evidence.
 
-1. **Adopt 0.2.0 after publication verification.** Update the pinned dependency in
-   `exness-spec` and rerun its full specification against the published package.
-   Integration into main does not update that consumer's dependency.
-2. **Complete the external real-spec change trial.** `exness-spec` now includes
-   margin and payments contracts. Record a before/after requirement change with
-   full/selected checks, allowed/rejected cases and a trace on the published
-   version. Initial authoring and the bounded fulfillment rehearsal do not
-   replace that maintenance trial.
-3. **Remaining bounded follow-ups (P3).**
-   [#68](https://github.com/angru/analint/issues/68) tracks opt-in slice and observed
-   state-space diagnostics, not automatic symmetry reduction.
-   [#71](https://github.com/angru/analint/issues/71) is implemented in
-   [PR #76](https://github.com/angru/analint/pull/76), pending independent review:
-   `NoDeadEnd` attributes an invariant-invalid witness using finding-to-state
-   provenance and reports `query.invalid_state`. Verdicts, graphs and ordinary
-   dead-end diagnostics are unchanged.
-
-#49's two agreed halves are implemented: #58 adds floor division and #59 adds
-exhaustive enum lookup. Modulo and real division remain outside this scope.
-#54 now explains invalid, unexpanded roots; legal missing paths retain their
-ordinary diagnostic and root legality still blocks full/selected checks.
-
-Links: [#43](https://github.com/angru/analint/issues/43),
-[#44](https://github.com/angru/analint/issues/44),
-[#45](https://github.com/angru/analint/issues/45),
-[#46](https://github.com/angru/analint/issues/46),
-[#47](https://github.com/angru/analint/issues/47),
-[#48](https://github.com/angru/analint/issues/48),
-[#49](https://github.com/angru/analint/issues/49),
-[#50](https://github.com/angru/analint/issues/50).
-
-Broader #11 snapshot work and #12 state-store ownership remain conditional on
-concrete consumer evidence. The completed #53 optimization does not reopen P5
-or justify a general rewrite. Liveness/fairness, automatic event dispatch, unbounded structures, a general implementation bridge, semantic diff
-and a Rust core remain outside current work.
+Derived-model work shipped in this source version includes projected safety
+(#83, PR #89), projected defect coverage, replay and local recovery (#92,
+PRs #93–#94), and shared family coverage and the own-root allowance (#95,
+PR #96). Across the recorded exness-spec full-check comparisons, runtime went
+from roughly 210 s to 47 s and peak RSS from roughly 500 MB to 130 MB, with
+identical verdicts. The #71 invalid-state diagnostic is merged in PR #76.
 
 ## Completed follow-ups (2026-11-19)
 
 #53, #65, #66 and #67 are closed and integrated in main through merge commits.
-These changes are **unreleased**; they are not part of the published 0.2.0 package.
+These changes are included in 0.3.0.
 
 [#67](https://github.com/angru/analint/issues/67) — completed in
 [PR #75](https://github.com/angru/analint/pull/75), merged as `0059fd1`.

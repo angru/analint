@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject known boolean/integer conflicts in effect writes and emitted payloads
+  before exploration. Untyped and unresolved values retain ordinary validation.
+  (#77)
+
 ## [0.3.0] — 2026-11-22
 
 `analint.check/v1` is not fully backward-compatible with 0.2.0. Required

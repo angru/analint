@@ -546,8 +546,26 @@ callbacks or coerce Python truthiness. A raw predicate in `Set` remains invalid:
 wrap it explicitly. Duplicate writes to one target remain invalid; this API adds
 values, not conditional effect lists.
 
-Native operands retain Python boolean/numeric semantics. TLC exports boolean
-values and equality/membership within proven boolean domains; it checks roots
+Structural validation reports `structural.type_conflict` for provable boolean
+and integer assignment conflicts in `Set`, `Create` and emitted payloads.
+For example, a boolean value cannot be written to a declared integer field, and
+an integer cannot be written to a declared boolean field. `Add` and
+`Subtract` reject boolean targets and directly known boolean amounts.
+Writing an arithmetic expression or a `Sum`, `Min` or `Max` whose operand
+is a `BoolValue` also fails the structural check.
+
+The check uses supported declared scalar and union types. It leaves fields
+annotated as `Any`, unresolved annotations, and operands with unknown
+results to ordinary validation. Defaults and bounds do not establish a type,
+annotation expressions are not executed, and operators such as `+` are not
+assumed to return numbers. Native state evaluation and TLC retain their
+existing limits on what they can evaluate or export.
+
+For ordered comparisons (`<`, `<=`, `>`, `>=`) involving `BoolValue`, native
+evaluation retains standard Python comparison semantics (`False < True`), whereas
+TLC export refuses ordered comparisons (`ExportError`) because TLA+ booleans have no
+ordered relation. Equality and inequality (`==`, `!=`) are supported natively and in TLC.
+TLC exports boolean values and equality/membership within proven boolean domains; it checks roots
 and writes instead of trusting annotations. It explicitly refuses numeric uses
 of `BoolValue`, mixed boolean/integer domains, ordered or null comparisons, and
 numeric field constraints on these values. Existing unsupported predicates (for

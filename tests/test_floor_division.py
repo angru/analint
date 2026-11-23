@@ -131,7 +131,7 @@ def test_dynamic_zero_is_a_finding_and_tlc_refuses_unknown_divisor():
 @pytest.mark.parametrize("value", [1, 1.0, True])
 def test_equal_numeric_states_have_equal_division_semantics(value):
     class Box(Entity):
-        n: int = 1
+        n: int | float | bool = 1
 
     query = AlwaysHolds(Box.n // 2 == 0, id="safe")
     action = Action(id="equal", effect=[Set(Box.n, value)])

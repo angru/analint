@@ -53,6 +53,7 @@ class Code(StrEnum):
     SCOPE_MISUSE = "structural.scope_misuse"
     UNBOUND_VARIABLE = "structural.unbound_variable"
     EFFECT_CONFLICT = "structural.effect_conflict"
+    TYPE_CONFLICT = "structural.type_conflict"
     UNKNOWN_FIELD = "structural.unknown_field"
     LIFECYCLE_UNATTACHED = "structural.lifecycle_unattached"
     TERMINAL_TRANSITION = "structural.terminal_transition"

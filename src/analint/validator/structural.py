@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import ast
+import builtins
+import sys
+import types
+import typing
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
 
 from analint.models.action import Action
@@ -279,6 +285,16 @@ def validate_structural(spec: Spec) -> list[Finding]:
                                     f"'{name}' on {target.entity_cls.__name__}",
                                 )
                             )
+                        else:
+                            findings.extend(
+                                _check_value_against_field(
+                                    effect.fields[name],
+                                    target.entity_cls,
+                                    name,
+                                    loc,
+                                    "Create field",
+                                )
+                            )
                 if target in presence_targets:
                     findings.append(
                         err(
@@ -317,6 +333,14 @@ def validate_structural(spec: Spec) -> list[Finding]:
             rhs = effect.value if isinstance(effect, Set) else effect.amount
             findings.extend(_check_value_operand(rhs, spec.scopes, loc))
             findings.extend(_check_scoped_refs(_operand_refs(rhs), scoped_entities, loc))
+            if isinstance(effect, Set):
+                findings.extend(
+                    _check_value_against_field(
+                        effect.value, cls, effect.field.field_name, loc, "Set field"
+                    )
+                )
+            elif isinstance(effect, (Add, Subtract)):
+                findings.extend(_check_add_subtract_effect(effect, loc))
             field_slots.add(field_context_key(effect.field))
             target = (field_context_key(effect.field), effect.field.field_name)
             if target in effect_targets:
@@ -818,6 +842,185 @@ def _check_scoped_refs(
     return findings
 
 
+def _annotation_name(node: ast.expr, owner: type) -> Any:
+    if isinstance(node, ast.Name):
+        module = sys.modules.get(owner.__module__)
+        names = vars(module) if module is not None else {}
+        return vars(owner).get(node.id, names.get(node.id, vars(builtins).get(node.id)))
+    if isinstance(node, ast.Attribute) and _annotation_name(node.value, owner) is typing:
+        return vars(typing).get(node.attr)
+    return None
+
+
+def _merge_types(parts: Sequence[frozenset[type] | None]) -> frozenset[type] | None:
+    types_found: set[type] = set()
+    for part in parts:
+        if part is None:
+            return None
+        types_found.update(part)
+    return frozenset(types_found)
+
+
+def _annotation_expression(node: ast.expr, owner: type) -> frozenset[type] | None:
+    if isinstance(node, ast.Constant):
+        if node.value is None:
+            return frozenset({type(None)})
+        if isinstance(node.value, str):
+            return _annotation_types(node.value, owner)
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _merge_types(
+            [_annotation_expression(node.left, owner), _annotation_expression(node.right, owner)]
+        )
+    if isinstance(node, ast.Subscript):
+        outer = _annotation_name(node.value, owner)
+        if outer is typing.Optional:
+            return _merge_types(
+                [_annotation_expression(node.slice, owner), frozenset({type(None)})]
+            )
+        if outer is typing.Union and isinstance(node.slice, ast.Tuple):
+            return _merge_types([_annotation_expression(arg, owner) for arg in node.slice.elts])
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        value = _annotation_name(node, owner)
+        if value is not None and not isinstance(value, str):
+            return _annotation_types(value, owner)
+    return None
+
+
+def _annotation_types(annotation: Any, owner: type) -> frozenset[type] | None:
+    """Resolve supported type declarations without evaluating annotation expressions."""
+    if isinstance(annotation, str):
+        try:
+            node = ast.parse(annotation, mode="eval").body
+        except SyntaxError:
+            return None
+        return _annotation_expression(node, owner)
+    if annotation is None:
+        return frozenset({type(None)})
+    origin = typing.get_origin(annotation)
+    if origin in (typing.Union, types.UnionType):
+        return _merge_types([_annotation_types(arg, owner) for arg in typing.get_args(annotation)])
+    if isinstance(annotation, type) and (
+        annotation in (bool, int, float, str, type(None)) or issubclass(annotation, Enum)
+    ):
+        return frozenset({annotation})
+    return None
+
+
+def _field_types(cls: type, name: str) -> frozenset[type] | None:
+    for owner in cls.__mro__:
+        annotations = getattr(owner, "__annotations__", {})
+        if name in annotations:
+            # A default or bound is not a type declaration, and an unknown
+            # override must not inherit a stronger type from the base class.
+            return _annotation_types(annotations[name], owner)
+    return None
+
+
+def _known_bool_or_int(value: Any) -> tuple[type | None, str]:
+    if type(value) is bool or type(value) is int:
+        return type(value), f"{type(value).__name__} {value!r}"
+    if isinstance(value, BoolValue):
+        return bool, "BoolValue"
+    if isinstance(value, _Lookup):
+        return int, "Lookup (which returns int)"
+    if isinstance(value, _Count):
+        return int, "Count (which returns int)"
+    if is_field_ref(value):
+        source = _field_types(value.entity_cls, value.field_name)
+        # A union reference can resolve to another declared type. Only use
+        # a field read as evidence for a conflict when its type is definite.
+        if source in (frozenset({bool}), frozenset({int})):
+            kind = next(iter(source))
+            return kind, f"{kind.__name__} field '{value.entity_cls.__name__}.{value.field_name}'"
+    return None, ""
+
+
+def _contains_bool_value(op: Any) -> bool:
+    if isinstance(op, BoolValue):
+        return True
+    if isinstance(op, _BinaryExpr):
+        return _contains_bool_value(op.left) or _contains_bool_value(op.right)
+    if isinstance(op, (_Sum, _Min, _Max)):
+        return _contains_bool_value(op.operand)
+    return False
+
+
+def _check_value_against_field(
+    val: Any,
+    target_cls: type,
+    field_name: str,
+    loc: str,
+    context_desc: str,
+) -> list[Finding]:
+    if isinstance(val, (_BinaryExpr, _Sum, _Min, _Max)) and _contains_bool_value(val):
+        return [
+            Finding(
+                Severity.ERROR,
+                loc,
+                f"BoolValue cannot be used in effect expression '{_describe_operand(val)}'",
+                Code.TYPE_CONFLICT,
+            )
+        ]
+
+    target = _field_types(target_cls, field_name)
+    if target is None:
+        return []
+    kind, description = _known_bool_or_int(val)
+    if kind is bool:
+        compatible = bool in target
+    elif kind is int:
+        # Retain int promotion and the existing IntEnum/int scalar semantics.
+        compatible = any(t is float or (t is not bool and issubclass(t, int)) for t in target)
+        if is_field_ref(val) and bool not in target:
+            return []  # Other field-to-field annotations keep their previous treatment.
+    else:
+        return []
+    if compatible:
+        return []
+    expected = " | ".join(sorted("None" if t is type(None) else t.__name__ for t in target))
+    return [
+        Finding(
+            Severity.ERROR,
+            loc,
+            f"type conflict: cannot assign {description} to {context_desc} "
+            f"'{target_cls.__name__}.{field_name}' which expects {expected}",
+            Code.TYPE_CONFLICT,
+        )
+    ]
+
+
+def _check_add_subtract_effect(effect: Add | Subtract, loc: str) -> list[Finding]:
+    findings: list[Finding] = []
+    field = effect.field
+    if not is_field_ref(field):
+        return findings
+    target = _field_types(field.entity_cls, field.field_name)
+    name = type(effect).__name__
+    if target is not None and bool in target and target <= {bool, type(None)}:
+        findings.append(
+            Finding(
+                Severity.ERROR,
+                loc,
+                f"type conflict: {name} cannot update boolean field "
+                f"'{field.entity_cls.__name__}.{field.field_name}'",
+                Code.TYPE_CONFLICT,
+            )
+        )
+    amount = effect.amount
+    kind, description = _known_bool_or_int(amount)
+    if kind is bool or _contains_bool_value(amount):
+        description = description if kind is bool else _describe_operand(amount)
+        findings.append(
+            Finding(
+                Severity.ERROR,
+                loc,
+                f"type conflict: {name} amount cannot use {description}",
+                Code.TYPE_CONFLICT,
+            )
+        )
+    return findings
+
+
 def _check_event_template(
     template: Event, spec_entities: Sequence[type], loc: str
 ) -> list[Finding]:
@@ -827,34 +1030,45 @@ def _check_event_template(
     spec_entity_names = {e.__name__ for e in spec_entities}
     event_cls = type(template)
     event_ann = getattr(event_cls, "__annotations__", {})
-    for field_name in getattr(event_cls, "_own_fields", {}):
-        value = template.__dict__.get(field_name)
-        if not is_field_ref(value):
+    for field_name in all_fields(event_cls):
+        if field_name not in template.__dict__:
             continue
-        src_cls = value.entity_cls
-        if src_cls.__name__ not in spec_entity_names:
-            findings.append(
-                Finding(
-                    Severity.ERROR,
-                    loc,
-                    f"payload {event_cls.__name__}.{field_name} is bound to "
-                    f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
-                    f"is not in spec.entities",
-                    Code.PAYLOAD_BINDING,
+        value = template.__dict__[field_name]
+        if is_field_ref(value):
+            src_cls = value.entity_cls
+            if src_cls.__name__ not in spec_entity_names:
+                findings.append(
+                    Finding(
+                        Severity.ERROR,
+                        loc,
+                        f"payload {event_cls.__name__}.{field_name} is bound to "
+                        f"'{src_cls.__name__}.{value.field_name}' but '{src_cls.__name__}' "
+                        f"is not in spec.entities",
+                        Code.PAYLOAD_BINDING,
+                    )
                 )
+                continue
+            conflicts = _check_value_against_field(
+                value, event_cls, field_name, loc, "payload field"
             )
-            continue
-        src_ann = getattr(src_cls, "__annotations__", {}).get(value.field_name)
-        dst_ann = event_ann.get(field_name)
-        if src_ann is not None and dst_ann is not None and str(src_ann) != str(dst_ann):
-            findings.append(
-                Finding(
-                    Severity.WARNING,
-                    loc,
-                    f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
-                    f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ",
-                    Code.PAYLOAD_TYPE_MISMATCH,
+            if conflicts:
+                findings.extend(conflicts)
+                continue
+            src_ann = getattr(src_cls, "__annotations__", {}).get(value.field_name)
+            dst_ann = event_ann.get(field_name)
+            if src_ann is not None and dst_ann is not None and str(src_ann) != str(dst_ann):
+                findings.append(
+                    Finding(
+                        Severity.WARNING,
+                        loc,
+                        f"payload {event_cls.__name__}.{field_name}: {dst_ann} is bound to "
+                        f"{src_cls.__name__}.{value.field_name}: {src_ann} — types differ",
+                        Code.PAYLOAD_TYPE_MISMATCH,
+                    )
                 )
+        else:
+            findings.extend(
+                _check_value_against_field(value, event_cls, field_name, loc, "payload field")
             )
     return findings
 

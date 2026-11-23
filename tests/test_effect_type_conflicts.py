@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from enum import Enum
-from pathlib import Path
+from textwrap import dedent
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -14,7 +17,10 @@ from analint import (
     Event,
     Field,
     Lookup,
+    Max,
+    Min,
     Param,
+    Reachable,
     Scope,
     Set,
     Spec,
@@ -47,8 +53,15 @@ class WithOpt(Entity):
     opt_flag: bool | None = None
 
 
-class Untyped(Entity):
-    val = None
+class Flexible(Entity):
+    value: Any = 0
+    bounded: Any = Field(0, ge=0)
+    label: str = "a"
+
+
+class Slot(Entity):
+    n: int = 0
+    flag: bool = False
 
 
 class Paid(Event):
@@ -59,10 +72,28 @@ class Recorded(Event):
     ready: bool
 
 
-def test_issue_77_repro_fails_structurally():
-    repro_path = Path(__file__).resolve().parents[1] / ".venv" / "issue-77-repro.py"
-    assert repro_path.exists()
-    result = validate(repro_path)
+@pytest.mark.parametrize("tlc", [False, True])
+def test_issue_77_repro_fails_structurally(tmp_path, tlc):
+    repro_path = tmp_path / "spec.py"
+    repro_path.write_text(
+        dedent("""
+            from analint import Action, Add, BoolValue, Entity, Reachable, Set, Spec
+
+            class Counter(Entity):
+                n: int = 0
+                flag: bool = False
+
+            int_from_bool = Action(effect=[Set(Counter.n, True)])
+            bool_from_int = Action(effect=[Set(Counter.flag, 1)])
+            int_from_predicate = Action(effect=[Set(Counter.n, BoolValue(Counter.n == 0))])
+            add_false = Action(effect=[Add(Counter.n, BoolValue(Counter.flag))])
+            one = Reachable(Counter.n == 1)
+            spec = Spec(id="s", name="S",
+                        actions=[int_from_bool, bool_from_int, int_from_predicate, add_false],
+                        queries=[one])
+        """)
+    )
+    result = validate(repro_path, tlc=tlc)
     assert result.verdict == "FAIL"
     assert not result.query_results
 
@@ -103,7 +134,7 @@ def test_set_field_reference_conflicts():
 
 
 def test_create_type_conflicts():
-    scopes = Scope(C, keys=["c1"], id="c_scope")
+    scopes = Scope(Slot, keys=["c1"], id="c_scope")
     ref = scopes["c1"]
 
     bad_n = Action(id="bad_n", effect=[Create(ref, n=True)])
@@ -166,7 +197,7 @@ def test_emitted_event_payload_conflicts():
 
 def test_fail_closed_bool_value_cases():
     bv = BoolValue(C.flag)
-    scope = Scope(C, keys=["c1"], id="c_scope")
+    scope = Scope(Slot, keys=["c1"], id="c_scope")
     x = Bound("x", scope)
 
     to_str = Action(id="to_str", effect=[Set(C.name, bv)])
@@ -187,10 +218,70 @@ def test_fail_closed_bool_value_cases():
     assert len(conflicts) == 6
 
 
+@pytest.mark.parametrize("aggregate", [Min, Max])
+@pytest.mark.parametrize("placement", ["set", "add", "create", "emit"])
+def test_bool_value_cannot_be_used_in_effect_aggregates(aggregate, placement):
+    scope = Scope(Slot, keys=["a"], id="slots")
+    x = Bound("x", scope)
+    value = aggregate(x, BoolValue(x.flag))
+    if placement == "set":
+        action = Action(id="change", effect=[Set(Flexible.value, value)])
+    elif placement == "add":
+        action = Action(id="change", effect=[Add(C.n, value)])
+    elif placement == "create":
+        action = Action(id="change", effect=[Create(scope["a"], n=value)])
+    else:
+        action = Action(id="change", emits=[Recorded(ready=value)])
+    spec = Spec(id="s", name="S", scopes=[scope], actions=[action])
+    [error] = [f for f in validate_structural(spec) if f.severity is Severity.ERROR]
+    assert error.code is Code.TYPE_CONFLICT
+
+
+@pytest.mark.parametrize(
+    ("field", "initial", "value", "expected"),
+    [
+        (Flexible.value, 0, True, True),
+        (Flexible.bounded, 0, True, True),
+        (Flexible.label, "a", Flexible.label + "b", "ab"),
+    ],
+)
+def test_unknown_annotations_and_string_concatenation_remain_valid(field, initial, value, expected):
+    action = Action(id="write", pre=[field == initial], effect=[Set(field, value)])
+    reached = Reachable(field == expected, id="reached")
+    spec = Spec(id="s", name="S", actions=[action], queries=[reached])
+    result = validate_spec(spec)
+    assert result.verdict == "PASS"
+    assert result.query_results[0].trace == ["write"]
+
+
+def test_annotations_are_not_evaluated(tmp_path):
+    entry = tmp_path / "spec.py"
+    entry.write_text(
+        dedent("""
+            from __future__ import annotations
+            from analint import Action, Entity, Set, Spec
+
+            from pathlib import Path
+
+            def annotation():
+                Path(__file__).with_suffix(".evaluated").touch()
+                return int
+
+            class Box(Entity):
+                n: annotation() = 0
+
+            write = Action(effect=[Set(Box.n, True)])
+            spec = Spec(id="s", name="S", actions=[write])
+        """)
+    )
+    assert validate(entry).verdict == "PASS"
+    assert not entry.with_suffix(".evaluated").exists()
+
+
 def test_positive_controls_are_preserved():
     lookup = Lookup(C.mode, {Mode.A: 10, Mode.B: 20})
     param = Param("amount", 1, 2)
-    scopes = Scope(C, keys=["c1"], id="c_scope")
+    scopes = Scope(Slot, keys=["c1"], id="c_scope")
     ref = scopes["c1"]
 
     valid_actions = [
@@ -200,15 +291,14 @@ def test_positive_controls_are_preserved():
         Action(id="a4", effect=[Set(C.n, C.n + 1)]),
         Action(id="a5", effect=[Set(C.n, lookup)]),
         Action(id="a6", params=[param], effect=[Set(C.n, param)]),
-        Action(id="a7", effect=[Add(C.n, 1), Subtract(C.n, 1)]),
-        Action(id="a8", effect=[Set(WithOpt.opt, 5), Set(WithOpt.opt, None)]),
-        Action(id="a9", effect=[Set(WithOpt.opt_flag, True), Set(WithOpt.opt_flag, None)]),
+        Action(id="a7", effect=[Add(C.n, 1)]),
+        Action(id="a8", effect=[Set(WithOpt.opt, 5), Set(WithOpt.opt_flag, None)]),
+        Action(id="a9", effect=[Set(WithOpt.opt_flag, True), Set(WithOpt.opt, None)]),
         Action(
             id="a10",
             effect=[
-                Set(Untyped.val, 1),
-                Set(Untyped.val, True),
-                Set(Untyped.val, BoolValue(C.flag)),
+                Set(Flexible.value, 1),
+                Set(Flexible.bounded, BoolValue(C.flag)),
             ],
         ),
         Action(id="a11", effect=[Create(ref, n=2, flag=BoolValue(C.flag))]),
@@ -223,8 +313,7 @@ def test_positive_controls_are_preserved():
         actions=valid_actions,
     )
     findings = validate_structural(spec)
-    conflicts = [f for f in findings if f.code == Code.TYPE_CONFLICT]
-    assert not conflicts
+    assert not [f for f in findings if f.severity is Severity.ERROR]
 
 
 def test_ordered_bool_value_comparison_boundary():

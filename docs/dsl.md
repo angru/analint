@@ -546,14 +546,20 @@ callbacks or coerce Python truthiness. A raw predicate in `Set` remains invalid:
 wrap it explicitly. Duplicate writes to one target remain invalid; this API adds
 values, not conditional effect lists.
 
-Provable effect and emitted payload type conflicts are rejected during structural
-validation before exploration (`structural.type_conflict`). No bool/int coercions
-are permitted: literal bool/int in both directions (assigning bool to int or int to bool),
-`BoolValue` into a known non-bool target, and `BoolValue` into arithmetic (`Add`,
-`Subtract`, `_BinaryExpr`, `Sum`) are structural errors. Types are inferred only
-when clear (from explicit annotations, numeric bounds, or value sets); valid `Param`,
-`Lookup`, arithmetic, optional/union types (`int | None`), and untyped fields are
-preserved without blanket runtime checks.
+Structural validation reports `structural.type_conflict` for provable boolean
+and integer assignment conflicts in `Set`, `Create` and emitted payloads.
+For example, a boolean value cannot be written to a declared integer field, and
+an integer cannot be written to a declared boolean field. `Add` and
+`Subtract` reject boolean targets and directly known boolean amounts.
+Writing an arithmetic expression or a `Sum`, `Min` or `Max` whose operand
+is a `BoolValue` also fails the structural check.
+
+The check uses supported declared scalar and union types. It leaves fields
+annotated as `Any`, unresolved annotations, and operands with unknown
+results to ordinary validation. Defaults and bounds do not establish a type,
+annotation expressions are not executed, and operators such as `+` are not
+assumed to return numbers. Native state evaluation and TLC retain their
+existing limits on what they can evaluate or export.
 
 For ordered comparisons (`<`, `<=`, `>`, `>=`) involving `BoolValue`, native
 evaluation retains standard Python comparison semantics (`False < True`), whereas

@@ -30,6 +30,7 @@ ARCHIVE_TESTS = [
     "tests/test_documentation.py",
     "tests/test_fulfillment_trial.py",
     "tests/test_diagnostic_codes.py",
+    "tests/test_effect_type_conflicts.py",
     "tests/test_check_selection.py",
     "tests/test_verification_scope.py",
     "tests/test_root_diagnostics.py",

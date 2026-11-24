@@ -74,8 +74,9 @@ Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
 project target `analint` for each issue. Use a short reproduction and explicit
 acceptance checks, deterministic verification and a separate reviewer on the
 exact commit. The current draft defaults to sandboxed Claude Sonnet for
-implementation and Codex GPT-5.6 Sol for review. Antigravity Gemini Flash
-remains an option for bounded review and explicit implementation trials. The
+implementation and Codex GPT-5.6 Sol for review. Antigravity Gemini 4 Hydrogen
+(which replaced Gemini 3.8 Flash on 2026-11-24) remains an option for bounded
+review and explicit implementation trials. The
 first #77 trial spent roughly 13 minutes on investigation before its first
 small edit, with no Worker Board guard stop recorded at that point. Check quota
 and execution permissions before dispatch. Escalate model capability

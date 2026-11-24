@@ -1,8 +1,11 @@
 # analint — Roadmap
 
-Current source version (2026-11-22) is **0.3.0**, pending publication.
-See the [changelog](CHANGELOG.md) for release contents. The semantic core and
-P5 are complete.
+**0.3.0** was published on 2026-11-22 from main `7fe3299`. The
+[GitHub release](https://github.com/angru/analint/releases/tag/v0.3.0) and
+[PyPI package](https://pypi.org/project/analint/0.3.0/) are available. The
+[Publish workflow](https://github.com/angru/analint/actions/runs/45037098477)
+verified the wheel and sdist on Python 3.12–3.15. See the
+[changelog](CHANGELOG.md) for release contents. The semantic core and P5 are complete.
 
 **This file is the single source of truth for status and priorities.**
 `research/` contains dated rationale; priorities stated only there are historical.
@@ -10,19 +13,25 @@ Internal v0.9–v1.3 milestones below are design phases, not package versions.
 Use `uv run pytest --collect-only -q` for the current test inventory rather than
 maintaining a second test count here.
 
-## Current priorities (2026-11-22)
+## Current priorities (2026-11-23)
 
-1. **Publish 0.3.0 and adopt it in exness-spec.** Update its current
-   `analint>=0.2.0` requirement and rerun the full spec against the published
-   package.
-2. **Complete the external real-spec change trial.** Record a before/after
-   requirement change in the margin and payments model with full and selected
-   checks, allowed and rejected cases, and a trace on the published version.
-3. **Remaining follow-ups.** [#68](https://github.com/angru/analint/issues/68)
-   tracks slice and state-space diagnostics.
-   [#77](https://github.com/angru/analint/issues/77) tracks effect value types;
-   [#78](https://github.com/angru/analint/issues/78) tracks legal recovery
+1. **Complete the external real-spec change trial.** Use one rule change in
+   exness-spec to record the impact report, full and selected checks before and
+   after the change, an allowed and a rejected case, and a trace where applicable.
+   The 0.3.0 adoption provides a verified baseline and preserves the payment rules.
+2. **Address verified correctness and diagnostic gaps.**
+   [#77](https://github.com/angru/analint/issues/77) tracks effect value types:
+   assigning `True` to an integer field can satisfy `Reachable(field == 1)`.
+   [#78](https://github.com/angru/analint/issues/78) tracks legal `NoDeadEnd`
    witnesses and invalid-root explanations.
+3. **Make verification cost easier to explain.**
+   [#68](https://github.com/angru/analint/issues/68) tracks slice and state-space
+   diagnostics. exness-spec also records a budget-dependent recovery proof
+   fallback in [FRICTION F17](https://github.com/angru/exness-spec/blob/dc4648e413186df53a34d4d6200dd6acd90d3b40/FRICTION.md#f17--nodeadend-needs-twice-its-states-in-budget-and-does-not-say-so):
+   the 1,994-state proof is used at the tested budget of 7,000,000, while
+   at 6,000,000 the check falls back to substantially larger graphs. Include
+   the reason a smaller proof was rejected in diagnostic planning.
+4. **Keep the remaining architecture work tied to consumer evidence.**
    [#83](https://github.com/angru/analint/issues/83) remains the design umbrella
    for further derived models, including projected AlwaysHolds proofs, finite
    havoc, named views and verified environments ([research/37](research/37-per-check-derived-models.md)).
@@ -30,7 +39,15 @@ maintaining a second test count here.
    and [#12](https://github.com/angru/analint/issues/12) (state-store ownership)
    remain conditional on consumer evidence.
 
-Derived-model work shipped in this source version includes projected safety
+**Adoption is complete.** [exness-spec PR #16](https://github.com/angru/exness-spec/pull/16)
+locked the published 0.3.0 and consolidated deposits and withdrawals into
+parameterized families using `BoolValue` and `Lookup`. Its before/after full
+checks both passed. The controller also confirmed the #71 diagnostic on 0.3.0.
+On 2026-11-23 a fresh environment synced from the exness-spec lockfile at
+`0fe48ca` passed the full check in 46 seconds: 164 scenarios, 17 flows,
+8 invariants and 12 queries.
+
+Derived-model work shipped in 0.3.0 includes projected safety
 (#83, PR #89), projected defect coverage, replay and local recovery (#92,
 PRs #93–#94), and shared family coverage and the own-root allowance (#95,
 PR #96). Across the recorded exness-spec full-check comparisons, runtime went
@@ -39,6 +56,32 @@ identical verdicts. The #71 invalid-state diagnostic is merged in PR #76.
 
 The [changelog](CHANGELOG.md) records the earlier 0.2.0 integration and
 completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
+
+### Implementation order
+
+1. **#77, effect types.** Start with provable type mismatches. Cover bool/int
+   in both directions, predicate values, numeric effect amounts, creation and
+   emitted payloads. Pin a valid case and an unknown operand alongside each
+   rejection class, and check the native/TLC boundary.
+2. **#78, recovery diagnostics.** Reproduce both reports and cover legal
+   witness precedence, BFS order within each witness class, and invalid or
+   inert roots across full and selected checks, trace and cache.
+3. **#68, verification diagnostics.** Start with a bounded report explaining
+   the chosen graph, abandoned proof attempts and the budget decision seen in
+   F17. Measure field diversity and slice inclusion in subsequent increments.
+
+Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
+project target `analint` for each issue. Use a short reproduction and explicit
+acceptance checks, deterministic verification and a separate reviewer on the
+exact commit. The current draft defaults to sandboxed Claude Sonnet for
+implementation and Codex GPT-5.6 Sol for review. Antigravity Gemini Flash
+remains an option for bounded review and explicit implementation trials. The
+first #77 trial spent roughly 13 minutes on investigation before its first
+small edit, with no Worker Board guard stop recorded at that point. Check quota
+and execution permissions before dispatch. Escalate model capability
+for a concrete unresolved semantic question or a failed acceptance probe that
+needs deeper analysis. The external requirement-change trial can proceed
+independently using the exness-spec pipeline.
 
 ## Verification boundary audit (2026-11-17)
 

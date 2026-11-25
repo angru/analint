@@ -10,7 +10,7 @@ verified the wheel and sdist on Python 3.12–3.15. See the
 **This file is the single source of truth for status and priorities.**
 `research/` contains dated rationale; priorities stated only there are historical.
 Internal v0.9–v1.3 milestones below are design phases, not package versions.
-Use `uv run pytest --collect-only -q` for the current test inventory rather than
+Use `uv run pytest --collect-only -q -m ''` for the current test inventory rather than
 maintaining a second test count here.
 
 ## Current priorities (2026-11-23)

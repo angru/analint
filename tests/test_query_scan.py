@@ -38,6 +38,14 @@ REPORT_TARGETS = [
     ),
 ]
 
+LARGE_SCAN_MODELS = {
+    BENCHMARKS / "broker/m4.py",
+    BENCHMARKS / "broker/m4_risk.py",
+    BENCHMARKS / "broker/m5.py",
+    BENCHMARKS / "broker/m6.py",
+    BENCHMARKS / "broker/m6_profile_methods.py",
+}
+
 
 def _interpreted_scan(exp, predicate, *, collect_matches=False):
     """Reference scan using the applicability and evaluation loop from fb04fc6."""
@@ -182,7 +190,12 @@ def test_restricted_context_preserves_quantification_and_presence():
 @pytest.mark.parametrize(
     ("entry", "extra"),
     [
-        pytest.param(path, extra, id=str((extra or path).relative_to(ROOT)))
+        pytest.param(
+            path,
+            extra,
+            id=str((extra or path).relative_to(ROOT)),
+            marks=pytest.mark.benchmark if path in LARGE_SCAN_MODELS else (),
+        )
         for path, extra in REPORT_TARGETS
     ],
 )

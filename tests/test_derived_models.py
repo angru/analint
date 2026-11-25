@@ -428,10 +428,25 @@ TARGETS = [
     *sorted((ROOT / "benchmarks").glob("*.py")),
     *sorted((ROOT / "benchmarks/broker").glob("m*.py")),
 ]
+LARGE_DIFFERENTIAL_MODELS = {
+    ROOT / "examples/broker/spec.py",
+    ROOT / "examples/oauth/spec.py",
+    ROOT / "benchmarks/broker/m4.py",
+    ROOT / "benchmarks/broker/m4_risk.py",
+    ROOT / "benchmarks/broker/m5.py",
+    ROOT / "benchmarks/broker/m6.py",
+    ROOT / "benchmarks/broker/m6_risk.py",
+}
 
 
 @pytest.mark.parametrize(
-    "entry", [p for p in TARGETS if p.name != "__init__.py"], ids=lambda p: str(p.relative_to(ROOT))
+    "entry",
+    [
+        pytest.param(path, marks=pytest.mark.benchmark if path in LARGE_DIFFERENTIAL_MODELS else ())
+        for path in TARGETS
+        if path.name != "__init__.py"
+    ],
+    ids=lambda path: str(path.relative_to(ROOT)),
 )
 def test_example_and_benchmark_differential(entry, monkeypatch):
     # The standalone broker increments default to budgets up to five million.

@@ -128,6 +128,10 @@ allowed-unresolved-imports = ["mcp.**"]
 [tool.ty.src]
 include = ["src"]
 
+[tool.pytest.ini_options]
+addopts = "-m 'not benchmark'"
+markers = ["benchmark: expensive model exploration for the dedicated CI job"]
+
 [tool.coverage.run]
 source = ["analint"]
 branch = true

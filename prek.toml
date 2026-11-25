@@ -37,11 +37,3 @@ name = "ty check"
 entry = "uv run --frozen ty check"
 language = "system"
 pass_filenames = false
-
-[[repos.hooks]]
-id = "pytest"
-name = "pytest"
-entry = "uv run --frozen pytest"
-language = "system"
-pass_filenames = false
-stages = ["pre-push"]

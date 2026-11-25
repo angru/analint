@@ -3,6 +3,7 @@
 # failure goes back to the implementer through the review loop instead of ending the run.
 # Prints {"passed": bool, "tail": "<last lines of output>"}.
 OUT=$(mktemp)
+# Use the default marker selection from pyproject.toml, as in local development.
 if uv run --frozen pytest -q >"$OUT" 2>&1; then
   printf '{"passed": true, "tail": ""}\n'
 else

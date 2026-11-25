@@ -43,10 +43,14 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  tlc:
-    name: TLC conformance
+  model-checks:
+    name: ${{ matrix.suite }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [TLC conformance, Benchmark models]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v6.2.0
@@ -71,7 +75,11 @@ jobs:
           printf 'ANALINT_TLC_JAR=%s\n' "$ANALINT_TLC_JAR" >> "$GITHUB_ENV"
       - name: Require Java and the pinned TLC JAR
         run: uv run --frozen python -c "from analint.backends.tlc import find_tlc; print(find_tlc())"
+      - name: Run expensive model checks
+        if: matrix.suite == 'Benchmark models'
+        run: uv run --frozen pytest -q -m benchmark
       - name: Check Python and TLC conformance
+        if: matrix.suite == 'TLC conformance'
         run: >-
           uv run --frozen pytest -q -rs
           tests/test_tlc_backend.py

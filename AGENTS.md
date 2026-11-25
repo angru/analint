@@ -355,7 +355,9 @@ nothing else. Dedup of instances is **by object identity** (`id(obj)`), never
 ## Commands
 
 ```bash
-uv run pytest                          # run all tests (291)
+uv run pytest                          # default fast suite
+uv run pytest -m benchmark             # expensive model checks
+uv run pytest -m ''                    # full suite
 uv run analint examples/ecommerce/    # 4 scenarios  (= analint check …)
 uv run analint examples/taskboard/    # 16 scenarios, multi-file
 uv run analint examples/cloak/        # 11 scenarios + 5 reachability queries, all green

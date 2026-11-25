@@ -124,7 +124,7 @@ def main() -> None:
         # Only add test tools after the runtime-only and optional-MCP checks.
         run(["uv", "pip", "install", "--python", python, "pytest", "click", "twine"], work, env)
         run([python, "-I", "-m", "twine", "check", "--strict", str(wheel), str(source)], work, env)
-        run([python, "-I", "-m", "pytest", "--collect-only", "-qq"], root, env)
+        run([python, "-I", "-m", "pytest", "--collect-only", "-qq", "-m", ""], root, env)
         run([python, "-I", "-m", "pytest", "-q", *ARCHIVE_TESTS], root, env)
     print(
         json.dumps(

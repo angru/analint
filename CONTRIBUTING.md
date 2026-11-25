@@ -22,17 +22,26 @@ uv run analint examples/ecommerce/   # smoke test
 ## Running the checks
 
 ```bash
-uv run pytest                # full test suite
+uv run pytest                # fast development suite
+uv run pytest -m benchmark   # expensive model checks
+uv run pytest -m ''          # full test suite
 uv run ruff check .          # lint
 uv run ruff format --check . # formatting
 uv run ty check              # type check (src/)
 ```
 
-CI also runs a separate **TLC conformance** job with Temurin Java 17 and the
-official TLA+ 1.7.4 JAR, verified against its pinned SHA-256. Its preflight fails
+Agent task checks use the same default selection. Mark individual expensive
+model cases so each differential check still covers small models by default.
+CI runs the default suite on every supported Python version and the marked
+cases once on Python 3.14. The pre-push hooks run lint and type checks. In the
+automated task workflow, the landing script runs just the benchmark cases on
+the reviewed commit before pushing it.
+
+The **TLC conformance** and **Benchmark models** jobs use Temurin Java 17 and the
+official TLA+ 1.7.4 JAR, verified against its pinned SHA-256. Their preflight fails
 if Java or the JAR is unavailable; unsupported model exports may still skip
-individual cases. To run the same suite locally, set `ANALINT_TLC_JAR` to a
-local `tla2tools.jar` and run:
+individual cases. Set `ANALINT_TLC_JAR` to a local `tla2tools.jar` to run
+conformance tests, for example:
 
 ```bash
 uv run python -c "from analint.backends.tlc import find_tlc; print(find_tlc())"

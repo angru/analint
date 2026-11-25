@@ -37,6 +37,7 @@ def check_spec(
     tags: list[str] | None = None,
     tlc_timeout: float | None = None,
     explain_slice: bool = False,
+    explain_work: bool = False,
 ) -> dict:
     if max_states is not None and max_states < 1:
         return {
@@ -55,6 +56,7 @@ def check_spec(
             max_states=max_states,
             sliced=slice,
             explain_slice=explain_slice,
+            explain_work=explain_work,
             tlc=tlc,
             tlc_timeout=tlc_timeout,
             cache=cache,
@@ -175,6 +177,7 @@ def build_server() -> Any:
         tags: list[str] | None = None,
         tlc_timeout: float | None = None,
         explain_slice: bool = False,
+        explain_work: bool = False,
     ) -> dict:
         """Validate the analint spec at `path` (structural checks + scenario runs).
 
@@ -191,6 +194,7 @@ def build_server() -> Any:
         only: use it to test a hypothesis before editing the spec.
         `max_states` — optional override of every exploration budget for this
         run (an INCONCLUSIVE verdict means the budget ran out).
+        `explain_work` — report native BFS work, graph reuse and TLC run statistics.
         `explain_slice` — report inclusion paths in each native property closure.
         `slice` — check each invariant/query on its slice of the model (the
         default); false explores the whole model for every check.
@@ -214,6 +218,7 @@ def build_server() -> Any:
             tags=tags,
             tlc_timeout=tlc_timeout,
             explain_slice=explain_slice,
+            explain_work=explain_work,
         )
 
     @mcp.tool()

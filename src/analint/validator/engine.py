@@ -20,6 +20,7 @@ from analint.loader.python_loader import (
 from analint.models.query import query_budget
 from analint.models.root import Spec
 from analint.reporter.base import Code, Finding, Severity, ValidationResult
+from analint.validator.exploration_work import current_work, measure_work
 from analint.validator.scenario_runner import run_scenario
 from analint.validator.selection import SelectionError, select_checks
 from analint.validator.structural import validate_structural
@@ -153,6 +154,7 @@ def validate(
     cache: bool = False,
     checks: list[str] | None = None,
     explain_slice: bool = False,
+    explain_work: bool = False,
 ) -> ValidationResult:
     """``checks`` selects flow/query/invariant ids (or KIND:ID). None retains
     the full check; [] or unknown/ambiguous ids raise SelectionError. Selection
@@ -183,6 +185,7 @@ def validate(
         tlc_timeout=tlc_timeout,
         cache=cache,
         explain_slice=explain_slice,
+        explain_work=explain_work,
     )
 
 
@@ -198,6 +201,7 @@ def validate_spec(
     tlc_timeout: float | None = None,
     cache: bool = False,
     explain_slice: bool = False,
+    explain_work: bool = False,
 ) -> ValidationResult:
     """Verify a reusable Spec with invocation-only selection/settings.
 
@@ -216,6 +220,7 @@ def validate_spec(
         tlc_timeout=tlc_timeout,
         cache=cache,
         explain_slice=explain_slice,
+        explain_work=explain_work,
     )
 
 
@@ -231,6 +236,7 @@ def _validate_prepared(
     tlc_timeout: float | None = None,
     cache: bool = False,
     explain_slice: bool = False,
+    explain_work: bool = False,
     decided: dict[str, Exploration] | None = None,
 ) -> ValidationResult:
     from analint.validator.exploration_cache import use_store
@@ -239,8 +245,8 @@ def _validate_prepared(
         raise SelectionError("max_states must be a positive integer")
     if tlc_timeout is not None and tlc_timeout <= 0:
         raise SelectionError("tlc_timeout must be positive")
-    with use_store(None) if cache else nullcontext():
-        return _run_checks(
+    with measure_work(explain_work) as work, use_store(None) if cache else nullcontext():
+        result = _run_checks(
             prepared,
             checks,
             scenario_ids,
@@ -253,6 +259,9 @@ def _validate_prepared(
             decided,
             explain_slice,
         )
+        if work is not None:
+            result.exploration_work = work.report(result, prepared.spec, max_states, tlc)
+        return result
 
 
 def _run_checks(
@@ -289,6 +298,7 @@ def _run_checks(
     if prepared.has_structural_errors:
         return result
 
+    work = current_work.get()
     selection = select_checks(spec, checks, scenario_ids, tags)
     safety_proofs: dict[str, SafetyProof] = {}
     probe_ms: dict[str, float] = {}
@@ -303,6 +313,8 @@ def _run_checks(
         probe_analysis.retain_derived_graphs = decided is not None
         for query in selection.queries:
             started = perf_counter()
+            if work is not None:
+                work.query_phase(query)
             proof = prove_query(
                 query,
                 spec,
@@ -315,6 +327,8 @@ def _run_checks(
             if proof is not None:
                 if probe_analysis.reasons is not None:
                     proof.result.slice_dependencies = probe_analysis.reasons[id(query)].report()
+                if work is not None:
+                    work.link(f"query:{query.id}", proof.exploration)
                 safety_proofs[query.id] = proof
         derived_attempts = probe_analysis.derived_attempts
         del probe_analysis
@@ -426,7 +440,11 @@ def _run_checks(
             verify_invariants,
         )
 
+        if work is not None:
+            work.phase = "canonical_invariants_and_coverage"
+            work.root_source = "canonical"
         while True:
+            native_graphs = decided if decided is not None or work is None else {}
             result.invariant_results, _ = verify_invariants(
                 spec,
                 canonical_initials,
@@ -435,9 +453,15 @@ def _run_checks(
                 max_states=max_states or spec.max_states,
                 cache=explorations,
                 analysis=analysis,
-                explorations=decided,
+                explorations=native_graphs,
                 all_actions=verification_scope is None,
             )
+            if work is not None and native_graphs is not None:
+                for checked in result.invariant_results:
+                    work.link(
+                        f"invariant:{checked.invariant_id}", native_graphs.get(checked.invariant_id)
+                    )
+            del native_graphs
             if verification_scope is None or not verification_scope.refine(analysis):
                 break
         if verification_scope is not None:
@@ -489,13 +513,16 @@ def _run_checks(
                 if decided is not None:
                     decided[query.id] = proof.exploration
             else:
+                if work is not None:
+                    work.query_phase(query)
+                native_graphs = decided if decided is not None or work is None else {}
                 query_result = run_query(
                     query,
                     spec,
                     explorations,
                     max_states=max_states,
                     analysis=analysis,
-                    explorations=decided,
+                    explorations=native_graphs,
                     initial_state=initial_state,
                     coverage_actions=(
                         verification_scope.actions_for([f"query:{query.id}"])
@@ -503,6 +530,9 @@ def _run_checks(
                         else None
                     ),
                 )
+                if work is not None and native_graphs is not None:
+                    work.link(f"query:{query.id}", native_graphs.get(query.id))
+                del native_graphs
             query_result.elapsed_ms = (
                 (query_result.elapsed_ms or 0.0) + probe_ms.get(query.id, 0.0) + setup_ms
             )

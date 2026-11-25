@@ -18,6 +18,8 @@ All notable changes to this project are documented here. The format is based on
   fallbacks. (#68)
 - `check --explain-slice` and MCP `explain_slice=true` show why each field,
   action and pruning invariant entered a property’s dependency closure. (#68)
+- `check --explain-work` and MCP `explain_work=true` report native graph sizes,
+  fresh search states, cache loads, per-check maxima and TLC statistics. (#68)
 
 ### Fixed
 

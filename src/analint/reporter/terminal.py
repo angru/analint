@@ -27,6 +27,9 @@ def report_terminal(
 
     console.print(f"\n[bold]analint v{ver}[/bold]  spec: [cyan]{escape(result.spec_name)}[/cyan]\n")
 
+    if result.exploration_work is not None:
+        _print_work(result.exploration_work)
+
     if result.selection is not None:
         console.print("[bold]SELECTED CHECKS[/bold] (verdict applies only to this scope)")
         console.print("  " + ", ".join(result.selection["requested"]), markup=False)
@@ -146,6 +149,35 @@ def _model_note(model: dict | None) -> str:
         replay = ", replay failed" if "candidate_trace" in model["attempts"][0] else ""
         return escape(f", {system}{replay}, exact re-check inconclusive")
     return escape(f", {system}, exact")
+
+
+def _print_work(work: dict) -> None:
+    console.print("[bold]EXPLORATION WORK[/bold]")
+    console.print(
+        f"  Native BFS states built: {work['native_states_built']}; maximum reported per check: {work['max_reported_states_per_check']}"
+    )
+    if work["tlc_runs"]:
+        total = work["total_search_states"]
+        console.print(
+            f"  Total search states including TLC: {total if total is not None else 'unavailable'}"
+        )
+    for graph in work["native_graphs"]:
+        status = "complete" if graph["complete"] else "partial"
+        console.print(
+            f"  Graph {graph['id']} ({graph['origin']}, {graph['phase']}): {graph['states']} states, "
+            f"{graph['roots']} {graph['root_source']} roots, budget {graph['budget']}, {status}",
+            markup=False,
+        )
+    for prop, row in work["properties"].items():
+        number = row["native_graph_id"]
+        if number is not None:
+            console.print(f"  {prop}: native graph {number}", markup=False)
+    for run in work["tlc_runs"]:
+        count = run["distinct_states"] if run["distinct_states"] is not None else "unavailable"
+        console.print(
+            f"  TLC {run['property']}: {run['status']}, distinct states {count}", markup=False
+        )
+    console.print()
 
 
 def _print_slice_dependencies(report: dict | None) -> None:

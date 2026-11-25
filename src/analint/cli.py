@@ -127,6 +127,11 @@ def check(
         help="Reuse explorations of unchanged slices from earlier runs "
         "(~/.cache/analint, or $ANALINT_CACHE_DIR)",
     ),
+    explain_work: bool = typer.Option(
+        False,
+        "--explain-work",
+        help="Report native graph sizes, cache loads and exploration work per run.",
+    ),
     explain_slice: bool = typer.Option(
         False,
         "--explain-slice",
@@ -154,6 +159,7 @@ def check(
             max_states=max_states,
             sliced=not no_slice,
             explain_slice=explain_slice,
+            explain_work=explain_work,
             tlc=tlc,
             tlc_timeout=tlc_timeout,
             cache=cache,

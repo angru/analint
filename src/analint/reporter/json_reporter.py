@@ -53,6 +53,11 @@ def result_to_dict(
             if result.model_coverage is not None
             else {}
         ),
+        **(
+            {"exploration_work": result.exploration_work}
+            if result.exploration_work is not None
+            else {}
+        ),
         "load_errors": result.load_errors,
         "structural": _findings(result.structural_findings, compact),
         "scenarios": [

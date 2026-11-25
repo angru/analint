@@ -404,15 +404,22 @@ an explanation in `message`: the root is invalid under model invariants and was
 not expanded. Native traces retain that root with zero steps; TLC includes its
 number and explanation without state snapshots.
 
-`NoDeadEnd` uses `query.invalid_state` when its chosen dead-end witness has
-explicit invariant-violation or invariant-evaluation-error provenance. Its
-message names the invariant ids and explains that the state was not expanded;
-recovery from that invalid state was not assessed. The query remains FAIL and
-the invariant diagnostic remains visible separately. Native `trace` retains the
-same witness and steps and includes this explanation in `message`. Legal dead
-ends keep `query.dead_end`; no-goal and incomplete-graph results retain their
-existing diagnostics. Attribution uses finding-to-state indices, including on
-warm cache reads, never diagnostic prose or a matching invariant id alone.
+**Unreleased (#78).** `NoDeadEnd` prefers a legal state from which recovery is impossible
+(`query.dead_end`). If all dead ends are invalid, it reports the first invalid
+state (`query.invalid_state`). Both choices follow breadth-first order, giving
+a shortest trace within the chosen class. Invalid states are identified by
+invariant findings tied to their state indices or by a root marked inert during
+projection. The diagnostic names the responsible invariant ids when available.
+The invariant findings remain separate, and native `trace` retains the chosen
+witness and the explanation for an invalid state, including on a warm cache.
+
+If the goal occurs nowhere and every root was invalid or inert, the diagnostic
+is `query.invalid_root` with a zero-step trace to the first root. With at least
+one legal root, the same absence produces `query.goal_unreachable`.
+Witness selection uses the deciding graph. An invariant outside a slice can
+invalidate a successor in the whole graph without invalidating it in the
+slice, so the two checks can still choose different witnesses or verdicts
+([slicing semantics](concepts.md#slices-budgets-and-repeated-checks)).
 
 Successful trace retrieval is an inspection operation. Its process exit code
 does not replace the property's `status` or a `check` verdict.

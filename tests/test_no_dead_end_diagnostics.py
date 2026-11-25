@@ -180,7 +180,8 @@ def test_coalesced_error_provenance_applies_to_each_origin(tmp_path):
     inv = Invariant(Or(Box.ok, Box.ok < "invalid"), id="broken")
     query = NoDeadEnd(Not(Box.mark), id="recover")
     spec = Spec(id="s", name="S", invariants=[inv], queries=[query])
-    roots = [{Box: Box(ok=False)}, {Box: Box(ok=False, mark=True)}, {Box: Box()}]
+    # Each root is the only dead end for the goal matched by the other.
+    roots = [{Box: Box(ok=False)}, {Box: Box(ok=False, mark=True)}]
     with use_store(tmp_path):
         cold = explore(spec, roots, 100)
         warm = explore(spec, roots, 100)
@@ -211,3 +212,134 @@ def test_legal_first_witness_is_not_blame_shifted_to_an_invalid_successor(sliced
     assert qr.findings[0].code is Code.DEAD_END
     assert "init #1" in qr.findings[0].message
     assert any(f.code is Code.INVARIANT_VIOLATED for f in result.exploration_findings)
+
+
+COMPETING_WITNESSES = """from analint import Action, Entity, Invariant, NoDeadEnd, Not, Set, Spec
+
+class C(Entity):
+    bad: bool = False
+    step: bool = False
+    done: bool = False
+
+go_bad = Action(pre=[Not(C.bad), Not(C.step), Not(C.done)], effect=[Set(C.bad, True)])
+s1 = Action(pre=[Not(C.step), Not(C.bad), Not(C.done)], effect=[Set(C.step, True)])
+finish = Action(pre=[Not(C.bad), Not(C.step)], effect=[Set(C.done, True)])
+legal = Invariant(Not(C.bad))
+recover = NoDeadEnd(goal=C.done)
+spec = Spec(id="c", name="C", actions=[go_bad, s1, finish], invariants=[legal], queries=[recover])
+"""
+
+INVALID_ROOT = """from analint import Action, Entity, Initial, Invariant, NoDeadEnd, Not, Set, Spec
+
+class B(Entity):
+    ok: bool = True
+    x: bool = False
+
+inc = Action(pre=[Not(B.x)], effect=[Set(B.x, True)])
+legal = Invariant(B.ok)
+recover = NoDeadEnd(goal=B.x)
+spec = Spec(id="b", name="B", actions=[inc], invariants=[legal], queries=[recover],
+            initial=Initial(given=[B(ok=False)]))
+"""
+
+
+@pytest.mark.parametrize("sliced", [False, True])
+@pytest.mark.parametrize("selected", [False, True])
+@pytest.mark.parametrize(
+    ("source", "code", "actions"),
+    [
+        (COMPETING_WITNESSES, Code.DEAD_END, ["s1"]),
+        (INVALID_ROOT, Code.QUERY_INVALID_ROOT, []),
+    ],
+    ids=["legal-dead-end", "invalid-root"],
+)
+def test_recovery_witness_across_check_trace_and_cache(
+    tmp_path, monkeypatch, sliced, selected, source, code, actions
+):
+    path = tmp_path / "spec.py"
+    path.write_text(source)
+    monkeypatch.setenv("ANALINT_CACHE_DIR", str(tmp_path / "cache"))
+    args = ["check", str(path), "--cache", "-f", "json"]
+    if selected:
+        args.extend(["--check", "recover"])
+    if not sliced:
+        args.append("--no-slice")
+
+    def verify():
+        cli = CliRunner().invoke(app, args)
+        assert cli.exit_code == 1, cli.output
+        report = json.loads(cli.output)
+        [qr] = report["queries"]
+        assert qr["status"] == "FAIL" and qr["trace"] == actions
+        assert qr["findings"][0]["code"] == code
+        assert any(f["code"] == Code.INVARIANT_VIOLATED for f in report["exploration"])
+        trace = trace_query(path, "recover", sliced=sliced, cache=True)
+        assert trace["root"] is not None and trace["status"] == "FAIL"
+        assert [s["action"] for s in trace["steps"]] == actions
+        if code == Code.QUERY_INVALID_ROOT:
+            assert "not expanded" in trace["message"]
+        return stable(report), stable(trace)
+
+    cold = verify()
+
+    def miss(*args, **kwargs):
+        pytest.fail("expected a warm exploration cache")
+
+    monkeypatch.setattr("analint.validator.explorer._explore", miss)
+    assert verify() == cold
+
+
+@pytest.mark.parametrize("include_legal_traps", [False, True])
+def test_bfs_order_within_preferred_witness_class(include_legal_traps):
+    class Box(Entity):
+        place: str = "start"
+
+    def move(src, dst):
+        return Action(id=f"{src}_{dst}", pre=[Box.place == src], effect=[Set(Box.place, dst)])
+
+    moves = [
+        move("start", "bad1"),
+        move("start", "bad2"),
+        move("start", "fork"),
+        move("fork", "goal"),
+    ]
+    if include_legal_traps:
+        moves.extend([move("fork", "trap1"), move("fork", "trap2")])
+    spec = Spec(
+        id="s",
+        name="S",
+        actions=moves,
+        invariants=[Invariant(Not(Or(Box.place == "bad1", Box.place == "bad2")), id="legal")],
+        queries=[NoDeadEnd(Box.place == "goal", id="recover")],
+    )
+    [result] = validate_spec(spec, sliced=False).query_results
+    if include_legal_traps:
+        assert result.findings[0].code is Code.DEAD_END
+        assert result.trace == ["start_fork", "fork_trap1"]
+    else:
+        assert result.findings[0].code is Code.QUERY_INVALID_STATE
+        assert result.trace == ["start_bad1"]
+
+
+def test_inert_root_without_a_local_invariant_finding():
+    class Box(Entity):
+        mark: bool = False
+
+    query = NoDeadEnd(Box.mark == "absent", id="recover")
+    spec = Spec(id="s", name="S", entities=[Box], queries=[query])
+    roots = [{Box: Box()}, {Box: Box(mark=True)}]
+
+    def evaluate(inert):
+        exp = explore(spec, roots, 100, root_numbers=[3, 6], inert_roots=frozenset(inert))
+        assert not exp.findings
+        return _eval_no_dead_end(query, query.id, exp)
+
+    mixed = evaluate([0])
+    assert mixed.findings[0].code is Code.GOAL_UNREACHABLE and mixed.witness_key is None
+    invalid = evaluate([0, 1])
+    assert invalid.findings[0].code is Code.QUERY_INVALID_ROOT and invalid.trace == []
+    assert "init #3" in invalid.findings[0].message
+    query.goal = Box.mark == True  # noqa: E712
+    stranded = evaluate([0])
+    assert stranded.findings[0].code is Code.QUERY_INVALID_STATE and stranded.trace == []
+    assert "init #3" in stranded.findings[0].message

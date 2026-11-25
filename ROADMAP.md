@@ -22,8 +22,8 @@ maintaining a second test count here.
 2. **Address verified correctness and diagnostic gaps.**
    [#77](https://github.com/angru/analint/issues/77) tracks effect value types:
    assigning `True` to an integer field can satisfy `Reachable(field == 1)`.
-   [#78](https://github.com/angru/analint/issues/78) tracks legal `NoDeadEnd`
-   witnesses and invalid-root explanations.
+   The [#78 recovery diagnostics](https://github.com/angru/analint/issues/78)
+   now prefer legal dead ends and explain inadmissible roots.
 3. **Make verification cost easier to explain.**
    [#68](https://github.com/angru/analint/issues/68) tracks slice and state-space
    diagnostics. exness-spec also records a budget-dependent recovery proof
@@ -63,9 +63,8 @@ completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
    in both directions, predicate values, numeric effect amounts, creation and
    emitted payloads. Pin a valid case and an unknown operand alongside each
    rejection class, and check the native/TLC boundary.
-2. **#78, recovery diagnostics.** Reproduce both reports and cover legal
-   witness precedence, BFS order within each witness class, and invalid or
-   inert roots across full and selected checks, trace and cache.
+2. **#78, recovery diagnostics (implemented).** Check and trace now prefer a
+   legal dead end and explain when no initial state could be expanded.
 3. **#68, verification diagnostics.** Start with a bounded report explaining
    the chosen graph, abandoned proof attempts and the budget decision seen in
    F17. Measure field diversity and slice inclusion in subsequent increments.

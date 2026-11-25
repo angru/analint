@@ -12,6 +12,9 @@ All notable changes to this project are documented here. The format is based on
 - Reject known boolean/integer conflicts in effect writes and emitted payloads
   before exploration. Untyped and unresolved values retain ordinary validation.
   (#77)
+- Prefer a legal dead-end trace in `NoDeadEnd` when one exists. If the goal
+  occurs nowhere and every root was invalid or inert, report
+  `query.invalid_root` and retain the initial state in the trace. (#78)
 
 ## [0.3.0] — 2026-11-22
 

@@ -617,4 +617,19 @@ def test_no_dead_end_reversible_disablers(monkeypatch, mode, status, finding, tr
         assert actual.states_explored == 2
         assert expected.states_explored == 2 << flags
     else:
-        assert replace(actual, elapsed_ms=None) == replace(expected, elapsed_ms=None)
+        # The reference suppresses this attempt. All other evidence, the
+        # deciding graph, and the verdict must still match exactly.
+        restorable = [a for a in actual.model["attempts"] if a["graph"] == "restorable_flags"]
+        if mode == "budget":
+            [attempt] = restorable
+            assert attempt["states_explored"] == 2
+            assert attempt["restorable_flags"] == 1
+            assert attempt["restored_state_bound"] == attempt["budget"] == 4
+            assert attempt["proof_blockers"] == [
+                "restored-state upper bound must be strictly below max_states"
+            ]
+        model = {
+            **actual.model,
+            "attempts": [a for a in actual.model["attempts"] if a not in restorable],
+        }
+        assert replace(actual, elapsed_ms=None, model=model) == replace(expected, elapsed_ms=None)

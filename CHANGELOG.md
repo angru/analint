@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- `check --explain-recovery` and JSON evidence distinguish the deciding
+  NoDeadEnd graph, its rejected alternatives and action-coverage budget
+  fallbacks. (#68)
+
 ### Fixed
 
 - Reject known boolean/integer conflicts in effect writes and emitted payloads

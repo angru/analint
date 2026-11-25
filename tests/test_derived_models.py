@@ -1467,6 +1467,19 @@ def test_own_root_family_cap_falls_back_to_full_exact_budget(monkeypatch):
     )
     writer = Action(id="audit", effect=[Set(Data.value, 1), Set(Data.audit, True)])
     spec = Spec(id="own_cap", name="Own root cap", actions=[first, second, writer])
+    # The shared work allowance, not the configured per-projection maximum, is
+    # binding for this batch. Attribute that cap to the family members.
+    roots, error = build_canonical_initials(spec)
+    assert roots is not None, error
+    analysis = SliceAnalysis(spec)
+    work = [1]
+    assert not derived_proof.cover_family(
+        [first, second], analysis, roots, 32, canonical=True, work=work
+    )
+    caps = analysis.coverage_caps[analysis.roots_key(roots), 32, True]
+    assert caps == {id(first): ("family", 1, 1), id(second): ("family", 1, 1)}
+    assert work == [0]
+
     query = DeadActions(given=[Data(value=1)], id="usable")
     spec.queries.append(query)
     monkeypatch.setattr(derived_proof, "_witness_budget", lambda _: 2)
@@ -1646,3 +1659,74 @@ def test_projected_attempt_keeps_candidate_report_after_releasing_graph():
     assert attempt["candidate_trace"] == ["change"]
     assert attempt["replayed"] is True
     assert probe.report(replayed=True)["attempts"][0] == attempt
+
+
+def test_f17_recovery_and_action_coverage_use_different_graphs(tmp_path, monkeypatch):
+    import json
+
+    from typer.testing import CliRunner
+
+    from analint.cli import app
+
+    entry = tmp_path / "spec.py"
+    entry.write_text("""from analint import Action, Add, Entity, NoDeadEnd, Set, Spec
+class Job(Entity):
+    n: int = 0
+    audit: bool = False
+    done: bool = False
+grow = Action(pre=[Job.n < 8], effect=[Add(Job.n, 1), Set(Job.audit, True)])
+reset = Action(pre=[Job.n == 8], effect=[Set(Job.n, 0)])
+finish = Action(pre=[Job.n >= 0], effect=[Set(Job.done, True)])
+always_finish = Action(effect=[Set(Job.done, True)])
+start = Action(effect=[Set(Job.done, False), Set(Job.audit, False)])
+recover = NoDeadEnd(Job.done)
+spec = Spec(id="jobs", name="Jobs", actions=[grow, reset, finish, always_finish, start],
+            queries=[recover])
+""")
+    runner = CliRunner()
+    monkeypatch.setenv("ANALINT_CACHE_DIR", str(tmp_path / "cache"))
+    args = ["check", str(entry), "--check", "recover", "--cache"]
+
+    def report(limit):
+        run = runner.invoke(app, [*args, "--max-states", str(limit), "-f", "json"])
+        assert run.exit_code == 0, run.output
+        [query] = json.loads(run.output)["queries"]
+        assert query["status"] == "PASS" and query["states_explored"] == 2
+        [proof] = query["model"]["attempts"]
+        assert proof["graph"] == "recovery_projection" and proof["states_explored"] == 2
+        assert proof["status"] == "PASS" and proof["complete"] and not proof["proof_blockers"]
+        return query["model"]["action_coverage"]
+
+    low = report(40)
+    [fallback] = low["capped_fallbacks"]
+    assert low["projection_limit"] == 10 and low["capped_fallback_count"] == 1
+    assert fallback == {
+        "action": "finish",
+        "projection": "individual",
+        "projection_limit": 10,
+        "projection_states": 11,
+        "exact_states": 20,
+        "exact_capped": False,
+        "exact_complete": True,
+    }
+    high = report(80)
+    assert high["projection_limit"] == 20 and high["capped_fallback_count"] == 0
+    assert high["largest_certificate"] == {"action": "finish", "states_explored": 18}
+
+    whole = runner.invoke(app, [*args, "--max-states", "80", "--no-slice", "--explain-recovery"])
+    assert whole.exit_code == 0 and "slicing disabled" in whole.output
+
+    def miss(*args, **kwargs):
+        pytest.fail("reporting warm graphs must not explore additional states")
+
+    monkeypatch.setattr(explorer, "_explore", miss)
+    assert report(40) == low
+    assert report(80) == high
+    brief = runner.invoke(app, [*args, "--max-states", "40"])
+    assert brief.exit_code == 0 and "Recovery graphs" not in brief.output
+    details = runner.invoke(app, [*args, "--max-states", "40", "--explain-recovery"])
+    assert details.exit_code == 0, details.output
+    readable = " ".join(details.output.split())
+    assert "Recovery graphs (max_states=40)" in readable
+    assert "Selected recovery projection: PASS, 2 states" in readable
+    assert "Action coverage for finish" in readable and "exact coverage used 20 states" in readable

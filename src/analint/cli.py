@@ -127,6 +127,11 @@ def check(
         help="Reuse explorations of unchanged slices from earlier runs "
         "(~/.cache/analint, or $ANALINT_CACHE_DIR)",
     ),
+    explain_recovery: bool = typer.Option(
+        False,
+        "--explain-recovery",
+        help="Show NoDeadEnd graph and budget decisions in terminal output (also included in JSON).",
+    ),
     compact: bool = typer.Option(
         False, "--compact", help="Group findings and sample examples in JSON output"
     ),
@@ -156,7 +161,7 @@ def check(
     if format == "json":
         report_json(result, strict, compact=compact)
     else:
-        report_terminal(result, strict)
+        report_terminal(result, strict, explain_recovery=explain_recovery)
 
     if result.load_errors or result.spec_id == "__empty__":
         raise typer.Exit(3)

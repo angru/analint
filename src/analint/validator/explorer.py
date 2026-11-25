@@ -1288,18 +1288,43 @@ def _run_query(
                 # Restoring all flags maps every full state into this graph.
                 # Preserve the full slice's budget verdict even when the
                 # smaller graph completed within the budget.
-                if (
-                    not exp.capped
-                    and not exp.findings
-                    and not exp.excluded
-                    and (len(exp.states) << flag_count) < budget
-                ):
+                restored_bound = (
+                    None if exp.capped or exp.excluded else exp.state_count << flag_count
+                )
+                blockers = []
+                if exp.capped:
+                    blockers.append("reduced exploration reached its state limit")
+                if exp.findings:
+                    blockers.append("reduced exploration has diagnostics")
+                if exp.excluded:
+                    blockers.append("reduced exploration excluded actions")
+                if restored_bound is not None and restored_bound >= budget:
+                    blockers.append("restored-state upper bound must be strictly below max_states")
+                details = {
+                    "graph": "restorable_flags",
+                    "restorable_flags": flag_count,
+                    "restored_state_bound": restored_bound,
+                    "proof_blockers": blockers,
+                }
+                if not blockers:
                     result = _evaluate(query, qid, exp, spec)
                     if result.status == QueryStatus.PASS:
                         explorations[qid] = exp
                         result.slice = {**used.summary(), "restorable_flags": flag_count}
-                        recovery.record_exact(result, exp, budget)
+                        recovery.record_exact(result, exp, budget, details)
                         return result
+                    blockers.append("reduced graph did not prove recovery")
+                recovery.model["attempts"].append(
+                    {
+                        **details,
+                        "relation": None,
+                        "backend": "native",
+                        "budget": budget,
+                        "states_explored": exp.state_count,
+                        "complete": not exp.capped and not exp.excluded,
+                        "status": QueryStatus.INCONCLUSIVE,
+                    }
+                )
                 # BFS order, invalid-state attribution and diagnostic traces
                 # belong to the full exploration whenever a proof fails.
         else:
@@ -1346,7 +1371,12 @@ def _run_query(
         result = exact_reach or _evaluate(query, qid, exp, spec)
         result.slice = used.summary()
         if recovery is not None:
-            recovery.record_exact(result, exp, budget)
+            recovery.record_exact(
+                result,
+                exp,
+                budget,
+                {"graph": "exact_slice" if used.vars is not None else "whole_model"},
+            )
         if reach_probe is not None:
             reach_probe.record_exact(result, exp, budget)
         if probe is not None:

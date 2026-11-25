@@ -188,6 +188,30 @@ the decision:
   assessment, even when there was no query-wide exact retry.
 - `null` means the attempts left the check inconclusive.
 
+**Unreleased (#68, recovery diagnostics).** Use
+`analint check PATH --check QUERY --explain-recovery` for a terminal explanation
+of a sliced `NoDeadEnd` check. JSON includes these details in `queries[].model`.
+The final entry of `attempts` identifies the native deciding graph. Earlier
+entries give the reason a projection or refinement could not decide the query.
+A projection rejected before exploration has zero observed states and no graph
+budget. An exact comparison with `--no-slice` explores the whole model.
+
+For a reduced graph with restorable Boolean flags, `restored_state_bound`
+is the complete reduced state count multiplied by `2 ** restorable_flags`.
+This upper bound must be strictly smaller than `max_states`; it is not a
+measured count of reachable full states. A capped or excluded exploration
+reports no bound.
+
+`action_coverage` reports the separate work needed to certify the actions. The
+configured projection limit is `max(1, min(max_states // 4, 32 * isqrt(max_states)))`.
+An individual trial can receive a smaller remaining allowance. The report
+names the largest accepted coverage certificate, and up to three actions
+whose capped projections were followed by exact coverage. The latter records
+show the actual cap, partial observed count and the exact coverage graph used,
+including whether it was capped. These graphs may be shared or reused. Their
+sizes cannot be added to measure total work; a capped graph's full size is
+unknown.
+
 Safety projections can decide both full and selected checks. An
 exclusion can be ignored for a safety proof if the excluded action leaves
 every retained field and slot's presence unchanged. Transition coverage

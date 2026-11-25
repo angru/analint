@@ -503,6 +503,11 @@ def cover_family(
         )
         if work is not None:
             work[0] -= graph.state_count
+        if graph.capped:
+            group = analysis.roots_key(initials), budget, canonical
+            caps = analysis.coverage_caps.setdefault(group, {})
+            for target in targets:
+                caps[id(target)] = "family", limit, graph.state_count
         locations = {f"action:{action.id}" for action in projection.spec.actions}
         if (
             graph.capped
@@ -569,6 +574,13 @@ def cover_defects(
         )
         if work is not None:
             work[0] -= graph.state_count
+        if graph.capped:
+            group = analysis.roots_key(initials), budget, canonical
+            analysis.coverage_caps.setdefault(group, {})[id(action)] = (
+                "individual",
+                limit,
+                graph.state_count,
+            )
         supporting_locations = {
             f"action:{writer.id}" for writer in projection.spec.actions if writer.id != action.id
         }
@@ -611,7 +623,9 @@ class QueryProbe:
     model: dict
     decision: tuple[QueryResult, Exploration] | None = None
 
-    def record_exact(self, result: QueryResult, graph: Exploration, budget: int) -> None:
+    def record_exact(
+        self, result: QueryResult, graph: Exploration, budget: int, details: dict | None = None
+    ) -> None:
         self.model["relation"] = "exact" if result.status != QueryStatus.INCONCLUSIVE else None
         recheck = {
             "relation": "exact",
@@ -621,9 +635,58 @@ class QueryProbe:
             "status": result.status,
             "states_explored": graph.state_count,
         }
+        if details:
+            recheck.update(details)
         self.model["recheck"] = recheck
         self.model["attempts"].append(recheck)
         result.model = self.model
+
+
+def _recovery_coverage(
+    analysis: SliceAnalysis,
+    initials: list[dict],
+    budget: int,
+    coverage: dict[int, Exploration],
+    canonical: bool,
+) -> dict:
+    """Summarise the coverage actually used, separately from the recovery graph."""
+    group = analysis.roots_key(initials), budget, canonical
+    proofs = analysis.projected_coverage.get(group, {})
+    caps = analysis.coverage_caps.get(group, {})
+    largest = None
+    fallbacks = []
+    fallback_count = 0
+    for action in analysis.spec.actions:
+        key = id(action)
+        graph = coverage.get(key)
+        if graph is None:
+            continue
+        proof = proofs.get(key)
+        if proof is not None and proof[1] is graph:
+            if largest is None or graph.state_count > largest["states_explored"]:
+                largest = {"action": action.id, "states_explored": graph.state_count}
+        elif proof is None and key in caps:
+            fallback_count += 1
+            if len(fallbacks) == 3:
+                continue
+            stage, limit, count = caps[key]
+            fallbacks.append(
+                {
+                    "action": action.id,
+                    "projection": stage,
+                    "projection_limit": limit,
+                    "projection_states": count,
+                    "exact_states": graph.state_count,
+                    "exact_capped": graph.capped,
+                    "exact_complete": not graph.capped and not graph.excluded,
+                }
+            )
+    return {
+        "projection_limit": _witness_budget(budget),
+        "largest_certificate": largest,
+        "capped_fallbacks": fallbacks,
+        "capped_fallback_count": fallback_count,
+    }
 
 
 def recovery_probe(
@@ -643,6 +706,8 @@ def recovery_probe(
             "system_id": analysis.spec.id,
             "view_id": None,
             "proof_rule": "local-recovery",
+            "max_states": budget,
+            "action_coverage": _recovery_coverage(analysis, initials, budget, coverage, canonical),
             "root_source": root_source(query),
             "root_numbers": list(range(1, len(initials) + 1)),
             "retained_fields": [],
@@ -656,6 +721,7 @@ def recovery_probe(
         probe.model["attempts"].append(
             {
                 "relation": "over-approx",
+                "graph": "recovery_projection",
                 "backend": "native",
                 "complete": False,
                 "status": QueryStatus.INCONCLUSIVE,
@@ -717,6 +783,7 @@ def recovery_probe(
         probe.model["attempts"].append(
             {
                 "relation": "over-approx",
+                "graph": "recovery_projection",
                 "backend": "native",
                 "budget": limit,
                 "complete": not graph.capped and not graph.excluded,

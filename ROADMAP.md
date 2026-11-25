@@ -26,11 +26,12 @@ maintaining a second test count here.
    now prefer legal dead ends and explain inadmissible roots.
 3. **Make verification cost easier to explain.**
    [#68](https://github.com/angru/analint/issues/68) tracks slice and state-space
-   diagnostics. exness-spec also records a budget-dependent recovery proof
-   fallback in [FRICTION F17](https://github.com/angru/exness-spec/blob/dc4648e413186df53a34d4d6200dd6acd90d3b40/FRICTION.md#f17--nodeadend-needs-twice-its-states-in-budget-and-does-not-say-so):
-   the 1,994-state proof is used at the tested budget of 7,000,000, while
-   at 6,000,000 the check falls back to substantially larger graphs. Include
-   the reason a smaller proof was rejected in diagnostic planning.
+   diagnostics. Its first increment explains NoDeadEnd graph and budget
+   decisions. On [Exness F17](https://github.com/angru/exness-spec/blob/dc4648e413186df53a34d4d6200dd6acd90d3b40/FRICTION.md#f17--nodeadend-needs-twice-its-states-in-budget-and-does-not-say-so)
+   the recovery proof takes 1,994 states at both tested budgets. At 6,000,000
+   the coverage projection for an opening action hits its 78,368-state cap and
+   exact coverage uses 1,401,848 states. At 7,000,000 the same action's
+   79,488-state certificate fits its 84,640-state cap.
 4. **Keep the remaining architecture work tied to consumer evidence.**
    [#83](https://github.com/angru/analint/issues/83) remains the design umbrella
    for further derived models, including projected AlwaysHolds proofs, finite
@@ -65,9 +66,9 @@ completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
    rejection class, and check the native/TLC boundary.
 2. **#78, recovery diagnostics (implemented).** Check and trace now prefer a
    legal dead end and explain when no initial state could be expanded.
-3. **#68, verification diagnostics.** Start with a bounded report explaining
-   the chosen graph, abandoned proof attempts and the budget decision seen in
-   F17. Measure field diversity and slice inclusion in subsequent increments.
+3. **#68, verification diagnostics.** Recovery decisions and the F17
+   action-coverage fallback are explained in JSON and by `check --explain-recovery`.
+   Observed field diversity and slice inclusion dependencies remain open.
 
 Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
 project target `analint` for each issue. Use a short reproduction and explicit

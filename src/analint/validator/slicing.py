@@ -441,6 +441,8 @@ class SliceAnalysis:
         self.retain_derived_graphs = True
         self.derived_attempts: dict[tuple, Attempt | None] = {}
         self.projected_coverage: dict[tuple, dict] = {}
+        # Last observed projection cap per covered action (stage, limit and states).
+        self.coverage_caps: dict[tuple, dict[int, tuple[str, int, int]]] = {}
         self.covered: dict[
             tuple, tuple[dict, list[dict]]
         ] = {}  # (roots, budget, canonical, action identities)

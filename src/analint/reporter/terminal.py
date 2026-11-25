@@ -15,7 +15,9 @@ from analint.reporter.base import (
 console = Console()
 
 
-def report_terminal(result: ValidationResult, strict: bool = False) -> None:
+def report_terminal(
+    result: ValidationResult, strict: bool = False, *, explain_recovery: bool = False
+) -> None:
     from importlib.metadata import version as _ver
 
     try:
@@ -122,7 +124,7 @@ def report_terminal(result: ValidationResult, strict: bool = False) -> None:
         console.print()
         console.print("[bold]QUERIES[/bold]")
         for qr in result.query_results:
-            _print_query(qr)
+            _print_query(qr, explain_recovery=explain_recovery)
 
     console.print()
     _print_summary(result, strict)
@@ -146,7 +148,7 @@ def _model_note(model: dict | None) -> str:
     return escape(f", {system}, exact")
 
 
-def _print_query(qr: QueryResult) -> None:
+def _print_query(qr: QueryResult, *, explain_recovery: bool = False) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
     color = colors.get(qr.status, "white")
     meta = (
@@ -154,6 +156,14 @@ def _print_query(qr: QueryResult) -> None:
         f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)}{_model_note(qr.model)})"
     )
     console.print(f"  [{color}]{qr.status:<4}[/{color}]  {escape(qr.query_id):<40} {meta}")
+    if explain_recovery and qr.kind == "NoDeadEnd":
+        if qr.model and qr.model["proof_rule"] == "local-recovery":
+            _print_recovery(qr.model)
+        elif qr.states_explored:
+            console.print(
+                "         Recovery used whole-model exploration with slicing disabled.",
+                markup=False,
+            )
     for f in qr.findings:
         if f.severity == Severity.ERROR:
             console.print(f"         [red]↳[/red] {escape(f.message)}")
@@ -161,6 +171,57 @@ def _print_query(qr: QueryResult) -> None:
             console.print(f"         [yellow]↳[/yellow] {escape(f.message)}")
         else:
             console.print(f"         [dim]↳[/dim] {escape(f.message)}")
+
+
+def _print_recovery(model: dict) -> None:
+    """Explain the decision path separately from supporting action coverage."""
+    console.print(f"         Recovery graphs (max_states={model['max_states']}):", markup=False)
+    for index, attempt in enumerate(model["attempts"]):
+        graph = attempt["graph"].replace("_", " ")
+        if graph == "recovery projection" and "budget" not in attempt:
+            graph += " (not explored)"
+        count = attempt["states_explored"]
+        budget = attempt.get("budget")
+        size = f", {count} states" if count is not None else ""
+        if budget is not None:
+            size += f", limit {budget}"
+        bound = attempt.get("restored_state_bound")
+        if bound is not None:
+            size += f", restored bound {count} × 2^{attempt['restorable_flags']} = {bound}"
+        reasons = attempt.get("proof_blockers", [])
+        reason = "; ".join(reasons[:3])
+        if len(reasons) > 3:
+            reason += f"; {len(reasons) - 3} further blockers in JSON"
+        if index == len(model["attempts"]) - 1:
+            graph = f"Selected {graph}"
+            if attempt["graph"] == "recovery_projection" and attempt["status"] == "PASS":
+                reason = "every projected state has a recovery path through intact actions"
+        console.print(
+            f"           {graph}: {attempt['status']}{size}" + (f" — {reason}" if reason else ""),
+            markup=False,
+        )
+    coverage = model["action_coverage"]
+    peak = coverage["largest_certificate"]
+    if peak:
+        console.print(
+            f"         Largest projected action certificate: {peak['action']}, "
+            f"{peak['states_explored']} states (configured projection limit {coverage['projection_limit']})",
+            markup=False,
+        )
+    for row in coverage["capped_fallbacks"]:
+        console.print(
+            f"         Action coverage for {row['action']}: {row['projection']} projection reached its "
+            f"{row['projection_limit']}-state limit ({row['projection_states']} states observed); "
+            f"exact coverage used {row['exact_states']} states"
+            + (" (incomplete)" if not row["exact_complete"] else ""),
+            markup=False,
+        )
+    omitted = coverage["capped_fallback_count"] - len(coverage["capped_fallbacks"])
+    if omitted:
+        console.print(
+            f"         {omitted} additional actions used coverage after a capped projection.",
+            markup=False,
+        )
 
 
 def _print_flow(fr: FlowResult) -> None:

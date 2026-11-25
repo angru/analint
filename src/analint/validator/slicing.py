@@ -34,6 +34,7 @@ model (research/14 §7 — an unsupported node is never silently ignored).
 
 from __future__ import annotations
 
+from collections import deque
 from copy import copy
 from dataclasses import dataclass
 from enum import Enum
@@ -373,6 +374,45 @@ def _flag_guard_is_safe(pred: Any, var: Var, contexts: list[dict]) -> bool:
 # ── slices ───────────────────────────────────────────────────────────────────
 
 
+def _field_label(var: Var) -> str:
+    return f"{context_key_label(var[0])}.{var[1]}"
+
+
+class SliceReasons:
+    """One inclusion path per member of the ordinary property closure."""
+
+    def __init__(self) -> None:
+        self.mode = "whole_model"
+        self.links: dict[str, list[tuple[str, str]]] = {}
+
+    def link(self, source: str, target: str, reason: str) -> None:
+        self.links.setdefault(source, []).append((target, reason))
+
+    def fields(self, variables: set[Var], source: str, reason: str) -> None:
+        for var in variables:
+            self.link(source, f"field:{_field_label(var)}", reason)
+
+    def report(self) -> dict:
+        # Choose a shortest explanation with stable tie-breaking. Closure traversal,
+        # graph construction and cache keys keep their ordinary order.
+        parents: dict[str, tuple[str, str]] = {}
+        pending = deque(["property"])
+        while pending:
+            source = pending.popleft()
+            for target, reason in sorted(self.links.get(source, ())):
+                if target not in parents:
+                    parents[target] = (source, reason)
+                    pending.append(target)
+        return {
+            "scope": "property_closure",
+            "mode": self.mode,
+            "inclusions": [
+                {"member": member, "from": source, "reason": reason}
+                for member, (source, reason) in sorted(parents.items())
+            ],
+        }
+
+
 @dataclass(frozen=True)
 class Slice:
     """``vars is None`` means the whole model (an unsliceable property).
@@ -400,11 +440,7 @@ class Slice:
         )
 
     def summary(self) -> dict:
-        fields = (
-            ["*"]
-            if self.vars is None
-            else sorted(f"{context_key_label(key)}.{name}" for key, name in self.vars)
-        )
+        fields = ["*"] if self.vars is None else sorted(_field_label(var) for var in self.vars)
         return {"actions": len(self.actions), "invariants": len(self.invariants), "fields": fields}
 
 
@@ -423,7 +459,8 @@ class SliceAnalysis:
     This trust is about the canonical roots the invariants were proven from;
     other roots always use constrained slices."""
 
-    def __init__(self, spec: Spec) -> None:
+    def __init__(self, spec: Spec, *, explain_slice: bool = False) -> None:
+        self.reasons: dict[int, SliceReasons] | None = {} if explain_slice else None
         self.spec = spec
         lock_fields: dict[type, list[str]] = {}
         for lc in spec.lifecycles:
@@ -486,12 +523,19 @@ class SliceAnalysis:
 
     # ── slices of the things a run checks ────────────────────────────────────
 
+    def explain(self, prop: Any) -> SliceReasons | None:
+        if self.reasons is None:
+            return None
+        reasons = self.reasons[id(prop)] = SliceReasons()
+        return reasons
+
     def predicate_slice(
         self,
         *predicates: Any,
         locks: bool = False,
         canonical: bool,
         unconstrained: bool = False,
+        reasons: SliceReasons | None = None,
     ) -> Slice:
         seed: set[Var] = set()
         try:
@@ -505,10 +549,16 @@ class SliceAnalysis:
         if unconstrained:
             if not self.sliceable:
                 return self.whole
-            return self._close(seed, (), (), locks=locks, constrained=False, keep=keep)
-        return self._resolve(seed, (), (), locks=locks, canonical=canonical, keep=keep)
+            return self._close(
+                seed, (), (), locks=locks, constrained=False, keep=keep, reasons=reasons
+            )
+        return self._resolve(
+            seed, (), (), locks=locks, canonical=canonical, keep=keep, reasons=reasons
+        )
 
-    def invariant_slice(self, inv: Invariant, *, unconstrained: bool = False) -> Slice:
+    def invariant_slice(
+        self, inv: Invariant, *, unconstrained: bool = False, reasons: SliceReasons | None = None
+    ) -> Slice:
         if not self.sliceable:
             return self.whole
         seed = set(self.inv_vars[id(inv)])
@@ -517,8 +567,8 @@ class SliceAnalysis:
             # no invariant inside, not even this one: the unconstrained model
             # prunes nothing, and invariants over the same variables then share
             # one exploration (the invariant is checked over its states)
-            return self._close(seed, (), (), constrained=False, keep=keep)
-        return self._resolve(seed, (), (inv,), canonical=True, keep=keep)
+            return self._close(seed, (), (), constrained=False, keep=keep, reasons=reasons)
+        return self._resolve(seed, (), (inv,), canonical=True, keep=keep, reasons=reasons)
 
     def action_slice(self, action: Action, *, canonical: bool) -> Slice:
         """The cone of an action itself — for its fireability and defects."""
@@ -689,14 +739,25 @@ class SliceAnalysis:
         locks: bool = False,
         canonical: bool,
         keep: frozenset = frozenset(),
+        reasons: SliceReasons | None = None,
     ) -> Slice:
         if not self.sliceable:
             return self.whole
         if canonical:
-            free = self._close(seed, actions, invariants, locks=locks, constrained=False, keep=keep)
+            free = self._close(
+                seed,
+                actions,
+                invariants,
+                locks=locks,
+                constrained=False,
+                keep=keep,
+                reasons=reasons,
+            )
             if self.is_exact(free):
                 return free
-        return self._close(seed, actions, invariants, locks=locks, constrained=True, keep=keep)
+        return self._close(
+            seed, actions, invariants, locks=locks, constrained=True, keep=keep, reasons=reasons
+        )
 
     def _close(
         self,
@@ -707,6 +768,7 @@ class SliceAnalysis:
         locks: bool = False,
         constrained: bool,
         keep: frozenset = frozenset(),
+        reasons: SliceReasons | None = None,
     ) -> Slice:
         """The least closed variable set containing ``seed``.
 
@@ -737,6 +799,13 @@ class SliceAnalysis:
         in_invariants = {id(i) for i in invariants}
         variables: set[Var] = set()
         work = list(seed)
+        if reasons is not None:
+            # _resolve may discard its unconstrained trial and build a constrained closure.
+            reasons.mode = "constrained" if constrained else "unconstrained"
+            reasons.links.clear()
+            reasons.fields(seed, "property", "property_reads")
+            for inv in invariants:
+                reasons.link("property", f"invariant:{inv.id}", "checked_invariant")
         while work:
             var = work.pop()
             if var in variables:
@@ -756,15 +825,35 @@ class SliceAnalysis:
             for action in self.writers.get(var, ()):
                 if id(action) in skip:
                     continue  # it only switches the flag off (see above)
+                if reasons is not None:
+                    reasons.link(
+                        f"field:{_field_label(var)}", f"action:{action.id}", "writer_of_field"
+                    )
                 if id(action) not in in_actions:
                     in_actions.add(id(action))
-                    work.extend(self.action_vars[id(action)])
+                    deps = self.action_vars[id(action)]
+                    work.extend(deps)
                     if locks:
                         work.extend(self.lock_vars[id(action)])
+                    if reasons is not None:
+                        member = f"action:{action.id}"
+                        writes = _action_writes(action)
+                        reasons.fields(writes, member, "action_writes")
+                        reasons.fields(deps - writes, member, "action_reads")
+                        if locks:
+                            reasons.fields(self.lock_vars[id(action)], member, "terminal_lock")
             for inv in self.readers.get(var, ()) if constrained else ():
+                if reasons is not None:
+                    reasons.link(
+                        f"field:{_field_label(var)}", f"invariant:{inv.id}", "pruning_invariant"
+                    )
                 if id(inv) not in in_invariants:
                     in_invariants.add(id(inv))
                     work.extend(self.inv_vars[id(inv)])
+                    if reasons is not None:
+                        reasons.fields(
+                            self.inv_vars[id(inv)], f"invariant:{inv.id}", "invariant_reads"
+                        )
         return Slice(
             frozenset(variables),
             tuple(a for a in self.spec.actions if id(a) in in_actions),

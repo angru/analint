@@ -152,6 +152,7 @@ def validate(
     tlc_timeout: float | None = None,
     cache: bool = False,
     checks: list[str] | None = None,
+    explain_slice: bool = False,
 ) -> ValidationResult:
     """``checks`` selects flow/query/invariant ids (or KIND:ID). None retains
     the full check; [] or unknown/ambiguous ids raise SelectionError. Selection
@@ -181,6 +182,7 @@ def validate(
         tlc=tlc,
         tlc_timeout=tlc_timeout,
         cache=cache,
+        explain_slice=explain_slice,
     )
 
 
@@ -195,6 +197,7 @@ def validate_spec(
     tlc: bool = False,
     tlc_timeout: float | None = None,
     cache: bool = False,
+    explain_slice: bool = False,
 ) -> ValidationResult:
     """Verify a reusable Spec with invocation-only selection/settings.
 
@@ -212,6 +215,7 @@ def validate_spec(
         tlc=tlc,
         tlc_timeout=tlc_timeout,
         cache=cache,
+        explain_slice=explain_slice,
     )
 
 
@@ -226,6 +230,7 @@ def _validate_prepared(
     tlc: bool = False,
     tlc_timeout: float | None = None,
     cache: bool = False,
+    explain_slice: bool = False,
     decided: dict[str, Exploration] | None = None,
 ) -> ValidationResult:
     from analint.validator.exploration_cache import use_store
@@ -246,6 +251,7 @@ def _validate_prepared(
             tlc_timeout,
             cache,
             decided,
+            explain_slice,
         )
 
 
@@ -260,6 +266,7 @@ def _run_checks(
     tlc_timeout: float | None,
     cache: bool,
     decided: dict[str, Exploration] | None,
+    explain_slice: bool,
 ) -> ValidationResult:
     spec, load_errors = prepared.spec, prepared.load_errors
 
@@ -292,7 +299,7 @@ def _run_checks(
 
         # Speculative graphs must not acquire canonical trust or contribute
         # diagnostics. Share only their own roots/budget cache across attempts.
-        probe_analysis = SliceAnalysis(spec)
+        probe_analysis = SliceAnalysis(spec, explain_slice=explain_slice)
         probe_analysis.retain_derived_graphs = decided is not None
         for query in selection.queries:
             started = perf_counter()
@@ -306,6 +313,8 @@ def _run_checks(
             )
             probe_ms[query.id] = (perf_counter() - started) * 1000
             if proof is not None:
+                if probe_analysis.reasons is not None:
+                    proof.result.slice_dependencies = probe_analysis.reasons[id(query)].report()
                 safety_proofs[query.id] = proof
         derived_attempts = probe_analysis.derived_attempts
         del probe_analysis
@@ -388,7 +397,7 @@ def _run_checks(
     if sliced and (selection.invariants or selection.queries):
         from analint.validator.slicing import SliceAnalysis
 
-        analysis = SliceAnalysis(spec)
+        analysis = SliceAnalysis(spec, explain_slice=explain_slice)
         analysis.retain_derived_graphs = decided is not None
         analysis.derived_attempts = derived_attempts
     explorations = ExplorationStorage(analysis)
@@ -499,6 +508,28 @@ def _run_checks(
             )
             result.query_results.append(query_result)
             explorations.finish(group, decided)
+
+    if explain_slice:
+        for prop, checked in [
+            *zip(selection.invariants, result.invariant_results, strict=True),
+            *zip(selection.queries, result.query_results, strict=True),
+        ]:
+            if checked.slice_dependencies is not None:
+                continue  # selected safety proof from the isolated analysis
+            reasons = (
+                analysis.reasons.get(id(prop))
+                if analysis and analysis.reasons is not None
+                else None
+            )
+            if reasons is not None:
+                checked.slice_dependencies = reasons.report()
+            else:
+                mode = "slicing_disabled" if not sliced else "no_property_closure"
+                checked.slice_dependencies = {
+                    "scope": "property_closure",
+                    "mode": mode,
+                    "inclusions": [],
+                }
 
     if tlc:
         from analint.validator.tlc_fallback import decide_with_tlc

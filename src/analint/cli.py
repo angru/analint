@@ -127,6 +127,11 @@ def check(
         help="Reuse explorations of unchanged slices from earlier runs "
         "(~/.cache/analint, or $ANALINT_CACHE_DIR)",
     ),
+    explain_slice: bool = typer.Option(
+        False,
+        "--explain-slice",
+        help="Explain field and action inclusion in each native property closure.",
+    ),
     explain_recovery: bool = typer.Option(
         False,
         "--explain-recovery",
@@ -148,6 +153,7 @@ def check(
             extra=what_if,
             max_states=max_states,
             sliced=not no_slice,
+            explain_slice=explain_slice,
             tlc=tlc,
             tlc_timeout=tlc_timeout,
             cache=cache,

@@ -43,7 +43,9 @@ def prove_query(
 ) -> SafetyProof | None:
     if not isinstance(query, (AlwaysHolds, Unreachable)):
         return None
-    piece = analysis.predicate_slice(query.predicate, canonical=False, unconstrained=True)
+    piece = analysis.predicate_slice(
+        query.predicate, canonical=False, unconstrained=True, reasons=analysis.explain(query)
+    )
     if piece.vars is None:
         return None  # unknown AST: retain the whole-model fallback and its support
     initials, _ = resolve_query_initials(query, spec)

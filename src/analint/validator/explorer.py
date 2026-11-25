@@ -1270,7 +1270,9 @@ def _run_query(
             return result
         recovery = None
         if isinstance(query, NoDeadEnd):  # a closed lock creates dead ends
-            piece = analysis.predicate_slice(query.goal, locks=True, canonical=canonical)
+            piece = analysis.predicate_slice(
+                query.goal, locks=True, canonical=canonical, reasons=analysis.explain(query)
+            )
             from analint.validator.derived_proof import recovery_probe
 
             recovery = recovery_probe(
@@ -1328,7 +1330,9 @@ def _run_query(
                 # BFS order, invalid-state attribution and diagnostic traces
                 # belong to the full exploration whenever a proof fails.
         else:
-            piece = analysis.predicate_slice(query.predicate, canonical=canonical)
+            piece = analysis.predicate_slice(
+                query.predicate, canonical=canonical, reasons=analysis.explain(query)
+            )
         from analint.validator.derived_proof import attempt, reach_witness
 
         coverage_complete = not any(
@@ -1811,7 +1815,7 @@ def verify_invariants(
         probes = {}
         for inv in targets:
             started = perf_counter()
-            piece = analysis.invariant_slice(inv, unconstrained=True)
+            piece = analysis.invariant_slice(inv, unconstrained=True, reasons=analysis.explain(inv))
             probe = attempt(inv, analysis, piece, initials, max_states)
             if probe is not None:
                 probes[id(inv)] = probe
@@ -1856,7 +1860,11 @@ def verify_invariants(
                 elapsed_ms = result.elapsed_ms or 0.0
                 started = perf_counter()
                 exp, used = explore_slice(
-                    analysis, analysis.invariant_slice(inv), initials, max_states, cache
+                    analysis,
+                    analysis.invariant_slice(inv, reasons=analysis.explain(inv)),
+                    initials,
+                    max_states,
+                    cache,
                 )
                 result = _verify_one_invariant(inv, exp)
                 explorations[inv.id] = exp
@@ -1879,7 +1887,9 @@ def verify_invariants(
             for inv in targets:
                 if id(inv) not in proved:
                     continue
-                piece = analysis.invariant_slice(inv, unconstrained=True)
+                piece = analysis.invariant_slice(
+                    inv, unconstrained=True, reasons=analysis.explain(inv)
+                )
                 if not any(coverage[id(action)].capped for action in piece.actions):
                     continue
                 # A safety proof may erase a real diagnostic. Preserve the

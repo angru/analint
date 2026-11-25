@@ -176,6 +176,7 @@ class QueryResult:
     # Shared work is charged only when performed; None means not measured.
     elapsed_ms: float | None = None
     model: dict | None = None
+    slice_dependencies: dict | None = None
 
 
 @dataclass
@@ -197,6 +198,7 @@ class InvariantResult:
     elapsed_ms: float | None = None  # includes both passes when a slice is rechecked
     witness_key: Any = None  # internal state key for state-diff traces; not serialized
     model: dict | None = None
+    slice_dependencies: dict | None = None
 
 
 @dataclass

@@ -633,3 +633,21 @@ def test_no_dead_end_reversible_disablers(monkeypatch, mode, status, finding, tr
             "attempts": [a for a in actual.model["attempts"] if a not in restorable],
         }
         assert replace(actual, elapsed_ms=None, model=model) == replace(expected, elapsed_ms=None)
+
+
+def test_recovery_explains_the_terminal_lock_that_pulls_in_the_closer():
+    from analint.validator.engine import validate_spec
+
+    spec = _closable_counter()
+    goal = spec.entities[0].x == 2
+    spec.queries = [NoDeadEnd(goal, id="recover"), Reachable(goal, id="reach")]
+    recovery, reach = validate_spec(spec, explain_slice=True).query_results
+    assert recovery.slice_dependencies is not None
+    rows = {row["member"]: row for row in recovery.slice_dependencies["inclusions"]}
+    assert (rows["field:Ticket.status"]["from"], rows["field:Ticket.status"]["reason"]) == (
+        "action:inc",
+        "terminal_lock",
+    )
+    assert rows["action:close"]["from"] == "field:Ticket.status"
+    assert reach.slice_dependencies is not None
+    assert "action:close" not in {row["member"] for row in reach.slice_dependencies["inclusions"]}

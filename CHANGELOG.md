@@ -9,6 +9,10 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- `explore --observed-values` reports field and presence values found during
+  exploration and labels counts from incomplete graphs as lower bounds. The
+  CLI and MCP accept a per-run exploration budget. (#68)
+
 - `check --explain-recovery` and JSON evidence distinguish the deciding
   NoDeadEnd graph, its rejected alternatives and action-coverage budget
   fallbacks. (#68)

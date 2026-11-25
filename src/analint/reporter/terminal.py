@@ -148,6 +148,15 @@ def _model_note(model: dict | None) -> str:
     return escape(f", {system}, exact")
 
 
+def _print_slice_dependencies(report: dict | None) -> None:
+    if report is None:
+        return
+    console.print(f"         Property closure ({report['mode'].replace('_', ' ')}):", markup=False)
+    for row in report["inclusions"]:
+        relation = row["reason"].replace("_", " ")
+        console.print(f"           {row['member']} ← {row['from']} ({relation})", markup=False)
+
+
 def _print_query(qr: QueryResult, *, explain_recovery: bool = False) -> None:
     colors = {"PASS": "green", "FAIL": "red", "INCONCLUSIVE": "yellow"}
     color = colors.get(qr.status, "white")
@@ -156,6 +165,7 @@ def _print_query(qr: QueryResult, *, explain_recovery: bool = False) -> None:
         f"{_slice_note(qr.slice)}{_time_note(qr.elapsed_ms)}{_backend_note(qr.backend)}{_model_note(qr.model)})"
     )
     console.print(f"  [{color}]{qr.status:<4}[/{color}]  {escape(qr.query_id):<40} {meta}")
+    _print_slice_dependencies(qr.slice_dependencies)
     if explain_recovery and qr.kind == "NoDeadEnd":
         if qr.model and qr.model["proof_rule"] == "local-recovery":
             _print_recovery(qr.model)
@@ -244,6 +254,7 @@ def _print_invariant(ir: InvariantResult) -> None:
         f"{_time_note(ir.elapsed_ms)}{_backend_note(ir.backend)}{_model_note(ir.model)})"
     )
     console.print(f"  [{color}]{ir.status:<11}[/{color}] {escape(ir.label):<40} {meta}")
+    _print_slice_dependencies(ir.slice_dependencies)
     for f in ir.findings:
         fcolor = "red" if f.severity == Severity.ERROR else "yellow"
         console.print(f"         [{fcolor}]↳[/{fcolor}] {escape(f.message)}")

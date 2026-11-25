@@ -188,6 +188,24 @@ the decision:
   assessment, even when there was no query-wide exact retry.
 - `null` means the attempts left the check inconclusive.
 
+### Explain slice dependencies
+
+Run `analint check PATH --check QUERY_OR_INVARIANT --explain-slice` to see why a
+field, action or pruning invariant entered that property's ordinary native slice.
+For example, an order query reads the order count. An action that increments it
+joins as a writer. If that action requires a positive payment count, the payment
+field and the actions that write it join as well.
+
+In JSON, each property has a `slice_dependencies` object. Follow an inclusion's
+`from` links back to `property` to recover one shortest dependency path.
+`mode` identifies the constrained or unconstrained closure. `whole_model`
+denotes a fallback, `slicing_disabled` denotes a monolithic run and
+`no_property_closure` covers checks such as per-action fireability or a check
+without usable roots. These modes have no inclusion paths. The closure is the
+input to proof planning. Read `model.attempts` for subsequent projections,
+reduced graphs, and backend decisions. A capped run can still explain its
+dependencies because closure construction does not require a completed search.
+
 **Unreleased (#68, recovery diagnostics).** Use
 `analint check PATH --check QUERY --explain-recovery` for a terminal explanation
 of a sliced `NoDeadEnd` check. JSON includes these details in `queries[].model`.

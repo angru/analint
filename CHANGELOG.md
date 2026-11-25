@@ -16,6 +16,8 @@ All notable changes to this project are documented here. The format is based on
 - `check --explain-recovery` and JSON evidence distinguish the deciding
   NoDeadEnd graph, its rejected alternatives and action-coverage budget
   fallbacks. (#68)
+- `check --explain-slice` and MCP `explain_slice=true` show why each field,
+  action and pruning invariant entered a property’s dependency closure. (#68)
 
 ### Fixed
 

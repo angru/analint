@@ -76,6 +76,11 @@ def result_to_dict(
                 "trace": qr.trace,
                 **({"slice": qr.slice} if qr.slice is not None else {}),
                 **({"model": qr.model} if qr.model is not None else {}),
+                **(
+                    {"slice_dependencies": qr.slice_dependencies}
+                    if qr.slice_dependencies is not None
+                    else {}
+                ),
                 **({"backend": qr.backend} if qr.backend is not None else {}),
                 "findings": _findings(qr.findings, compact),
             }
@@ -91,6 +96,11 @@ def result_to_dict(
                 "trace": ir.trace,
                 **({"slice": ir.slice} if ir.slice is not None else {}),
                 **({"model": ir.model} if ir.model is not None else {}),
+                **(
+                    {"slice_dependencies": ir.slice_dependencies}
+                    if ir.slice_dependencies is not None
+                    else {}
+                ),
                 **({"backend": ir.backend} if ir.backend is not None else {}),
                 "findings": _findings(ir.findings, compact),
             }

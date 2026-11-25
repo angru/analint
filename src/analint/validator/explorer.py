@@ -2364,23 +2364,24 @@ def _eval_always(query: AlwaysHolds, qid: str, exp: Exploration) -> QueryResult:
     )
 
 
+def _invariant_state_findings(exp: Exploration) -> Iterator[tuple[Finding, set[int]]]:
+    for finding_idx, states in exp.finding_states.items():
+        finding = exp.findings[finding_idx]
+        if finding.severity is Severity.ERROR and finding.code in (
+            Code.INVARIANT_VIOLATED,
+            Code.INVARIANT_EVALUATION_ERROR,
+        ):
+            yield finding, states
+
+
 def _dead_end_finding(
     qid: str, goal: str, exp: Exploration, key: StateKey, trace: list[str]
 ) -> Finding:
     """Explain the chosen witness only from its invariant-to-state provenance."""
     idx = exp.index[key]
     reasons: dict[Code, list[str]] = {}
-    for finding_idx, states in exp.finding_states.items():
-        finding = exp.findings[finding_idx]
-        if (
-            idx in states
-            and finding.severity is Severity.ERROR
-            and finding.code
-            in (
-                Code.INVARIANT_VIOLATED,
-                Code.INVARIANT_EVALUATION_ERROR,
-            )
-        ):
+    for finding, states in _invariant_state_findings(exp):
+        if idx in states:
             names = reasons.setdefault(finding.code, [])
             name = finding.location.removeprefix("invariant:")
             if name not in names:
@@ -2400,6 +2401,15 @@ def _dead_end_finding(
             f"query:{qid}",
             f"{prefix} reaches a state invalid under model invariants ({details}); "
             f"the state was not expanded, so recovery to goal '{goal}' was not assessed",
+            Code.QUERY_INVALID_STATE,
+        )
+    if idx in exp.invalid_roots:
+        # Projection can retain an inert root whose invariant is outside this graph.
+        return Finding(
+            Severity.ERROR,
+            f"query:{qid}",
+            f"init #{exp.roots[key]} is invalid under model invariants and was not expanded; "
+            f"recovery to goal '{goal}' was not assessed",
             Code.QUERY_INVALID_STATE,
         )
     return Finding(
@@ -2424,6 +2434,20 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
         # Missing transitions can both hide new dead ends and enable recovery.
         return _excluded_actions_result(qid, "NoDeadEnd", exp)
     if not scan.matches:
+        if exp.roots and len(exp.invalid_roots) == len(exp.roots):
+            root = next(iter(exp.roots))
+            return QueryResult(
+                query_id=qid,
+                kind="NoDeadEnd",
+                status="FAIL",
+                states_explored=len(exp.states),
+                trace=[],
+                witness_key=root,
+                findings=[
+                    _invalid_root_finding(qid, exp.roots[root]),
+                    *_origin_findings(exp, root, qid),
+                ],
+            )
         return QueryResult(
             query_id=qid,
             kind="NoDeadEnd",
@@ -2441,21 +2465,36 @@ def _eval_no_dead_end(query: NoDeadEnd, qid: str, exp: Exploration) -> QueryResu
 
     co_reachable = _co_reachable(exp, scan.matches)
 
-    for idx, key in enumerate(exp.order):  # BFS order → shortest trace to the first dead end
-        if not co_reachable[idx]:
-            trace = exp.trace_to(key)
-            return QueryResult(
-                query_id=qid,
-                kind="NoDeadEnd",
-                status="FAIL",
-                states_explored=len(exp.states),
-                trace=trace,
-                witness_key=key,
-                findings=[
-                    _dead_end_finding(qid, text, exp, key, trace),
-                    *_origin_findings(exp, key, qid),
-                ],
+    first = co_reachable.find(0)
+    if first >= 0:
+        invalid = exp.invalid_roots.copy()
+        for _, states in _invariant_state_findings(exp):
+            invalid.update(states)
+        # State indices are in BFS order. Retain the first invalid witness
+        # only if no legal state demonstrates a loss of recovery.
+        if first in invalid:
+            first = next(
+                (
+                    idx
+                    for idx in range(first + 1, len(co_reachable))
+                    if not co_reachable[idx] and idx not in invalid
+                ),
+                first,
             )
+        key = exp.order[first]
+        trace = exp.trace_to(key)
+        return QueryResult(
+            query_id=qid,
+            kind="NoDeadEnd",
+            status="FAIL",
+            states_explored=len(exp.states),
+            trace=trace,
+            witness_key=key,
+            findings=[
+                _dead_end_finding(qid, text, exp, key, trace),
+                *_origin_findings(exp, key, qid),
+            ],
+        )
     return QueryResult(
         query_id=qid, kind="NoDeadEnd", status="PASS", states_explored=len(exp.states)
     )

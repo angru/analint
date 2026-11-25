@@ -68,7 +68,9 @@ completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
    legal dead end and explain when no initial state could be expanded.
 3. **#68, verification diagnostics.** Recovery decisions and the F17
    action-coverage fallback are explained in JSON and by `check --explain-recovery`.
-   Observed field diversity and slice inclusion dependencies remain open.
+   `explore --observed-values` reports field and presence values from the native
+   whole-model graph, including partial runs. Slice inclusion dependencies and
+   accounting for work across verification graphs remain open.
 
 Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
 project target `analint` for each issue. Use a short reproduction and explicit

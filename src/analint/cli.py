@@ -187,6 +187,14 @@ def _print_exploration(art: ExplorationArtifact) -> None:
         f"  dead_ends {s['dead_ends']}  self_loops {s['self_loops']}  "
         f"branching {b['min']}/{b['mean']}/{b['max']}"
     )
+    if observed := s.get("observed_values"):
+        qualifier = "lower bounds" if observed["count_kind"] == "lower_bound" else "exact counts"
+        print(f"  Observed field values ({qualifier}):")
+        for label, row in observed["fields"].items():
+            declared = f"  declared: {json.dumps(row['declared'])}" if row["declared"] else ""
+            print(
+                f"    {label}: {row['distinct_count']} distinct {json.dumps(row['values'])}{declared}"
+            )
     if s["fired_actions"]:
         print(f"  fired: {', '.join(s['fired_actions'])}")
     for action_id, reason in s["excluded_actions"].items():
@@ -207,6 +215,14 @@ def explore(
     include_graph: bool = typer.Option(
         False, "--include-graph", help="Emit the full node/edge graph in JSON (default: compact)"
     ),
+    observed_values: bool = typer.Option(
+        False,
+        "--observed-values",
+        help="Show distinct field and presence values in recorded states",
+    ),
+    max_states: int | None = typer.Option(
+        None, "--max-states", min=1, help="Override the exploration budget"
+    ),
     what_if: Path | None = typer.Option(
         None, "--what-if", help="Also load this .py file into the model (spec files untouched)"
     ),
@@ -215,7 +231,14 @@ def explore(
     from analint.validator.exploration_service import ExplorationError, explore_path
 
     try:
-        artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=include_graph)
+        artifact = explore_path(
+            path,
+            query_id=query,
+            what_if=what_if,
+            include_graph=include_graph,
+            observed_values=observed_values,
+            max_states=max_states,
+        )
     except ExplorationError as exc:
         if format == "json":
             print(json.dumps(exc.to_dict(), indent=2, ensure_ascii=False))

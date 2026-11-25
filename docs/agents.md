@@ -77,7 +77,7 @@ below match the server's tool definitions.
 | `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false`, `checks=null`, `scenario_ids=null`, `tags=null`, `tlc_timeout=null` |
 | `show` | None | `path="."`, `kind=null`, `name=null` |
 | `affects` | `target` | `path="."` |
-| `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null` |
+| `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null`, `observed_values=false`, `max_states=null` |
 | `trace` | A property id in `query` for a useful request | `path="."`, `query=""`, `what_if=null`, `slice=true`, `max_states=null`, `cache=false`, `tlc=false`, `tlc_timeout=null` |
 
 `check` runs the full validation pipeline. `max_states` overrides every
@@ -134,7 +134,10 @@ original imports, such as `from oauth.protocol import tokens`.
 returns a compact artifact by default. To request the graph, supply both
 `include_graph=true` and `max_graph_states=N`; the latter caps **output**, not
 exploration. Above that graph size, the response retains the summary and explains
-why `graph` is null. Read `completeness` separately.
+why `graph` is null. Read `completeness` separately. Set `observed_values=true`
+to receive actual values and counts per field and presence slot in the summary.
+An incomplete exploration labels the counts as lower bounds. Use `max_states`
+to override the search budget independently of the output limit.
 
 `trace` accepts an invariant id as well as a query id, despite the argument's
 name. It follows the same slice and budget decisions as `check`. A property

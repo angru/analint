@@ -5,7 +5,7 @@ Two builders share one summary computation:
 - ``build_exploration_artifact`` — the full artifact (nodes/edges/graph): renders
   every state and computes a SHA-256 digest per node/edge.
 - ``build_summary_artifact`` — the compact projection (``graph: null``): the same
-  summary and completeness WITHOUT rendering states or hashing, so the common
+  summary and completeness without hashing or (by default) rendering states, so the common
   compact CLI/MCP path does not materialise the whole graph (P4.4b; the full build
   was 28–88% of exploration time, research/26).
 
@@ -17,6 +17,7 @@ and ``all_fields`` for any rendering — no duplicate field discovery, no second
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from statistics import fmean
 from typing import Any
 
@@ -49,6 +50,49 @@ def _render_state(ctx: dict) -> dict[str, Any]:
         for field_name in sorted(all_fields(type(inst))):
             out[f"{label}.{field_name}"] = json_scalar(inst.__dict__.get(field_name))
     return out
+
+
+def _observed_values(exp: Exploration, states: Iterable[dict], complete: bool) -> dict:
+    """Field marginals over recorded nodes, including roots and frontier nodes."""
+    declared: dict[str, dict] = {}
+    # Every successor retains its root's slots, including absent scoped slots.
+    slots = {slot for root in exp.roots for slot in exp.states[root]}
+    for slot in slots:
+        label = context_key_label(slot)
+        cls = slot
+        if isinstance(slot, InstanceRef):
+            cls = slot.entity_cls
+            declared[f"{label}.@present"] = {"values": [False, True]}
+        for name, descriptor in all_fields(cls).items():
+            bounds = {}
+            field = descriptor.spec
+            if field is not None:
+                bounds = {
+                    key: json_scalar(value)
+                    for key in ("ge", "gt", "le", "lt")
+                    if (value := getattr(field, key)) is not None
+                }
+                if field.values is not None:
+                    bounds["values"] = [json_scalar(value) for value in field.values]
+            declared[f"{label}.{name}"] = bounds
+
+    seen: dict[str, dict] = {label: {} for label in declared}
+    for state in states:
+        for label, value in state.items():
+            seen[label][type(value), value] = value
+
+    return {
+        "backend": "native",
+        "count_kind": "exact" if complete else "lower_bound",
+        "fields": {
+            label: {
+                "declared": declared[label],
+                "distinct_count": len(seen[label]),
+                "values": list(seen[label].values()),
+            }
+            for label in sorted(declared)
+        },
+    }
 
 
 def _family_of(actions_by_id: dict, action_id: str) -> str:
@@ -122,12 +166,17 @@ def build_exploration_artifact(
     source_kind: str = "canonical",
     query_id: str | None = None,
     max_states: int | None = None,
+    observed_values: bool = False,
 ) -> ExplorationArtifact:
     actions_by_id = {action.id: action for action in spec.actions}
     summary, completeness = _summary(exp, spec, actions_by_id, max_states)
     depths = _depths(exp)
 
     rendered = {key: _render_state(exp.states[key]) for key in exp.order}
+    if observed_values:
+        summary["observed_values"] = _observed_values(
+            exp, rendered.values(), completeness["complete"]
+        )
     node_id = {key: canonical_digest(rendered[key]) for key in exp.order}
 
     def binding_of(action_id: str) -> dict[str, str]:
@@ -189,12 +238,16 @@ def build_summary_artifact(
     source_kind: str = "canonical",
     query_id: str | None = None,
     max_states: int | None = None,
+    observed_values: bool = False,
     graph_omitted_reason: str | None = None,
 ) -> ExplorationArtifact:
     """The compact projection: full summary/completeness, ``graph: null``, without
-    rendering states or hashing nodes/edges."""
+    hashing nodes/edges. Only the optional field report reads states."""
     actions_by_id = {action.id: action for action in spec.actions}
     summary, completeness = _summary(exp, spec, actions_by_id, max_states)
+    if observed_values:
+        states = (_render_state(exp.states[key]) for key in exp.order)
+        summary["observed_values"] = _observed_values(exp, states, completeness["complete"])
     return ExplorationArtifact(
         spec={"id": spec.id, "version": spec.version},
         source={"kind": source_kind, "query": query_id},

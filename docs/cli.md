@@ -453,6 +453,7 @@ does not replace the property's `status` or a `check` verdict.
 ```bash
 analint explore .
 analint explore . --format json
+analint explore . --observed-values --max-states 1000
 analint explore . --query can_archive --format json --include-graph
 ```
 
@@ -461,6 +462,21 @@ the roots of `--query ID`. It accepts `--what-if FILE.py` and
 `--format terminal|json`. `--include-graph` includes the nodes and edges in JSON;
 the default is a compact summary.
 
+Use `--observed-values` to inspect the distinct values recorded for each field
+in this native, whole-model exploration. JSON puts the report in
+`summary.observed_values`. Each row lists the values in discovery order, their
+count, and any explicit `Field` bounds or allowed values under `declared`.
+A scoped slot has a separate boolean `@present` row. Its fields contribute
+values only in states where the slot is present.
+
+The report includes roots and discovered frontier nodes. With an incomplete
+graph, `count_kind: "lower_bound"` means additional values may exist.
+`--max-states N` overrides the spec or query budget. The engine checks this
+budget between expansions, so the last expansion can record several successors.
+Counts for individual fields cannot tell you which combinations occurred.
+For example, two counters ranging from 0 to 2 can visit nine pairs when they
+move independently, or just three when they move together.
+
 The `analint.exploration/v1` artifact includes `source`, `completeness`, `summary`,
 `findings` and `graph`. `graph: null` can mean output was intentionally omitted;
 it does not by itself mean the exploration was incomplete. Read `completeness`
@@ -468,7 +484,7 @@ separately. The artifact's content-derived node/edge ids are stable across
 equivalent runs.
 
 Like trace, explore is an inspection operation; use `check` as the CI verdict
-gate. Explore does not have the check command's `--max-states`, `--cache`,
+gate. Explore does not have the check command's `--cache`,
 `--tlc` or `--no-slice` switches.
 
 ## Hypothesis workflow

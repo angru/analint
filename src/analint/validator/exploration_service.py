@@ -57,6 +57,8 @@ def explore_path(
     query_id: str | None = None,
     what_if: str | Path | None = None,
     include_graph: bool = True,
+    observed_values: bool = False,
+    max_states: int | None = None,
 ) -> ExplorationArtifact:
     prepared = prepare_model(Path(path), what_if=Path(what_if) if what_if else None)
     if prepared.load_errors or prepared.spec is None:
@@ -88,6 +90,10 @@ def explore_path(
     if not initials:
         raise ExplorationError("unbuildable", error or "could not build an initial state")
 
+    if max_states is not None:
+        if max_states < 1:
+            raise ExplorationError("usage", "max_states must be at least 1")
+        budget = max_states
     exp = explore(spec, initials, budget)
     if not include_graph:
         return build_summary_artifact(
@@ -96,10 +102,16 @@ def explore_path(
             source_kind=source_kind,
             query_id=query_id,
             max_states=budget,
+            observed_values=observed_values,
             graph_omitted_reason="compact projection — request the full graph explicitly",
         )
     return build_exploration_artifact(
-        exp, spec, source_kind=source_kind, query_id=query_id, max_states=budget
+        exp,
+        spec,
+        source_kind=source_kind,
+        query_id=query_id,
+        max_states=budget,
+        observed_values=observed_values,
     )
 
 

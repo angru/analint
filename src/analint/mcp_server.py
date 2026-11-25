@@ -69,26 +69,32 @@ def explore_spec(
     what_if: str | None = None,
     include_graph: bool = False,
     max_graph_states: int | None = None,
+    observed_values: bool = False,
+    max_states: int | None = None,
 ) -> dict:
     from analint.validator.exploration_service import ExplorationError, explore_path
 
     try:
-        if not include_graph:
-            # the common path: summary-only, the graph is never materialised
-            artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=False)
-            artifact.graph_omitted_reason = (
-                "compact — set include_graph + max_graph_states for the graph"
-            )
-            return artifact.to_dict()
-        if max_graph_states is None:
+        if include_graph and max_graph_states is None:
             return {
                 "schema": "analint.error/v1",
                 "error": "include_graph=true requires max_graph_states",
                 "kind": "usage",
                 "details": [],
             }
-        artifact = explore_path(path, query_id=query, what_if=what_if, include_graph=True)
-        if artifact.summary["states"] > max_graph_states:
+        artifact = explore_path(
+            path,
+            query_id=query,
+            what_if=what_if,
+            include_graph=include_graph,
+            observed_values=observed_values,
+            max_states=max_states,
+        )
+        if not include_graph:
+            artifact.graph_omitted_reason = (
+                "compact — set include_graph + max_graph_states for the graph"
+            )
+        elif max_graph_states is not None and artifact.summary["states"] > max_graph_states:
             artifact.graph_included = False
             artifact.graph_omitted_reason = f"graph has {artifact.summary['states']} states > max_graph_states {max_graph_states}"
         return artifact.to_dict()
@@ -212,6 +218,8 @@ def build_server() -> Any:
         what_if: str | None = None,
         include_graph: bool = False,
         max_graph_states: int | None = None,
+        observed_values: bool = False,
+        max_states: int | None = None,
     ) -> dict:
         """Explore the reachable state space at `path` (schema analint.exploration/v1).
 
@@ -219,9 +227,12 @@ def build_server() -> Any:
         own initial. Defaults to a compact projection (summary + completeness,
         `graph: null`). Set `include_graph=true` AND `max_graph_states` to receive
         nodes/edges; if the graph is larger than `max_graph_states`, the summary is
-        returned with `graph: null` and a `graph_omitted` reason.
+        returned with `graph: null` and a `graph_omitted` reason. Set `observed_values`
+        to list values per field, and `max_states` to override the exploration budget.
         """
-        return explore_spec(path, query, what_if, include_graph, max_graph_states)
+        return explore_spec(
+            path, query, what_if, include_graph, max_graph_states, observed_values, max_states
+        )
 
     @mcp.tool()
     def trace(

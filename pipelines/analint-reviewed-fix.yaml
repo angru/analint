@@ -1,0 +1,137 @@
+apiVersion: dashboard/v1alpha1
+kind: Pipeline
+metadata:
+  name: analint-reviewed-fix
+  title: Implement and independently review an analint fix
+  workspace: work
+triggers:
+  - type: manual
+inputs:
+  type: object
+  required: [issue, brief]
+  properties:
+    issue: {type: string, title: Issue or task reference}
+    brief: {type: string, title: Reproduction and acceptance criteria}
+    implementer:
+      title: Implementer
+      type: agentRef
+      default: {agent: claude, options: {model: sonnet}}
+    reviewer:
+      title: Reviewer
+      type: agentRef
+      default: {agent: codex, options: {model: gpt-6.1-terra, effort: medium}}
+stages:
+  - id: fix
+    jobs:
+      baseline:
+        uses: script
+        riskLevel: read
+        timeout: 2m
+        with:
+          runtime: shell
+          command: scripts/agent/review-commit.sh
+          args: [baseline]
+          outputSchema:
+            type: object
+            required: [baseSha]
+            properties:
+              baseSha: {type: string, pattern: '^[0-9a-f]{40}$'}
+      implement:
+        uses: agent
+        needs: [baseline]
+        riskLevel: reversible_write
+        timeout: 60m
+        with:
+          agent: ${{ inputs.implementer }}
+          prompt: >-
+            Read AGENTS.md and CONTRIBUTING.md. Reproduce the issue, implement the brief,
+            run its focused acceptance checks, and commit locally in this checkout.
+            Report the full commit SHA and commands with their results, including any
+            check you could not run. Address findings from an earlier attempt if present.
+            The next step runs repository-wide checks. Do not push, publish or merge.
+          context:
+            issue: ${{ inputs.issue }}
+            brief: ${{ inputs.brief }}
+            baseSha: ${{ jobs.baseline.outputs.baseSha }}
+          outputSchema:
+            type: object
+            required: [headSha, summary, acceptance]
+            properties:
+              headSha: {type: string, pattern: '^[0-9a-f]{40}$'}
+              summary: {type: string}
+              acceptance: {type: string}
+      verify:
+        uses: script
+        needs: [baseline, implement]
+        riskLevel: reversible_write
+        timeout: 45m
+        with:
+          runtime: shell
+          command: scripts/agent/review-commit.sh
+          args: [verify, "${{ jobs.baseline.outputs.baseSha }}", "${{ jobs.implement.outputs.headSha }}"]
+          outputSchema:
+            type: object
+            required: [base, headSha]
+            properties:
+              base: {type: string}
+              headSha: {type: string, pattern: '^[0-9a-f]{40}$'}
+      review:
+        uses: agent
+        needs: [implement, verify]
+        riskLevel: read
+        timeout: 30m
+        with:
+          agent: ${{ inputs.reviewer }}
+          independentFrom: implement
+          prompt: >-
+            Review read-only. Compare verification.headSha with implementation.headSha
+            and .cache/review/identity.txt. Read .cache/review/change.diff and inspect
+            the changed code and tests. Ruff lint and format, ty and the default pytest
+            suite passed for this commit. Assess the issue-specific acceptance evidence
+            separately, including any required TLC or MCP checks. Return blocked if
+            essential evidence is missing, revise for concrete defects, or proceed.
+            Return the full SHA you actually reviewed and explain your findings.
+            Do not rerun the full suite, edit files or publish anything.
+          context:
+            issue: ${{ inputs.issue }}
+            brief: ${{ inputs.brief }}
+            implementation: ${{ jobs.implement.outputs }}
+            verification: ${{ jobs.verify.outputs }}
+          outputSchema:
+            type: object
+            required: [headSha, verdict, summary]
+            properties:
+              headSha: {type: string, pattern: '^[0-9a-f]{40}$'}
+              verdict: {type: string, enum: [proceed, revise, blocked]}
+              summary: {type: string}
+      decision:
+        uses: human.gate
+        needs: [review]
+        timeout: 7d
+        maxIterations: 3
+        with:
+          title: Independent review
+          from: ${{ jobs.review.outputs.verdict }}
+          context: ${{ jobs.review.outputs }}
+          decisions:
+            - {id: proceed, title: Hand off the reviewed commit}
+            - {id: revise, title: Address review findings, rewindTo: implement}
+      handoff:
+        uses: script
+        needs: [decision, review, verify]
+        riskLevel: reversible_write
+        timeout: 2m
+        with:
+          runtime: shell
+          command: scripts/agent/review-commit.sh
+          args:
+            - handoff
+            - "${{ jobs.verify.outputs.headSha }}"
+            - "${{ jobs.review.outputs.headSha }}"
+            - "${{ jobs.review.outputs.verdict }}"
+          outputSchema:
+            type: object
+            required: [headSha, branch]
+            properties:
+              branch: {type: string}
+              headSha: {type: string, pattern: '^[0-9a-f]{40}$'}

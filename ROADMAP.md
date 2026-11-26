@@ -75,17 +75,16 @@ completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
    builds, disk-cache loads, per-property graph reuse and TLC runs.
 
 Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
-project target `analint` for each issue. Use a short reproduction and explicit
-acceptance checks, deterministic verification and a separate reviewer on the
-exact commit. The current draft defaults to sandboxed Claude Sonnet for
-implementation and Codex GPT-5.6 Sol for review. Antigravity Gemini 4 Hydrogen
-(which replaced Gemini 3.8 Flash on 2026-11-24) remains an option for bounded
-review and explicit implementation trials. The
-first #77 trial spent roughly 13 minutes on investigation before its first
-small edit, with no Worker Board guard stop recorded at that point. Check quota
-and execution permissions before dispatch. Escalate model capability
-for a concrete unresolved semantic question or a failed acceptance probe that
-needs deeper analysis. The external requirement-change trial can proceed
+project target `analint` and locked checkout preparation (`prepareCheckout: true`).
+Supply an issue reference and a brief with a reproduction and acceptance checks.
+The default implementer is Claude Sonnet and the read-only reviewer is Codex
+GPT-6.1 Terra (medium). Both are plain provider agents with per-run model options.
+Verification checks the committed diff from the run's starting SHA, Ruff,
+formatting, ty and the default pytest suite. Include evidence for additional
+issue-specific probes in the implementation report. A successful handoff retains
+the verified and independently reviewed commit in a local `reviewed/analint/<sha>`
+branch in the target repository after Worker Board removes its run checkout. Publication
+remains a separate controller action. The external requirement-change trial can proceed
 independently using the exness-spec pipeline.
 
 ## Verification boundary audit (2026-11-17)

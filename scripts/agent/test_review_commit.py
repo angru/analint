@@ -49,10 +49,22 @@ def test_only_clean_checked_and_reviewed_commit_can_be_handed_off(tmp_path: Path
     assert not (repo / ".cache/review/change.diff").exists()
     assert json.loads(step("verify", base, head).stdout) == {"base": base, "headSha": head}
     assert "+first" in (repo / ".cache/review/change.diff").read_text()
-    assert json.loads(step("handoff", head, head, "proceed").stdout) == {"headSha": head}
     for verdict in ("revise", "blocked"):
         assert step("handoff", head, head, verdict).returncode != 0
     assert step("handoff", head, base, "proceed").returncode != 0
+
+    ref = f"reviewed/analint/{head}"
+    assert run("git", "rev-parse", "--verify", f"refs/heads/{ref}").returncode != 0
+    git("branch", ref, base)
+    assert step("handoff", head, head, "proceed").returncode != 0
+    assert git("rev-parse", ref) == base
+    git("branch", "-D", ref)
+    for _ in range(2):
+        assert json.loads(step("handoff", head, head, "proceed").stdout) == {
+            "headSha": head,
+            "branch": ref,
+        }
+    assert git("rev-parse", ref) == head
 
     (repo / "untracked.txt").touch()
     assert step("verify", base, head).returncode != 0

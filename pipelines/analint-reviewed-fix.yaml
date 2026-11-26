@@ -119,7 +119,7 @@ stages:
       handoff:
         uses: script
         needs: [decision, review, verify]
-        riskLevel: read
+        riskLevel: reversible_write
         timeout: 2m
         with:
           runtime: shell
@@ -131,6 +131,7 @@ stages:
             - "${{ jobs.review.outputs.verdict }}"
           outputSchema:
             type: object
-            required: [headSha]
+            required: [headSha, branch]
             properties:
+              branch: {type: string}
               headSha: {type: string, pattern: '^[0-9a-f]{40}$'}

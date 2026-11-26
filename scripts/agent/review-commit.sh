@@ -37,7 +37,14 @@ case "$1" in
         actual=$(clean_head)
         [ "$actual" = "$2" ] && [ "$2" = "$3" ] || fail "checked, reviewed and current SHAs must match"
         [ "$4" = proceed ] || fail "independent reviewer did not approve this SHA"
-        printf '{"headSha":"%s"}\n' "$actual"
+        # Worker Board removes run branches when a run completes. Retain the
+        # approved commit for the controller, including on an idempotent retry.
+        branch=reviewed/analint/$actual
+        git branch "$branch" "$actual" 2>/dev/null || {
+            retained=$(git rev-parse --verify "refs/heads/$branch") || fail "could not retain $branch"
+            [ "$retained" = "$actual" ] || fail "handoff branch points to a different commit"
+        }
+        printf '{"headSha":"%s","branch":"%s"}\n' "$actual" "$branch"
         ;;
     *) fail "expected baseline, verify or handoff" ;;
 esac

@@ -81,8 +81,9 @@ The default implementer is Claude Sonnet and the read-only reviewer is Codex
 GPT-6.1 Terra (medium). Both are plain provider agents with per-run model options.
 Verification checks the committed diff from the run's starting SHA, Ruff,
 formatting, ty and the default pytest suite. Include evidence for additional
-issue-specific probes in the implementation report. A successful handoff names
-the clean commit that passed verification and independent review. Publication
+issue-specific probes in the implementation report. A successful handoff retains
+the verified and independently reviewed commit in a local `reviewed/analint/<sha>`
+branch in the target repository after Worker Board removes its run checkout. Publication
 remains a separate controller action. The external requirement-change trial can proceed
 independently using the exness-spec pipeline.
 

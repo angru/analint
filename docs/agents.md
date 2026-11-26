@@ -74,7 +74,7 @@ below match the server's tool definitions.
 
 | Tool | Required arguments | Optional arguments |
 | --- | --- | --- |
-| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false`, `checks=null`, `scenario_ids=null`, `tags=null`, `tlc_timeout=null`, `explain_slice=false` |
+| `check` | None | `path="."`, `what_if=null`, `max_states=null`, `slice=true`, `tlc=false`, `cache=false`, `compact=false`, `checks=null`, `scenario_ids=null`, `tags=null`, `tlc_timeout=null`, `explain_slice=false`, `explain_work=false` |
 | `show` | None | `path="."`, `kind=null`, `name=null` |
 | `affects` | `target` | `path="."` |
 | `explore` | None | `path="."`, `query=null`, `what_if=null`, `include_graph=false`, `max_graph_states=null`, `observed_values=false`, `max_states=null` |
@@ -100,7 +100,9 @@ same selection metadata. An unfiltered check covers the full model.
 For derived-model results, read `model.relation` for the deciding relation
 and `model.attempts` for proof graph counts. The optional `slice` describes
 exact exploration. Set `explain_slice=true` to include one dependency path per
-member of each ordinary native property slice in `slice_dependencies`.
+member of each ordinary native property slice in `slice_dependencies`. Set
+`explain_work=true` to identify shared native graphs, fresh BFS states, cache
+loads and TLC counts in `exploration_work`.
 
 Since 0.0.7, use `compact=true` to receive counts and up to three examples per finding
 group. The report keeps each group's check context, severity and expected

@@ -53,6 +53,7 @@ from analint.models.scope import (
     is_present,
 )
 from analint.reporter.base import Code, Finding, InvariantResult, QueryResult, QueryStatus, Severity
+from analint.validator.exploration_work import current_work
 from analint.validator.kernel import Outcome, build_plan, step
 from analint.validator.rule_checker import compile_predicate, evaluate
 from analint.validator.slicing import (
@@ -967,6 +968,8 @@ def _explore(
                 keys if len(post) == len(keys) else tuple(post),
             )
 
+    if (work := current_work.get()) is not None:
+        work.native(exp, max_states, projected=projection is not None, origin="built")
     return exp
 
 

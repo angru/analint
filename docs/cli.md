@@ -188,6 +188,25 @@ the decision:
   assessment, even when there was no query-wide exact retry.
 - `null` means the attempts left the check inconclusive.
 
+### Account for exploration work
+
+Run `analint check PATH --explain-work`, optionally with `--check ID` and
+`--cache`. Full and compact JSON include an `exploration_work` object.
+
+| Field | Meaning |
+| --- | --- |
+| `native_graphs` | One row per native breadth-first search or successful disk-cache load. Each row records the phase that requested it, root source, distinct root count, effective budget, projected status, recorded states and completeness. Graph IDs are local to this invocation. |
+| `native_states_built` | Sum of recorded states across searches actually run, including discarded proof attempts and action coverage. In-memory reuse and disk-cache loads add zero. The same state reached in two fresh searches counts twice. |
+| `properties` | Reported state count, configured budget, root source, backend and associated native graph per query or invariant. Properties can reference the same graph. A replay or a check across many action graphs may have no single native BFS graph. TLC can supersede a native attempt. |
+| `max_reported_states_per_check` | Largest existing `states_explored` value among returned properties, or `null` for an empty selection of properties. |
+| `tlc_runs` | One entry per executed TLC process, including failures, with the property, input root count, timeout, outcome and reported distinct states when available. A requested backend that could not run has no entry. See the accompanying findings. |
+| `total_search_states` | Fresh native BFS states plus distinct states reported by each TLC run. A missing TLC count makes the total `null`. |
+
+These counts measure search in units of recorded states. Timings, decoding a
+cached graph, checking transitions during witness replay, and the number of
+unique reachable states in the whole system are separate measurements. A
+graph can be partial because the budget ran out or actions were excluded.
+
 ### Explain slice dependencies
 
 Run `analint check PATH --check QUERY_OR_INVARIANT --explain-slice` to see why a

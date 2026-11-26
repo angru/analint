@@ -71,8 +71,8 @@ completed 0.3.0 follow-ups, including #53, #65, #66 and #67.
    `explore --observed-values` reports field and presence values from the native
    whole-model graph, including partial runs. `check --explain-slice` shows the
    dependency path that brought each field, action and pruning invariant into
-   the ordinary property slice. Accounting for work across verification graphs
-   remains open.
+   the ordinary property slice. `check --explain-work` accounts for native BFS
+   builds, disk-cache loads, per-property graph reuse and TLC runs.
 
 Use [the Worker Board pipeline](pipelines/analint-reviewed-fix.yaml) with
 project target `analint` for each issue. Use a short reproduction and explicit

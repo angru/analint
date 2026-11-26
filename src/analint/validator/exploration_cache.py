@@ -43,6 +43,7 @@ from analint.models.root import Spec
 from analint.models.scope import InstanceField, InstanceRef, Scope, context_key_label
 from analint.reporter.base import Code, Finding, Severity
 from analint.validator import explorer
+from analint.validator.exploration_work import current_work
 from analint.validator.explorer import Exploration
 
 FORMAT = 4
@@ -463,6 +464,13 @@ class _Store:
         except Exception:  # absent, unreadable or stale: explore instead
             exp = None
         else:
+            if (work := current_work.get()) is not None:
+                work.native(
+                    exp,
+                    max_states,
+                    projected=options.get("projection") is not None,
+                    origin="disk_cache",
+                )
             self.hits += 1
             with contextlib.suppress(OSError):
                 os.utime(path)  # recently used: pruned last

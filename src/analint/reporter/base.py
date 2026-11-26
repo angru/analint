@@ -231,6 +231,7 @@ class ValidationResult:
     # Diagnostic coverage outside an explicit selection never gates its verdict.
     model_findings: list[Finding] = field(default_factory=list)
     model_coverage: dict | None = None
+    exploration_work: dict | None = None
 
     @property
     def has_errors(self) -> bool:

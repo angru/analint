@@ -25,6 +25,7 @@ from analint.reporter.base import (
     Severity,
     ValidationResult,
 )
+from analint.validator.exploration_work import current_work
 from analint.validator.explorer import (
     Exploration,
     _eval_reachable,
@@ -166,6 +167,17 @@ def _run(
         )
         return None
     outcome = run_tlc(export, timeout=timeout)
+    if (work := current_work.get()) is not None:
+        work.tlc_runs.append(
+            {
+                "property": loc,
+                "input_roots": len(initials),
+                "timeout_seconds": timeout,
+                "status": outcome.status,
+                "distinct_states": outcome.distinct_states,
+                "complete": outcome.status == "ok",
+            }
+        )
     if outcome.status == "error":
         detail = next(
             (line for line in outcome.output.splitlines() if "Error" in line), outcome.output[-300:]

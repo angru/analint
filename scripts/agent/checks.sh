@@ -1,10 +1,16 @@
 #!/bin/sh
-# Repository checks for an agent task run. Always exits 0 and reports the result as JSON, so a
+# Repository checks for an agent task run. Default mode exits 0 and reports the result as JSON, so a
 # failure goes back to the implementer through the review loop instead of ending the run.
 # Prints {"passed": bool, "tail": "<last lines of output>"}.
+run_tests() { uv run --frozen pytest -q; }
+# The reviewed pipeline needs a failing process when the suite fails.
+if [ "${1:-}" = --strict ]; then
+  run_tests
+  exit $?
+fi
 OUT=$(mktemp)
 # Use the default marker selection from pyproject.toml, as in local development.
-if uv run --frozen pytest -q >"$OUT" 2>&1; then
+if run_tests >"$OUT" 2>&1; then
   printf '{"passed": true, "tail": ""}\n'
 else
   # JSON-escape the last 30 lines with shell tools only (no Python in the sandbox).

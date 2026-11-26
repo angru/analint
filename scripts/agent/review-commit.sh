@@ -6,7 +6,7 @@ export GIT_OPTIONAL_LOCKS=0
 fail() { echo "$*" >&2; exit 1; }
 
 clean_head() {
-    status=$(git status --porcelain --untracked-files=normal)
+    status=$(git status --porcelain --untracked-files=normal) || return 1
     [ -z "$status" ] || fail "review requires a clean checkout: $status"
     git rev-parse HEAD
 }
